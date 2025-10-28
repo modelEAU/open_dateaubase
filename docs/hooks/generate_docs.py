@@ -14,7 +14,7 @@ def on_pre_build(config):
     """
     # Define paths
     project_root = Path(config['config_file_path']).parent
-    csv_path = project_root / 'dictionary.csv'
+    csv_path = project_root / 'src/dictionary.csv'
     docs_dir = Path(config['docs_dir'])
     output_path = docs_dir / 'reference'
     sql_path = project_root / 'sql_generation_scripts'
@@ -41,9 +41,8 @@ def on_pre_build(config):
 def generate_sql_schemas(parts_data, path, db_list):
     for target_db in db_list:
         sql_schema = generate_sql_schema(parts_data, target_db=target_db)
-        today = datetime.now().isoformat()
         version_str = package_version
-        filename = f"{today}_{version_str}_{target_db}.sql"
+        filename = f"v{version_str}_as-designed_{target_db}.sql"
         (path / filename).write_text(sql_schema, encoding='utf-8')
         print(f"Generated SQL schema for {target_db} at {path / filename}")
 
