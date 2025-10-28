@@ -1,0 +1,35 @@
+site_name: Database Documentation
+site_description: Auto-generated documentation from metadata table
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - toc.integrate
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+
+plugins:
+  - search
+
+hooks:
+  - docs/hooks/generate_docs.py
+
+nav:
+  - Home: index.md
+  - Contributing:
+    - The parts table: contributing/parts_table.md
+  - Reference: 
+    - Schema: reference/schema.md
+    - Tables: reference/tables.md
+    - Value Sets: reference/valuesets.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - tables
+  - toc:
+      permalink: true
