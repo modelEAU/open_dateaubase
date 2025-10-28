@@ -16,7 +16,11 @@ env.bak/
 venv.bak/
 .mypy_cache/
 .pytest_cache/
-
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
 
 # AI
 .claude
