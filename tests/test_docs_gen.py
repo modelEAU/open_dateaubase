@@ -333,9 +333,11 @@ class TestOnPreBuild:
         reference_dir.mkdir()
         sql_dir = project_root / "sql_generation_scripts"
         sql_dir.mkdir()
+        src_dir = project_root / "src"
+        src_dir.mkdir()
 
         # Create dictionary CSV
-        csv_file = project_root / "dictionary.csv"
+        csv_file = src_dir / "dictionary.csv"
         csv_file.write_text(sample_csv_data)
 
         # Create mock config object
@@ -432,11 +434,11 @@ class TestOnPreBuild:
         assert len(sql_files) == 1
 
     def test_reads_csv_from_project_root(self, mock_config):
-        """Test that on_pre_build correctly locates dictionary.csv in project root."""
+        """Test that on_pre_build correctly locates dictionary.csv in src directory."""
         config, project_root, docs_dir, reference_dir, sql_dir = mock_config
 
-        # CSV was created in project_root by fixture
-        csv_path = project_root / "dictionary.csv"
+        # CSV was created in src directory by fixture
+        csv_path = project_root / "src" / "dictionary.csv"
         assert csv_path.exists()
 
         # Should read and process without errors
