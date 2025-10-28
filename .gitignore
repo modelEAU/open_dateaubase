@@ -10,12 +10,17 @@ __pycache__/
 .Python
 env/
 venv/
+.venv
 ENV/
 env.bak/
 venv.bak/
 .mypy_cache/
 .pytest_cache/
 *.lock
+
+
+# AI
+.claude
 
 # Docker
 .docker/
@@ -30,4 +35,8 @@ venv.bak/
 .DS_Store
 Thumbs.db
 
+# archive files
+.archive
 
+# Compiled documentation site
+site
