@@ -3,8 +3,7 @@ Schema generation not yet implemented!
 
 # 📘 datEAUbase Schema Documentation (AS-IS 2025)
 
-> **Version :** 2025-09-12  
-> **Auteur :** Lala (documentation interne – datEAUbase)  
+> **Version :** 2025-09-12
 > **Source :** Schéma Lucidchart “datEAUbase_AS-IS_2025.pdf”  
 > **Contexte :** Base de données centrale du SI pilEAUte / datEAUbase, interconnectée avec FactoryTalk, API Python et MQTT pour la gestion, l’ingestion et la validation de données hydrologiques, environnementales et opérationnelles.
 
@@ -136,31 +135,7 @@ Relations secondaires :
     - `equipment.Equipment_model_ID → equipment_model.Equipment_model_ID`
     - `site.Watershed_ID → watershed.Watershed_ID`
 
----
-
-## 5. Interconnexions externes (AS-IS)
-
-| Source | Type | Description |
-|--------|------|-------------|
-| **FactoryTalk Historian** | OPC/CSV | Extraction automatique vers table `source` |
-| **Python API (pilEAUte)** | REST | Insertion contrôlée vers `value` et `metadata` |
-| **MQTT Broker** | Temps réel | Publication de `value` vers `control_loop` |
-| **Grafana** | Visualisation | Lecture sur `value`, `metadata`, `status` |
-| **Power BI / CSV Export** | Reporting | Requêtes consolidées multi-projets |
-
----
-
-## 6. Évolution prévisible (TO-BE 2025+)
-
-- Uniformisation du modèle vers une architecture **Docker + PostgreSQL + API REST**
-- Ajout d’une couche **data lineage** (audit, tracking de corrections)
-- Simplification des relations N-N (`project_has_*`) via vues logiques
-- Dépréciation des tables `value_before_12_04_2025` et `value_test_hedi`
-- Extension du domaine “operations” vers les boucles de contrôle prédictives (IA embarquée)
-
----
-
-## 7. Références croisées
+## 5. Références croisées
 
 | Fichier | Usage |
 |----------|-------|
