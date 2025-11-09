@@ -502,7 +502,7 @@ Operational thresholds and alarms (🆕 2025).
 ---
 
 #### status 
-Data validation states (🆕 2025).
+Data validation states ( 2025).
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -514,8 +514,8 @@ Data validation states (🆕 2025).
 
 ---
 
-#### type_data ⭐
-Data collection/generation methods (🆕 2025).
+#### type_data 
+Data collection/generation methods ( 2025).
 
 | Field | Type | Description |
 |-------|------|-------------|
