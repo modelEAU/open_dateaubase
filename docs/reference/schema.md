@@ -1,5 +1,3 @@
-Schema generation not yet implemented!
-
 
 # 📘 datEAUbase Schema Documentation (AS-IS 2025)
 
