@@ -15,8 +15,7 @@
 4. [Table Reference](#4-table-reference)
 5. [Controlled Vocabularies](#5-controlled-vocabularies)
 6. [Schema Evolution](#6-schema-evolution)
-7. [Key Metrics](#7-key-metrics)
-8. [References](#8-references)
+7. [References](#8-references)
 
 ---
 Useful link to be capable of reading the schema: https://www.freecodecamp.org/news/crows-foot-notation-relationship-symbols-and-how-to-read-diagrams/
