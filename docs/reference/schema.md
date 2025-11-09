@@ -72,10 +72,10 @@ value ──▶ metadata (Central Hub - 13 Foreign Keys)
    │             ├──▶ purpose
    │             ├──▶ procedures
    │             ├──▶ weather_condition
-   │             ├──▶ type_data (🆕 2025)
-   │             ├──▶ status (🆕 2025)
-   │             ├──▶ operations (🆕 2025)
-   │             └──▶ source (🆕 2025)
+   │             ├──▶ type_data 
+   │             ├──▶ status 
+   │             ├──▶ operations 
+   │             └──▶ source 
    │
    └──▶ comments
 ```
@@ -138,10 +138,10 @@ Central hub containing complete measurement context with 13 foreign keys.
 | Sampling_point_ID | INT (FK) | Location → sampling_points |
 | Contact_ID | INT (FK, NOT NULL) | Responsible person → contact |
 | Project_ID | INT (FK) | Associated project → project |
-| Type_ID | INT (FK) | Data type → type_data (🆕 2025) |
-| Status_ID | INT (FK) | Validation status → status (🆕 2025) |
-| Operations_ID | INT (FK) | Operational thresholds → operations (🆕 2025) |
-| Source_ID | INT (FK) | Data provenance → source (🆕 2025) |
+| Type_ID | INT (FK) | Data type → type_data |
+| Status_ID | INT (FK) | Validation status → status |
+| Operations_ID | INT (FK) | Operational thresholds → operations |
+| Source_ID | INT (FK) | Data provenance → source  |
 
 **Purpose:** Pre-computed context combinations to optimize query performance and ensure consistency.
 
@@ -465,7 +465,7 @@ Equipment deployment history (M:N junction).
 ### 4.5 Support References (🟦 Blue)
 
 #### source ⭐
-Data provenance and traceability (🆕 2025 - Critical for incident resolution).
+Data provenance and traceability 
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -487,7 +487,7 @@ Data provenance and traceability (🆕 2025 - Critical for incident resolution).
 ---
 
 #### operations 
-Operational thresholds and alarms (🆕 2025).
+Operational thresholds and alarms .
 
 | Field | Type | Description |
 |-------|------|-------------|
