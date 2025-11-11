@@ -49,12 +49,12 @@ The database is organized into six color-coded functional domains:
 
 | Domain | Color | Tables | Description |
 |--------|-------|--------|-------------|
-| **Metadata and Values** | 🟧 Orange | 3 | Core measurement data and context |
-| **Instrumentation & Procedures** | 🟪 Pink | 9 | Equipment, models, parameters, and SOPs |
-| **Geospatial & Environmental** | 🟩 Green | 5 | Sites, watersheds, land use characteristics |
-| **Projects & Associations** | 🟨 Yellow | 8 | Research projects and team relationships |
-| **Support References** | 🟦 Blue | 6 | Units, statuses, types, sources, operations |
-| **Systems & Control** | ⚙️ Gray | 4 | Control loops, synchronization, archives |
+| **Metadata and Values** 3 | Core measurement data and context |
+| **Instrumentation & Procedures**| 9 | Equipment, models, parameters, and SOPs |
+| **Geospatial & Environmental** | 5 | Sites, watersheds, land use characteristics |
+| **Projects & Associations** | 8 | Research projects and team relationships |
+| **Support References** | 6 | Units, statuses, types, sources, operations |
+| **Systems & Control** | 4 | Control loops, synchronization, archives |
 
 ---
 
@@ -105,7 +105,7 @@ value ──▶ metadata (Central Hub - 13 Foreign Keys)
 
 ## 4. Table Reference
 
-### 4.1 Metadata and Values (🟧 Orange)
+### 4.1 Metadata and Values
 
 #### value
 Primary data storage for all measurements and observations.
@@ -159,7 +159,7 @@ Free-text annotations for measurements.
 
 ---
 
-### 4.2 Instrumentation & Procedures (🟪 Pink)
+### 4.2 Instrumentation & Procedures 
 
 #### equipment_model
 Catalog of equipment types and models.
@@ -286,7 +286,7 @@ Links parameters to analytical methods.
 
 ---
 
-### 4.3 Geospatial & Environmental (🟩 Green)
+### 4.3 Geospatial & Environmental
 
 #### site
 Physical locations (treatment plants, monitoring stations, study sites).
@@ -382,7 +382,7 @@ Weather conditions during measurements.
 
 ---
 
-### 4.4 Projects & Associations (🟨 Yellow)
+### 4.4 Projects & Associations
 
 #### project
 Research projects and monitoring programs.
@@ -462,9 +462,9 @@ Equipment deployment history (M:N junction).
 
 ---
 
-### 4.5 Support References (🟦 Blue)
+### 4.5 Support References
 
-#### source ⭐
+#### source 
 Data provenance and traceability 
 
 | Field | Type | Description |
