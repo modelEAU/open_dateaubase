@@ -22,7 +22,7 @@ Useful link to be capable of reading the schema: https://www.freecodecamp.org/ne
 
 ### 1.1 Purpose
 
-datEAUbase is a MySQL relational database designed to:
+datEAUbase is a - relational database designed to:
 - Centralize water quality data from multiple sources (online sensors, laboratories, manual observations)
 - Document measurements with comprehensive metadata (who, what, where, when, how, why)
 - Ensure data traceability from physical sensor to final storage
