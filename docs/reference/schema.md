@@ -1,7 +1,6 @@
 # datEAUbase Schema Documentation (AS-IS 2025)
 
 **Version:** 2025-09-12  
-**Author:** Samah, modelEAU - Université Laval  
 **Source:** Lucidchart Schema "datEAUbase_AS-IS_2025.pdf"  
 **Context:** Central database for the pilEAUte/datEAUbase information system, interconnected with FactoryTalk Historian, Python API, and MQTT for hydrological, environmental, and operational data management.
 
