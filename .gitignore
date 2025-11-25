@@ -5,6 +5,7 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
 *$py.class
 *.so
 .Python
@@ -28,5 +29,10 @@ venv.bak/
 # OS
 .DS_Store
 Thumbs.db
+
+# Environnements virtuels
+api_metadata/.venv/
+# Config perso
+api_metadata/.env
 
 
