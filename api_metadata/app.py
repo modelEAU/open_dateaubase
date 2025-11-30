@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+
 import streamlit as st
 import pandas as pd
 
@@ -14,6 +16,7 @@ USERS = {
 
 def check_credentials(username: str, password: str) -> bool:
     return username in USERS and USERS[username] == password
+
 
 
 def page_login():
@@ -32,6 +35,10 @@ def page_login():
         else:
             st.error("Identifiants invalides ❌")
 
+
+# -------------------------
+# PAGE LISTE METADATA
+# -------------------------
 
 def page_metadata_list():
     st.title("Liste des métadonnées")
@@ -61,6 +68,9 @@ def page_metadata_list():
 
     st.dataframe(df, use_container_width=True)
 
+
+
+
 def page_create_metadata():
     st.title("Créer une métadonnée")
 
@@ -69,6 +79,7 @@ def page_create_metadata():
     conn = get_connection()
     cur = conn.cursor()
 
+    # --- Charger les listes ---
     cur.execute("SELECT Equipment_ID, Equipment_identifier FROM equipment")
     equipments = cur.fetchall()
 
@@ -95,6 +106,7 @@ def page_create_metadata():
 
     cur.execute("SELECT Condition_ID, Weather_condition FROM weather_condition")
     conditions = cur.fetchall()
+
 
     equipment_choice = st.selectbox(
         "Équipement", equipments, format_func=lambda x: f"{x[0]} – {x[1]}"
@@ -200,6 +212,94 @@ def page_create_metadata():
 
 
 
+def page_dashboard():
+    st.title("Tableau de bord datEAUbase")
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # ---- KPIs simples ----
+    # Nombre total de valeurs
+    cur.execute("SELECT COUNT(*) FROM value")
+    total_values = cur.fetchone()[0]
+
+    # Nombre de points d'échantillonnage
+    cur.execute("SELECT COUNT(*) FROM sampling_points")
+    total_sampling_points = cur.fetchone()[0]
+
+    # Nombre de métadonnées actives (StartDate <= now < EndDate ou EndDate NULL)
+    now_unix = int(datetime.utcnow().timestamp())
+    cur.execute(
+        """
+        SELECT COUNT(*)
+        FROM metadata
+        WHERE StartDate <= ?
+        AND (EndDate IS NULL OR EndDate > ?)
+        """,
+        (now_unix, now_unix),
+    )
+    active_metadata = cur.fetchone()[0]
+
+    cur.close()
+
+    # Affichage des trois KPIs
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Valeurs en base", total_values)
+    with col2:
+        st.metric("Points d'échantillonnage", total_sampling_points)
+    with col3:
+        st.metric("Métadonnées actives", active_metadata)
+
+    st.markdown("---")
+
+    # ---- Graphes sur les 30 derniers jours ----
+    st.subheader("Activité sur les 30 derniers jours")
+
+    # 1) Nombre de valeurs par jour
+    query_daily = """
+        SELECT
+            CAST(DATEADD(SECOND, v.[Timestamp], '19700101') AS date) AS jour,
+            COUNT(*) AS nb_valeurs
+        FROM value v
+        WHERE DATEADD(SECOND, v.[Timestamp], '19700101') >= DATEADD(DAY, -30, GETUTCDATE())
+        GROUP BY CAST(DATEADD(SECOND, v.[Timestamp], '19700101') AS date)
+        ORDER BY jour
+    """
+
+    df_daily = pd.read_sql(query_daily, conn)
+
+    if df_daily.empty:
+        st.info("Aucune valeur trouvée dans les 30 derniers jours.")
+    else:
+        df_daily.set_index("jour", inplace=True)
+        st.line_chart(df_daily["nb_valeurs"])
+
+    # 2) Répartition par paramètre sur les 30 derniers jours
+    st.subheader("Répartition par paramètre (30 derniers jours)")
+
+    query_param = """
+        SELECT
+            m.Parameter_ID,
+            COUNT(*) AS nb_valeurs
+        FROM value v
+        JOIN metadata m ON v.Metadata_ID = m.Metadata_ID
+        WHERE DATEADD(SECOND, v.[Timestamp], '19700101') >= DATEADD(DAY, -30, GETUTCDATE())
+        GROUP BY m.Parameter_ID
+        ORDER BY nb_valeurs DESC
+    """
+
+    df_param = pd.read_sql(query_param, conn)
+    conn.close()
+
+    if df_param.empty:
+        st.info("Aucune valeur trouvée pour les paramètres dans les 30 derniers jours.")
+    else:
+        df_param.set_index("Parameter_ID", inplace=True)
+        st.bar_chart(df_param["nb_valeurs"])
+
+
+
 def page_main():
     # Sidebar: user + navigation
     st.sidebar.write(f"Connecté en tant que : **{st.session_state.get('username', '')}**")
@@ -209,10 +309,12 @@ def page_main():
 
     page = st.sidebar.selectbox(
         "Navigation",
-        ["Liste des métadonnées", "Créer une métadonnée"],
+        ["Dashboard", "Liste des métadonnées", "Créer une métadonnée"],
     )
 
-    if page == "Liste des métadonnées":
+    if page == "Dashboard":
+        page_dashboard()
+    elif page == "Liste des métadonnées":
         page_metadata_list()
     elif page == "Créer une métadonnée":
         page_create_metadata()
