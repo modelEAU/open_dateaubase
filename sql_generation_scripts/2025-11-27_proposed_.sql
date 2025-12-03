@@ -152,7 +152,7 @@ CREATE TABLE [urban_characteristics] (
     [Residential] real,
     [Agricultural] real,
     [Recreational] real,
-  PRIMARY KEY ([Watershed_ID])
+    PRIMARY KEY ([Watershed_ID])
 );
 
 CREATE TABLE [site] (
