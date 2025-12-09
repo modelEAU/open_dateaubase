@@ -21,6 +21,7 @@ venv.bak/
 .eggs/
 dist/
 build/
+uv.lock
 
 # AI
 .claude
