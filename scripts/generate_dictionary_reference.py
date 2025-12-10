@@ -23,7 +23,7 @@ def parse_parts_json(json_path):
     project_root = Path(json_path).parent.parent
     sys.path.insert(0, str(project_root / "src"))
 
-    from open_dateaubase.models import Dictionary
+    from open_dateaubase.data_model.models import Dictionary
 
     # Load and validate
     with open(json_path, "r", encoding="utf-8") as f:
@@ -230,9 +230,8 @@ def generate_value_sets_markdown(data):
 def main():
     """Main entry point for script."""
     if len(sys.argv) != 3:
-        print(
-            "Usage: python generate_dictionary_reference.py <json_path> <output_path>"
-        )
+        print("Usage: python generate_dictionary_reference.py <json_path> <output_path>")
+        print("Example: python generate_dictionary_reference.py dictionary.json docs/reference")
         sys.exit(1)
 
     json_path = Path(sys.argv[1])
