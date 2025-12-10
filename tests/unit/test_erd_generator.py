@@ -7,12 +7,12 @@ from pathlib import Path
 import json
 import sys
 
-# Add src to path
+# Add src and scripts to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / 'src'))
-sys.path.insert(0, str(project_root / 'docs' / 'hooks'))
+sys.path.insert(0, str(project_root / 'scripts'))
 
-from erd_generator import (
+from generate_erd import (
     generate_erd_data,
     generate_erd_html,
     ERDTable,
