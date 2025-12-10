@@ -1,6 +1,6 @@
 # Value Sets
 
-Controlled vocabularies used throughout the database.
+Controlled vocabularies used throughout database.
 
 
 <span id="Part_type_set"></span>

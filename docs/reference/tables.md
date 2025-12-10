@@ -1,6 +1,6 @@
 # Database Tables
 
-This documentation is auto-generated from the Parts metadata table.
+This documentation is auto-generated from dictionary.json.
 
 
 ## Tables
