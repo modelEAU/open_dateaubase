@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>datEAUbase ERD - Entity Relationship Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+        
+        .mermaid {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗄️ datEAUbase ERD</h1>
+        <div class="mermaid">
+erDiagram
+    comments {
+        ntext_1073741823 Comment 
+        int Comment ID PK
+    }
+    contact {
+        ntext_1073741823 Company 
+        int Contact ID PK
+        nvarchar_100 Email 
+        nvarchar_255 First Name 
+        ntext_1073741823 Function 
+        nvarchar_100 Last Name 
+        nvarchar_100 Linkedin 
+        nvarchar_100 Office Number 
+        nvarchar_100 Phone 
+        nvarchar_100 Skype Name 
+        nvarchar_255 Status 
+        nvarchar_60 Website 
+        nvarchar_255 Contact City 
+        nvarchar_255 Contact Country 
+        nvarchar_100 Contact Street Name 
+        nvarchar_100 Contact Street Number 
+        nvarchar_45 Contact Zip Code 
+    }
+    equipment {
+        int Equipment ID PK
+        nvarchar_100 Equipment IDentifier 
+        int Equipment Model ID FK
+        ntext_1073741823 Owner 
+        date Purchase Date 
+        nvarchar_100 Serial Number 
+        nvarchar_100 Storage Location 
+    }
+    equipment_model {
+        nvarchar_100 Equipment Model 
+        int Equipment Model ID PK
+        ntext_1073741823 Functions 
+        nvarchar_100 Manual Location 
+        nvarchar_100 Manufacturer 
+        nvarchar_100 Method 
+    }
+    equipment_model_has_Parameter {
+        int Equipment Model ID PK
+        int Parameter ID PK
+    }
+    equipment_model_has_procedures {
+        int Equipment Model ID PK
+        int Procedure ID PK
+    }
+    hydrological_characteristics {
+        real Cropland 
+        real Forest 
+        real Grassland 
+        real Meadow 
+        real Urban Area 
+        int Watershed ID PK
+        real Wetlands 
+    }
+    metadata {
+        int Condition ID FK
+        int Contact ID FK
+        int Equipment ID FK
+        int Metadata ID PK
+        int Parameter ID FK
+        int Procedure ID FK
+        int Project ID FK
+        int Purpose ID FK
+        int Sampling Point ID FK
+        int Unit ID FK
+    }
+    parameter {
+        nvarchar_100 Parameter 
+        int Parameter ID PK
+        int Unit ID FK
+        ntext_1073741823 Parameter Description 
+    }
+    parameter_has_procedures {
+        int Parameter ID PK
+        int Procedure ID PK
+    }
+    procedures {
+        int Procedure ID PK
+        nvarchar_100 Procedure Location 
+        nvarchar_100 Procedure Name 
+        nvarchar_255 Procedure Type 
+        ntext_1073741823 Procedures Description 
+    }
+    project {
+        int Project ID PK
+        nvarchar_100 Project Name 
+        ntext_1073741823 Project Description 
+    }
+    project_has_contact {
+        int Contact ID PK
+        int Project ID PK
+    }
+    project_has_equipment {
+        int Equipment ID PK
+        int Project ID PK
+    }
+    project_has_sampling_points {
+        int Project ID PK
+        int Sampling Point ID PK
+    }
+    purpose {
+        nvarchar_100 Purpose 
+        int Purpose ID PK
+        ntext_1073741823 Purpose Description 
+    }
+    sampling_points {
+        nvarchar_100 Latitude GPS 
+        nvarchar_100 Longitude GPS 
+        BLOB Pictures 
+        nvarchar_100 Sampling Location 
+        nvarchar_100 Sampling Point 
+        int Sampling Point ID PK
+        int Site ID FK
+        ntext_1073741823 Sampling Points Description 
+    }
+    site {
+        image_2147483647 Picture 
+        nvarchar_255 Province 
+        int Site ID PK
+        nvarchar_100 Site Name 
+        nvarchar_255 Site Type 
+        int Watershed ID FK
+        nvarchar_255 Site City 
+        nvarchar_255 Site Country 
+        ntext_1073741823 Site Description 
+        nvarchar_100 Site Street Name 
+        nvarchar_100 Site Street Number 
+        nvarchar_100 Site Zip Code 
+    }
+    unit {
+        nvarchar_100 Unit 
+        int Unit ID PK
+    }
+    urban_characteristics {
+        real Agricultural 
+        real Commercial 
+        real Green Spaces 
+        real Industrial 
+        real Institutional 
+        real Recreational 
+        real Residential 
+        int Watershed ID PK
+    }
+    value {
+        int Comment ID FK
+        int Metadata ID FK
+        numeric Number Of Experiment 
+        int Timestamp 
+        float Value 
+        int Value ID PK
+    }
+    watershed {
+        int Concentration Time 
+        real Impervious Surface 
+        real Surface Area 
+        int Watershed ID PK
+        nvarchar_100 Watershed Name 
+        ntext_1073741823 Watershed Description 
+    }
+    weather_condition {
+        int Condition ID PK
+        nvarchar_100 Weather Condition 
+        ntext_1073741823 Weather Condition Description 
+    }
+    equipment_model ||--o{ equipment : "Equipment Model ID"
+    contact ||--o{ metadata : "Contact ID"
+    equipment ||--o{ metadata : "Equipment ID"
+    parameter ||--o{ metadata : "Parameter ID"
+    project ||--o{ metadata : "Project ID"
+    purpose ||--o{ metadata : "Purpose ID"
+    unit ||--o{ metadata : "Unit ID"
+    unit ||--o{ parameter : "Unit ID"
+    site ||--o{ sampling_points : "Site ID"
+    watershed ||--o{ site : "Watershed ID"
+    metadata ||--o{ value : "Metadata ID"
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>
