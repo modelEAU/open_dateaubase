@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict
 @dataclass
 class ERDField:
     """Represents a field in a table for ERD visualization."""
+
     name: str
     sql_type: str
     is_pk: bool = False
@@ -26,6 +27,7 @@ class ERDField:
 @dataclass
 class ERDTable:
     """Represents a table for ERD visualization."""
+
     id: str
     label: str
     description: str
@@ -35,86 +37,93 @@ class ERDTable:
 @dataclass
 class ERDRelationship:
     """Represents a foreign key relationship from child (FK) to parent (PK)."""
+
     from_table: str
     to_table: str
     from_field: str
     to_field: str
     # TODO: Add cardinality information in the future (one-to-one, one-to-many, many-to-many)
     # This could be inferred from field.is_required and composite key patterns
-    relationship_type: str = "many-to-one"  # Placeholder for future cardinality implementation
+    relationship_type: str = (
+        "many-to-one"  # Placeholder for future cardinality implementation
+    )
 
 
 def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Transform parsed dictionary data into ERD-friendly format.
-    
+
     Args:
         parts_data: Parsed data from parse_parts_json() in generate_docs.py
-        
+
     Returns:
         Dict with 'tables' and 'relationships' for ERD rendering
     """
     tables = []
     relationships = []
-    
+
     # Process each table
-    for table_id, table_info in parts_data['tables'].items():
+    for table_id, table_info in parts_data["tables"].items():
         fields = []
-        
-        for field in table_info['fields']:
-            is_pk = field['part_type'] in ['key', 'compositeKeyFirst', 'compositeKeySecond']
-            is_fk = bool(field.get('fk_to'))
-            
+
+        for field in table_info["fields"]:
+            is_pk = field["part_type"] in [
+                "key",
+                "compositeKeyFirst",
+                "compositeKeySecond",
+            ]
+            is_fk = bool(field.get("fk_to"))
+
             fk_target = None
-            if is_fk and field['fk_to']:
+            if is_fk and field["fk_to"]:
                 # Extract target table from FK field (e.g., "Contact_ID" -> "contact")
-                fk_field = field['fk_to']
-                if fk_field.endswith('_ID'):
+                fk_field = field["fk_to"]
+                if fk_field.endswith("_ID"):
                     # Convert to lowercase to match table_id format
                     target_table = fk_field[:-3].lower()
                     fk_target = f"{target_table}.{fk_field}"
-            
+
             erd_field = ERDField(
-                name=field['label'],
-                sql_type=field['sql_data_type'] or 'unknown',
+                name=field["label"],
+                sql_type=field["sql_data_type"] or "unknown",
                 is_pk=is_pk,
                 is_fk=is_fk,
-                is_required=field['is_required'],
+                is_required=field["is_required"],
                 fk_target=fk_target,
-                description=field['description']
+                description=field["description"],
             )
             fields.append(erd_field)
-        
+
         erd_table = ERDTable(
             id=table_id,
-            label=table_info['label'],
-            description=table_info['description'],
-            fields=fields
+            label=table_info["label"],
+            description=table_info["description"],
+            fields=fields,
         )
         tables.append(erd_table)
-    
+
     # Build a mapping of PK field IDs to their primary tables
     # A field is a PRIMARY KEY in a table if part_type is 'key' (not compositeKeyFirst/Second)
     # Composite keys in junction tables should NOT be treated as the primary definition
     pk_id_to_table = {}
-    for tid, tinfo in parts_data['tables'].items():
-        for f in tinfo['fields']:
+    for tid, tinfo in parts_data["tables"].items():
+        for f in tinfo["fields"]:
             # Only consider 'key' as the primary definition of where this field is a PK
             # compositeKeyFirst/Second means it's part of a composite key in a junction table
-            if f['part_type'] == 'key':
-                pk_field_id = f['part_id']
+            if f["part_type"] == "key":
+                pk_field_id = f["part_id"]
                 # Store the table where this field is the primary key
-                pk_id_to_table[pk_field_id] = (tid, f['label'])
+                pk_id_to_table[pk_field_id] = (tid, f["label"])
 
     # Extract relationships from foreign keys
     # A relationship exists when a field is:
     #  - A property (FK) in the source table (indicated by fk_to being set)
     #  - A primary key in the target table (part_type='key')
-    for table_id, table_info in parts_data['tables'].items():
-        for field in table_info['fields']:
-            if field.get('fk_to'):
+    for table_id, table_info in parts_data["tables"].items():
+        for field in table_info["fields"]:
+            if field.get("fk_to"):
                 # fk_to contains the target field part_id (e.g., "Equipment_model_ID")
-                target_field_id = field['fk_to']
+                target_field_id = field["fk_to"]
 
                 # Look up which table has this field as its primary key
                 target_info = pk_id_to_table.get(target_field_id)
@@ -122,26 +131,28 @@ def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
                 # Only create a relationship if we found a table with this as a primary key
                 if target_info:
                     target_table, target_pk_label = target_info
-                    if target_table in parts_data['tables']:
+                    if target_table in parts_data["tables"]:
                         # Use explicit relationship_type from field metadata
-                        rel_type = field.get('relationship_type', 'one-to-many')
+                        rel_type = field.get("relationship_type", "one-to-many")
 
                         relationship = ERDRelationship(
                             from_table=table_id,
                             to_table=target_table,
-                            from_field=field['label'],
+                            from_field=field["label"],
                             to_field=target_pk_label,
-                            relationship_type=rel_type
+                            relationship_type=rel_type,
                         )
                         relationships.append(relationship)
-    
+
     return {
-        'tables': [asdict(t) for t in tables],
-        'relationships': [asdict(r) for r in relationships]
+        "tables": [asdict(t) for t in tables],
+        "relationships": [asdict(r) for r in relationships],
     }
 
 
-def generate_erd_html(erd_data: Dict[str, Any], output_path: Path, library: str = "jointjs") -> None:
+def generate_erd_html(
+    erd_data: Dict[str, Any], output_path: Path, library: str = "jointjs"
+) -> None:
     """
     Generate standalone HTML file with interactive ERD using JointJS.
 
@@ -153,18 +164,20 @@ def generate_erd_html(erd_data: Dict[str, Any], output_path: Path, library: str 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if library != "jointjs":
-        raise ValueError(f"Unsupported library. Only 'jointjs' library is supported. Got: {library}")
+        raise ValueError(
+            f"Unsupported library. Only 'jointjs' library is supported. Got: {library}"
+        )
 
     html_content = _generate_jointjs_html(erd_data)
-    output_path.write_text(html_content, encoding='utf-8')
+    output_path.write_text(html_content, encoding="utf-8")
 
 
 def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
     """Generate HTML using JointJS library with custom HTML elements (Lucid-like)."""
-    
+
     # Serialize ERD data as JSON for embedding
     erd_json = json.dumps(erd_data, indent=2)
-    
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -861,20 +874,25 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
                     <div class="type-tag">Foreign Key</div>
                 </div>
                 <div class="field-detail">
-                    <div class="detail-label">From (Child)</div>
+                    <div class="detail-label">Foreign Table (Many)</div>
                     <div class="detail-value">
                         <strong>${{rel.from_table}}</strong>.${{rel.from_field}}
                     </div>
                 </div>
                 <div class="field-detail">
-                    <div class="detail-label">To (Parent)</div>
+                    <div class="detail-label">Primary Table (One)</div>
                     <div class="detail-value">
                         <strong>${{rel.to_table}}</strong>.${{rel.to_field}}
                     </div>
                 </div>
                 <div class="field-detail">
-                    <div class="detail-label">Type</div>
+                    <div class="detail-label">Relationship</div>
                     <div class="detail-value">${{rel.relationship_type}}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                        ${{rel.relationship_type === 'one-to-many' ? 'Many foreign records point to one primary record' : 
+                           rel.relationship_type === 'one-to-one' ? 'One foreign record points to one primary record' :
+                           'Many foreign records point to many primary records (via junction table)'}}
+                    </div>
                 </div>
             `;
             sidebar.classList.add('open');

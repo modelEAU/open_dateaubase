@@ -2138,20 +2138,25 @@
                     <div class="type-tag">Foreign Key</div>
                 </div>
                 <div class="field-detail">
-                    <div class="detail-label">From (Child)</div>
+                    <div class="detail-label">Foreign Table (Many)</div>
                     <div class="detail-value">
                         <strong>${rel.from_table}</strong>.${rel.from_field}
                     </div>
                 </div>
                 <div class="field-detail">
-                    <div class="detail-label">To (Parent)</div>
+                    <div class="detail-label">Primary Table (One)</div>
                     <div class="detail-value">
                         <strong>${rel.to_table}</strong>.${rel.to_field}
                     </div>
                 </div>
                 <div class="field-detail">
-                    <div class="detail-label">Type</div>
+                    <div class="detail-label">Relationship</div>
                     <div class="detail-value">${rel.relationship_type}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                        ${rel.relationship_type === 'one-to-many' ? 'Many foreign records point to one primary record' : 
+                           rel.relationship_type === 'one-to-one' ? 'One foreign record points to one primary record' :
+                           'Many foreign records point to many primary records (via junction table)'}
+                    </div>
                 </div>
             `;
             sidebar.classList.add('open');
