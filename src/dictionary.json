@@ -288,7 +288,6 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Comment_ID",
           "relationship_type": "one-to-many"
         }
       }
@@ -362,7 +361,6 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Condition_ID",
           "relationship_type": "one-to-many"
         },
         "weather_condition": {
@@ -392,14 +390,12 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Contact_ID",
           "relationship_type": "one-to-many"
         },
         "project_has_contact": {
           "role": "compositeKeySecond",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Contact_ID",
           "relationship_type": "many-to-many"
         }
       }
@@ -460,14 +456,12 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Equipment_ID",
           "relationship_type": "one-to-many"
         },
         "project_has_equipment": {
           "role": "compositeKeySecond",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Equipment_ID",
           "relationship_type": "many-to-many"
         }
       }
@@ -523,7 +517,6 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Equipment_model_ID",
           "relationship_type": "one-to-many"
         },
         "equipment_model": {
@@ -535,14 +528,12 @@
           "role": "compositeKeyFirst",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Equipment_model_ID",
           "relationship_type": "many-to-many"
         },
         "equipment_model_has_procedures": {
           "role": "compositeKeyFirst",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Equipment_model_ID",
           "relationship_type": "many-to-many"
         }
       }
@@ -730,7 +721,7 @@
     {
       "Part_ID": "Latitude_GPS",
       "Label": "Latitude GPS",
-      "Description": "GPS coordinates. For example: 47\u00b054\u203225.103\" ",
+      "Description": "GPS coordinates. For example: 47°54′25.103\" ",
       "Part_type": "property",
       "SQL_data_type": "nvarchar(100)",
       "Is_required": false,
@@ -855,7 +846,6 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Metadata_ID",
           "relationship_type": "one-to-many"
         }
       }
@@ -970,9 +960,7 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Parameter_ID",
           "relationship_type": "one-to-many"
-          
         },
         "parameter": {
           "role": "key",
@@ -1055,21 +1043,18 @@
           "role": "compositeKeySecond",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Procedure_ID",
           "relationship_type": "many-to-many"
         },
         "metadata": {
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Procedure_ID",
           "relationship_type": "one-to-many"
         },
         "parameter_has_procedures": {
           "role": "compositeKeySecond",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Procedure_ID",
           "relationship_type": "many-to-many"
         },
         "procedures": {
@@ -1148,7 +1133,6 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Project_ID",
           "relationship_type": "one-to-many"
         },
         "project": {
@@ -1160,21 +1144,18 @@
           "role": "compositeKeyFirst",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Project_ID",
           "relationship_type": "many-to-many"
         },
         "project_has_equipment": {
           "role": "compositeKeyFirst",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Project_ID",
           "relationship_type": "many-to-many"
         },
         "project_has_sampling_points": {
           "role": "compositeKeyFirst",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Project_ID",
           "relationship_type": "many-to-many"
         }
       }
@@ -1266,7 +1247,6 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Purpose_ID",
           "relationship_type": "one-to-many"
         },
         "purpose": {
@@ -1363,14 +1343,12 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Sampling_point_ID",
           "relationship_type": "one-to-many"
         },
         "project_has_sampling_points": {
           "role": "compositeKeySecond",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Sampling_point_ID",
           "relationship_type": "many-to-many"
         },
         "sampling_points": {
@@ -1413,7 +1391,6 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Site_ID",
           "relationship_type": "one-to-many"
         },
         "site": {
@@ -1582,14 +1559,12 @@
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Unit_ID",
           "relationship_type": "one-to-many"
         },
         "parameter": {
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Unit_ID",
           "relationship_type": "one-to-many"
         },
         "unit": {
@@ -1668,21 +1643,18 @@
           "role": "key",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Watershed_ID",
           "relationship_type": "one-to-one"
         },
         "site": {
           "role": "property",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Watershed_ID",
           "relationship_type": "one-to-many"
         },
         "urban_characteristics": {
           "role": "key",
           "required": false,
           "order": 999,
-          "fk_target_part_id": "Watershed_ID",
           "relationship_type": "one-to-one"
         },
         "watershed": {
