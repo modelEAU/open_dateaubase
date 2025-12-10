@@ -69,7 +69,7 @@ def main():
             "Usage: python generate_docs.py <json_path> <docs_dir> <sql_dir> <assets_dir> [target_dbs]"
         )
         print(
-            "Example: python generate_docs.py src/dictionary.json docs/reference sql_generation_scripts docs/assets mssql"
+            "Example: python generate_docs.py dictionary.json docs/reference sql_generation_scripts docs/assets mssql"
         )
         sys.exit(1)
 

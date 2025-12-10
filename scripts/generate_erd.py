@@ -18,7 +18,7 @@ from dataclasses import dataclass, asdict
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
-from open_dateaubase.models import Dictionary
+from open_dateaubase.data_model.models import Dictionary
 
 
 def parse_erd_json(json_path):
@@ -192,6 +192,7 @@ def main():
     """Main entry point for script."""
     if len(sys.argv) != 4:
         print("Usage: python generate_erd.py <json_path> <assets_path> <output_path>")
+        print("Example: python generate_erd.py dictionary.json docs/assets docs/reference")
         sys.exit(1)
 
     json_path = Path(sys.argv[1])

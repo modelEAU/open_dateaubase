@@ -7,7 +7,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from open_dateaubase.models import (
+from open_dateaubase.data_model.models import (
     Dictionary,
     TablePart,
     KeyPart,

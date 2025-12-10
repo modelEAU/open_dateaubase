@@ -19,7 +19,7 @@ from importlib.metadata import version
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
-from open_dateaubase.models import Dictionary
+from open_dateaubase.data_model.models import Dictionary
 
 package_version = version("open-dateaubase")
 
@@ -438,7 +438,7 @@ def main():
     if len(sys.argv) != 4:
         print("Usage: python generate_sql.py <json_path> <output_path> <target_dbs>")
         print(
-            "Example: python generate_sql.py src/dictionary.json sql_generation_scripts mssql"
+            "Example: python generate_sql.py dictionary.json sql_generation_scripts mssql"
         )
         sys.exit(1)
 
