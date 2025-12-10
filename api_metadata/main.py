@@ -218,3 +218,4 @@ def test_resolve(
     except Exception:
         logger.exception("Erreur inattendue dans /metadata/resolve")
         raise HTTPException(status_code=500, detail="Erreur interne.")
+

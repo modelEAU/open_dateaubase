@@ -6,7 +6,6 @@ import pandas as pd
 
 from db import get_connection
 
-
 USERS = {
     "admin": os.getenv("UI_ADMIN_PASSWORD", "admin123"),
     "user": os.getenv("UI_USER_PASSWORD", "user123"),
@@ -34,6 +33,64 @@ def page_login():
             st.error("Identifiants invalides ❌")
 
 
+
+def page_metadata_list():
+    st.title("Liste des métadonnées")
+    st.write("Affichage des lignes de la table `metadata`.")
+
+    # Connexion à la BD
+    try:
+        conn = get_connection()
+    except Exception as e:
+        st.error(
+            "Impossible de se connecter à la base de données 😢\n\n"
+            f"Détail : {e}"
+        )
+        return
+
+    query = """
+        SELECT TOP 100
+            Metadata_ID,
+            Parameter_ID,
+            Unit_ID,
+            Purpose_ID,
+            Equipment_ID,
+            Procedure_ID,
+            Condition_ID,
+            Sampling_point_ID,
+            Contact_ID,
+            Project_ID,
+            StartDate,
+            EndDate
+        FROM metadata
+        ORDER BY Metadata_ID
+    """
+
+    try:
+        df = pd.read_sql(query, conn)
+    except Exception as e:
+        conn.close()
+        st.error(
+            "Erreur lors de la lecture de la table `metadata` \n\n"
+            f"Détail : {e}"
+        )
+        return
+
+    conn.close()
+
+    if df.empty:
+        st.info("La table `metadata` est vide pour l’instant.")
+    else:
+        # 👉 index qui commence à 1 au lieu de 0
+        df_display = df.copy()
+        df_display.index = df_display.index + 1
+        df_display.index.name = "#"
+
+        st.dataframe(df_display, use_container_width=True)
+
+
+
+
 def page_create_metadata():
     st.title("Créer une métadonnée")
 
@@ -46,7 +103,10 @@ def page_create_metadata():
         conn = get_connection()
         cur = conn.cursor()
     except Exception as e:
-        st.error(f"Impossible de se connecter à la base de données 😢\n\nDétail : {e}")
+        st.error(
+            "Impossible de se connecter à la base de données 😢\n\n"
+            f"Détail : {e}"
+        )
         return
 
     # ---- helpers ----
@@ -89,9 +149,11 @@ def page_create_metadata():
                 f"Le champ '{name_col}' est obligatoire quand tu choisis 'nouveau'."
             )
 
+        name_value = new_name.strip()
+
         # vérifier si ça existe déjà
         cur.execute(
-            f"SELECT {id_col} FROM {table} WHERE {name_col} = ?", new_name.strip()
+            f"SELECT {id_col} FROM {table} WHERE {name_col} = ?", name_value
         )
         row = cur.fetchone()
         if row:
@@ -103,33 +165,42 @@ def page_create_metadata():
         new_id = max_id + 1
         cur.execute(
             f"INSERT INTO {table} ({id_col}, {name_col}) VALUES (?, ?)",
-            (new_id, new_name.strip()),
+            (new_id, name_value),
         )
         return new_id
 
     # ---- charger les valeurs existantes ----
     equipments = fetch_pairs(
-        "SELECT Equipment_ID, Equipment_identifier FROM equipment ORDER BY Equipment_ID"
+        "SELECT Equipment_ID, Equipment_identifier "
+        "FROM equipment ORDER BY Equipment_ID"
     )
     parameters = fetch_pairs(
-        "SELECT Parameter_ID, Parameter FROM parameter ORDER BY Parameter_ID"
+        "SELECT Parameter_ID, Parameter "
+        "FROM parameter ORDER BY Parameter_ID"
     )
-    units = fetch_pairs("SELECT Unit_ID, Unit FROM unit ORDER BY Unit_ID")
+    units = fetch_pairs(
+        "SELECT Unit_ID, Unit "
+        "FROM unit ORDER BY Unit_ID"
+    )
     purposes = fetch_pairs(
-        "SELECT Purpose_ID, Purpose FROM purpose ORDER BY Purpose_ID"
+        "SELECT Purpose_ID, Purpose "
+        "FROM purpose ORDER BY Purpose_ID"
     )
     projects = fetch_pairs(
-        "SELECT Project_ID, Project_name FROM project ORDER BY Project_ID"
+        "SELECT Project_ID, Project_name "
+        "FROM project ORDER BY Project_ID"
     )
     sampling_points = fetch_pairs(
         "SELECT Sampling_point_ID, Sampling_point "
         "FROM sampling_points ORDER BY Sampling_point_ID"
     )
     procedures = fetch_pairs(
-        "SELECT Procedure_ID, Procedure_name FROM procedures ORDER BY Procedure_ID"
+        "SELECT Procedure_ID, Procedure_name "
+        "FROM procedures ORDER BY Procedure_ID"
     )
     contacts = fetch_pairs(
-        "SELECT Contact_ID, First_name FROM contact ORDER BY Contact_ID"
+        "SELECT Contact_ID, First_name "
+        "FROM contact ORDER BY Contact_ID"
     )
     conditions = fetch_pairs(
         "SELECT Condition_ID, Weather_condition "
@@ -221,7 +292,11 @@ def page_create_metadata():
                 "Parameter",
             )
             unit_id = ensure_id(
-                unit_choice, unit_new, "unit", "Unit_ID", "Unit"
+                unit_choice,
+                unit_new,
+                "unit",
+                "Unit_ID",
+                "Unit",
             )
             purpose_id = ensure_id(
                 purpose_choice,
@@ -310,25 +385,40 @@ def page_create_metadata():
 
             conn.commit()
             st.success(
-                f"Nouvelle métadonnée créée avec succès 🎉 "
+                "Nouvelle métadonnée créée avec succès 🎉 "
                 f"(Metadata_ID = {new_metadata_id})"
             )
         except ValueError as ve:
             st.error(str(ve))
         except Exception as e:
             conn.rollback()
-            st.error(f"Erreur lors de la création de la métadonnée 😢\n\nDétail : {e}")
+            st.error(
+                "Erreur lors de la création de la métadonnée 😢\n\n"
+                f"Détail : {e}"
+            )
 
     cur.close()
     conn.close()
 
 
+# -------------------------
+# PAGE DASHBOARD
+# -------------------------
+
 def page_dashboard():
     st.title("Tableau de bord datEAUbase")
 
-    conn = get_connection()
-    cur = conn.cursor()
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+    except Exception as e:
+        st.error(
+            "Impossible de se connecter à la base de données 😢\n\n"
+            f"Détail : {e}"
+        )
+        return
 
+    # KPIs
     cur.execute("SELECT COUNT(*) FROM value")
     total_values = cur.fetchone()[0]
 
@@ -347,7 +437,6 @@ def page_dashboard():
     )
     active_metadata = cur.fetchone()[0]
 
-    # KPIs
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Valeurs en base", total_values)
@@ -358,10 +447,9 @@ def page_dashboard():
 
     st.markdown("---")
 
-    # ---- Graphes sur les 30 derniers jours ----
+    # Graphes sur les 30 derniers jours
     st.subheader("Activité sur les 30 derniers jours")
 
-    # 1) Nombre de valeurs par jour
     query_daily = """
         SELECT
             CAST(DATEADD(SECOND, v.[Timestamp], '19700101') AS date) AS jour,
@@ -380,7 +468,6 @@ def page_dashboard():
         df_daily.set_index("jour", inplace=True)
         st.line_chart(df_daily["nb_valeurs"])
 
-    # 2) Répartition par paramètre
     st.subheader("Répartition par paramètre (30 derniers jours)")
 
     query_param = """
@@ -390,7 +477,7 @@ def page_dashboard():
         FROM value v
         JOIN metadata m ON v.Metadata_ID = m.Metadata_ID
         WHERE DATEADD(SECOND, v.[Timestamp], '19700101')
-              >= DATEADD(DAY, -30, GETUTCDATE())
+        >= DATEADD(DAY, -30, GETUTCDATE())
         GROUP BY m.Parameter_ID
         ORDER BY nb_valeurs DESC
     """
