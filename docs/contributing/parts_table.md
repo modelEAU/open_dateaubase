@@ -1,53 +1,94 @@
-# The Parts Table: A Self-Documenting Database Schema
+# The Dictionary: A Self-Documenting Database Schema
 
 ## Purpose
 
-The Parts table (stored as `dictionary.csv`) serves as a comprehensive metadata repository that defines every component of your database model. It acts as a single source of truth from which you can generate SQL schemas, documentation, and entity-relationship diagrams.
+The dictionary (stored as `src/dictionary.json`) serves as a comprehensive metadata repository that defines every component of your database model. It acts as a single source of truth from which you can generate SQL schemas, documentation, and entity-relationship diagrams.
 
-**Key Principle**: Each unique field concept gets exactly ONE row in the dictionary, even if that field appears in multiple tables. The `TableName_present` columns indicate where each field appears and in what role.
+**Key Principle**: Each unique field concept gets exactly ONE entry in the dictionary, even if that field appears in multiple tables. The `table_presence` object indicates where each field appears and in what role.
 
-The Parts table is self-referential: it contains the definitions needed to describe itself, making it bootstrapped and internally consistent.
+The dictionary is self-referential: it contains the definitions needed to describe itself, making it bootstrapped and internally consistent.
 
 ## Understanding the Structure
 
-### Core Columns
+### JSON Format
 
-Every part has these core metadata columns:
+The dictionary uses a hierarchical JSON structure that eliminates sparse columns. Each part has only the metadata it needs:
+
+```json
+{
+  "parts": [
+    {
+      "Part_ID": "Contact_ID",
+      "Label": "Contact ID",
+      "Description": "Identifier for contacts",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "table_presence": {
+        "contact": {
+          "role": "key",
+          "required": true,
+          "order": 1
+        },
+        "project_has_contact": {
+          "role": "compositeKeySecond",
+          "required": false,
+          "order": 2
+        }
+      }
+    }
+  ]
+}
+```
+
+### Core Fields
+
+Every part has these core metadata fields:
 
 - **Part_ID**: Unique identifier for this field/table/value
 - **Label**: Human-readable name
 - **Description**: Detailed explanation of what this part represents
 - **Part_type**: Classification (`table`, `key`, `property`, `compositeKeyFirst`, `compositeKeySecond`, `parentKey`, `valueSet`, `valueSetMember`)
-- **Value_set_part_ID**: If this property is constrained by a value set, which set
-- **Member_of_set_part_ID**: If this is a value set member, which set it belongs to
+- **Value_set_part_ID**: If this property is constrained by a value set, which set (optional)
+- **Member_of_set_part_ID**: If this is a value set member, which set it belongs to (required for valueSetMember)
 - **Ancestor_part_ID**: For `parentKey` type, the Part_ID of the ancestor being referenced (enables hierarchical relationships within the same table)
-- **SQL_data_type**: SQL data type (e.g., `int`, `nvarchar(100)`, `ntext`)
-- **Is_required**: Whether this field is mandatory (NOT NULL)
-- **Default_value**: Default value for the field
-- **Sort_order**: Display order for documentation/UI
+- **SQL_data_type**: SQL data type (e.g., `int`, `nvarchar(100)`, `ntext`) (optional)
+- **Is_required**: Whether this field is mandatory (NOT NULL) (optional)
+- **Default_value**: Default value for the field (optional)
+- **Sort_order**: Display order for documentation/UI (optional)
 
-### Table Presence Columns
+### Table Presence Object
 
-For each table in the database, there are `TableName_present` columns that indicate if and how a field appears in that table:
+For fields (keys and properties), the `table_presence` object maps table names to metadata about how the field appears:
+
+```json
+"table_presence": {
+  "table_name": {
+    "role": "key|property|compositeKeyFirst|compositeKeySecond",
+    "required": true|false,
+    "order": 1
+  }
+}
+```
+
+**Roles**:
 
 - **`key`**: This field is the primary key in this table
 - **`compositeKeyFirst`**: First part of a composite primary key
 - **`compositeKeySecond`**: Second part of a composite primary key
 - **`property`**: This field is a regular column in this table
-- **(empty)**: This field does not appear in this table
 
-**Example**: `Equipment_ID` has a single row with:
+**Example**: `Equipment_ID` has:
 
-- `equipment_present = key` (primary key in equipment table)
-- `metadata_present = property` (foreign key in metadata table)
-- `project_has_equipment_present = compositeKeySecond` (part of composite key)
-
-### Table Metadata Columns
-
-For tracking additional metadata, each table also has:
-
-- **TableName_required**: Whether this part is required in that table
-- **TableName_order**: Display order of this part in that table
+```json
+{
+  "Part_ID": "Equipment_ID",
+  "table_presence": {
+    "equipment": {"role": "key", "required": true, "order": 1},
+    "metadata": {"role": "property", "required": false, "order": 5},
+    "project_has_equipment": {"role": "compositeKeySecond", "required": false, "order": 2}
+  }
+}
+```
 
 ## Reading the Dictionary
 
