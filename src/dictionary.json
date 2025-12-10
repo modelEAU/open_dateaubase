@@ -1,0 +1,2092 @@
+{
+  "parts": [
+    {
+      "Part_ID": "Part_type_set",
+      "Label": "Part Type Set",
+      "Description": "Valid values for part types",
+      "Part_type": "valueSet",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "table",
+      "Label": "Table",
+      "Description": "Represents a database table",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 1
+    },
+    {
+      "Part_ID": "key",
+      "Label": "Key",
+      "Description": "Represents a primary key",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 2
+    },
+    {
+      "Part_ID": "property",
+      "Label": "Property",
+      "Description": "Represents a column/field in a table",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 3
+    },
+    {
+      "Part_ID": "compositeKeyFirst",
+      "Label": "Composite Key First",
+      "Description": "First component of a composite primary key",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 4
+    },
+    {
+      "Part_ID": "compositeKeySecond",
+      "Label": "Composite Key Second",
+      "Description": "Second component of a composite primary key",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 5
+    },
+    {
+      "Part_ID": "parentKey",
+      "Label": "Parent Key",
+      "Description": "Hierarchical reference to parent record in same table",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 6
+    },
+    {
+      "Part_ID": "valueSet",
+      "Label": "Value Set",
+      "Description": "Represents an enumeration or controlled vocabulary",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 7
+    },
+    {
+      "Part_ID": "valueSetMember",
+      "Label": "Value Set Member",
+      "Description": "Individual value within a value set",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 8
+    },
+    {
+      "Part_ID": "comments",
+      "Label": "Comments",
+      "Description": "Stores any additional textual comments, notes, or observations related to a specific measured value",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "contact",
+      "Label": "Contact",
+      "Description": "Stores detailed personal and professional information for people involved in projects (e.g., name, affiliation, function, e-mail, phone)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "equipment",
+      "Label": "Equipment",
+      "Description": "Stores information about a specific, physical piece of equipment (e.g., serial number, owner, purchase date, storage location)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "equipment_model",
+      "Label": "Equipment Model",
+      "Description": "Stores detailed, non-redundant specifications for a specific sensor or instrument model (e.g., manufacturer, functions, method)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "equipment_model_has_Parameter",
+      "Label": "Equipment Model Has Parameter",
+      "Description": "Links equipment models to the parameters they can measure",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "equipment_model_has_procedures",
+      "Label": "Equipment Model Has Procedures",
+      "Description": "Links equipment models to the relevant maintenance procedures",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "hydrological_characteristics",
+      "Label": "Hydrological Characteristics",
+      "Description": "Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, grassland) within the watershed",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "metadata",
+      "Label": "Metadata",
+      "Description": "Contains a list of all existing unique metadata combinations (represented by a series of foreign keys/IDs) that describe a single measurement",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "parameter",
+      "Label": "Parameter",
+      "Description": "Stores the different water quality or quantity parameters that are measured (e.g., pH, TSS, N-components)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "parameter_has_procedures",
+      "Label": "Parameter Has Procedures",
+      "Description": "Links parameters to the relevant measurement procedures",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "procedures",
+      "Label": "Procedures",
+      "Description": "Stores details for different measurement procedures (e.g., calibration, validation, standard operating procedures, ISO methods)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "project",
+      "Label": "Project",
+      "Description": "Stores descriptive information about the research or monitoring project for which the data was collected",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "project_has_contact",
+      "Label": "Project Has Contact",
+      "Description": "Links projects to the personnel involved in them",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "project_has_equipment",
+      "Label": "Project Has Equipment",
+      "Description": "Links projects to the specific equipment used within them",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "project_has_sampling_points",
+      "Label": "Project Has Sampling Points",
+      "Description": "Links projects to the sampling points used within them",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "purpose",
+      "Label": "Purpose",
+      "Description": "Stores information about the aim of the measurement (e.g., on-line measurement, laboratory analysis, calibration, validation, cleaning)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "sampling_points",
+      "Label": "Sampling Points",
+      "Description": "Stores the identification, specific geographical coordinates (Latitude/Longitude/GPS), and description of a particular spot where a sample or measurement is taken",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "site",
+      "Label": "Site",
+      "Description": "Stores general site information, including address, site type, and a link to the associated watershed",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "unit",
+      "Label": "Unit",
+      "Description": "Stores the SI units of measurement (or other relevant units) corresponding to the parameters (e.g., mg/L, g/L, s)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "urban_characteristics",
+      "Label": "Urban Characteristics",
+      "Description": "Stores the urban land use percentages (e.g., commercial, residential, green spaces) within the watershed",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "value",
+      "Label": "Value",
+      "Description": "Stores each measured water quality or quantity value, its time stamp, replicate identification, and the link to its specific metadata set",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "watershed",
+      "Label": "Watershed",
+      "Description": "Stores general information about the watershed area, including surface area, concentration time, and impervious surface percentage",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "weather_condition",
+      "Label": "Weather Condition",
+      "Description": "Stores descriptive information about the prevailing weather conditions when the measurement was taken (e.g., dry weather, wet weather, snow melt)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "Agricultural",
+      "Label": "Agricultural",
+      "Description": "Percentage [%] of agricultural land use. For example farm land",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 7,
+      "table_presence": {
+        "urban_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Comment",
+      "Label": "Comment",
+      "Description": "Comment on the data in the Value table",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "comments": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Comment_ID",
+      "Label": "Comment ID",
+      "Description": "A unique ID is generated automatically by MySQL",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "comments": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        },
+        "value": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Comment_ID",
+          "relationship_type": "one-to-many"
+        }
+      }
+    },
+    {
+      "Part_ID": "Commercial",
+      "Label": "Commercial",
+      "Description": "Percentage [%] of commercial areas. For example stores or bank areas",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "urban_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Company",
+      "Label": "Company",
+      "Description": "Company name",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 4,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Concentration_time",
+      "Label": "Concentration Time",
+      "Description": "Concentration time in minutes [min]",
+      "Part_type": "property",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "watershed": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Condition_ID",
+      "Label": "Condition ID",
+      "Description": "A unique ID is generated automatically by MySQL",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Condition_ID",
+          "relationship_type": "one-to-many"
+        },
+        "weather_condition": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Contact_ID",
+      "Label": "Contact ID",
+      "Description": "Link to the Contact table",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "contact": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        },
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Contact_ID",
+          "relationship_type": "one-to-many"
+        },
+        "project_has_contact": {
+          "role": "compositeKeySecond",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Contact_ID",
+          "relationship_type": "many-to-many"
+        }
+      }
+    },
+    {
+      "Part_ID": "Cropland",
+      "Label": "Cropland",
+      "Description": "Percentage [%] of croplands",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "hydrological_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Email",
+      "Label": "Email",
+      "Description": "E-mail address",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 8,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Equipment_ID",
+      "Label": "Equipment ID",
+      "Description": "Link to the Equipment table",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "equipment": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        },
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Equipment_ID",
+          "relationship_type": "one-to-many"
+        },
+        "project_has_equipment": {
+          "role": "compositeKeySecond",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Equipment_ID",
+          "relationship_type": "many-to-many"
+        }
+      }
+    },
+    {
+      "Part_ID": "Equipment_identifier",
+      "Label": "Equipment IDentifier",
+      "Description": "Identification name of the equipments",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "equipment": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Equipment_model",
+      "Label": "Equipment Model",
+      "Description": "Name of the equipment model. For example: ammo::lyser",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "equipment_model": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Equipment_model_ID",
+      "Label": "Equipment Model ID",
+      "Description": "Link to the Equipment model table",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "equipment": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Equipment_model_ID",
+          "relationship_type": "one-to-many"
+        },
+        "equipment_model": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        },
+        "equipment_model_has_Parameter": {
+          "role": "compositeKeyFirst",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Equipment_model_ID",
+          "relationship_type": "many-to-many"
+        },
+        "equipment_model_has_procedures": {
+          "role": "compositeKeyFirst",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Equipment_model_ID",
+          "relationship_type": "many-to-many"
+        }
+      }
+    },
+    {
+      "Part_ID": "First_name",
+      "Label": "First Name",
+      "Description": "First name of the contact",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Forest",
+      "Label": "Forest",
+      "Description": "Percentage [%] of forest areas",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "hydrological_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Function",
+      "Label": "Function",
+      "Description": "More detailed description about the functions",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Functions",
+      "Label": "Functions",
+      "Description": "Description of the functions of the equipment",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 4,
+      "table_presence": {
+        "equipment_model": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Grassland",
+      "Label": "Grassland",
+      "Description": "Percentage [%] of grasslands",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 7,
+      "table_presence": {
+        "hydrological_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Green_spaces",
+      "Label": "Green Spaces",
+      "Description": "Percentage [%] of green spaces",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "urban_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Impervious_surface",
+      "Label": "Impervious Surface",
+      "Description": "Percentage of the impervious surface of the watershed in percentage [%]",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "watershed": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Industrial",
+      "Label": "Industrial",
+      "Description": "Percentage [%] of industrial areas. For example factories",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 4,
+      "table_presence": {
+        "urban_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Institutional",
+      "Label": "Institutional",
+      "Description": "Percentage [%] of institutional areas. For example schools, police stations or city hall",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "urban_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Last_name",
+      "Label": "Last Name",
+      "Description": "Last name of the contact",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Latitude_GPS",
+      "Label": "Latitude GPS",
+      "Description": "GPS coordinates. For example: 47\u00b054\u203225.103\" ",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "sampling_points": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Linkedin",
+      "Label": "Linkedin",
+      "Description": "LinkedIn account",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 11,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Longitude_GPS",
+      "Label": "Longitude GPS",
+      "Description": "GPS coordinates. For example: $73^{\\circ}47^{\\prime}00.024^{\\prime\\prime}$",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "sampling_points": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Manual_location",
+      "Label": "Manual Location",
+      "Description": "Location where the manual is stored",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "equipment_model": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Manufacturer",
+      "Label": "Manufacturer",
+      "Description": "Name of the manufacturer",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "equipment_model": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Meadow",
+      "Label": "Meadow",
+      "Description": "Percentage [%] of meadow areas",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "hydrological_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Metadata_ID",
+      "Label": "Metadata ID",
+      "Description": "A unique ID is generated automatically by MySQL",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "metadata": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        },
+        "value": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Metadata_ID",
+          "relationship_type": "one-to-many"
+        }
+      }
+    },
+    {
+      "Part_ID": "Method",
+      "Label": "Method",
+      "Description": "Method behind the equipment",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "equipment_model": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Number_of_experiment",
+      "Label": "Number Of Experiment",
+      "Description": "Number of replica of an experiment",
+      "Part_type": "property",
+      "SQL_data_type": "numeric",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "value": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Office_number",
+      "Label": "Office Number",
+      "Description": "Number of the office",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 7,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Owner",
+      "Label": "Owner",
+      "Description": "Name of the owner of the equipment",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 4,
+      "table_presence": {
+        "equipment": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Parameter",
+      "Label": "Parameter",
+      "Description": "Name of the parameter",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "parameter": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Parameter_ID",
+      "Label": "Parameter ID",
+      "Description": "Link to the Parameter table",
+      "Part_type": "compositeKeySecond",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "equipment_model_has_Parameter": {
+          "role": "compositeKeySecond",
+          "required": false,
+          "order": 999
+        },
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Parameter_ID",
+          "relationship_type": "one-to-many"
+          
+        },
+        "parameter": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        },
+        "parameter_has_procedures": {
+          "role": "compositeKeyFirst",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Phone",
+      "Label": "Phone",
+      "Description": "Phone number",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 9,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Picture",
+      "Label": "Picture",
+      "Description": "Picture of the site",
+      "Part_type": "property",
+      "SQL_data_type": "image(2147483647)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Pictures",
+      "Label": "Pictures",
+      "Description": "Picture of the site",
+      "Part_type": "property",
+      "SQL_data_type": "BLOB",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 8,
+      "table_presence": {
+        "sampling_points": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Procedure_ID",
+      "Label": "Procedure ID",
+      "Description": "Link to the Procedures table",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "equipment_model_has_procedures": {
+          "role": "compositeKeySecond",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Procedure_ID",
+          "relationship_type": "many-to-many"
+        },
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Procedure_ID",
+          "relationship_type": "one-to-many"
+        },
+        "parameter_has_procedures": {
+          "role": "compositeKeySecond",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Procedure_ID",
+          "relationship_type": "many-to-many"
+        },
+        "procedures": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Procedure_location",
+      "Label": "Procedure Location",
+      "Description": "Where is the procedure stored",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "procedures": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Procedure_name",
+      "Label": "Procedure Name",
+      "Description": "Title name of the procedure",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "procedures": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Procedure_type",
+      "Label": "Procedure Type",
+      "Description": "Type of the procedure. For example, SOP",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "procedures": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Project_ID",
+      "Label": "Project ID",
+      "Description": "Link to the Project table",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Project_ID",
+          "relationship_type": "one-to-many"
+        },
+        "project": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        },
+        "project_has_contact": {
+          "role": "compositeKeyFirst",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Project_ID",
+          "relationship_type": "many-to-many"
+        },
+        "project_has_equipment": {
+          "role": "compositeKeyFirst",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Project_ID",
+          "relationship_type": "many-to-many"
+        },
+        "project_has_sampling_points": {
+          "role": "compositeKeyFirst",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Project_ID",
+          "relationship_type": "many-to-many"
+        }
+      }
+    },
+    {
+      "Part_ID": "Project_name",
+      "Label": "Project Name",
+      "Description": "Name of the project",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "project": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Province",
+      "Label": "Province",
+      "Description": "Address: name of the province",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 11,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Purchase_date",
+      "Label": "Purchase Date",
+      "Description": "Date when the equipment was bought: 'YYYY-MM-DD",
+      "Part_type": "property",
+      "SQL_data_type": "date",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "equipment": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Purpose",
+      "Label": "Purpose",
+      "Description": "Purpose of the data collection. For example, \"Measurement\", \"Lab_analysis\", \"Calibration\" and \"Cleaning\"",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "purpose": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Purpose_ID",
+      "Label": "Purpose ID",
+      "Description": "A unique ID is generated automatically by MySQL",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Purpose_ID",
+          "relationship_type": "one-to-many"
+        },
+        "purpose": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Recreational",
+      "Label": "Recreational",
+      "Description": "Percentage [%] of recreational areas. For example parks or sport fields",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 8,
+      "table_presence": {
+        "urban_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Residential",
+      "Label": "Residential",
+      "Description": "Percentage [%] of residential areas. For example houses or apartment buildings",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "urban_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Sampling_location",
+      "Label": "Sampling Location",
+      "Description": "Where the sample was taken. For example: \"Biofiltration\", \"Sewer 01\" or \"Retention Tank\"",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "sampling_points": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Sampling_point",
+      "Label": "Sampling Point",
+      "Description": "Where the sample was taken. For example: \"Inlet\", \"Outlet\" or \"Upstream\"",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "sampling_points": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Sampling_point_ID",
+      "Label": "Sampling Point ID",
+      "Description": "Link to the Sampling_point table",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Sampling_point_ID",
+          "relationship_type": "one-to-many"
+        },
+        "project_has_sampling_points": {
+          "role": "compositeKeySecond",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Sampling_point_ID",
+          "relationship_type": "many-to-many"
+        },
+        "sampling_points": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Serial_number",
+      "Label": "Serial Number",
+      "Description": "Serial number of the equipment",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "equipment": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Site_ID",
+      "Label": "Site ID",
+      "Description": "A unique ID is generated automatically by MySQL",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "sampling_points": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Site_ID",
+          "relationship_type": "one-to-many"
+        },
+        "site": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Site_name",
+      "Label": "Site Name",
+      "Description": "Name of the site",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Site_type",
+      "Label": "Site Type",
+      "Description": "For example: \"WWTP\", \"River\" or \"Sewer_system\"",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Skype_name",
+      "Label": "Skype Name",
+      "Description": "Skype name",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 10,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Status",
+      "Label": "Status",
+      "Description": "Status of the person. For example: \"Master student\", \"Postdoc\" or \"Intern\"",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Storage_location",
+      "Label": "Storage Location",
+      "Description": "Where is the procedure stored",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "equipment": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Surface_area",
+      "Label": "Surface Area",
+      "Description": "Surface area of the watershed [ha]",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 4,
+      "table_presence": {
+        "watershed": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Timestamp",
+      "Label": "Timestamp",
+      "Description": "Unix timestamp combining date and time of collected data",
+      "Part_type": "property",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 6,
+      "table_presence": {
+        "value": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Unit",
+      "Label": "Unit",
+      "Description": "SI-units only",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "unit": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Unit_ID",
+      "Label": "Unit ID",
+      "Description": "A unique ID is generated automatically by MySQL",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "metadata": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Unit_ID",
+          "relationship_type": "one-to-many"
+        },
+        "parameter": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Unit_ID",
+          "relationship_type": "one-to-many"
+        },
+        "unit": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Urban_area",
+      "Label": "Urban Area",
+      "Description": "Percentage [%] of urban areas",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "hydrological_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Value",
+      "Label": "Value",
+      "Description": "Value of collected data",
+      "Part_type": "property",
+      "SQL_data_type": "float",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "value": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Value_ID",
+      "Label": "Value ID",
+      "Description": "A unique ID is generated automatically by MySQL",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "value": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Watershed_ID",
+      "Label": "Watershed ID",
+      "Description": "Linked to the Watershed table",
+      "Part_type": "key",
+      "SQL_data_type": "int",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 1,
+      "table_presence": {
+        "hydrological_characteristics": {
+          "role": "key",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Watershed_ID",
+          "relationship_type": "one-to-one"
+        },
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Watershed_ID",
+          "relationship_type": "one-to-many"
+        },
+        "urban_characteristics": {
+          "role": "key",
+          "required": false,
+          "order": 999,
+          "fk_target_part_id": "Watershed_ID",
+          "relationship_type": "one-to-one"
+        },
+        "watershed": {
+          "role": "key",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Watershed_name",
+      "Label": "Watershed Name",
+      "Description": "Name of the watershed",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "watershed": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Weather_condition",
+      "Label": "Weather Condition",
+      "Description": "Type of weather condition",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 2,
+      "table_presence": {
+        "weather_condition": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Website",
+      "Label": "Website",
+      "Description": "Website URL of the contact or organization",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(60)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 17,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "Wetlands",
+      "Label": "Wetlands",
+      "Description": "Percentage [%] of wetlands",
+      "Part_type": "property",
+      "SQL_data_type": "real",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 4,
+      "table_presence": {
+        "hydrological_characteristics": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "contact_City",
+      "Label": "Contact City",
+      "Description": "Address: name of the city",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 14,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "contact_Country",
+      "Label": "Contact Country",
+      "Description": "Address: name of the country",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 16,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "contact_Street_name",
+      "Label": "Contact Street Name",
+      "Description": "Address: name of the street",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 13,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "contact_Street_number",
+      "Label": "Contact Street Number",
+      "Description": "Address: number of the street",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 12,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "contact_Zip_code",
+      "Label": "Contact Zip Code",
+      "Description": "Address: zip code",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(45)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 15,
+      "table_presence": {
+        "contact": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "parameter_Description",
+      "Label": "Parameter Description",
+      "Description": "Description of the parameter",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 4,
+      "table_presence": {
+        "parameter": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "procedures_Description",
+      "Label": "Procedures Description",
+      "Description": "Description of the procedure",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 4,
+      "table_presence": {
+        "procedures": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "project_Description",
+      "Label": "Project Description",
+      "Description": "Description of the project",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "project": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "purpose_Description",
+      "Label": "Purpose Description",
+      "Description": "Description of the purpose",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "purpose": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "sampling_points_Description",
+      "Label": "Sampling Points Description",
+      "Description": "Description of the sampling point",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 7,
+      "table_presence": {
+        "sampling_points": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "site_City",
+      "Label": "Site City",
+      "Description": "Address: name of the city",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 9,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "site_Country",
+      "Label": "Site Country",
+      "Description": "Address: name of the country",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(255)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 12,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "site_Description",
+      "Label": "Site Description",
+      "Description": "Description of the site",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 5,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "site_Street_name",
+      "Label": "Site Street Name",
+      "Description": "Address: name of the street",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 8,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "site_Street_number",
+      "Label": "Site Street Number",
+      "Description": "Address: number of the street",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 7,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "site_Zip_code",
+      "Label": "Site Zip Code",
+      "Description": "Address: zip code",
+      "Part_type": "property",
+      "SQL_data_type": "nvarchar(100)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 10,
+      "table_presence": {
+        "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "watershed_Description",
+      "Label": "Watershed Description",
+      "Description": "Description of the watershed",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "watershed": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    },
+    {
+      "Part_ID": "weather_condition_Description",
+      "Label": "Weather Condition Description",
+      "Description": "Description of the condition",
+      "Part_type": "property",
+      "SQL_data_type": "ntext(1073741823)",
+      "Is_required": false,
+      "Default_value": null,
+      "Value_set_part_ID": null,
+      "Sort_order": 3,
+      "table_presence": {
+        "weather_condition": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        }
+      }
+    }
+  ]
+}
