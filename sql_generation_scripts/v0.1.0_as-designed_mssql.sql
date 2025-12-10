@@ -1,6 +1,6 @@
--- Auto-generated SQL schema from Parts metadata table
+-- Auto-generated SQL schema from dictionary.json
 -- Target database: MSSQL
--- Generated: 2025-12-10T12:51:42.952607
+-- Generated: 2025-12-10T18:46:32.837716
 
 
 
