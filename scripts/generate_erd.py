@@ -1,14 +1,214 @@
 """
-ERD (Entity-Relationship Diagram) generator for datEAUbase.
+Generate ERD (Entity-Relationship Diagram) from dictionary.
 
-This module reads the dictionary.json and generates an interactive
-browser-based ERD diagram using JointJS.
+This script extracts ERD generation logic from the main generate_docs hook
+to create a modular, testable component.
+
+Usage:
+    python generate_erd.py <json_path> <assets_path> <output_path>
 """
 
+import sys
+import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-import json
 from dataclasses import dataclass, asdict
+
+# Add src to path to import models
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root / "src"))
+
+from open_dateaubase.models import Dictionary
+
+
+def parse_erd_json(json_path):
+    """
+    Parse dictionary.json using Pydantic validation.
+    Returns same dict structure as parse_parts_table() for compatibility.
+    """
+    # Load and validate
+    with open(json_path, "r", encoding="utf-8") as f:
+        raw_data = json.load(f)
+
+    # Pydantic validation
+    dictionary = Dictionary.model_validate(raw_data)
+
+    # Transform to legacy format for generators
+    data = {"tables": {}, "value_sets": {}, "metadata": {}, "id_field_locations": {}}
+
+    # Process tables
+    for part in dictionary.parts:
+        if part.part_type == "table":
+            data["tables"][part.part_id] = {
+                "label": part.label,
+                "description": part.description,
+                "fields": [],
+            }
+
+    # Process fields
+    for part in dictionary.parts:
+        # Only process field parts that have table_presence
+        if hasattr(part, "table_presence") and part.part_type in [
+            "key",
+            "property",
+            "compositeKeyFirst",
+            "compositeKeySecond",
+            "parentKey",
+        ]:
+            for table_name, presence in part.table_presence.items():
+                if table_name not in data["tables"]:
+                    continue
+
+                # Track ID field locations
+                if part.part_id.endswith("_ID"):
+                    if part.part_id not in data["id_field_locations"]:
+                        data["id_field_locations"][part.part_id] = {}
+                    data["id_field_locations"][part.part_id][table_name] = presence.role
+
+                # Determine FK target and relationship type from explicit metadata
+                fk_to = ""
+                relationship_type = None
+                if part.part_type == "parentKey":
+                    fk_to = part.ancestor_part_id
+                elif presence.relationship_type:
+                    # Infer FK target from field name (field ending in _ID references same-named primary key)
+                    if part.part_id.endswith("_ID"):
+                        fk_to = part.part_id
+                    relationship_type = presence.relationship_type
+
+                field_info = {
+                    "part_id": part.part_id,
+                    "label": part.label,
+                    "description": part.description,
+                    "part_type": presence.role,
+                    "sql_data_type": getattr(part, "sql_data_type", None) or "",
+                    "is_required": presence.required,
+                    "default_value": getattr(part, "default_value", None) or "",
+                    "fk_to": fk_to,
+                    "relationship_type": relationship_type,
+                    "value_set": getattr(part, "value_set_part_id", None) or "",
+                    "sort_order": presence.order,
+                }
+                data["tables"][table_name]["fields"].append(field_info)
+
+    # Process value sets
+    for part in dictionary.parts:
+        if part.part_type == "valueSet":
+            data["value_sets"][part.part_id] = {
+                "label": part.label,
+                "description": part.description,
+                "members": [],
+            }
+
+    for part in dictionary.parts:
+        if part.part_type == "valueSetMember":
+            value_set_id = part.member_of_set_part_id
+            if value_set_id in data["value_sets"]:
+                member_info = {
+                    "part_id": part.part_id,
+                    "label": part.label,
+                    "description": part.description,
+                    "sort_order": part.sort_order if part.sort_order else 999,
+                }
+                data["value_sets"][value_set_id]["members"].append(member_info)
+
+    # Sort fields and members
+    for table in data["tables"].values():
+        table["fields"].sort(key=lambda x: x["sort_order"])
+
+    for value_set in data["value_sets"].values():
+        value_set["members"].sort(key=lambda x: x["sort_order"])
+
+    return data
+
+
+def generate_erd_files(parts_data, assets_path, output_path):
+    """
+    Generate interactive ERD diagram.
+
+    Args:
+        parts_data: Parsed dictionary data
+        assets_path: Path to docs/assets directory
+        output_path: Path to docs/reference directory
+    """
+
+    # Generate ERD data
+    erd_data = generate_erd_data(parts_data)
+
+    # Create assets directory if it doesn't exist
+    assets_path.mkdir(parents=True, exist_ok=True)
+
+    # Generate JointJS (interactive) version only
+    jointjs_path = assets_path / "erd_interactive.html"
+
+    generate_erd_html(erd_data, jointjs_path, library="jointjs")
+
+    print(f"Generated interactive ERD at {jointjs_path}")
+
+    # Create ERD documentation page
+    erd_markdown = f"""# Entity Relationship Diagram (ERD)
+
+This interactive diagram shows all tables and their relationships in datEAUbase schema.
+
+## Interactive ERD
+
+The interactive version allows you to:
+- 🖱️ **Drag tables** to rearrange layout
+- 🔍 **Zoom in/out** for better visibility
+- 📐 **Auto-layout** to reorganize tables automatically
+- 💾 **Export** diagram as PNG
+
+<iframe src="../../assets/erd_interactive.html" width="100%" height="800px" frameborder="0" style="border: 2px solid #e2e8f0; border-radius: 8px;"></iframe>
+
+[Open in new window](../assets/erd_interactive.html){{: target="_blank" .md-button .md-button--primary}}
+
+## Legend
+
+### Field Markers
+- **PK** badge: Primary Key - Unique identifier for each record
+- **FK** badge: Foreign Key - Reference to another table's primary key
+- **\\*** Required field (NOT NULL)
+
+### Relationship Notation
+Relationships use standard crow's foot notation:
+- **Single line (|)**: "One" side of relationship
+- **Crow's foot (⟨)**: "Many" side of relationship
+
+**Relationship Types:**
+- **One-to-One**: Single line on both ends (e.g., watershed ↔ hydrological_characteristics)
+- **One-to-Many**: Crow's foot on child side, single line on parent (e.g., site ↔ sampling_points)
+- **Many-to-Many**: Crow's foot on both ends (via junction tables like project_has_contact)
+
+## Table Count
+
+The current schema contains **{len(parts_data["tables"])}** tables with **{len(erd_data["relationships"])}** relationships.
+"""
+
+    (output_path / "erd.md").write_text(erd_markdown, encoding="utf-8")
+    print(f"Generated ERD documentation page at {output_path / 'erd.md'}")
+
+
+def main():
+    """Main entry point for script."""
+    if len(sys.argv) != 4:
+        print("Usage: python generate_erd.py <json_path> <assets_path> <output_path>")
+        sys.exit(1)
+
+    json_path = Path(sys.argv[1])
+    assets_path = Path(sys.argv[2])
+    output_path = Path(sys.argv[3])
+
+    # Ensure directories exist
+    assets_path.mkdir(parents=True, exist_ok=True)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # Parse JSON
+    parts_data = parse_erd_json(json_path)
+
+    # Generate ERD files
+    generate_erd_files(parts_data, assets_path, output_path)
+
+
 
 
 @dataclass
@@ -1156,3 +1356,8 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
 </html>"""
 
     return html
+
+
+
+if __name__ == "__main__":
+    main()
