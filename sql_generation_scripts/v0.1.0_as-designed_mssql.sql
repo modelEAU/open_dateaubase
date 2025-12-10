@@ -1,10 +1,10 @@
 -- Auto-generated SQL schema from Parts metadata table
 -- Target database: MSSQL
--- Generated: 2025-10-28T20:58:28.454637
+-- Generated: 2025-12-10T11:38:04.607450
 
 
 
--- Table for Comments
+-- Stores any additional textual comments, notes, or observations related to a specific measured value
 CREATE TABLE [comments] (
     [Comment] nvarchar(1073741823) NULL,
     [Comment_ID] int NULL,
@@ -12,7 +12,7 @@ CREATE TABLE [comments] (
 );
 
 
--- Table for Contact
+-- Stores detailed personal and professional information for people involved in projects (e.g., name, affiliation, function, e-mail, phone)
 CREATE TABLE [contact] (
     [Company] nvarchar(1073741823) NULL,
     [Contact_ID] int NULL,
@@ -35,7 +35,7 @@ CREATE TABLE [contact] (
 );
 
 
--- Table for Equipment
+-- Stores information about a specific, physical piece of equipment (e.g., serial number, owner, purchase date, storage location)
 CREATE TABLE [equipment] (
     [Equipment_ID] int NULL,
     [Equipment_identifier] nvarchar(100) NULL,
@@ -48,7 +48,7 @@ CREATE TABLE [equipment] (
 );
 
 
--- Table for Equipment Model
+-- Stores detailed, non-redundant specifications for a specific sensor or instrument model (e.g., manufacturer, functions, method)
 CREATE TABLE [equipment_model] (
     [Equipment_model] nvarchar(100) NULL,
     [Equipment_model_ID] int NULL,
@@ -60,7 +60,7 @@ CREATE TABLE [equipment_model] (
 );
 
 
--- Table for Equipment Model Has Parameter
+-- Links equipment models to the parameters they can measure
 CREATE TABLE [equipment_model_has_Parameter] (
     [Equipment_model_ID] int NULL,
     [Parameter_ID] int NULL,
@@ -68,7 +68,7 @@ CREATE TABLE [equipment_model_has_Parameter] (
 );
 
 
--- Table for Equipment Model Has Procedures
+-- Links equipment models to the relevant maintenance procedures
 CREATE TABLE [equipment_model_has_procedures] (
     [Equipment_model_ID] int NULL,
     [Procedure_ID] int NULL,
@@ -76,7 +76,7 @@ CREATE TABLE [equipment_model_has_procedures] (
 );
 
 
--- Table for Hydrological Characteristics
+-- Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, grassland) within the watershed
 CREATE TABLE [hydrological_characteristics] (
     [Cropland] real NULL,
     [Forest] real NULL,
@@ -89,7 +89,7 @@ CREATE TABLE [hydrological_characteristics] (
 );
 
 
--- Table for Metadata
+-- Contains a list of all existing unique metadata combinations (represented by a series of foreign keys/IDs) that describe a single measurement
 CREATE TABLE [metadata] (
     [Condition_ID] int NULL,
     [Contact_ID] int NULL,
@@ -105,7 +105,7 @@ CREATE TABLE [metadata] (
 );
 
 
--- Table for Parameter
+-- Stores the different water quality or quantity parameters that are measured (e.g., pH, TSS, N-components)
 CREATE TABLE [parameter] (
     [Parameter] nvarchar(100) NULL,
     [Parameter_ID] int NULL,
@@ -115,7 +115,7 @@ CREATE TABLE [parameter] (
 );
 
 
--- Table for Parameter Has Procedures
+-- Links parameters to the relevant measurement procedures
 CREATE TABLE [parameter_has_procedures] (
     [Parameter_ID] int NULL,
     [Procedure_ID] int NULL,
@@ -123,7 +123,7 @@ CREATE TABLE [parameter_has_procedures] (
 );
 
 
--- Table for Procedures
+-- Stores details for different measurement procedures (e.g., calibration, validation, standard operating procedures, ISO methods)
 CREATE TABLE [procedures] (
     [Procedure_ID] int NULL,
     [Procedure_location] nvarchar(100) NULL,
@@ -134,7 +134,7 @@ CREATE TABLE [procedures] (
 );
 
 
--- Table for Project
+-- Stores descriptive information about the research or monitoring project for which the data was collected
 CREATE TABLE [project] (
     [Project_ID] int NULL,
     [Project_name] nvarchar(100) NULL,
@@ -143,7 +143,7 @@ CREATE TABLE [project] (
 );
 
 
--- Table for Project Has Contact
+-- Links projects to the personnel involved in them
 CREATE TABLE [project_has_contact] (
     [Contact_ID] int NULL,
     [Project_ID] int NULL,
@@ -151,7 +151,7 @@ CREATE TABLE [project_has_contact] (
 );
 
 
--- Table for Project Has Equipment
+-- Links projects to the specific equipment used within them
 CREATE TABLE [project_has_equipment] (
     [Equipment_ID] int NULL,
     [Project_ID] int NULL,
@@ -159,7 +159,7 @@ CREATE TABLE [project_has_equipment] (
 );
 
 
--- Table for Project Has Sampling Points
+-- Links projects to the sampling points used within them
 CREATE TABLE [project_has_sampling_points] (
     [Project_ID] int NULL,
     [Sampling_point_ID] int NULL,
@@ -167,7 +167,7 @@ CREATE TABLE [project_has_sampling_points] (
 );
 
 
--- Table for Purpose
+-- Stores information about the aim of the measurement (e.g., on-line measurement, laboratory analysis, calibration, validation, cleaning)
 CREATE TABLE [purpose] (
     [Purpose] nvarchar(100) NULL,
     [Purpose_ID] int NULL,
@@ -176,7 +176,7 @@ CREATE TABLE [purpose] (
 );
 
 
--- Table for Sampling Points
+-- Stores the identification, specific geographical coordinates (Latitude/Longitude/GPS), and description of a particular spot where a sample or measurement is taken
 CREATE TABLE [sampling_points] (
     [Latitude_GPS] nvarchar(100) NULL,
     [Longitude_GPS] nvarchar(100) NULL,
@@ -190,7 +190,7 @@ CREATE TABLE [sampling_points] (
 );
 
 
--- Table for Site
+-- Stores general site information, including address, site type, and a link to the associated watershed
 CREATE TABLE [site] (
     [Picture] image(2147483647) NULL,
     [Province] nvarchar(255) NULL,
@@ -208,7 +208,7 @@ CREATE TABLE [site] (
 );
 
 
--- Table for Unit
+-- Stores the SI units of measurement (or other relevant units) corresponding to the parameters (e.g., mg/L, g/L, s)
 CREATE TABLE [unit] (
     [Unit] nvarchar(100) NULL,
     [Unit_ID] int NULL,
@@ -216,7 +216,7 @@ CREATE TABLE [unit] (
 );
 
 
--- Table for Urban Characteristics
+-- Stores the urban land use percentages (e.g., commercial, residential, green spaces) within the watershed
 CREATE TABLE [urban_characteristics] (
     [Agricultural] real NULL,
     [Commercial] real NULL,
@@ -230,7 +230,7 @@ CREATE TABLE [urban_characteristics] (
 );
 
 
--- Table for Value
+-- Stores each measured water quality or quantity value, its time stamp, replicate identification, and the link to its specific metadata set
 CREATE TABLE [value] (
     [Comment_ID] int NULL,
     [Metadata_ID] int NULL,
@@ -242,7 +242,7 @@ CREATE TABLE [value] (
 );
 
 
--- Table for Watershed
+-- Stores general information about the watershed area, including surface area, concentration time, and impervious surface percentage
 CREATE TABLE [watershed] (
     [Concentration_time] int NULL,
     [Impervious_surface] real NULL,
@@ -254,7 +254,7 @@ CREATE TABLE [watershed] (
 );
 
 
--- Table for Weather Condition
+-- Stores descriptive information about the prevailing weather conditions when the measurement was taken (e.g., dry weather, wet weather, snow melt)
 CREATE TABLE [weather_condition] (
     [Condition_ID] int NULL,
     [Weather_condition] nvarchar(100) NULL,
@@ -269,6 +269,26 @@ ALTER TABLE [equipment]
     ADD CONSTRAINT [FK_equipment_Equipment_model_ID]
     FOREIGN KEY ([Equipment_model_ID])
     REFERENCES [Equipment_model] ([Equipment_model_ID]);
+
+ALTER TABLE [equipment_model_has_Parameter]
+    ADD CONSTRAINT [FK_equipment_model_has_Parameter_Equipment_model_ID]
+    FOREIGN KEY ([Equipment_model_ID])
+    REFERENCES [Equipment_model] ([Equipment_model_ID]);
+
+ALTER TABLE [equipment_model_has_procedures]
+    ADD CONSTRAINT [FK_equipment_model_has_procedures_Equipment_model_ID]
+    FOREIGN KEY ([Equipment_model_ID])
+    REFERENCES [Equipment_model] ([Equipment_model_ID]);
+
+ALTER TABLE [equipment_model_has_procedures]
+    ADD CONSTRAINT [FK_equipment_model_has_procedures_Procedure_ID]
+    FOREIGN KEY ([Procedure_ID])
+    REFERENCES [Procedure] ([Procedure_ID]);
+
+ALTER TABLE [hydrological_characteristics]
+    ADD CONSTRAINT [FK_hydrological_characteristics_Watershed_ID]
+    FOREIGN KEY ([Watershed_ID])
+    REFERENCES [Watershed] ([Watershed_ID]);
 
 ALTER TABLE [metadata]
     ADD CONSTRAINT [FK_metadata_Condition_ID]
@@ -320,6 +340,41 @@ ALTER TABLE [parameter]
     FOREIGN KEY ([Unit_ID])
     REFERENCES [Unit] ([Unit_ID]);
 
+ALTER TABLE [parameter_has_procedures]
+    ADD CONSTRAINT [FK_parameter_has_procedures_Procedure_ID]
+    FOREIGN KEY ([Procedure_ID])
+    REFERENCES [Procedure] ([Procedure_ID]);
+
+ALTER TABLE [project_has_contact]
+    ADD CONSTRAINT [FK_project_has_contact_Contact_ID]
+    FOREIGN KEY ([Contact_ID])
+    REFERENCES [Contact] ([Contact_ID]);
+
+ALTER TABLE [project_has_contact]
+    ADD CONSTRAINT [FK_project_has_contact_Project_ID]
+    FOREIGN KEY ([Project_ID])
+    REFERENCES [Project] ([Project_ID]);
+
+ALTER TABLE [project_has_equipment]
+    ADD CONSTRAINT [FK_project_has_equipment_Equipment_ID]
+    FOREIGN KEY ([Equipment_ID])
+    REFERENCES [Equipment] ([Equipment_ID]);
+
+ALTER TABLE [project_has_equipment]
+    ADD CONSTRAINT [FK_project_has_equipment_Project_ID]
+    FOREIGN KEY ([Project_ID])
+    REFERENCES [Project] ([Project_ID]);
+
+ALTER TABLE [project_has_sampling_points]
+    ADD CONSTRAINT [FK_project_has_sampling_points_Project_ID]
+    FOREIGN KEY ([Project_ID])
+    REFERENCES [Project] ([Project_ID]);
+
+ALTER TABLE [project_has_sampling_points]
+    ADD CONSTRAINT [FK_project_has_sampling_points_Sampling_point_ID]
+    FOREIGN KEY ([Sampling_point_ID])
+    REFERENCES [Sampling_point] ([Sampling_point_ID]);
+
 ALTER TABLE [sampling_points]
     ADD CONSTRAINT [FK_sampling_points_Site_ID]
     FOREIGN KEY ([Site_ID])
@@ -327,6 +382,11 @@ ALTER TABLE [sampling_points]
 
 ALTER TABLE [site]
     ADD CONSTRAINT [FK_site_Watershed_ID]
+    FOREIGN KEY ([Watershed_ID])
+    REFERENCES [Watershed] ([Watershed_ID]);
+
+ALTER TABLE [urban_characteristics]
+    ADD CONSTRAINT [FK_urban_characteristics_Watershed_ID]
     FOREIGN KEY ([Watershed_ID])
     REFERENCES [Watershed] ([Watershed_ID]);
 
