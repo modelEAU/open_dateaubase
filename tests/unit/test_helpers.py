@@ -10,8 +10,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "fixtures"))
 
-from open_dateaubase.helpers import DictionaryManager
-from open_dateaubase.models import Dictionary
+from open_dateaubase.data_model.helpers import DictionaryManager
+from open_dateaubase.data_model.models import Dictionary
 from sample_dictionary import (
     sample_dictionary_data,
     complex_dictionary_data,
