@@ -14,17 +14,15 @@ theme:
 
 plugins:
   - search
-  - gen-files:
-      scripts:
-        - scripts/copy_assets.py
+  - markdown-exec
 
 hooks:
-  - docs/hooks/generate_docs.py
+  - docs/hooks/call_orchestrator.py
 
 nav:
   - Home: index.md
   - Contributing:
-    - The parts table: contributing/parts_table.md
+    - The Dictionary: contributing/dictionary.md
   - Reference: 
     - Schema: reference/schema.md
     - Tables: reference/tables.md
@@ -37,3 +35,4 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+  - pymdownx.superfences
