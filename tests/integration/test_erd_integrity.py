@@ -13,19 +13,18 @@ import pytest
 import json
 
 # Add project paths
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root / 'src'))
-sys.path.insert(0, str(project_root / 'docs/hooks'))
+sys.path.insert(0, str(project_root / 'scripts'))
 
-from erd_generator import generate_erd_data, generate_erd_html
-import generate_docs
+from generate_erd import generate_erd_data, generate_erd_html, parse_erd_json
 
 
 @pytest.fixture
 def parts_data():
     """Load and parse the dictionary.json file."""
     json_path = project_root / 'src/dictionary.json'
-    return generate_docs.parse_parts_json(json_path)
+    return parse_erd_json(json_path)
 
 
 @pytest.fixture
