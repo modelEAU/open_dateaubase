@@ -5,18 +5,25 @@ import sys
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from open_dateaubase.models import (
-    Dictionary, TablePart, KeyPart, PropertyPart,
-    TablePresence, ValueSetPart, ValueSetMemberPart,
-    ParentKeyPart
+    Dictionary,
+    TablePart,
+    KeyPart,
+    PropertyPart,
+    TablePresence,
+    ValueSetPart,
+    ValueSetMemberPart,
+    ParentKeyPart,
 )
 
 
 class TestTablePresence:
     def test_valid_table_presence(self):
-        presence = TablePresence(role="key", required=True, order=1)
+        presence = TablePresence(
+            role="key", required=True, order=1, relationship_type=None
+        )
         assert presence.role == "key"
         assert presence.required is True
         assert presence.order == 1
@@ -25,10 +32,11 @@ class TestTablePresence:
 class TestTablePart:
     def test_valid_table(self):
         table = TablePart(
-            part_id="test_table",
-            label="Test Table",
-            description="A test table",
-            part_type="table"
+            Part_ID="test_table",
+            Label="Test Table",
+            Description="A test table",
+            Part_type="table",
+            Sort_order=None,
         )
         assert table.part_id == "test_table"
 
@@ -36,40 +44,58 @@ class TestTablePart:
 class TestKeyPart:
     def test_valid_key(self):
         key = KeyPart(
-            part_id="Test_ID",
-            label="Test ID",
-            description="Test identifier",
-            part_type="key",
+            Part_ID="Test_ID",
+            Label="Test ID",
+            Description="Test identifier",
+            Part_type="key",
+            SQL_data_type=None,
+            Is_required=False,
+            Default_value=None,
+            Value_set_part_ID=None,
             table_presence={
-                "test_table": TablePresence(role="key", required=True, order=1)
-            }
+                "test_table": TablePresence(
+                    role="key", required=True, order=1, relationship_type=None
+                )
+            },
         )
         assert key.part_id == "Test_ID"
 
     def test_key_without_id_suffix(self):
         with pytest.raises(ValueError, match="should end with '_ID'"):
             KeyPart(
-                part_id="TestKey",
-                label="Test",
-                description="Test",
-                part_type="key",
+                Part_ID="TestKey",
+                Label="Test",
+                Description="Test",
+                Part_type="key",
+                SQL_data_type=None,
+                Is_required=False,
+                Default_value=None,
+                Value_set_part_ID=None,
                 table_presence={
-                    "test": TablePresence(role="key", required=True, order=1)
-                }
+                    "test": TablePresence(
+                        role="key", required=True, order=1, relationship_type=None
+                    )
+                },
             )
 
 
 class TestParentKeyPart:
     def test_valid_parent_key(self):
         parent = ParentKeyPart(
-            part_id="Parent_ID",
-            label="Parent",
-            description="Hierarchical parent",
-            part_type="parentKey",
-            ancestor_part_id="Test_ID",
+            Part_ID="Parent_ID",
+            Label="Parent",
+            Description="Hierarchical parent",
+            Part_type="parentKey",
+            Ancestor_part_ID="Test_ID",
+            SQL_data_type=None,
+            Is_required=False,
+            Default_value=None,
+            Value_set_part_ID=None,
             table_presence={
-                "test": TablePresence(role="property", required=False, order=2)
-            }
+                "test": TablePresence(
+                    role="property", required=False, order=2, relationship_type=None
+                )
+            },
         )
         assert parent.ancestor_part_id == "Test_ID"
 
@@ -82,7 +108,7 @@ class TestDictionary:
                     "Part_ID": "test_table",
                     "Label": "Test",
                     "Description": "Test table",
-                    "Part_type": "table"
+                    "Part_type": "table",
                 },
                 {
                     "Part_ID": "Test_ID",
@@ -90,13 +116,9 @@ class TestDictionary:
                     "Description": "Test key",
                     "Part_type": "key",
                     "table_presence": {
-                        "test_table": {
-                            "role": "key",
-                            "required": True,
-                            "order": 1
-                        }
-                    }
-                }
+                        "test_table": {"role": "key", "required": True, "order": 1}
+                    },
+                },
             ]
         }
         dictionary = Dictionary.model_validate(data)
@@ -109,14 +131,14 @@ class TestDictionary:
                     "Part_ID": "duplicate",
                     "Label": "Dup 1",
                     "Description": "First",
-                    "Part_type": "table"
+                    "Part_type": "table",
                 },
                 {
                     "Part_ID": "duplicate",
                     "Label": "Dup 2",
                     "Description": "Second",
-                    "Part_type": "table"
-                }
+                    "Part_type": "table",
+                },
             ]
         }
         with pytest.raises(ValueError, match="Duplicate Part_IDs"):
