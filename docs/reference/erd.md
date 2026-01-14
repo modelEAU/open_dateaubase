@@ -1,6 +1,6 @@
 # Entity Relationship Diagram (ERD)
 
-This interactive diagram shows all tables and their relationships in datEAUbase schema.
+This interactive diagram shows all tables and their relationships in dat*EAU*base schema.
 
 ## Interactive ERD
 
