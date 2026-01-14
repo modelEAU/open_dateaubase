@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The dictionary (stored as `dictionary.json` at the project root) serves as a comprehensive metadata repository that defines every component of your database model. It acts as a single source of truth from which you can generate SQL schemas, documentation, and entity-relationship diagrams.
+The dictionary (stored as `dictionary.json` at the project root) serves as a comprehensive metadata repository that defines every component of the dat*EAU*base data model. It acts as a single source of truth from which you can generate SQL schemas, documentation, and entity-relationship diagrams.
 
 **Key Principle**: Each unique field concept gets exactly ONE entry in the dictionary, even if that field appears in multiple tables. The `table_presence` object indicates where each field appears and in what role.
 
