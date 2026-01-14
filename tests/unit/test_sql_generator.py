@@ -95,7 +95,7 @@ class TestGenerateSQLSchema:
 
         assert "ALTER TABLE [test_table]" in sql
         assert "FOREIGN KEY ([Parent_ID])" in sql
-        assert "REFERENCES [test_table] ([TestTable_ID])" in sql
+        assert "REFERENCES [TestTable] ([TestTable_ID])" in sql
 
 
 class TestExtractFieldName:
