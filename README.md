@@ -62,4 +62,4 @@ uv pip install -e ".[dev]"
 ```uv run mkdocs serve```
 
 ## License
-dat*EAU*base is published under the MIT license.
+dat*EAU*base is published under the CC-BY 4.0 license.
