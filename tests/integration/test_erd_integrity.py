@@ -23,7 +23,7 @@ from generate_erd import generate_erd_data, generate_erd_html, parse_erd_json
 @pytest.fixture
 def parts_data():
     """Load and parse the dictionary.json file."""
-    json_path = project_root / 'src/dictionary.json'
+    json_path = project_root / 'src' / 'open_dateaubase' / 'dictionary.json'
     return parse_erd_json(json_path)
 
 

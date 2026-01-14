@@ -4,7 +4,7 @@ Helper functions for manipulating the dictionary.
 Usage:
     from open_dateaubase.helpers import DictionaryManager
 
-    mgr = DictionaryManager.load("src/dictionary.json")
+    mgr = DictionaryManager.load("src/open_dateaubase/dictionary.json")
     mgr.create_value_set("Status_set", "Valid status values")
     mgr.add_value_set_member("Status_set", "active", "Active status", order=1)
     mgr.save()
