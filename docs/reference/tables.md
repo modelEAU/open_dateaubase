@@ -1,6 +1,6 @@
 # Database Tables
 
-This documentation is auto-generated from `src/open_dateaubase/dictionary.json`.
+This documentation is auto-generated from dictionary.json.
 
 
 ## Tables
