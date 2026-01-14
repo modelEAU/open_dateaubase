@@ -15,6 +15,7 @@ env.bak/
 venv.bak/
 .mypy_cache/
 .pytest_cache/
+*.lock
 
 # Docker
 .docker/
