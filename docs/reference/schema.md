@@ -4,7 +4,7 @@
 
 ### 1.1 Purpose
 
-datEAUbase is a relational database designed to:
+dat*EAU*base is a relational database designed to:
 
 - Centralize water quality data from multiple sources (online sensors, laboratories, manual observations)
 - Document measurements with comprehensive metadata (who, what, where, when, how, why)
@@ -14,10 +14,10 @@ datEAUbase is a relational database designed to:
 
 ## 2. Functional Domains
 
-The database is organized into several color-coded functional domains:
+The database is organized into several  functional domains:
 
-| Domain | Color | Tables | Description |
-|--------|-------|--------|-------------|
+| Domain  | Tables | Description |
+|---------|--------|-------------|
 | **Metadata and Values** 3 | Core measurement data and context |
 | **Instrumentation & Procedures**| 9 | Equipment, models, parameters, and SOPs |
 | **Geospatial & Environmental** | 5 | Sites, watersheds, land use characteristics |
@@ -74,4 +74,4 @@ value ──▶ metadata (Central Hub linking the value with their specific cont
 
 ### 4. Key Publications
 
-1. Plana, Q., et al. (2018). "Towards a water quality database for raw and validated data with emphasis on structured metadata." *Water Quality Research Journal*, 54(1), 1-9.
+1. Plana, Q., et al. (2019). "Towards a water quality database for raw and validated data with emphasis on structured metadata." *Water Quality Research Journal*, 54(1), 1-9.
