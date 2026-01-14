@@ -98,7 +98,7 @@ To determine what values a field can accept, check if it references a valueSet:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Get the value set for a field
 field = mgr._find_part("Site_type")
@@ -111,7 +111,7 @@ else:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Get all valid values for that set
 members = mgr.get_value_set_members("Site_type")
@@ -125,7 +125,7 @@ To retrieve all columns that appear in a specific table:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Get all columns in the site table
 columns = mgr.get_table_columns("site")
@@ -137,7 +137,7 @@ Or to see what role each field plays:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Show role information for each field in the site table
 columns = mgr.get_table_columns("site")
@@ -151,7 +151,7 @@ To see all tables where `Equipment_ID` appears:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Find all tables where Equipment_ID appears
 tables = mgr.get_field_tables("Equipment_ID")
@@ -163,7 +163,7 @@ for table_info in tables:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Get all primary keys
 primary_keys = mgr.get_primary_keys()
@@ -175,7 +175,7 @@ Or to see just the key names:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Just the key names
 primary_keys = mgr.get_primary_keys()
@@ -187,7 +187,7 @@ for pk in primary_keys:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # List all tables
 tables = mgr.list_tables()
@@ -200,7 +200,7 @@ for table_id in tables:
 
 ```python exec="true" source="above" result="console"
 from open_dateaubase.data_model.helpers import DictionaryManager
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Find fields that appear in multiple tables
 shared_fields = mgr.get_shared_fields()
@@ -220,7 +220,7 @@ The dictionary should be edited using the `DictionaryManager` helper class, whic
 ```python
 from open_dateaubase.data_model.helpers import DictionaryManager
 
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Create a new value set
 mgr.create_value_set("Status_set", "Status Values", "Valid status values for records")
@@ -239,7 +239,7 @@ mgr.save()
 ```python
 from open_dateaubase.data_model.helpers import DictionaryManager
 
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Create the table
 mgr.create_table("observation", "Observation", "Environmental observation records")
@@ -293,7 +293,7 @@ The `add_field_to_table()` method handles both new and existing fields automatic
 ```python
 from open_dateaubase.data_model.helpers import DictionaryManager
 
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Add a foreign key (Site_ID likely already exists in the dictionary)
 mgr.add_field_to_table(
@@ -342,7 +342,7 @@ For tables with parent-child relationships within the same table:
 ```python
 from open_dateaubase.data_model.helpers import DictionaryManager
 
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Add a parent key for hierarchical structure
 mgr.add_parent_key(
@@ -377,7 +377,7 @@ If a non-ID field name appears in multiple tables with different meanings (e.g.,
 ```python
 from open_dateaubase.data_model.helpers import DictionaryManager
 
-mgr = DictionaryManager.load("dictionary.json")
+mgr = DictionaryManager.load("src/dictionary.json")
 
 # Add site-specific description
 mgr.add_field_to_table(

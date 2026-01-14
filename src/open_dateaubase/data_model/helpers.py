@@ -36,9 +36,14 @@ class DictionaryManager:
         self.path = path
 
     @classmethod
-    def load(cls, path: str | Path) -> "DictionaryManager":
+    def load(cls, path: str | Path | None = None) -> "DictionaryManager":
         """Load dictionary from JSON file with validation."""
-        path = Path(path)
+        if path is None:
+            # Default path when no path specified
+            from importlib.resources import files
+            path = files('open_dateaubase').joinpath('dictionary.json')
+        
+        path = Path(path) if isinstance(path, str) else path
         with open(path, "r", encoding="utf-8") as f:
             raw_data = json.load(f)
         dictionary = Dictionary.model_validate(raw_data)

@@ -14,7 +14,7 @@ def on_pre_build(config):
     """
     # Define paths
     project_root = Path(config["config_file_path"]).parent
-    json_path = project_root / "dictionary.json"
+    json_path = project_root / "src" / "dictionary.json"
     docs_dir = Path(config["docs_dir"])
     output_path = docs_dir / "reference"
     sql_path = project_root / "sql_generation_scripts"
