@@ -1,6 +1,6 @@
 # Value Sets
 
-Controlled vocabularies used throughout dat*EAU*base.
+Controlled vocabularies used throughout database.
 
 
 <span id="Part_type_set"></span>

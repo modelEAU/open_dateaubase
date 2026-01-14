@@ -1,6 +1,6 @@
 -- Auto-generated SQL schema from dictionary.json
 -- Target database: MSSQL
--- Generated: 2026-01-14T11:14:26.769032
+-- Generated: 2026-01-14T11:41:49.964147
 
 
 

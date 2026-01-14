@@ -1,5 +1,13 @@
 site_name: Database Documentation
 site_description: Auto-generated documentation from metadata table
+site_url: https://modeleau.github.io/open_dateaubase/
+repo_url: https://github.com/modeleau/open_dateaubase
+edit_uri: edit/main/docs/
+
+# Version number extracted from pyproject.toml
+extra:
+  version:
+    provider: mike
 
 theme:
   name: material
