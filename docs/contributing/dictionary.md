@@ -2,17 +2,17 @@
 
 ## Purpose
 
-The dictionary (stored as `dictionary.json` at the project root) serves as a comprehensive metadata repository that defines every component of the dat*EAU*base data model. It acts as a single source of truth from which you can generate SQL schemas, documentation, and entity-relationship diagrams.
+The dictionary (stored as `src/open_dateaubase/dictionary.json`) serves as a comprehensive metadata repository that defines every component of the dat*EAU*base data model. It acts as a single source of truth from which you can generate SQL schemas, documentation, and entity-relationship diagrams.
 
 **Key Principle**: Each unique field concept gets exactly ONE entry in the dictionary, even if that field appears in multiple tables. The `table_presence` object indicates where each field appears and in what role.
 
-The dictionary is self-referential: it contains the definitions needed to describe itself, making it bootstrapped and internally consistent.
+The dictionary is self-referential: it contains the definitions needed to describe itself, making it bootstrapped and internally consistent. This is achieved through the use of `Part_type` and `Member_of_set_part_ID` fields, which define the structure and relationships within the dictionary itself.
 
 ## Understanding the Structure
 
 ### JSON Format
 
-The dictionary uses a hierarchical JSON structure that eliminates sparse columns. Each part has only the metadata it needs:
+The dictionary uses a hierarchical JSON structure. Each part has only the metadata it needs (ie, blank properties are omitted):
 
 ```json
 {

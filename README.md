@@ -4,7 +4,7 @@ This repo contains the reference implementation of the dat*EAU*base relational d
 
 ## Repo contents
 
-- `/sql_generation_scripts`: This folder contains the SQL scripts that generate the tables, key constraints and fields defined by the dat*EAU*base data model. The scripts are versioned starting at v0 which corresponds to the version published in [Plana et al. (2018)](https://iwaponline.com/wqrj/article/54/1/1/64706/Towards-a-water-quality-database-for-raw-and). The scripts are refferred to as *"as designed"* (e.g., coming from a documented specification) or *"as built"* (e.g., reflecting the state of the pilEAUte's datEAUbase instance at a given date.) The scripts also vary based on the target database environment (e.g., MSSQL, MYSQL, etc.)
+- `/sql_generation_scripts`: This folder contains the SQL scripts that generate the tables, key constraints and fields defined by the dat*EAU*base data model. The scripts are versioned starting at v0 which corresponds to the version published in [Plana et al. (2019)](https://iwaponline.com/wqrj/article/54/1/1/64706/Towards-a-water-quality-database-for-raw-and). The scripts are refferred to as *"as designed"* (e.g., coming from a documented specification) or *"as built"* (e.g., reflecting the state of the pilEAUte's datEAUbase instance at a given date.) The scripts also vary based on the target database environment (e.g., MSSQL, MYSQL, etc.)
 
 - `/docs`: The folder containing the source files for the official documentation of the datEAUbase project. The files found in `/docs` are processed by the python package `mkdocs` to build the documentation site. 
 
