@@ -124,3 +124,6 @@ cd open_dateaubase/api_metadata
 source .venv/bin/activate
 
 python -m pytest
+
+
+python3 -m streamlit run api_metadata/app.py
