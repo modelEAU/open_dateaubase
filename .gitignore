@@ -17,8 +17,6 @@ venv.bak/
 .mypy_cache/
 .pytest_cache/
 
-# Docker
-.docker/
 
 # IDE
 .vscode/
