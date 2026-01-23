@@ -1,6 +1,6 @@
 # test_metadata_resolver.py
 from metadata_resolver import resolve_metadata_id, MetadataNotFound
-from db import get_connection
+from .db import get_connection
 
 def test_resolve_metadata_id_existing():
     # Arrange: on suppose qu'on a déjà un metadata (1,1,1,1,1,1)

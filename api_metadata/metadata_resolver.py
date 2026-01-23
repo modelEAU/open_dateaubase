@@ -1,6 +1,6 @@
 # metadata_resolver.py
 
-from db import get_connection
+from .db import get_connection
 
 class MetadataNotFound(Exception):
     """Levée quand aucune ligne de metadata ne correspond à la combinaison."""

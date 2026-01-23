@@ -12,118 +12,135 @@ Elle résout automatiquement le `Metadata_ID` à partir d’une combinaison d’
 
 ---
 
-## 1. Prérequis
+# datEAUbase – Metadata API (Local Setup)
 
-- **Docker** installé et fonctionnel
-- **SQL Server** dans un conteneur Docker nommé `dateaubase-sql`
-- **Python 3** installé
-- Environnement virtuel avec les dépendances (dans `api_metadata/.venv`) :
-  - `fastapi`
-  - `uvicorn[standard]`
-  - `pyodbc`
-  - `python-dotenv`
+Cette application est une **API FastAPI** permettant :
+- de résoudre un `Metadata_ID` à partir d’identifiants métiers,
+- d’insérer des valeurs dans la base **datEAUbase (SQL Server)**,
+- d’exposer des endpoints REST pour ingestion et consultation.
 
-Fichier `.env` dans `api_metadata/` :
-
-```env
-DB_SERVER=127.0.0.1,1433
-DB_NAME=proposed_2025_11
-DB_USER=SA
-DB_PASSWORD=StrongPwd123!
-
-
-# datEAUbase – Metadata API & UI
-
-Petit prototype pour gérer les métadonnées et l’ingestion de valeurs dans **datEAUbase**.
+Ce README explique **pas à pas** comment lancer l’application **en local**.
 
 ---
 
-## 1. Prérequis
+## Prérequis
 
-- Docker Desktop (SQL Server dans un conteneur)
-- Python 3.9+
-- `sqlcmd` et `ODBC Driver 18` installés (pour tester la BD)
+Avant de commencer, assure-toi d’avoir :
+
+- Python ≥ 3.9
+- Git
+- SQL Server en cours d’exécution (local ou distant)
+- Accès à une base datEAUbase existante
 
 ---
 
-## 2. Démarrer SQL Server
-
-Le projet suppose un conteneur SQL Server déjà créé, nommé par exemple `dateaubase-sql`.
+## 1️⃣ Cloner le dépôt
 
 ```bash
-# voir l’état
-docker ps -a
+git clone https://github.com/modelEAU/open_dateaubase.git
+cd open_dateaubase
+```
 
-# démarrer le conteneur
-docker start dateaubase-sql
+---
 
-Dans le dossier api_metadata, créer un fichier .env :
+## 2️⃣ Créer un environnement virtuel 
 
-DB_SERVER=127.0.0.1,1433
+```bash
+python3 -m venv .venv
+source .venv/bin/activate   # macOS / Linux
+```
+
+---
+
+## 3️⃣ Installer les dépendances
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+---
+
+## 4️⃣ Créer le fichier `.env.local`
+
+Ce fichier est utilisé **uniquement en local**.
+
+À la racine du projet, créer le fichier `.env.local` :
+
+```env
+DB_HOST=127.0.0.1
+DB_PORT=1433
 DB_NAME=proposed_2025_11
 DB_USER=SA
 DB_PASSWORD=StrongPwd123!
+```
 
-UI_ADMIN_PASSWORD=admin123
-UI_USER_PASSWORD=user123
+⚠️ Important :
+- `127.0.0.1` doit être utilisé en local
+- Ne pas versionner ce fichier
 
-Installation des dépendances
-cd open_dateaubase/api_metadata
+---
 
-python3 -m venv .venv
-source .venv/bin/activate  # sous Windows: .venv\Scripts\activate
+## 5️⃣ Vérifier la connexion à la base (optionnel)
 
-pip install fastapi "uvicorn[standard]" pyodbc python-dotenv streamlit pandas pytest httpx
+```bash
+python api_metadata/db.py
+```
 
-Lancer l’API (FastAPI)
+Sortie attendue :
+```text
+DB connection OK
+```
 
-Depuis api_metadata avec le venv activé :
+---
 
-uvicorn main:app --reload --port 8000
+## 6️⃣ Lancer l’application
 
+```bash
+python3 -m uvicorn api_metadata.main:app --reload
+```
 
-Endpoints utiles :
+L’API est disponible sur :
+```
+http://127.0.0.1:8000
+```
 
-Santé : http://127.0.0.1:8000/health
+---
 
-Docs interactives : http://127.0.0.1:8000/docs
+## 7️⃣ Tester l’API
 
-Exemple d’appel /ingest :
+### Health check
+```
+http://127.0.0.1:8000/health
+```
 
-curl -X POST http://127.0.0.1:8000/ingest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "equipment_id": 1,
-    "parameter_id": 1,
-    "unit_id": 1,
-    "purpose_id": 1,
-    "sampling_point_id": 1,
-    "project_id": 1,
-    "value": 12.34,
-    "timestamp": "2025-11-30T01:30:00"
-  }'
+Réponse attendue :
+```json
+{
+  "status": "ok",
+  "db": "connected"
+}
+```
 
-6. Lancer l’interface UI (Streamlit)
+### Documentation interactive
+```
+http://127.0.0.1:8000/docs
+```
 
-Dans un deuxième terminal, toujours dans api_metadata avec le même venv :
+---
 
-streamlit run app.py
+## Notes importantes
 
+- `.env.local` → exécution locale
+- `.env` → réservé à Docker
+- Les imports utilisent des imports relatifs (`from .db import ...`)
 
-L’UI est accessible sur :
-http://localhost:8501
+---
 
-Page Dashboard : KPIs + graphes sur les 30 derniers jours
+## Prêt à l’emploi
 
-Page Liste des métadonnées : lecture de la table metadata
+Si `/health` et `/docs` fonctionnent, l’application est correctement lancée !
 
-Page Créer une métadonnée : formulaire complet qui crée/relie toutes les FKs.
-
-7. Lancer les tests
-cd open_dateaubase/api_metadata
-source .venv/bin/activate
-
-python -m pytest
-
+Pour lancer streamlit: 
 
 python3 -m streamlit run api_metadata/app.py

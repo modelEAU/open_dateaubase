@@ -6,8 +6,8 @@ import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from db import get_connection
-from metadata_resolver import resolve_metadata_id, MetadataNotFound
+from .db import get_connection
+from .metadata_resolver import resolve_metadata_id, MetadataNotFound
 
 
 logging.basicConfig(

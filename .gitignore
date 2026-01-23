@@ -34,3 +34,5 @@ api_metadata/.venv/
 api_metadata/.env
 
 
+.env
+.env.local
