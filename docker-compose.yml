@@ -9,10 +9,28 @@ services:
       SA_PASSWORD: "StrongPwd123!"
       MSSQL_PID: "Developer"
     ports:
-      - "1433:1433"
+      - "14330:1433"
     volumes:
       - mssql_data:/var/opt/mssql
     restart: unless-stopped
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: open_dateaubase_db_init
+    depends_on:
+      - db
+    volumes:
+      - ./sql:/sql
+    entrypoint: /bin/bash -c "
+      echo 'Waiting for SQL Server...';
+      for i in {1..30}; do
+        /opt/mssql-tools/bin/sqlcmd -S db,1433 -U SA -P 'StrongPwd123!' -Q 'SELECT 1' && break;
+        sleep 2;
+      done;
+      echo 'Running init.sql...';
+      /opt/mssql-tools/bin/sqlcmd -S db,1433 -U SA -P 'StrongPwd123!' -i /sql/init.sql;
+      echo 'Done.'; "
+    restart: "no"
 
   api:
     build: .
@@ -21,6 +39,7 @@ services:
       - .env.docker
     depends_on:
       - db
+      - db-init
     ports:
       - "8000:8000"
     volumes:

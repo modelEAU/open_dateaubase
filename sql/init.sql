@@ -1,0 +1,5 @@
+IF DB_ID('proposed_2025_11') IS NULL
+BEGIN
+  CREATE DATABASE proposed_2025_11;
+END
+GO
