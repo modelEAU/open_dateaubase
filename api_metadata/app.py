@@ -38,12 +38,11 @@ def page_login():
     username = st.text_input("Nom d’utilisateur")
     password = st.text_input("Mot de passe", type="password")
 
-    # bouton vert
     st.markdown("<div class='ui-btn-green'>", unsafe_allow_html=True)
     login_btn = st.button("Se connecter", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)  # ui-login-wrap
+    st.markdown("</div>", unsafe_allow_html=True)  
     close_login_form()
 
     if login_btn:
@@ -253,6 +252,7 @@ def page_create_metadata():
             )
 
             conn.commit()
+            
             st.success(f"Nouvelle métadonnée créée avec succès 🎉 (Metadata_ID = {new_metadata_id})")
 
         except ValueError as ve:
