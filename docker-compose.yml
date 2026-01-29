@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -42,6 +40,21 @@ services:
       - db-init
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  streamlit:
+    build: .
+    container_name: open_dateaubase_streamlit
+    env_file:
+      - .env.docker
+    depends_on:
+      - api
+      - db
+    command: python -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
     volumes:
       - .:/app
     restart: unless-stopped
