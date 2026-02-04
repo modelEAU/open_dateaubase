@@ -1,6 +1,7 @@
 services:
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
     container_name: open_dateaubase_db
     environment:
       ACCEPT_EULA: "Y"
@@ -14,22 +15,34 @@ services:
 
   db-init:
     image: mcr.microsoft.com/mssql-tools
+    platform: linux/amd64
     container_name: open_dateaubase_db_init
     depends_on:
       - db
     volumes:
       - ./sql:/sql
       - ./sql_generation_scripts:/sql_generation_scripts
-    entrypoint: /bin/bash -c "
-      echo 'Waiting for SQL Server...';
-      for i in {1..30}; do
-        /opt/mssql-tools/bin/sqlcmd -S db,1433 -U SA -P 'StrongPwd123!' -Q 'SELECT 1' && break;
-        sleep 2;
-      done;
-      echo 'Running init.sql...';
-      /opt/mssql-tools/bin/sqlcmd -S db,1433 -U SA -P 'StrongPwd123!' -b -V 16 -r 1 -i /sql/init.sql;
+    entrypoint: |
+      /bin/bash -lc '
+      set -euo pipefail
 
-      echo 'Done.'; "
+      SQLCMD=/opt/mssql-tools18/bin/sqlcmd
+      [ -x "$$SQLCMD" ] || SQLCMD=/opt/mssql-tools/bin/sqlcmd
+
+      echo "Waiting for SQL Server..."
+      for i in {1..60}; do
+        "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -Q "SELECT 1" && break
+        sleep 2
+      done
+
+      # Hard fail if still not reachable
+      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -Q "SELECT 1" >/dev/null
+
+      echo "Running init.sql..."
+      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -b -V 16 -r 1 -i /sql/init.sql
+
+      echo "Done."
+      '
     restart: "no"
 
   api:
