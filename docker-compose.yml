@@ -19,6 +19,7 @@ services:
       - db
     volumes:
       - ./sql:/sql
+      - ./sql_generation_scripts:/sql_generation_scripts
     entrypoint: /bin/bash -c "
       echo 'Waiting for SQL Server...';
       for i in {1..30}; do
@@ -26,7 +27,8 @@ services:
         sleep 2;
       done;
       echo 'Running init.sql...';
-      /opt/mssql-tools/bin/sqlcmd -S db,1433 -U SA -P 'StrongPwd123!' -i /sql/init.sql;
+      /opt/mssql-tools/bin/sqlcmd -S db,1433 -U SA -P 'StrongPwd123!' -b -V 16 -r 1 -i /sql/init.sql;
+
       echo 'Done.'; "
     restart: "no"
 
@@ -52,7 +54,7 @@ services:
     depends_on:
       - api
       - db
-    command: python -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+    command: python -m streamlit run api_metadata/app.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
     volumes:
