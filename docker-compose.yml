@@ -1,12 +1,16 @@
+version: "3.9"
+
 services:
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     platform: linux/amd64
     container_name: open_dateaubase_db
+    env_file:
+      - .env
     environment:
       ACCEPT_EULA: "Y"
-      SA_PASSWORD: "StrongPwd123!"
       MSSQL_PID: "Developer"
+      SA_PASSWORD: ${DB_PASSWORD}
     ports:
       - "14330:1433"
     volumes:
@@ -15,45 +19,33 @@ services:
 
   db-init:
     image: mcr.microsoft.com/mssql-tools
-    platform: linux/amd64
     container_name: open_dateaubase_db_init
-    restart: "no"
-    profiles: ["init"]
     depends_on:
       - db
+    env_file:
+      - .env
+    environment:
+      SA_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - ./sql:/sql
-      - ./sql_generation_scripts:/sql_generation_scripts
-    entrypoint: |
-      /bin/bash -lc '
-      set -euo pipefail
-
-      SQLCMD=/opt/mssql-tools18/bin/sqlcmd
-      [ -x "$$SQLCMD" ] || SQLCMD=/opt/mssql-tools/bin/sqlcmd
-
-      echo "Waiting for SQL Server..."
-      for i in {1..60}; do
-        "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -Q "SELECT 1" && break
-        sleep 2
-      done
-
-      # Hard fail if still not reachable
-      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -Q "SELECT 1" >/dev/null
-
-      echo "Running init.sql..."
-      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -b -V 16 -r 1 -i /sql/init.sql
-
-      echo "Done."
-      '
+      - ./sql_generation_scripts:/sql:ro
+    command: >
+      bash -c "
+        echo 'Waiting for SQL Server...' &&
+        until /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -Q 'SELECT 1' > /dev/null 2>&1;
+        do sleep 2; done;
+        echo 'SQL Server is up. Running /sql/2025-11-27_proposed_.sql ...' &&
+        /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -i /sql/2025-11-27_proposed_.sql
+      "
+    restart: "no"
+    profiles: ["init"]
 
   api:
     build: .
     container_name: open_dateaubase_api
     env_file:
-      - .env.docker
+      - .env
     depends_on:
       - db
-      - db-init
     ports:
       - "8000:8000"
     volumes:
@@ -64,7 +56,7 @@ services:
     build: .
     container_name: open_dateaubase_streamlit
     env_file:
-      - .env.docker
+      - .env
     depends_on:
       - api
       - db

@@ -1,27 +1,50 @@
-name: CI
+name: datEAUbase CI
 
 on:
   push:
   pull_request:
 
 jobs:
-    docker:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
-        - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      
-        - name: Create env file
-        run: cp .env.docker.example .env.docker
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Build and start services
-        run: docker compose up --build -d
-
-      - name: Smoke test API
+      - name: Install dependencies
         run: |
-          sleep 20
-          curl -f http://localhost:8000 || exit 1
+          pip install -r requirements.txt
 
-      - name: Shutdown
-        run: docker compose down -v
+      - name: Run API tests
+        run: |
+          pytest api_metadata
+
+      - name: Create env file
+        run: |
+          cp .env.docker.example .env.docker
+
+      - name: Build and start stack
+        run: |
+          docker compose up --build -d
+
+      - name: Wait for services
+        run: sleep 20
+
+      - name: API smoke test
+        run: |
+          curl --fail http://localhost:8000/docs
+
+      - name: Streamlit smoke test
+        run: |
+          curl --fail http://localhost:8501
+
+      - name: DB sanity check
+        run: |
+          docker exec db /opt/mssql-tools/bin/sqlcmd \
+            -S localhost -U sa -P "StrongPwd123!" \
+            -Q "SELECT COUNT(*) FROM proposed_2025_11.dbo.metadata;"
