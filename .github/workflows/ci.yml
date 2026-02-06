@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+    docker:
+    runs-on: ubuntu-latest
+
+    steps:
+        - uses: actions/checkout@v4
+
+      
+        - name: Create env file
+        run: cp .env.docker.example .env.docker
+
+      - name: Build and start services
+        run: docker compose up --build -d
+
+      - name: Smoke test API
+        run: |
+          sleep 20
+          curl -f http://localhost:8000 || exit 1
+
+      - name: Shutdown
+        run: docker compose down -v

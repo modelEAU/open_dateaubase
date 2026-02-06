@@ -17,6 +17,8 @@ services:
     image: mcr.microsoft.com/mssql-tools
     platform: linux/amd64
     container_name: open_dateaubase_db_init
+    restart: "no"
+    profiles: ["init"]
     depends_on:
       - db
     volumes:
@@ -43,7 +45,6 @@ services:
 
       echo "Done."
       '
-    restart: "no"
 
   api:
     build: .

@@ -36,3 +36,4 @@ api_metadata/.env
 
 .env
 .env.local
+.env.docker

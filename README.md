@@ -32,115 +32,62 @@ Avant de commencer, assure-toi d’avoir :
 - SQL Server en cours d’exécution (local ou distant)
 - Accès à une base datEAUbase existante
 
----
+## datEAUbase
 
-## 1️⃣ Cloner le dépôt
+Reference implementation of the dat*EAU*base relational model for water resource recovery facilities (WRRFs). The goal is to store WRRF data **with full context** so downstream mining, modelling, and decision-support steps interpret measurements correctly. Licensed under MIT.
 
+## Metadata API (overview)
+
+FastAPI service targeting the `proposed_2025_11` SQL Server database (runs in Docker). It resolves `Metadata_ID` from domain identifiers (equipment, parameter, unit, purpose, sampling_point, project) plus measurement date, then inserts values into `[value]`.
+
+## Local stack (Docker Compose)
+
+Everything runs in containers: SQL Server, FastAPI backend, Streamlit frontend. No local Python or SQL Server install required.
+
+### 1) Prerequisites
+- Docker Desktop
+- Git
+
+### 2) Clone the repo
 ```bash
-git clone https://github.com/modelEAU/open_dateaubase.git
+git clone <REPO_URL>
 cd open_dateaubase
 ```
 
----
-
-## 2️⃣ Créer un environnement virtuel 
-
+### 3) Create env file
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate   # macOS / Linux
+cp .env.docker.example .env.docker
 ```
 
----
-
-## 3️⃣ Installer les dépendances
-
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
----
-
-## 4️⃣ Créer le fichier `.env.local`
-
-Ce fichier est utilisé **uniquement en local**.
-
-À la racine du projet, créer le fichier `.env.local` :
-
+### 4) (Optional) Tweak `.env.docker`
+Defaults work out of the box. Example values:
 ```env
-DB_HOST=127.0.0.1
+DB_HOST=db
 DB_PORT=1433
 DB_NAME=proposed_2025_11
 DB_USER=SA
 DB_PASSWORD=StrongPwd123!
 ```
 
-⚠️ Important :
-- `127.0.0.1` doit être utilisé en local
-- Ne pas versionner ce fichier
-
----
-
-## 5️⃣ Vérifier la connexion à la base (optionnel)
-
+### 5) Start the stack
 ```bash
-python api_metadata/db.py
+docker compose up --build
 ```
+This boots SQL Server, runs `init.sql`, then starts FastAPI and Streamlit.
 
-Sortie attendue :
-```text
-DB connection OK
-```
+### 6) Access
+- FastAPI docs: http://localhost:8000/docs
+- Streamlit UI: http://localhost:8501
+- SQL Server: localhost:14330
 
----
-
-## 6️⃣ Lancer l’application
-
+### 7) Verify database (optional)
 ```bash
-python3 -m uvicorn api_metadata.main:app --reload
+sqlcmd -S localhost,14330 -U sa -P 'StrongPwd123!' -C \
+  -Q "SELECT name FROM sys.databases;"
 ```
+Expected: `proposed_2025_11`.
 
-L’API est disponible sur :
+### 8) Stop everything
+```bash
+docker compose down
 ```
-http://127.0.0.1:8000
-```
-
----
-
-## 7️⃣ Tester l’API
-
-### Health check
-```
-http://127.0.0.1:8000/health
-```
-
-Réponse attendue :
-```json
-{
-  "status": "ok",
-  "db": "connected"
-}
-```
-
-### Documentation interactive
-```
-http://127.0.0.1:8000/docs
-```
-
----
-
-## Notes importantes
-
-- `.env.local` → exécution locale
-- `.env` → réservé à Docker
-- Les imports utilisent des imports relatifs (`from .db import ...`)
-
----
-
-## Prêt à l’emploi
-
-Si `/health` et `/docs` fonctionnent, l’application est correctement lancée !
-
-Pour lancer streamlit: 
-
-python3 -m streamlit run api_metadata/app.py

@@ -4,14 +4,17 @@ SET QUOTED_IDENTIFIER ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
 SET CONCAT_NULL_YIELDS_NULL ON;
-
 SET XACT_ABORT ON;
 
 BEGIN TRY
 BEGIN TRAN;
 
 IF SCHEMA_ID('dbo') IS NULL
-        EXEC('CREATE SCHEMA dbo');
+    EXEC('CREATE SCHEMA dbo');
+
+------------------------------------------------------------
+-- 1) Reference tables
+------------------------------------------------------------
 
 IF OBJECT_ID('dbo.weather_condition', 'U') IS NULL
 BEGIN
@@ -86,6 +89,9 @@ BEGIN
     );
 END;
 
+------------------------------------------------------------
+-- 2) Equipment
+------------------------------------------------------------
 
 IF OBJECT_ID('dbo.equipment_model', 'U') IS NULL
 BEGIN
@@ -131,7 +137,6 @@ BEGIN
     );
 END;
 
-
 IF OBJECT_ID('dbo.FK_project_has_equipment_Project_ID', 'F') IS NULL
 BEGIN
     ALTER TABLE dbo.project_has_equipment
@@ -146,28 +151,31 @@ BEGIN
       FOREIGN KEY (Equipment_ID) REFERENCES dbo.equipment(Equipment_ID);
 END;
 
+------------------------------------------------------------
+-- 3) Contacts + projects
+------------------------------------------------------------
 
 IF OBJECT_ID('dbo.contact', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.contact (
-        Contact_ID      int            NOT NULL,
-        Last_name       nvarchar(100)  NULL,
-        First_name      nvarchar(255)  NULL,
-        Company         nvarchar(max)  NULL,
-        Status          nvarchar(255)  NULL,
-        [Function]      nvarchar(max)  NULL,
-        Office_number   nvarchar(100)  NULL,
-        Email           nvarchar(100)  NULL,
-        Phone           nvarchar(100)  NULL,
-        Skype_name      nvarchar(100)  NULL,
-        Linkedin        nvarchar(100)  NULL,
-        Street_number   nvarchar(100)  NULL,
-        Street_name     nvarchar(100)  NULL,
-        City            nvarchar(255)  NULL,
-        Zip_code        nvarchar(45)   NULL,
-        [Province/State] nvarchar(255) NULL,  
-        Country         nvarchar(255)  NULL,
-        Website         nvarchar(60)   NULL,
+        Contact_ID       int            NOT NULL,
+        Last_name        nvarchar(100)  NULL,
+        First_name       nvarchar(255)  NULL,
+        Company          nvarchar(max)  NULL,
+        Status           nvarchar(255)  NULL,
+        [Function]       nvarchar(max)  NULL,
+        Office_number    nvarchar(100)  NULL,
+        Email            nvarchar(100)  NULL,
+        Phone            nvarchar(100)  NULL,
+        Skype_name       nvarchar(100)  NULL,
+        Linkedin         nvarchar(100)  NULL,
+        Street_number    nvarchar(100)  NULL,
+        Street_name      nvarchar(100)  NULL,
+        City             nvarchar(255)  NULL,
+        Zip_code         nvarchar(45)   NULL,
+        [Province/State] nvarchar(255)  NULL,
+        Country          nvarchar(255)  NULL,
+        Website          nvarchar(60)   NULL,
         CONSTRAINT PK_contact PRIMARY KEY (Contact_ID)
     );
 END;
@@ -195,6 +203,9 @@ BEGIN
       FOREIGN KEY (Contact_ID) REFERENCES dbo.contact(Contact_ID);
 END;
 
+------------------------------------------------------------
+-- 4) Watershed characteristics (WITH FK to watershed)
+------------------------------------------------------------
 
 IF OBJECT_ID('dbo.hydrological_characteristics', 'U') IS NULL
 BEGIN
@@ -239,6 +250,9 @@ BEGIN
       FOREIGN KEY (Watershed_ID) REFERENCES dbo.watershed(Watershed_ID);
 END;
 
+------------------------------------------------------------
+-- 5) Sites + sampling points
+------------------------------------------------------------
 
 IF OBJECT_ID('dbo.site', 'U') IS NULL
 BEGIN
@@ -318,10 +332,10 @@ END;
 IF OBJECT_ID('dbo.parameter', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.parameter (
-        Parameter_ID int           NOT NULL,
-        Parameter    nvarchar(100) NULL,
-        Unit_ID      int           NULL,
-        [Description] nvarchar(max) NULL,
+        Parameter_ID  int            NOT NULL,
+        Parameter     nvarchar(100)  NULL,
+        Unit_ID       int            NULL,
+        [Description] nvarchar(max)  NULL,
         CONSTRAINT PK_parameter PRIMARY KEY (Parameter_ID)
     );
 END;
@@ -333,6 +347,9 @@ BEGIN
       FOREIGN KEY (Unit_ID) REFERENCES dbo.unit(Unit_ID);
 END;
 
+------------------------------------------------------------
+-- 7) Procedure relations
+------------------------------------------------------------
 
 IF OBJECT_ID('dbo.parameter_has_procedures', 'U') IS NULL
 BEGIN
@@ -380,7 +397,6 @@ BEGIN
       FOREIGN KEY (Procedure_ID) REFERENCES dbo.procedures(Procedure_ID);
 END;
 
--- FIXED TABLE + FIXED FK
 IF OBJECT_ID('dbo.equipment_model_has_Parameter', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.equipment_model_has_Parameter (
@@ -421,8 +437,8 @@ BEGIN
         Sampling_point_ID int NULL,
         Contact_ID        int NULL,
         Project_ID        int NULL,
-        StartDate         int NULL,
-        EndDate           int NULL,
+        StartDate         int NULL,  -- Unix time
+        EndDate           int NULL,  -- Unix time
         CONSTRAINT PK_metadata PRIMARY KEY (Metadata_ID)
     );
 END;
@@ -494,15 +510,15 @@ END;
 -- 9) Value table (time series)
 ------------------------------------------------------------
 
-IF OBJECT_ID('dbo.value', 'U') IS NULL
+IF OBJECT_ID('dbo.[value]', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.[value] (
         Value_ID             int IDENTITY(1,1) NOT NULL,
         Value                float             NULL,
         Number_of_experiment numeric           NULL,
-        Metadata_ID           int              NULL,
-        Comment_ID            int              NULL,
-        Timestamp             int              NULL,
+        Metadata_ID          int               NULL,
+        Comment_ID           int               NULL,
+        Timestamp            int               NULL, -- Unix time
         CONSTRAINT PK_value PRIMARY KEY (Value_ID)
     );
 END;
@@ -525,14 +541,13 @@ END;
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes
     WHERE name = 'UX_value_MetadataID_Timestamp'
-      AND object_id = OBJECT_ID('dbo.value')
+      AND object_id = OBJECT_ID('dbo.[value]')
 )
 BEGIN
     CREATE UNIQUE INDEX UX_value_MetadataID_Timestamp
     ON dbo.[value] (Metadata_ID, Timestamp)
     WHERE Metadata_ID IS NOT NULL AND Timestamp IS NOT NULL;
 END;
-
 
 COMMIT TRAN;
 END TRY
