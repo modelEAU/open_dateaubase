@@ -72,6 +72,22 @@
       "Sort_order": 8
     },
     {
+      "Part_ID": "view",
+      "Label": "View",
+      "Description": "Represents a database view",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 9
+    },
+    {
+      "Part_ID": "viewColumn",
+      "Label": "View Column",
+      "Description": "Represents a column in a database view",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "Part_type_set",
+      "Sort_order": 10
+    },
+    {
       "Part_ID": "comments",
       "Label": "Comments",
       "Description": "Stores any additional textual comments, notes, or observations related to a specific measured value",

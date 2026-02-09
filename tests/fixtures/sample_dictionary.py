@@ -201,7 +201,7 @@ def complex_dictionary_data() -> Dict[str, Any]:
                         "required": True,
                         "order": 2,
                     }
-                }
+                },
             },
         ]
     }
@@ -295,6 +295,113 @@ def invalid_dictionary_data() -> Dict[str, Any]:
                 "Label": "Invalid Value Set",
                 "Description": "This value set doesn't end with _set or Set",
                 "Part_type": "valueSet",
+            },
+        ]
+    }
+
+
+def dictionary_with_views_data() -> Dict[str, Any]:
+    """Dictionary data including tables and views for testing view support."""
+    return {
+        "parts": [
+            # First table
+            {
+                "Part_ID": "contact",
+                "Label": "Contact",
+                "Description": "Contact information table",
+                "Part_type": "table",
+            },
+            {
+                "Part_ID": "Contact_ID",
+                "Label": "Contact ID",
+                "Description": "Primary key for contact",
+                "Part_type": "key",
+                "SQL_data_type": "int",
+                "Is_required": True,
+                "table_presence": {
+                    "contact": {"role": "key", "required": True, "order": 1}
+                },
+            },
+            {
+                "Part_ID": "contact_Name",
+                "Label": "Name",
+                "Description": "Full name of contact",
+                "Part_type": "property",
+                "SQL_data_type": "nvarchar(255)",
+                "Is_required": True,
+                "table_presence": {
+                    "contact": {"role": "property", "required": True, "order": 2}
+                },
+            },
+            # Second table
+            {
+                "Part_ID": "project",
+                "Label": "Project",
+                "Description": "Project information",
+                "Part_type": "table",
+            },
+            {
+                "Part_ID": "Project_ID",
+                "Label": "Project ID",
+                "Description": "Primary key for project",
+                "Part_type": "key",
+                "SQL_data_type": "int",
+                "Is_required": True,
+                "table_presence": {
+                    "project": {"role": "key", "required": True, "order": 1}
+                },
+            },
+            {
+                "Part_ID": "Project_Contact_ID",
+                "Label": "Contact ID",
+                "Description": "Foreign key to contact",
+                "Part_type": "property",
+                "SQL_data_type": "int",
+                "Is_required": True,
+                "table_presence": {
+                    "project": {"role": "property", "required": True, "order": 2}
+                },
+            },
+            # View definition
+            {
+                "Part_ID": "contact_project_view",
+                "Label": "Contact Project View",
+                "Description": "View showing contacts with their projects",
+                "Part_type": "view",
+                "View_definition": """
+SELECT c.Contact_ID, c.contact_Name, p.Project_ID
+FROM contact c
+LEFT JOIN project p ON c.Contact_ID = p.Project_Contact_ID
+WHERE c.Is_active = 1
+""",
+            },
+            # View columns
+            {
+                "Part_ID": "contact_project_view_Contact_ID",
+                "Label": "Contact ID",
+                "Description": "Contact identifier from view",
+                "Part_type": "viewColumn",
+                "Source_field_part_ID": "Contact_ID",
+                "SQL_data_type": "int",
+                "view_presence": {"contact_project_view": {"order": 1}},
+            },
+            {
+                "Part_ID": "contact_project_view_Name",
+                "Label": "Name",
+                "Description": "Contact name from view",
+                "Part_type": "viewColumn",
+                "Source_field_part_ID": "contact_Name",
+                "SQL_data_type": "nvarchar(255)",
+                "view_presence": {"contact_project_view": {"order": 2}},
+            },
+            {
+                "Part_ID": "contact_project_view_Project_ID",
+                "Label": "Project ID",
+                "Description": "Project identifier from view",
+                "Part_type": "viewColumn",
+                "Source_field_part_ID": "Project_ID",
+                "SQL_data_type": "int",
+                "view_presence": {"contact_project_view": {"order": 3}},
             },
         ]
     }

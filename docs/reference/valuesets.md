@@ -20,3 +20,5 @@ Valid values for part types
 | <span id="parentKey"></span>`parentKey` | Hierarchical reference to parent record in same table |
 | <span id="valueSet"></span>`valueSet` | Represents an enumeration or controlled vocabulary |
 | <span id="valueSetMember"></span>`valueSetMember` | Individual value within a value set |
+| <span id="view"></span>`view` | Represents a database view |
+| <span id="viewColumn"></span>`viewColumn` | Represents a column in a database view |

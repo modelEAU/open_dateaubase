@@ -19,7 +19,7 @@ from importlib.metadata import version
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
-from open_dateaubase.data_model.models import Dictionary
+from open_dateaubase.data_model.models import Dictionary, ViewPart, ViewColumnPart
 
 package_version = version("open-dateaubase")
 
@@ -37,7 +37,13 @@ def parse_parts_json(json_path):
     dictionary = Dictionary.model_validate(raw_data)
 
     # Transform to legacy format for generators
-    data = {"tables": {}, "value_sets": {}, "metadata": {}, "id_field_locations": {}}
+    data = {
+        "tables": {},
+        "value_sets": {},
+        "metadata": {},
+        "id_field_locations": {},
+        "views": {},
+    }
 
     # Process tables
     for part in dictionary.parts:
@@ -46,6 +52,16 @@ def parse_parts_json(json_path):
                 "label": part.label,
                 "description": part.description,
                 "fields": [],
+            }
+
+    # Process views
+    for part in dictionary.parts:
+        if part.part_type == "view":
+            data["views"][part.part_id] = {
+                "label": part.label,
+                "description": part.description,
+                "view_definition": part.view_definition,
+                "columns": [],
             }
 
     # Process fields
@@ -122,6 +138,27 @@ def parse_parts_json(json_path):
     for value_set in data["value_sets"].values():
         value_set["members"].sort(key=lambda x: x["sort_order"])
 
+    # Process view columns
+    for part in dictionary.parts:
+        if part.part_type == "viewColumn":
+            for view_name, view_meta in part.view_presence.items():
+                if view_name not in data["views"]:
+                    continue
+
+                col_info = {
+                    "part_id": part.part_id,
+                    "label": part.label,
+                    "description": part.description,
+                    "source_field_part_id": part.source_field_part_id,
+                    "sql_data_type": part.sql_data_type or "",
+                    "sort_order": view_meta.get("order", 999),
+                }
+                data["views"][view_name]["columns"].append(col_info)
+
+    # Sort columns
+    for view in data["views"].values():
+        view["columns"].sort(key=lambda x: x["sort_order"])
+
     return data
 
 
@@ -193,9 +230,19 @@ def generate_sql_schema(data, target_db="mssql", include_timestamp=True):
     for table_id, table_info in sorted(data["tables"].items()):
         for field in table_info["fields"]:
             if field["fk_to"]:
-                fk_sql = generate_foreign_key_constraint(table_id, field, data, db_config)
+                fk_sql = generate_foreign_key_constraint(
+                    table_id, field, data, db_config
+                )
                 if fk_sql:
                     sql.append(fk_sql)
+
+    # Third pass: Create views
+    if "views" in data and data["views"]:
+        sql.append("\n-- Views\n")
+        for view_id, view_info in sorted(data["views"].items()):
+            sql.append(f"\n-- {view_info['description']}")
+            sql.append(f"CREATE VIEW {db_config['quote'](view_id)} AS")
+            sql.append(f"{view_info['view_definition']};")
 
     return "\n".join(sql)
 
@@ -238,12 +285,12 @@ def get_db_config(target_db):
 
     # Add convenience method for quoting identifiers
     if config["quote_char_end"]:
-        config["quote"] = (
-            lambda name: f"{config['quote_char']}{name}{config['quote_char_end']}"
+        config["quote"] = lambda name: (
+            f"{config['quote_char']}{name}{config['quote_char_end']}"
         )
     else:
-        config["quote"] = (
-            lambda name: f"{config['quote_char']}{name}{config['quote_char_end']}"
+        config["quote"] = lambda name: (
+            f"{config['quote_char']}{name}{config['quote_char_end']}"
         )
 
     return config

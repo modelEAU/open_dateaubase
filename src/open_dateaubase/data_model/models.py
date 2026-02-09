@@ -199,12 +199,61 @@ class ParentKeyPart(FieldPartBase):
     part_type: Literal["parentKey"] = Field(alias="Part_type")
     ancestor_part_id: str = Field(..., alias="Ancestor_part_ID", min_length=1)
 
-    @field_validator("ancestor_part_id")
+
+# ============================================================================
+# View Parts
+# ============================================================================
+
+
+class ViewPart(PartBase):
+    """Represents a database view definition."""
+
+    part_type: Literal["view"] = Field(alias="Part_type")
+    view_definition: str = Field(
+        ...,
+        alias="View_definition",
+        description="SQL SELECT statement defining the view",
+    )
+
+    @field_validator("part_id")
     @classmethod
-    def validate_ancestor_is_key(cls, v: str) -> str:
-        """Ancestor should be a key field (end with _ID)."""
-        if not v.endswith("_ID"):
-            raise ValueError(f"Ancestor '{v}' should be a key field ending with '_ID'")
+    def validate_view_name(cls, v: str) -> str:
+        """View names should be lowercase with underscores."""
+        if " " in v:
+            raise ValueError(f"View name '{v}' should not contain spaces")
+        return v
+
+
+class ViewColumnPart(PartBase):
+    """Represents a column in a database view."""
+
+    part_type: Literal["viewColumn"] = Field(alias="Part_type")
+    source_field_part_id: str = Field(
+        ...,
+        alias="Source_field_part_ID",
+        description="Part_ID of the source field this column derives from",
+    )
+    sql_data_type: Optional[str] = Field(None, alias="SQL_data_type")
+    description: str = Field(..., alias="Description")
+    view_presence: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Maps view_name -> view metadata (order)"
+    )
+
+    @model_validator(mode="after")
+    def validate_view_presence_not_empty(self):
+        """View column parts must appear in at least one view."""
+        if not self.view_presence:
+            raise ValueError(
+                f"View column '{self.part_id}' must appear in at least one view"
+            )
+        return self
+
+    @field_validator("source_field_part_id")
+    @classmethod
+    def validate_source_field(cls, v: str) -> str:
+        """Source field should reference an existing field part."""
+        if not v:
+            raise ValueError(f"Source field part ID cannot be empty")
         return v
 
 
@@ -258,6 +307,8 @@ Part = Annotated[
         ParentKeyPart,
         ValueSetPart,
         ValueSetMemberPart,
+        ViewPart,
+        ViewColumnPart,
     ],
     Field(discriminator="part_type"),
 ]
@@ -327,6 +378,40 @@ class Dictionary(BaseModel):
                             f"Field '{part.part_id}' references non-existent "
                             f"table '{table_name}' in table_presence"
                         )
+
+        # Validate view_presence references
+        view_names = {part.part_id for part in self.parts if isinstance(part, ViewPart)}
+        for part in self.parts:
+            if isinstance(part, ViewColumnPart):
+                for view_name in part.view_presence.keys():
+                    if view_name not in view_names:
+                        raise ValueError(
+                            f"View column '{part.part_id}' references non-existent "
+                            f"view '{view_name}' in view_presence"
+                        )
+
+        # Validate source_field_part_id references
+        field_part_ids = {
+            p.part_id
+            for p in self.parts
+            if isinstance(
+                p,
+                (
+                    KeyPart,
+                    PropertyPart,
+                    CompositeKeyFirstPart,
+                    CompositeKeySecondPart,
+                    ParentKeyPart,
+                ),
+            )
+        }
+        for part in self.parts:
+            if isinstance(part, ViewColumnPart):
+                if part.source_field_part_id not in field_part_ids:
+                    raise ValueError(
+                        f"View column '{part.part_id}' references non-existent "
+                        f"field '{part.source_field_part_id}' in source_field_part_id"
+                    )
 
         # Validate foreign key relationships by inferring targets from field names
         for part in self.parts:
