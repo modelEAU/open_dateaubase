@@ -33,6 +33,7 @@ nav:
   - Reference: 
     - Schema: reference/schema.md
     - Tables: reference/tables.md
+    - Views: reference/views.md
     - Value Sets: reference/valuesets.md
     - ERD Diagram: reference/erd.md
 

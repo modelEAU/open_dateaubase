@@ -1,11 +1,11 @@
 # Entity Relationship Diagram (ERD)
 
-This interactive diagram shows all tables and their relationships in dat*EAU*base schema.
+This interactive diagram shows all tables, views, and their relationships in datEAUbase schema.
 
 ## Interactive ERD
 
 The interactive version allows you to:
-- 🖱️ **Drag tables** to rearrange layout
+- 🖱️ **Drag tables/views** to rearrange layout
 - 🔍 **Zoom in/out** for better visibility
 - 📐 **Auto-layout** to reorganize tables automatically
 - 💾 **Export** diagram as PNG
@@ -15,6 +15,13 @@ The interactive version allows you to:
 [Open in new window](../assets/erd_interactive.html){: target="_blank" .md-button .md-button--primary}
 
 ## Legend
+
+### Entity Types
+
+| Marker | Description |
+|--------|-------------|
+| **Table** | Physical database table with primary keys, foreign keys, and properties |
+| **View** | Virtual table defined by a SQL query (shown with distinct styling) |
 
 ### Field Markers
 - **PK** badge: Primary Key - Unique identifier for each record
@@ -31,6 +38,9 @@ Relationships use standard crow's foot notation:
 - **One-to-Many**: Crow's foot on child side, single line on parent (e.g., site ↔ sampling_points)
 - **Many-to-Many**: Crow's foot on both ends (via junction tables like project_has_contact)
 
-## Table Count
+## Statistics
 
-The current schema contains **23** tables with **27** relationships.
+The current schema contains:
+- **23** tables
+- **0** views
+- **27** relationships

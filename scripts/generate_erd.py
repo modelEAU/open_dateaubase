@@ -18,7 +18,7 @@ from dataclasses import dataclass, asdict
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
-from open_dateaubase.data_model.models import Dictionary
+from open_dateaubase.data_model.models import Dictionary, ViewPart, ViewColumnPart
 
 
 def parse_erd_json(json_path):
@@ -34,7 +34,13 @@ def parse_erd_json(json_path):
     dictionary = Dictionary.model_validate(raw_data)
 
     # Transform to legacy format for generators
-    data = {"tables": {}, "value_sets": {}, "metadata": {}, "id_field_locations": {}}
+    data = {
+        "tables": {},
+        "value_sets": {},
+        "metadata": {},
+        "id_field_locations": {},
+        "views": {},
+    }
 
     # Process tables
     for part in dictionary.parts:
@@ -43,6 +49,16 @@ def parse_erd_json(json_path):
                 "label": part.label,
                 "description": part.description,
                 "fields": [],
+            }
+
+    # Process views
+    for part in dictionary.parts:
+        if part.part_type == "view":
+            data["views"][part.part_id] = {
+                "label": part.label,
+                "description": part.description,
+                "view_definition": part.view_definition,
+                "columns": [],
             }
 
     # Process fields
@@ -119,6 +135,27 @@ def parse_erd_json(json_path):
     for value_set in data["value_sets"].values():
         value_set["members"].sort(key=lambda x: x["sort_order"])
 
+    # Process view columns
+    for part in dictionary.parts:
+        if part.part_type == "viewColumn":
+            for view_name, view_meta in part.view_presence.items():
+                if view_name not in data["views"]:
+                    continue
+
+                col_info = {
+                    "part_id": part.part_id,
+                    "label": part.label,
+                    "description": part.description,
+                    "source_field_part_id": part.source_field_part_id,
+                    "sql_data_type": part.sql_data_type or "",
+                    "sort_order": view_meta.get("order", 999),
+                }
+                data["views"][view_name]["columns"].append(col_info)
+
+    # Sort columns
+    for view in data["views"].values():
+        view["columns"].sort(key=lambda x: x["sort_order"])
+
     return data
 
 
@@ -148,12 +185,12 @@ def generate_erd_files(parts_data, assets_path, output_path):
     # Create ERD documentation page
     erd_markdown = f"""# Entity Relationship Diagram (ERD)
 
-This interactive diagram shows all tables and their relationships in datEAUbase schema.
+This interactive diagram shows all tables, views, and their relationships in datEAUbase schema.
 
 ## Interactive ERD
 
 The interactive version allows you to:
-- 🖱️ **Drag tables** to rearrange layout
+- 🖱️ **Drag tables/views** to rearrange layout
 - 🔍 **Zoom in/out** for better visibility
 - 📐 **Auto-layout** to reorganize tables automatically
 - 💾 **Export** diagram as PNG
@@ -163,6 +200,13 @@ The interactive version allows you to:
 [Open in new window](../assets/erd_interactive.html){{: target="_blank" .md-button .md-button--primary}}
 
 ## Legend
+
+### Entity Types
+
+| Marker | Description |
+|--------|-------------|
+| **Table** | Physical database table with primary keys, foreign keys, and properties |
+| **View** | Virtual table defined by a SQL query (shown with distinct styling) |
 
 ### Field Markers
 - **PK** badge: Primary Key - Unique identifier for each record
@@ -179,9 +223,12 @@ Relationships use standard crow's foot notation:
 - **One-to-Many**: Crow's foot on child side, single line on parent (e.g., site ↔ sampling_points)
 - **Many-to-Many**: Crow's foot on both ends (via junction tables like project_has_contact)
 
-## Table Count
+## Statistics
 
-The current schema contains **{len(parts_data["tables"])}** tables with **{len(erd_data["relationships"])}** relationships.
+The current schema contains:
+- **{len(parts_data["tables"])}** tables
+- **{len(parts_data.get("views", {}))}** views
+- **{len(erd_data["relationships"])}** relationships
 """
 
     (output_path / "erd.md").write_text(erd_markdown, encoding="utf-8")
@@ -192,7 +239,9 @@ def main():
     """Main entry point for script."""
     if len(sys.argv) != 4:
         print("Usage: python generate_erd.py <json_path> <assets_path> <output_path>")
-        print("Example: python generate_erd.py dictionary.json docs/assets docs/reference")
+        print(
+            "Example: python generate_erd.py dictionary.json docs/assets docs/reference"
+        )
         sys.exit(1)
 
     json_path = Path(sys.argv[1])
@@ -208,8 +257,6 @@ def main():
 
     # Generate ERD files
     generate_erd_files(parts_data, assets_path, output_path)
-
-
 
 
 @dataclass
@@ -236,6 +283,17 @@ class ERDTable:
 
 
 @dataclass
+class ERDView:
+    """Represents a view for ERD visualization."""
+
+    id: str
+    label: str
+    description: str
+    view_definition: str
+    columns: List[ERDField]
+
+
+@dataclass
 class ERDRelationship:
     """Represents a foreign key relationship from child (FK) to parent (PK)."""
 
@@ -258,9 +316,10 @@ def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
         parts_data: Parsed data from parse_parts_json() in generate_docs.py
 
     Returns:
-        Dict with 'tables' and 'relationships' for ERD rendering
+        Dict with 'tables', 'views', and 'relationships' for ERD rendering
     """
     tables = []
+    views = []
     relationships = []
 
     # Process each table
@@ -302,6 +361,31 @@ def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
             fields=fields,
         )
         tables.append(erd_table)
+
+    # Process each view
+    for view_id, view_info in parts_data.get("views", {}).items():
+        columns = []
+
+        for col in view_info["columns"]:
+            erd_field = ERDField(
+                name=col["label"],
+                sql_type=col["sql_data_type"] or "unknown",
+                is_pk=False,
+                is_fk=False,
+                is_required=False,
+                fk_target=None,
+                description=col["description"],
+            )
+            columns.append(erd_field)
+
+        erd_view = ERDView(
+            id=view_id,
+            label=view_info["label"],
+            description=view_info["description"],
+            view_definition=view_info["view_definition"],
+            columns=columns,
+        )
+        views.append(erd_view)
 
     # Build a mapping of PK field IDs to their primary tables
     # A field is a PRIMARY KEY in a table if part_type is 'key' (not compositeKeyFirst/Second)
@@ -347,6 +431,7 @@ def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "tables": [asdict(t) for t in tables],
+        "views": [asdict(v) for v in views],
         "relationships": [asdict(r) for r in relationships],
     }
 
@@ -495,6 +580,28 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
 
         .table-row:last-child {{
             border-bottom: none;
+        }}
+
+        /* --- View-specific styles --- */
+        .html-element.view {{
+            border: 2px dashed #3b82f6;
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+        }}
+
+        .html-element.view .table-header {{
+            background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+            color: #1e40af;
+        }}
+
+        .view-badge {{
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: 500;
         }}
 
         .table-row:hover {{
@@ -685,37 +792,46 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
 
             initialize: function() {{
                 joint.dia.ElementView.prototype.initialize.apply(this, arguments);
-                
+
                 // Create the DIV that will mock the element
                 this.div = document.createElement('div');
                 this.div.className = 'html-element';
-                this.div.id = this.model.id; 
-                
+                this.div.id = this.model.id;
+
+                // Check if this is a view
+                if (this.model.get('isView')) {{
+                    this.div.classList.add('view');
+                }}
+
                 // Prevent paper panning when clicking on the element
                 this.div.addEventListener('mousedown', (e) => {{
                     // We handle our own interactions
-                    e.stopPropagation(); 
-                    
+                    e.stopPropagation();
+
                     // Visual Selection
                     document.querySelectorAll('.html-element').forEach(el => el.classList.remove('selected'));
                     this.div.classList.add('selected');
                 }});
-                
+
                 this.renderContent();
                 this.model.on('change', this.updateBox, this);
             }},
             renderContent: function() {{
-                const data = this.model.get('tableData');
-                
+                const isView = this.model.get('isView');
+                const data = isView ? this.model.get('viewData') : this.model.get('tableData');
+
                 // Escape string for usage in onclick
-                const tableJson = JSON.stringify({{
+                const entityJson = JSON.stringify({{
                     name: data.label,
                     description: data.description,
-                    type: 'table'
+                    type: isView ? 'view' : 'table',
+                    definition: data.view_definition || null
                 }}).replace(/"/g, '&quot;');
-                
+
                 let rowsHtml = '';
-                data.fields.forEach(field => {{
+                const items = isView ? data.columns : data.fields;
+
+                items.forEach(field => {{
                     let keyBadge = '';
                     if (field.is_pk) keyBadge = '<span class="pk-badge" title="Primary Key">PK</span>';
                     else if (field.is_fk) keyBadge = '<span class="fk-badge" title="Foreign Key">FK</span>';
@@ -735,10 +851,12 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
                     `;
                 }});
 
+                const badgeHtml = isView ? '<span class="view-badge">VIEW</span>' : '';
+
                 this.div.innerHTML = `
                     <div class="table-header" onmousedown="startDrag(event, '${{this.model.id}}')">
-                        <span>${{data.label}}</span>
-                        <span class="info-btn" onclick="showTableDetails('${{tableJson}}', event)">ℹ️</span>
+                        <span>${{data.label}}</span>${{badgeHtml}}
+                        <span class="info-btn" onclick="showTableDetails('${{entityJson}}', event)">ℹ️</span>
                     </div>
                     <div class="table-body">
                         ${{rowsHtml}}
@@ -826,6 +944,35 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
 
             element.addTo(graph);
             tableElements[table.id] = element;
+        }});
+
+        // 1b. Create View Nodes (with distinct styling)
+        const viewElements = {{}};
+        erdData.views.forEach(view => {{
+            // Dynamic Width Calculation
+            let maxChars = view.label.length;
+            view.columns.forEach(col => {{
+                const lineLength = col.name.length + col.sql_type.length + 5;
+                if (lineLength > maxChars) maxChars = lineLength;
+            }});
+
+            let calculatedWidth = (maxChars * 10) + 80;
+            if (calculatedWidth < 280) calculatedWidth = 280;
+            if (calculatedWidth > 700) calculatedWidth = 700;
+
+            const headerHeight = 40;
+            const rowHeight = 30;
+            const height = headerHeight + (view.columns.length * rowHeight) + 10;
+
+            const viewElement = new joint.shapes.html.Element({{
+                position: {{ x: 0, y: 0 }},
+                size: {{ width: calculatedWidth, height: height }},
+                viewData: view,
+                isView: true
+            }});
+
+            viewElement.addTo(graph);
+            viewElements[view.id] = viewElement;
         }});
 
         // Helper function to determine cardinality markers
@@ -1318,25 +1465,40 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
         
         function showTableDetails(tableJson, event) {{
             event.stopPropagation();
-            const table = JSON.parse(tableJson);
+            const entity = JSON.parse(tableJson);
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('sidebar-details');
-            
-            content.innerHTML = `
+
+            const typeLabel = entity.type === 'view' ? 'View' : 'Table';
+            const typeClass = entity.type === 'view' ? '#3b82f6' : '#64748b';
+
+            let html = `
                 <div class="field-detail">
                     <div class="detail-label">Type</div>
-                    <div class="type-tag">Table</div>
+                    <div class="type-tag" style="background: ${{typeClass}}; color: white;">${{typeLabel}}</div>
                 </div>
                 <div class="field-detail">
                     <div class="detail-label">Name</div>
-                    <div class="detail-value" style="font-weight: 600">${{table.name}}</div>
+                    <div class="detail-value" style="font-weight: 600">${{entity.name}}</div>
                 </div>
                 <div class="field-detail">
                     <div class="detail-label">Description</div>
-                    <div class="detail-value">${{table.description || "No description available."}}</div>
+                    <div class="detail-value">${{entity.description || "No description available."}}</div>
                 </div>
             `;
-            
+
+            // Show view definition if this is a view
+            if (entity.type === 'view' && entity.definition) {{
+                html += `
+                    <div class="field-detail">
+                        <div class="detail-label">View Definition</div>
+                        <div class="detail-value" style="font-family: monospace; font-size: 11px; background: #f8fafc; padding: 8px; border-radius: 4px;">${{entity.definition}}</div>
+                    </div>
+                `;
+            }}
+
+            content.innerHTML = html;
+
             sidebar.classList.add('open');
             // Remove row highlights
             document.querySelectorAll('.table-row').forEach(r => r.style.background = '');
@@ -1357,7 +1519,6 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
 </html>"""
 
     return html
-
 
 
 if __name__ == "__main__":

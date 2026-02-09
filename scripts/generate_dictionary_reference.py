@@ -23,7 +23,7 @@ def parse_parts_json(json_path):
     project_root = Path(json_path).parent.parent
     sys.path.insert(0, str(project_root / "src"))
 
-    from open_dateaubase.data_model.models import Dictionary
+    from open_dateaubase.data_model.models import Dictionary, ViewPart, ViewColumnPart
 
     # Load and validate
     with open(json_path, "r", encoding="utf-8") as f:
@@ -33,7 +33,13 @@ def parse_parts_json(json_path):
     dictionary = Dictionary.model_validate(raw_data)
 
     # Transform to legacy format for generators
-    data = {"tables": {}, "value_sets": {}, "metadata": {}, "id_field_locations": {}}
+    data = {
+        "tables": {},
+        "value_sets": {},
+        "metadata": {},
+        "id_field_locations": {},
+        "views": {},
+    }
 
     # Process tables
     for part in dictionary.parts:
@@ -42,6 +48,16 @@ def parse_parts_json(json_path):
                 "label": part.label,
                 "description": part.description,
                 "fields": [],
+            }
+
+    # Process views
+    for part in dictionary.parts:
+        if part.part_type == "view":
+            data["views"][part.part_id] = {
+                "label": part.label,
+                "description": part.description,
+                "view_definition": part.view_definition,
+                "columns": [],
             }
 
     # Process fields
@@ -117,6 +133,27 @@ def parse_parts_json(json_path):
 
     for value_set in data["value_sets"].values():
         value_set["members"].sort(key=lambda x: x["sort_order"])
+
+    # Process view columns
+    for part in dictionary.parts:
+        if part.part_type == "viewColumn":
+            for view_name, view_meta in part.view_presence.items():
+                if view_name not in data["views"]:
+                    continue
+
+                col_info = {
+                    "part_id": part.part_id,
+                    "label": part.label,
+                    "description": part.description,
+                    "source_field_part_id": part.source_field_part_id,
+                    "sql_data_type": part.sql_data_type or "",
+                    "sort_order": view_meta.get("order", 999),
+                }
+                data["views"][view_name]["columns"].append(col_info)
+
+    # Sort columns
+    for view in data["views"].values():
+        view["columns"].sort(key=lambda x: x["sort_order"])
 
     return data
 
@@ -227,11 +264,53 @@ def generate_value_sets_markdown(data):
     return "\n".join(md)
 
 
+def generate_views_markdown(data):
+    """
+    Generate view documentation with proper anchoring.
+    """
+    md = ["# Database Views\n"]
+    md.append("Virtual tables defined by SQL queries.\n")
+
+    if data.get("views"):
+        for view_id, view_info in sorted(data["views"].items()):
+            # Anchor as invisible span, view name as regular heading
+            md.append(f'\n<span id="{view_id}"></span>\n')
+            md.append(f"## {view_info['label']}\n")
+            md.append(f"{view_info['description']}\n")
+
+            md.append("\n**View Definition:**\n")
+            md.append(f"```sql\n{view_info['view_definition']}\n```\n")
+
+            if view_info["columns"]:
+                md.append("\n#### Columns\n")
+                md.append("| Column | SQL Type | Source Field | Description |")
+                md.append("|--------|----------|--------------|-------------|")
+
+                for col in view_info["columns"]:
+                    col_name = col["label"]
+                    col_id = col["part_id"]
+                    sql_type = col["sql_data_type"] if col["sql_data_type"] else "-"
+                    source_field = col.get("source_field_part_id", "-")
+                    description = col["description"]
+
+                    md.append(
+                        f"| {col_name} | {sql_type} | `{source_field}` | {description} |"
+                    )
+    else:
+        md.append("No views currently appear in dictionary.")
+
+    return "\n".join(md)
+
+
 def main():
     """Main entry point for script."""
     if len(sys.argv) != 3:
-        print("Usage: python generate_dictionary_reference.py <json_path> <output_path>")
-        print("Example: python generate_dictionary_reference.py dictionary.json docs/reference")
+        print(
+            "Usage: python generate_dictionary_reference.py <json_path> <output_path>"
+        )
+        print(
+            "Example: python generate_dictionary_reference.py dictionary.json docs/reference"
+        )
         sys.exit(1)
 
     json_path = Path(sys.argv[1])
@@ -246,14 +325,17 @@ def main():
     # Generate markdown
     tables = generate_tables_markdown(parts_data)
     value_sets = generate_value_sets_markdown(parts_data)
+    views = generate_views_markdown(parts_data)
 
     # Write to files
     (output_path / "tables.md").write_text(tables, encoding="utf-8")
     (output_path / "valuesets.md").write_text(value_sets, encoding="utf-8")
+    (output_path / "views.md").write_text(views, encoding="utf-8")
 
     print(f"Generated dictionary reference documentation:")
     print(f"  Tables: {output_path / 'tables.md'}")
     print(f"  Value sets: {output_path / 'valuesets.md'}")
+    print(f"  Views: {output_path / 'views.md'}")
 
 
 if __name__ == "__main__":
