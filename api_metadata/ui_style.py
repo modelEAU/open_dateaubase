@@ -205,8 +205,14 @@ def apply_global_style(max_width_px: int = 1200):
             max-width: 520px;
             margin: 0 auto;
         }}
+        .unauthenticated section[data-testid="stSidebar"] { display: none !important; }
+        .unauthenticated div[data-testid="stSidebarNav"] { display: none !important; }
+        .unauthenticated header { display: none !important; } /* optionnel */
+        .unauthenticated .block-container {
+            padding-top: 2.5rem !important;
+            }
+            </style>
 
-        </style>
         """,
         unsafe_allow_html=True,
     )

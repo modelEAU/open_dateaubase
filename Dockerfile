@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
  && rm -rf /var/lib/apt/lists/*
 
-
 RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
     | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
  && curl -fsSL https://packages.microsoft.com/config/debian/12/prod.list \
@@ -26,5 +25,9 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY . /app
 
 EXPOSE 8000
+EXPOSE 8501
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=10 \
+CMD curl -fsS http://localhost:8000/health || exit 1
 
 CMD ["uvicorn", "api_metadata.main:app", "--host", "0.0.0.0", "--port", "8000"]
