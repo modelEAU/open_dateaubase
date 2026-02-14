@@ -1,0 +1,69 @@
+_format_version: "1.0"
+table:
+  name: Site
+  schema: dbo
+  description: "Stores general site information, including address, site type, and a link to the associated watershed"
+
+  columns:
+    - name: Site_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "A unique ID is generated automatically by MySQL"
+    - name: Watershed_ID
+      logical_type: integer
+      nullable: true
+      description: "Linked to the Watershed table"
+      foreign_key:
+        table: Watershed
+        column: Watershed_ID
+    - name: name
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Name of the site"
+    - name: type
+      logical_type: string
+      max_length: 255
+      nullable: true
+      description: "For example: \"WWTP\", \"River\" or \"Sewer_system\""
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the site"
+    - name: Picture
+      logical_type: # TODO: unmapped SQL type: image(2147483647)
+      nullable: true
+      description: "Picture of the site"
+    - name: Street_number
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Address: number of the street"
+    - name: Street_name
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Address: name of the street"
+    - name: City
+      logical_type: string
+      max_length: 255
+      nullable: true
+      description: "Address: name of the city"
+    - name: Zip_code
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Address: zip code"
+    - name: Province
+      logical_type: string
+      max_length: 255
+      nullable: true
+      description: "Address: name of the province"
+    - name: Country
+      logical_type: string
+      max_length: 255
+      nullable: true
+      description: "Address: name of the country"
+
+  primary_key: [Site_ID]

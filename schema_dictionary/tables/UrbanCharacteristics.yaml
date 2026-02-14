@@ -1,0 +1,42 @@
+_format_version: "1.0"
+table:
+  name: UrbanCharacteristics
+  schema: dbo
+  description: "Stores the urban land use percentages (e.g., commercial, residential, green spaces) within the watershed"
+
+  columns:
+    - name: Watershed_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Linked to the Watershed table"
+    - name: Commercial
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of commercial areas. For example stores or bank areas"
+    - name: Green_spaces
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of green spaces"
+    - name: Industrial
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of industrial areas. For example factories"
+    - name: Institutional
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of institutional areas. For example schools, police stations or city hall"
+    - name: Residential
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of residential areas. For example houses or apartment buildings"
+    - name: Agricultural
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of agricultural land use. For example farm land"
+    - name: Recreational
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of recreational areas. For example parks or sport fields"
+
+  primary_key: [Watershed_ID]

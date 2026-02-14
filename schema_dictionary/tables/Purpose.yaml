@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: Purpose
+  schema: dbo
+  description: "Stores information about the aim of the measurement (e.g., on-line measurement, laboratory analysis, calibration, validation, cleaning)"
+
+  columns:
+    - name: Purpose_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "A unique ID is generated automatically by MySQL"
+    - name: Purpose
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Purpose of the data collection. For example, \"Measurement\", \"Lab_analysis\", \"Calibration\" and \"Cleaning\""
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the purpose"
+
+  primary_key: [Purpose_ID]

@@ -1,0 +1,49 @@
+_format_version: "1.0"
+table:
+  name: SamplingPoints
+  schema: dbo
+  description: "Stores the identification, specific geographical coordinates (Latitude/Longitude/GPS), and description of a particular spot where a sample or measurement is taken"
+
+  columns:
+    - name: Sampling_point_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Link to the Sampling_point table"
+    - name: Site_ID
+      logical_type: integer
+      nullable: true
+      description: "A unique ID is generated automatically by MySQL"
+      foreign_key:
+        table: Site
+        column: Site_ID
+    - name: Sampling_point
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Where the sample was taken. For example: \"Inlet\", \"Outlet\" or \"Upstream\""
+    - name: Sampling_location
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Where the sample was taken. For example: \"Biofiltration\", \"Sewer 01\" or \"Retention Tank\""
+    - name: Latitude_GPS
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "GPS coordinates. For example: 47°54′25.103\" "
+    - name: Longitude_GPS
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: 'GPS coordinates. For example: $73^{\circ}47^{\prime}00.024^{\prime\prime}$'
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the sampling point"
+    - name: Pictures
+      logical_type: # TODO: unmapped SQL type: BLOB
+      nullable: true
+      description: "Picture of the site"
+
+  primary_key: [Sampling_point_ID]

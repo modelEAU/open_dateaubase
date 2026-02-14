@@ -1,0 +1,75 @@
+_format_version: "1.0"
+table:
+  name: MetaData
+  schema: dbo
+  description: "Central context aggregator linking every measurement to its full provenance (project, contact, equipment, parameter, procedure, unit, purpose, sampling point, and condition)"
+  columns:
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: Project_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the research or monitoring project"
+      foreign_key:
+        table: Project
+        column: Project_ID
+    - name: Contact_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the person responsible for this measurement series"
+      foreign_key:
+        table: Contact
+        column: Contact_ID
+    - name: Equipment_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the physical instrument that produced the measurements"
+      foreign_key:
+        table: Equipment
+        column: Equipment_ID
+    - name: Parameter_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the measured analyte or parameter (e.g. TSS, pH)"
+      foreign_key:
+        table: Parameter
+        column: Parameter_ID
+    - name: Procedure_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the standard operating procedure used"
+      foreign_key:
+        table: Procedures
+        column: Procedure_ID
+    - name: Unit_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the measurement unit (e.g. mg/L)"
+      foreign_key:
+        table: Unit
+        column: Unit_ID
+    - name: Purpose_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the measurement purpose (online, lab, calibration, validation)"
+      foreign_key:
+        table: Purpose
+        column: Purpose_ID
+    - name: Sampling_point_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the physical sampling location"
+      foreign_key:
+        table: SamplingPoints
+        column: Sampling_point_ID
+    - name: Condition_ID
+      logical_type: integer
+      nullable: true
+      description: "Links to the prevailing weather condition at time of measurement"
+      foreign_key:
+        table: WeatherCondition
+        column: Condition_ID
+  primary_key: [Metadata_ID]

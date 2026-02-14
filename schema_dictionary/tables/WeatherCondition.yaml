@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: WeatherCondition
+  schema: dbo
+  description: "Stores descriptive information about the prevailing weather conditions when the measurement was taken (e.g., dry weather, wet weather, snow melt)"
+
+  columns:
+    - name: Condition_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "A unique ID is generated automatically by MySQL"
+    - name: Weather_condition
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Type of weather condition"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the condition"
+
+  primary_key: [Condition_ID]

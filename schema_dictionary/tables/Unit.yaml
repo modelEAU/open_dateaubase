@@ -1,0 +1,19 @@
+_format_version: "1.0"
+table:
+  name: Unit
+  schema: dbo
+  description: "Stores the SI units of measurement (or other relevant units) corresponding to the parameters (e.g., mg/L, g/L, s)"
+
+  columns:
+    - name: Unit_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "A unique ID is generated automatically by MySQL"
+    - name: Unit
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "SI-units only"
+
+  primary_key: [Unit_ID]

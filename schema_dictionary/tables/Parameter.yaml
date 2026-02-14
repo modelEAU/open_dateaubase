@@ -1,0 +1,30 @@
+_format_version: "1.0"
+table:
+  name: Parameter
+  schema: dbo
+  description: "Stores the different water quality or quantity parameters that are measured (e.g., pH, TSS, N-components)"
+
+  columns:
+    - name: Unit_ID
+      logical_type: integer
+      nullable: true
+      description: "A unique ID is generated automatically by MySQL"
+      foreign_key:
+        table: Unit
+        column: Unit_ID
+    - name: Parameter
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Name of the parameter"
+    - name: Parameter_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Link to the Parameter table"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the parameter"
+
+  primary_key: [Parameter_ID]

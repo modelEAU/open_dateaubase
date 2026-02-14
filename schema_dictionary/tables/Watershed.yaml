@@ -1,0 +1,35 @@
+_format_version: "1.0"
+table:
+  name: Watershed
+  schema: dbo
+  description: "Stores general information about the watershed area, including surface area, concentration time, and impervious surface percentage"
+
+  columns:
+    - name: Watershed_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Linked to the Watershed table"
+    - name: name
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Name of the watershed"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the watershed"
+    - name: Surface_area
+      logical_type: float32
+      nullable: true
+      description: "Surface area of the watershed [ha]"
+    - name: Concentration_time
+      logical_type: integer
+      nullable: true
+      description: "Concentration time in minutes [min]"
+    - name: Impervious_surface
+      logical_type: float32
+      nullable: true
+      description: "Percentage of the impervious surface of the watershed in percentage [%]"
+
+  primary_key: [Watershed_ID]

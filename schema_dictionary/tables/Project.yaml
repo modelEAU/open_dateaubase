@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: Project
+  schema: dbo
+  description: "Stores descriptive information about the research or monitoring project for which the data was collected"
+
+  columns:
+    - name: Project_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Link to the Project table"
+    - name: name
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Name of the project"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the project"
+
+  primary_key: [Project_ID]

@@ -1,0 +1,38 @@
+_format_version: "1.0"
+table:
+  name: EquipmentModel
+  schema: dbo
+  description: "Stores detailed, non-redundant specifications for a specific sensor or instrument model (e.g., manufacturer, functions, method)"
+
+  columns:
+    - name: Equipment_model_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Link to the Equipment model table"
+    - name: Equipment_model
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Name of the equipment model. For example: ammo::lyser"
+    - name: Method
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Method behind the equipment"
+    - name: Functions
+      logical_type: text
+      nullable: true
+      description: "Description of the functions of the equipment"
+    - name: Manufacturer
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Name of the manufacturer"
+    - name: Manual_location
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Location where the manual is stored"
+
+  primary_key: [Equipment_model_ID]

@@ -1,0 +1,38 @@
+_format_version: "1.0"
+table:
+  name: HydrologicalCharacteristics
+  schema: dbo
+  description: "Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, grassland) within the watershed"
+
+  columns:
+    - name: Watershed_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Linked to the Watershed table"
+    - name: Urban_area
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of urban areas"
+    - name: Forest
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of forest areas"
+    - name: Wetlands
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of wetlands"
+    - name: Cropland
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of croplands"
+    - name: Meadow
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of meadow areas"
+    - name: Grassland
+      logical_type: float32
+      nullable: true
+      description: "Percentage [%] of grasslands"
+
+  primary_key: [Watershed_ID]

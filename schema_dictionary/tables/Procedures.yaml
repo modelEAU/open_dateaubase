@@ -1,0 +1,33 @@
+_format_version: "1.0"
+table:
+  name: Procedures
+  schema: dbo
+  description: "Stores details for different measurement procedures (e.g., calibration, validation, standard operating procedures, ISO methods)"
+
+  columns:
+    - name: Procedure_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Link to the Procedures table"
+    - name: Procedure_name
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Title name of the procedure"
+    - name: Procedure_type
+      logical_type: string
+      max_length: 255
+      nullable: true
+      description: "Type of the procedure. For example, SOP"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the procedure"
+    - name: Procedure_location
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Where is the procedure stored"
+
+  primary_key: [Procedure_ID]

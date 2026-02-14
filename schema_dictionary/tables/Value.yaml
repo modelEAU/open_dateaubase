@@ -1,0 +1,40 @@
+_format_version: "1.0"
+table:
+  name: Value
+  schema: dbo
+  description: "Stores each measured water quality or quantity value, its time stamp, replicate identification, and the link to its specific metadata set"
+
+  columns:
+    - name: Comment_ID
+      logical_type: integer
+      nullable: true
+      description: "A unique ID is generated automatically by MySQL"
+      foreign_key:
+        table: Comments
+        column: Comment_ID
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: true
+      description: "A unique ID is generated automatically by MySQL"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+    - name: Value_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "A unique ID is generated automatically by MySQL"
+    - name: Value
+      logical_type: float64
+      nullable: true
+      description: "Value of collected data"
+    - name: Number_of_experiment
+      logical_type: integer
+      nullable: true
+      description: "Number of replica of an experiment"
+    - name: Timestamp
+      logical_type: integer
+      nullable: true
+      description: "Unix timestamp combining date and time of collected data"
+
+  primary_key: [Value_ID]

@@ -1,0 +1,44 @@
+_format_version: "1.0"
+table:
+  name: Equipment
+  schema: dbo
+  description: "Stores information about a specific, physical piece of equipment (e.g., serial number, owner, purchase date, storage location)"
+
+  columns:
+    - name: Equipment_ID
+      logical_type: integer
+      nullable: true
+      identity: true
+      description: "Link to the Equipment table"
+    - name: model_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Equipment model table"
+      foreign_key:
+        table: EquipmentModel
+        column: Equipment_model_ID
+    - name: identifier
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Identification name of the equipments"
+    - name: Serial_number
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Serial number of the equipment"
+    - name: Owner
+      logical_type: text
+      nullable: true
+      description: "Name of the owner of the equipment"
+    - name: Storage_location
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Where is the procedure stored"
+    - name: Purchase_date
+      logical_type: date
+      nullable: true
+      description: "Date when the equipment was bought: 'YYYY-MM-DD"
+
+  primary_key: [Equipment_ID]

@@ -1,0 +1,33 @@
+_format_version: "1.0"
+table:
+  name: SchemaVersion
+  schema: dbo
+  description: "Tracks which schema versions have been applied to this database instance"
+  columns:
+    - name: VersionID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: Version
+      logical_type: string
+      max_length: 20
+      nullable: false
+      description: "Schema version string (e.g. 1.0.1)"
+    - name: AppliedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: "CURRENT_TIMESTAMP"
+      description: "Datetime when this migration was applied"
+    - name: Description
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Human-readable description of what this migration does"
+    - name: MigrationScript
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Filename of the migration script that was applied"
+  primary_key: [VersionID]

@@ -116,6 +116,28 @@
             border-bottom: none;
         }
 
+        /* --- View-specific styles --- */
+        .html-element.view {
+            border: 2px dashed #3b82f6;
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+        }
+
+        .html-element.view .table-header {
+            background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+            color: #1e40af;
+        }
+
+        .view-badge {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: 500;
+        }
+
         .table-row:hover {
             background: #f8fafc;
         }
@@ -289,47 +311,38 @@
         const erdData = {
   "tables": [
     {
-      "id": "comments",
+      "id": "Comments",
       "label": "Comments",
       "description": "Stores any additional textual comments, notes, or observations related to a specific measured value",
       "fields": [
         {
-          "name": "Comment",
-          "sql_type": "ntext(1073741823)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Comment on the data in the Value table"
-        },
-        {
-          "name": "Comment ID",
-          "sql_type": "int",
+          "name": "Comment_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "A unique ID is generated automatically by MySQL"
-        }
-      ]
-    },
-    {
-      "id": "contact",
-      "label": "Contact",
-      "description": "Stores detailed personal and professional information for people involved in projects (e.g., name, affiliation, function, e-mail, phone)",
-      "fields": [
+        },
         {
-          "name": "Company",
-          "sql_type": "ntext(1073741823)",
+          "name": "Comment",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Company name"
-        },
+          "description": "Comment on the data in the Value table"
+        }
+      ]
+    },
+    {
+      "id": "Contact",
+      "label": "Contact",
+      "description": "Stores detailed personal and professional information for people involved in projects (e.g., name, affiliation, function, e-mail, phone)",
+      "fields": [
         {
-          "name": "Contact ID",
-          "sql_type": "int",
+          "name": "Contact_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -337,35 +350,8 @@
           "description": "Link to the Contact table"
         },
         {
-          "name": "Email",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "E-mail address"
-        },
-        {
-          "name": "First Name",
-          "sql_type": "nvarchar(255)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "First name of the contact"
-        },
-        {
-          "name": "Function",
-          "sql_type": "ntext(1073741823)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "More detailed description about the functions"
-        },
-        {
-          "name": "Last Name",
-          "sql_type": "nvarchar(100)",
+          "name": "Last_name",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -373,44 +359,26 @@
           "description": "Last name of the contact"
         },
         {
-          "name": "Linkedin",
-          "sql_type": "nvarchar(100)",
+          "name": "First_name",
+          "sql_type": "NVARCHAR(255)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "LinkedIn account"
+          "description": "First name of the contact"
         },
         {
-          "name": "Office Number",
-          "sql_type": "nvarchar(100)",
+          "name": "Company",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Number of the office"
-        },
-        {
-          "name": "Phone",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Phone number"
-        },
-        {
-          "name": "Skype Name",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Skype name"
+          "description": "Company name"
         },
         {
           "name": "Status",
-          "sql_type": "nvarchar(255)",
+          "sql_type": "NVARCHAR(255)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -418,44 +386,62 @@
           "description": "Status of the person. For example: \"Master student\", \"Postdoc\" or \"Intern\""
         },
         {
-          "name": "Website",
-          "sql_type": "nvarchar(60)",
+          "name": "Function",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Website URL of the contact or organization"
+          "description": "More detailed description about the functions"
         },
         {
-          "name": "Contact City",
-          "sql_type": "nvarchar(255)",
+          "name": "Office_number",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Address: name of the city"
+          "description": "Number of the office"
         },
         {
-          "name": "Contact Country",
-          "sql_type": "nvarchar(255)",
+          "name": "Email",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Address: name of the country"
+          "description": "E-mail address"
         },
         {
-          "name": "Contact Street Name",
-          "sql_type": "nvarchar(100)",
+          "name": "Phone",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Address: name of the street"
+          "description": "Phone number"
         },
         {
-          "name": "Contact Street Number",
-          "sql_type": "nvarchar(100)",
+          "name": "Skype_name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Skype name"
+        },
+        {
+          "name": "Linkedin",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "LinkedIn account"
+        },
+        {
+          "name": "Street_number",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -463,24 +449,60 @@
           "description": "Address: number of the street"
         },
         {
-          "name": "Contact Zip Code",
-          "sql_type": "nvarchar(45)",
+          "name": "Street_name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Address: name of the street"
+        },
+        {
+          "name": "City",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Address: name of the city"
+        },
+        {
+          "name": "Zip_code",
+          "sql_type": "NVARCHAR(45)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Address: zip code"
+        },
+        {
+          "name": "Country",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Address: name of the country"
+        },
+        {
+          "name": "Website",
+          "sql_type": "NVARCHAR(60)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Website URL of the contact or organization"
         }
       ]
     },
     {
-      "id": "equipment",
+      "id": "Equipment",
       "label": "Equipment",
       "description": "Stores information about a specific, physical piece of equipment (e.g., serial number, owner, purchase date, storage location)",
       "fields": [
         {
-          "name": "Equipment ID",
-          "sql_type": "int",
+          "name": "Equipment_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -488,8 +510,17 @@
           "description": "Link to the Equipment table"
         },
         {
-          "name": "Equipment IDentifier",
-          "sql_type": "nvarchar(100)",
+          "name": "model_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "equipment_model.Equipment_model_ID",
+          "description": "Link to the Equipment model table"
+        },
+        {
+          "name": "identifier",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -497,35 +528,8 @@
           "description": "Identification name of the equipments"
         },
         {
-          "name": "Equipment Model ID",
-          "sql_type": "int",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "equipment_model.Equipment_model_ID",
-          "description": "Link to the Equipment model table"
-        },
-        {
-          "name": "Owner",
-          "sql_type": "ntext(1073741823)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Name of the owner of the equipment"
-        },
-        {
-          "name": "Purchase Date",
-          "sql_type": "date",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Date when the equipment was bought: 'YYYY-MM-DD"
-        },
-        {
-          "name": "Serial Number",
-          "sql_type": "nvarchar(100)",
+          "name": "Serial_number",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -533,24 +537,51 @@
           "description": "Serial number of the equipment"
         },
         {
-          "name": "Storage Location",
-          "sql_type": "nvarchar(100)",
+          "name": "Owner",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Name of the owner of the equipment"
+        },
+        {
+          "name": "Storage_location",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Where is the procedure stored"
+        },
+        {
+          "name": "Purchase_date",
+          "sql_type": "DATE",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date when the equipment was bought: 'YYYY-MM-DD"
         }
       ]
     },
     {
-      "id": "equipment_model",
-      "label": "Equipment Model",
+      "id": "EquipmentModel",
+      "label": "EquipmentModel",
       "description": "Stores detailed, non-redundant specifications for a specific sensor or instrument model (e.g., manufacturer, functions, method)",
       "fields": [
         {
-          "name": "Equipment Model",
-          "sql_type": "nvarchar(100)",
+          "name": "Equipment_model_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Link to the Equipment model table"
+        },
+        {
+          "name": "Equipment_model",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -558,17 +589,17 @@
           "description": "Name of the equipment model. For example: ammo::lyser"
         },
         {
-          "name": "Equipment Model ID",
-          "sql_type": "int",
-          "is_pk": true,
+          "name": "Method",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Link to the Equipment model table"
+          "description": "Method behind the equipment"
         },
         {
           "name": "Functions",
-          "sql_type": "ntext(1073741823)",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -576,17 +607,8 @@
           "description": "Description of the functions of the equipment"
         },
         {
-          "name": "Manual Location",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Location where the manual is stored"
-        },
-        {
           "name": "Manufacturer",
-          "sql_type": "nvarchar(100)",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -594,24 +616,24 @@
           "description": "Name of the manufacturer"
         },
         {
-          "name": "Method",
-          "sql_type": "nvarchar(100)",
+          "name": "Manual_location",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Method behind the equipment"
+          "description": "Location where the manual is stored"
         }
       ]
     },
     {
-      "id": "equipment_model_has_Parameter",
-      "label": "Equipment Model Has Parameter",
+      "id": "EquipmentModelHasParameter",
+      "label": "EquipmentModelHasParameter",
       "description": "Links equipment models to the parameters they can measure",
       "fields": [
         {
-          "name": "Equipment Model ID",
-          "sql_type": "int",
+          "name": "Equipment_model_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -619,24 +641,24 @@
           "description": "Link to the Equipment model table"
         },
         {
-          "name": "Parameter ID",
-          "sql_type": "int",
+          "name": "Parameter_ID",
+          "sql_type": "INT",
           "is_pk": true,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": false,
-          "fk_target": null,
+          "fk_target": "parameter.Parameter_ID",
           "description": "Link to the Parameter table"
         }
       ]
     },
     {
-      "id": "equipment_model_has_procedures",
-      "label": "Equipment Model Has Procedures",
+      "id": "EquipmentModelHasProcedures",
+      "label": "EquipmentModelHasProcedures",
       "description": "Links equipment models to the relevant maintenance procedures",
       "fields": [
         {
-          "name": "Equipment Model ID",
-          "sql_type": "int",
+          "name": "Equipment_model_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -644,8 +666,8 @@
           "description": "Link to the Equipment model table"
         },
         {
-          "name": "Procedure ID",
-          "sql_type": "int",
+          "name": "Procedure_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -655,49 +677,22 @@
       ]
     },
     {
-      "id": "hydrological_characteristics",
-      "label": "Hydrological Characteristics",
+      "id": "HydrologicalCharacteristics",
+      "label": "HydrologicalCharacteristics",
       "description": "Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, grassland) within the watershed",
       "fields": [
         {
-          "name": "Cropland",
-          "sql_type": "real",
-          "is_pk": false,
+          "name": "Watershed_ID",
+          "sql_type": "INT",
+          "is_pk": true,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Percentage [%] of croplands"
+          "description": "Linked to the Watershed table"
         },
         {
-          "name": "Forest",
-          "sql_type": "real",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Percentage [%] of forest areas"
-        },
-        {
-          "name": "Grassland",
-          "sql_type": "real",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Percentage [%] of grasslands"
-        },
-        {
-          "name": "Meadow",
-          "sql_type": "real",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Percentage [%] of meadow areas"
-        },
-        {
-          "name": "Urban Area",
-          "sql_type": "real",
+          "name": "Urban_area",
+          "sql_type": "REAL",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -705,130 +700,166 @@
           "description": "Percentage [%] of urban areas"
         },
         {
-          "name": "Watershed ID",
-          "sql_type": "int",
-          "is_pk": true,
-          "is_fk": true,
+          "name": "Forest",
+          "sql_type": "REAL",
+          "is_pk": false,
+          "is_fk": false,
           "is_required": false,
-          "fk_target": "watershed.Watershed_ID",
-          "description": "Linked to the Watershed table"
+          "fk_target": null,
+          "description": "Percentage [%] of forest areas"
         },
         {
           "name": "Wetlands",
-          "sql_type": "real",
+          "sql_type": "REAL",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Percentage [%] of wetlands"
+        },
+        {
+          "name": "Cropland",
+          "sql_type": "REAL",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Percentage [%] of croplands"
+        },
+        {
+          "name": "Meadow",
+          "sql_type": "REAL",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Percentage [%] of meadow areas"
+        },
+        {
+          "name": "Grassland",
+          "sql_type": "REAL",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Percentage [%] of grasslands"
         }
       ]
     },
     {
-      "id": "metadata",
-      "label": "Metadata",
-      "description": "Contains a list of all existing unique metadata combinations (represented by a series of foreign keys/IDs) that describe a single measurement",
+      "id": "MetaData",
+      "label": "MetaData",
+      "description": "Central context aggregator linking every measurement to its full provenance (project, contact, equipment, parameter, procedure, unit, purpose, sampling point, and condition)",
       "fields": [
         {
-          "name": "Condition ID",
-          "sql_type": "int",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "condition.Condition_ID",
-          "description": "A unique ID is generated automatically by MySQL"
-        },
-        {
-          "name": "Contact ID",
-          "sql_type": "int",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "contact.Contact_ID",
-          "description": "Link to the Contact table"
-        },
-        {
-          "name": "Equipment ID",
-          "sql_type": "int",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "equipment.Equipment_ID",
-          "description": "Link to the Equipment table"
-        },
-        {
-          "name": "Metadata ID",
-          "sql_type": "int",
+          "name": "Metadata_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
-          "description": "A unique ID is generated automatically by MySQL"
+          "description": "Surrogate primary key"
         },
         {
-          "name": "Parameter ID",
-          "sql_type": "int",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "parameter.Parameter_ID",
-          "description": "Link to the Parameter table"
-        },
-        {
-          "name": "Procedure ID",
-          "sql_type": "int",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "procedure.Procedure_ID",
-          "description": "Link to the Procedures table"
-        },
-        {
-          "name": "Project ID",
-          "sql_type": "int",
+          "name": "Project_ID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
           "fk_target": "project.Project_ID",
-          "description": "Link to the Project table"
+          "description": "Links to the research or monitoring project"
         },
         {
-          "name": "Purpose ID",
-          "sql_type": "int",
+          "name": "Contact_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "contact.Contact_ID",
+          "description": "Links to the person responsible for this measurement series"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "equipment.Equipment_ID",
+          "description": "Links to the physical instrument that produced the measurements"
+        },
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "parameter.Parameter_ID",
+          "description": "Links to the measured analyte or parameter (e.g. TSS, pH)"
+        },
+        {
+          "name": "Procedure_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "procedure.Procedure_ID",
+          "description": "Links to the standard operating procedure used"
+        },
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "unit.Unit_ID",
+          "description": "Links to the measurement unit (e.g. mg/L)"
+        },
+        {
+          "name": "Purpose_ID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
           "fk_target": "purpose.Purpose_ID",
-          "description": "A unique ID is generated automatically by MySQL"
+          "description": "Links to the measurement purpose (online, lab, calibration, validation)"
         },
         {
-          "name": "Sampling Point ID",
-          "sql_type": "int",
+          "name": "Sampling_point_ID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
           "fk_target": "sampling_point.Sampling_point_ID",
-          "description": "Link to the Sampling_point table"
+          "description": "Links to the physical sampling location"
         },
         {
-          "name": "Unit ID",
-          "sql_type": "int",
+          "name": "Condition_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "condition.Condition_ID",
+          "description": "Links to the prevailing weather condition at time of measurement"
+        }
+      ]
+    },
+    {
+      "id": "Parameter",
+      "label": "Parameter",
+      "description": "Stores the different water quality or quantity parameters that are measured (e.g., pH, TSS, N-components)",
+      "fields": [
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
           "fk_target": "unit.Unit_ID",
           "description": "A unique ID is generated automatically by MySQL"
-        }
-      ]
-    },
-    {
-      "id": "parameter",
-      "label": "Parameter",
-      "description": "Stores the different water quality or quantity parameters that are measured (e.g., pH, TSS, N-components)",
-      "fields": [
+        },
         {
           "name": "Parameter",
-          "sql_type": "nvarchar(100)",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -836,8 +867,8 @@
           "description": "Name of the parameter"
         },
         {
-          "name": "Parameter ID",
-          "sql_type": "int",
+          "name": "Parameter_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -845,17 +876,8 @@
           "description": "Link to the Parameter table"
         },
         {
-          "name": "Unit ID",
-          "sql_type": "int",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "unit.Unit_ID",
-          "description": "A unique ID is generated automatically by MySQL"
-        },
-        {
-          "name": "Parameter Description",
-          "sql_type": "ntext(1073741823)",
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -865,38 +887,38 @@
       ]
     },
     {
-      "id": "parameter_has_procedures",
-      "label": "Parameter Has Procedures",
+      "id": "ParameterHasProcedures",
+      "label": "ParameterHasProcedures",
       "description": "Links parameters to the relevant measurement procedures",
       "fields": [
         {
-          "name": "Parameter ID",
-          "sql_type": "int",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Link to the Parameter table"
-        },
-        {
-          "name": "Procedure ID",
-          "sql_type": "int",
+          "name": "Procedure_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
           "fk_target": "procedure.Procedure_ID",
           "description": "Link to the Procedures table"
+        },
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "parameter.Parameter_ID",
+          "description": "Link to the Parameter table"
         }
       ]
     },
     {
-      "id": "procedures",
+      "id": "Procedures",
       "label": "Procedures",
       "description": "Stores details for different measurement procedures (e.g., calibration, validation, standard operating procedures, ISO methods)",
       "fields": [
         {
-          "name": "Procedure ID",
-          "sql_type": "int",
+          "name": "Procedure_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -904,17 +926,8 @@
           "description": "Link to the Procedures table"
         },
         {
-          "name": "Procedure Location",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Where is the procedure stored"
-        },
-        {
-          "name": "Procedure Name",
-          "sql_type": "nvarchar(100)",
+          "name": "Procedure_name",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -922,8 +935,8 @@
           "description": "Title name of the procedure"
         },
         {
-          "name": "Procedure Type",
-          "sql_type": "nvarchar(255)",
+          "name": "Procedure_type",
+          "sql_type": "NVARCHAR(255)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -931,24 +944,33 @@
           "description": "Type of the procedure. For example, SOP"
         },
         {
-          "name": "Procedures Description",
-          "sql_type": "ntext(1073741823)",
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Description of the procedure"
+        },
+        {
+          "name": "Procedure_location",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Where is the procedure stored"
         }
       ]
     },
     {
-      "id": "project",
+      "id": "Project",
       "label": "Project",
       "description": "Stores descriptive information about the research or monitoring project for which the data was collected",
       "fields": [
         {
-          "name": "Project ID",
-          "sql_type": "int",
+          "name": "Project_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -956,8 +978,8 @@
           "description": "Link to the Project table"
         },
         {
-          "name": "Project Name",
-          "sql_type": "nvarchar(100)",
+          "name": "name",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -965,8 +987,8 @@
           "description": "Name of the project"
         },
         {
-          "name": "Project Description",
-          "sql_type": "ntext(1073741823)",
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -976,13 +998,13 @@
       ]
     },
     {
-      "id": "project_has_contact",
-      "label": "Project Has Contact",
+      "id": "ProjectHasContact",
+      "label": "ProjectHasContact",
       "description": "Links projects to the personnel involved in them",
       "fields": [
         {
-          "name": "Contact ID",
-          "sql_type": "int",
+          "name": "Contact_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -990,8 +1012,8 @@
           "description": "Link to the Contact table"
         },
         {
-          "name": "Project ID",
-          "sql_type": "int",
+          "name": "Project_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -1001,13 +1023,13 @@
       ]
     },
     {
-      "id": "project_has_equipment",
-      "label": "Project Has Equipment",
+      "id": "ProjectHasEquipment",
+      "label": "ProjectHasEquipment",
       "description": "Links projects to the specific equipment used within them",
       "fields": [
         {
-          "name": "Equipment ID",
-          "sql_type": "int",
+          "name": "Equipment_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -1015,8 +1037,8 @@
           "description": "Link to the Equipment table"
         },
         {
-          "name": "Project ID",
-          "sql_type": "int",
+          "name": "Project_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -1026,13 +1048,13 @@
       ]
     },
     {
-      "id": "project_has_sampling_points",
-      "label": "Project Has Sampling Points",
+      "id": "ProjectHasSamplingPoints",
+      "label": "ProjectHasSamplingPoints",
       "description": "Links projects to the sampling points used within them",
       "fields": [
         {
-          "name": "Project ID",
-          "sql_type": "int",
+          "name": "Project_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -1040,8 +1062,8 @@
           "description": "Link to the Project table"
         },
         {
-          "name": "Sampling Point ID",
-          "sql_type": "int",
+          "name": "Sampling_point_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": false,
@@ -1051,22 +1073,13 @@
       ]
     },
     {
-      "id": "purpose",
+      "id": "Purpose",
       "label": "Purpose",
       "description": "Stores information about the aim of the measurement (e.g., on-line measurement, laboratory analysis, calibration, validation, cleaning)",
       "fields": [
         {
-          "name": "Purpose",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Purpose of the data collection. For example, \"Measurement\", \"Lab_analysis\", \"Calibration\" and \"Cleaning\""
-        },
-        {
-          "name": "Purpose ID",
-          "sql_type": "int",
+          "name": "Purpose_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -1074,8 +1087,17 @@
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
-          "name": "Purpose Description",
-          "sql_type": "ntext(1073741823)",
+          "name": "Purpose",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Purpose of the data collection. For example, \"Measurement\", \"Lab_analysis\", \"Calibration\" and \"Cleaning\""
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1085,58 +1107,13 @@
       ]
     },
     {
-      "id": "sampling_points",
-      "label": "Sampling Points",
+      "id": "SamplingPoints",
+      "label": "SamplingPoints",
       "description": "Stores the identification, specific geographical coordinates (Latitude/Longitude/GPS), and description of a particular spot where a sample or measurement is taken",
       "fields": [
         {
-          "name": "Latitude GPS",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "GPS coordinates. For example: 47\u00b054\u203225.103\" "
-        },
-        {
-          "name": "Longitude GPS",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "GPS coordinates. For example: $73^{\\circ}47^{\\prime}00.024^{\\prime\\prime}$"
-        },
-        {
-          "name": "Pictures",
-          "sql_type": "BLOB",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Picture of the site"
-        },
-        {
-          "name": "Sampling Location",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Where the sample was taken. For example: \"Biofiltration\", \"Sewer 01\" or \"Retention Tank\""
-        },
-        {
-          "name": "Sampling Point",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Where the sample was taken. For example: \"Inlet\", \"Outlet\" or \"Upstream\""
-        },
-        {
-          "name": "Sampling Point ID",
-          "sql_type": "int",
+          "name": "Sampling_point_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -1144,8 +1121,8 @@
           "description": "Link to the Sampling_point table"
         },
         {
-          "name": "Site ID",
-          "sql_type": "int",
+          "name": "Site_ID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
@@ -1153,42 +1130,121 @@
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
-          "name": "Sampling Points Description",
-          "sql_type": "ntext(1073741823)",
+          "name": "Sampling_point",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Where the sample was taken. For example: \"Inlet\", \"Outlet\" or \"Upstream\""
+        },
+        {
+          "name": "Sampling_location",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Where the sample was taken. For example: \"Biofiltration\", \"Sewer 01\" or \"Retention Tank\""
+        },
+        {
+          "name": "Latitude_GPS",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "GPS coordinates. For example: 47\u00b054\u203225.103\" "
+        },
+        {
+          "name": "Longitude_GPS",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "GPS coordinates. For example: $73^{\\circ}47^{\\prime}00.024^{\\prime\\prime}$"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Description of the sampling point"
-        }
-      ]
-    },
-    {
-      "id": "site",
-      "label": "Site",
-      "description": "Stores general site information, including address, site type, and a link to the associated watershed",
-      "fields": [
+        },
         {
-          "name": "Picture",
-          "sql_type": "image(2147483647)",
+          "name": "Pictures",
+          "sql_type": "/* UNMAPPED TYPE */",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Picture of the site"
+        }
+      ]
+    },
+    {
+      "id": "SchemaVersion",
+      "label": "SchemaVersion",
+      "description": "Tracks which schema versions have been applied to this database instance",
+      "fields": [
+        {
+          "name": "VersionID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
         },
         {
-          "name": "Province",
-          "sql_type": "nvarchar(255)",
+          "name": "Version",
+          "sql_type": "NVARCHAR(20)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Schema version string (e.g. 1.0.1)"
+        },
+        {
+          "name": "AppliedAt",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Datetime when this migration was applied"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Address: name of the province"
+          "description": "Human-readable description of what this migration does"
         },
         {
-          "name": "Site ID",
-          "sql_type": "int",
+          "name": "MigrationScript",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Filename of the migration script that was applied"
+        }
+      ]
+    },
+    {
+      "id": "Site",
+      "label": "Site",
+      "description": "Stores general site information, including address, site type, and a link to the associated watershed",
+      "fields": [
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -1196,26 +1252,8 @@
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
-          "name": "Site Name",
-          "sql_type": "nvarchar(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Name of the site"
-        },
-        {
-          "name": "Site Type",
-          "sql_type": "nvarchar(255)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "For example: \"WWTP\", \"River\" or \"Sewer_system\""
-        },
-        {
-          "name": "Watershed ID",
-          "sql_type": "int",
+          "name": "Watershed_ID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
@@ -1223,26 +1261,26 @@
           "description": "Linked to the Watershed table"
         },
         {
-          "name": "Site City",
-          "sql_type": "nvarchar(255)",
+          "name": "name",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Address: name of the city"
+          "description": "Name of the site"
         },
         {
-          "name": "Site Country",
-          "sql_type": "nvarchar(255)",
+          "name": "type",
+          "sql_type": "NVARCHAR(255)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Address: name of the country"
+          "description": "For example: \"WWTP\", \"River\" or \"Sewer_system\""
         },
         {
-          "name": "Site Description",
-          "sql_type": "ntext(1073741823)",
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1250,17 +1288,17 @@
           "description": "Description of the site"
         },
         {
-          "name": "Site Street Name",
-          "sql_type": "nvarchar(100)",
+          "name": "Picture",
+          "sql_type": "/* UNMAPPED TYPE */",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Address: name of the street"
+          "description": "Picture of the site"
         },
         {
-          "name": "Site Street Number",
-          "sql_type": "nvarchar(100)",
+          "name": "Street_number",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1268,58 +1306,94 @@
           "description": "Address: number of the street"
         },
         {
-          "name": "Site Zip Code",
-          "sql_type": "nvarchar(100)",
+          "name": "Street_name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Address: name of the street"
+        },
+        {
+          "name": "City",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Address: name of the city"
+        },
+        {
+          "name": "Zip_code",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Address: zip code"
-        }
-      ]
-    },
-    {
-      "id": "unit",
-      "label": "Unit",
-      "description": "Stores the SI units of measurement (or other relevant units) corresponding to the parameters (e.g., mg/L, g/L, s)",
-      "fields": [
+        },
         {
-          "name": "Unit",
-          "sql_type": "nvarchar(100)",
+          "name": "Province",
+          "sql_type": "NVARCHAR(255)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "SI-units only"
+          "description": "Address: name of the province"
         },
         {
-          "name": "Unit ID",
-          "sql_type": "int",
+          "name": "Country",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Address: name of the country"
+        }
+      ]
+    },
+    {
+      "id": "Unit",
+      "label": "Unit",
+      "description": "Stores the SI units of measurement (or other relevant units) corresponding to the parameters (e.g., mg/L, g/L, s)",
+      "fields": [
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "A unique ID is generated automatically by MySQL"
-        }
-      ]
-    },
-    {
-      "id": "urban_characteristics",
-      "label": "Urban Characteristics",
-      "description": "Stores the urban land use percentages (e.g., commercial, residential, green spaces) within the watershed",
-      "fields": [
+        },
         {
-          "name": "Agricultural",
-          "sql_type": "real",
+          "name": "Unit",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Percentage [%] of agricultural land use. For example farm land"
+          "description": "SI-units only"
+        }
+      ]
+    },
+    {
+      "id": "UrbanCharacteristics",
+      "label": "UrbanCharacteristics",
+      "description": "Stores the urban land use percentages (e.g., commercial, residential, green spaces) within the watershed",
+      "fields": [
+        {
+          "name": "Watershed_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Linked to the Watershed table"
         },
         {
           "name": "Commercial",
-          "sql_type": "real",
+          "sql_type": "REAL",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1327,8 +1401,8 @@
           "description": "Percentage [%] of commercial areas. For example stores or bank areas"
         },
         {
-          "name": "Green Spaces",
-          "sql_type": "real",
+          "name": "Green_spaces",
+          "sql_type": "REAL",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1337,7 +1411,7 @@
         },
         {
           "name": "Industrial",
-          "sql_type": "real",
+          "sql_type": "REAL",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1346,7 +1420,7 @@
         },
         {
           "name": "Institutional",
-          "sql_type": "real",
+          "sql_type": "REAL",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1354,17 +1428,8 @@
           "description": "Percentage [%] of institutional areas. For example schools, police stations or city hall"
         },
         {
-          "name": "Recreational",
-          "sql_type": "real",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Percentage [%] of recreational areas. For example parks or sport fields"
-        },
-        {
           "name": "Residential",
-          "sql_type": "real",
+          "sql_type": "REAL",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1372,24 +1437,33 @@
           "description": "Percentage [%] of residential areas. For example houses or apartment buildings"
         },
         {
-          "name": "Watershed ID",
-          "sql_type": "int",
-          "is_pk": true,
-          "is_fk": true,
+          "name": "Agricultural",
+          "sql_type": "REAL",
+          "is_pk": false,
+          "is_fk": false,
           "is_required": false,
-          "fk_target": "watershed.Watershed_ID",
-          "description": "Linked to the Watershed table"
+          "fk_target": null,
+          "description": "Percentage [%] of agricultural land use. For example farm land"
+        },
+        {
+          "name": "Recreational",
+          "sql_type": "REAL",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Percentage [%] of recreational areas. For example parks or sport fields"
         }
       ]
     },
     {
-      "id": "value",
+      "id": "Value",
       "label": "Value",
       "description": "Stores each measured water quality or quantity value, its time stamp, replicate identification, and the link to its specific metadata set",
       "fields": [
         {
-          "name": "Comment ID",
-          "sql_type": "int",
+          "name": "Comment_ID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
@@ -1397,8 +1471,8 @@
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
-          "name": "Metadata ID",
-          "sql_type": "int",
+          "name": "Metadata_ID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
@@ -1406,8 +1480,26 @@
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
-          "name": "Number Of Experiment",
-          "sql_type": "numeric",
+          "name": "Value_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "A unique ID is generated automatically by MySQL"
+        },
+        {
+          "name": "Value",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Value of collected data"
+        },
+        {
+          "name": "Number_of_experiment",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1416,68 +1508,23 @@
         },
         {
           "name": "Timestamp",
-          "sql_type": "int",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Unix timestamp combining date and time of collected data"
-        },
-        {
-          "name": "Value",
-          "sql_type": "float",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Value of collected data"
-        },
-        {
-          "name": "Value ID",
-          "sql_type": "int",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "A unique ID is generated automatically by MySQL"
         }
       ]
     },
     {
-      "id": "watershed",
+      "id": "Watershed",
       "label": "Watershed",
       "description": "Stores general information about the watershed area, including surface area, concentration time, and impervious surface percentage",
       "fields": [
         {
-          "name": "Concentration Time",
-          "sql_type": "int",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Concentration time in minutes [min]"
-        },
-        {
-          "name": "Impervious Surface",
-          "sql_type": "real",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Percentage of the impervious surface of the watershed in percentage [%]"
-        },
-        {
-          "name": "Surface Area",
-          "sql_type": "real",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Surface area of the watershed [ha]"
-        },
-        {
-          "name": "Watershed ID",
-          "sql_type": "int",
+          "name": "Watershed_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -1485,8 +1532,8 @@
           "description": "Linked to the Watershed table"
         },
         {
-          "name": "Watershed Name",
-          "sql_type": "nvarchar(100)",
+          "name": "name",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1494,24 +1541,51 @@
           "description": "Name of the watershed"
         },
         {
-          "name": "Watershed Description",
-          "sql_type": "ntext(1073741823)",
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Description of the watershed"
+        },
+        {
+          "name": "Surface_area",
+          "sql_type": "REAL",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Surface area of the watershed [ha]"
+        },
+        {
+          "name": "Concentration_time",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Concentration time in minutes [min]"
+        },
+        {
+          "name": "Impervious_surface",
+          "sql_type": "REAL",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Percentage of the impervious surface of the watershed in percentage [%]"
         }
       ]
     },
     {
-      "id": "weather_condition",
-      "label": "Weather Condition",
+      "id": "WeatherCondition",
+      "label": "WeatherCondition",
       "description": "Stores descriptive information about the prevailing weather conditions when the measurement was taken (e.g., dry weather, wet weather, snow melt)",
       "fields": [
         {
-          "name": "Condition ID",
-          "sql_type": "int",
+          "name": "Condition_ID",
+          "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": false,
@@ -1519,8 +1593,8 @@
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
-          "name": "Weather Condition",
-          "sql_type": "nvarchar(100)",
+          "name": "Weather_condition",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1528,8 +1602,8 @@
           "description": "Type of weather condition"
         },
         {
-          "name": "Weather Condition Description",
-          "sql_type": "ntext(1073741823)",
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1539,195 +1613,196 @@
       ]
     }
   ],
+  "views": [],
   "relationships": [
     {
-      "from_table": "equipment",
-      "to_table": "equipment_model",
-      "from_field": "Equipment Model ID",
-      "to_field": "Equipment Model ID",
-      "relationship_type": "one-to-many"
+      "from_table": "Equipment",
+      "to_table": "EquipmentModelHasProcedures",
+      "from_field": "model_ID",
+      "to_field": "Equipment_model_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "equipment_model_has_Parameter",
-      "to_table": "equipment_model",
-      "from_field": "Equipment Model ID",
-      "to_field": "Equipment Model ID",
-      "relationship_type": "many-to-many"
+      "from_table": "EquipmentModelHasParameter",
+      "to_table": "EquipmentModelHasProcedures",
+      "from_field": "Equipment_model_ID",
+      "to_field": "Equipment_model_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "equipment_model_has_procedures",
-      "to_table": "equipment_model",
-      "from_field": "Equipment Model ID",
-      "to_field": "Equipment Model ID",
-      "relationship_type": "many-to-many"
+      "from_table": "EquipmentModelHasParameter",
+      "to_table": "ParameterHasProcedures",
+      "from_field": "Parameter_ID",
+      "to_field": "Parameter_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "equipment_model_has_procedures",
-      "to_table": "procedures",
-      "from_field": "Procedure ID",
-      "to_field": "Procedure ID",
-      "relationship_type": "many-to-many"
+      "from_table": "EquipmentModelHasProcedures",
+      "to_table": "EquipmentModelHasProcedures",
+      "from_field": "Equipment_model_ID",
+      "to_field": "Equipment_model_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "hydrological_characteristics",
-      "to_table": "watershed",
-      "from_field": "Watershed ID",
-      "to_field": "Watershed ID",
-      "relationship_type": "one-to-one"
+      "from_table": "EquipmentModelHasProcedures",
+      "to_table": "Procedures",
+      "from_field": "Procedure_ID",
+      "to_field": "Procedure_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "weather_condition",
-      "from_field": "Condition ID",
-      "to_field": "Condition ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "ProjectHasSamplingPoints",
+      "from_field": "Project_ID",
+      "to_field": "Project_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "contact",
-      "from_field": "Contact ID",
-      "to_field": "Contact ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "ProjectHasContact",
+      "from_field": "Contact_ID",
+      "to_field": "Contact_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "equipment",
-      "from_field": "Equipment ID",
-      "to_field": "Equipment ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "ProjectHasEquipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "parameter",
-      "from_field": "Parameter ID",
-      "to_field": "Parameter ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "ParameterHasProcedures",
+      "from_field": "Parameter_ID",
+      "to_field": "Parameter_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "procedures",
-      "from_field": "Procedure ID",
-      "to_field": "Procedure ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "Procedures",
+      "from_field": "Procedure_ID",
+      "to_field": "Procedure_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "project",
-      "from_field": "Project ID",
-      "to_field": "Project ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "Unit",
+      "from_field": "Unit_ID",
+      "to_field": "Unit_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "purpose",
-      "from_field": "Purpose ID",
-      "to_field": "Purpose ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "Purpose",
+      "from_field": "Purpose_ID",
+      "to_field": "Purpose_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "sampling_points",
-      "from_field": "Sampling Point ID",
-      "to_field": "Sampling Point ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "SamplingPoints",
+      "from_field": "Sampling_point_ID",
+      "to_field": "Sampling_point_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "metadata",
-      "to_table": "unit",
-      "from_field": "Unit ID",
-      "to_field": "Unit ID",
-      "relationship_type": "one-to-many"
+      "from_table": "MetaData",
+      "to_table": "WeatherCondition",
+      "from_field": "Condition_ID",
+      "to_field": "Condition_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "parameter",
-      "to_table": "unit",
-      "from_field": "Unit ID",
-      "to_field": "Unit ID",
-      "relationship_type": "one-to-many"
+      "from_table": "Parameter",
+      "to_table": "Unit",
+      "from_field": "Unit_ID",
+      "to_field": "Unit_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "parameter_has_procedures",
-      "to_table": "procedures",
-      "from_field": "Procedure ID",
-      "to_field": "Procedure ID",
-      "relationship_type": "many-to-many"
+      "from_table": "ParameterHasProcedures",
+      "to_table": "Procedures",
+      "from_field": "Procedure_ID",
+      "to_field": "Procedure_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "project_has_contact",
-      "to_table": "contact",
-      "from_field": "Contact ID",
-      "to_field": "Contact ID",
-      "relationship_type": "many-to-many"
+      "from_table": "ParameterHasProcedures",
+      "to_table": "ParameterHasProcedures",
+      "from_field": "Parameter_ID",
+      "to_field": "Parameter_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "project_has_contact",
-      "to_table": "project",
-      "from_field": "Project ID",
-      "to_field": "Project ID",
-      "relationship_type": "many-to-many"
+      "from_table": "ProjectHasContact",
+      "to_table": "ProjectHasContact",
+      "from_field": "Contact_ID",
+      "to_field": "Contact_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "project_has_equipment",
-      "to_table": "equipment",
-      "from_field": "Equipment ID",
-      "to_field": "Equipment ID",
-      "relationship_type": "many-to-many"
+      "from_table": "ProjectHasContact",
+      "to_table": "ProjectHasSamplingPoints",
+      "from_field": "Project_ID",
+      "to_field": "Project_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "project_has_equipment",
-      "to_table": "project",
-      "from_field": "Project ID",
-      "to_field": "Project ID",
-      "relationship_type": "many-to-many"
+      "from_table": "ProjectHasEquipment",
+      "to_table": "ProjectHasEquipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "project_has_sampling_points",
-      "to_table": "project",
-      "from_field": "Project ID",
-      "to_field": "Project ID",
-      "relationship_type": "many-to-many"
+      "from_table": "ProjectHasEquipment",
+      "to_table": "ProjectHasSamplingPoints",
+      "from_field": "Project_ID",
+      "to_field": "Project_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "project_has_sampling_points",
-      "to_table": "sampling_points",
-      "from_field": "Sampling Point ID",
-      "to_field": "Sampling Point ID",
-      "relationship_type": "many-to-many"
+      "from_table": "ProjectHasSamplingPoints",
+      "to_table": "ProjectHasSamplingPoints",
+      "from_field": "Project_ID",
+      "to_field": "Project_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "sampling_points",
-      "to_table": "site",
-      "from_field": "Site ID",
-      "to_field": "Site ID",
-      "relationship_type": "one-to-many"
+      "from_table": "ProjectHasSamplingPoints",
+      "to_table": "SamplingPoints",
+      "from_field": "Sampling_point_ID",
+      "to_field": "Sampling_point_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "site",
-      "to_table": "watershed",
-      "from_field": "Watershed ID",
-      "to_field": "Watershed ID",
-      "relationship_type": "one-to-many"
+      "from_table": "SamplingPoints",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "urban_characteristics",
-      "to_table": "watershed",
-      "from_field": "Watershed ID",
-      "to_field": "Watershed ID",
-      "relationship_type": "one-to-one"
+      "from_table": "Site",
+      "to_table": "Watershed",
+      "from_field": "Watershed_ID",
+      "to_field": "Watershed_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "value",
-      "to_table": "comments",
-      "from_field": "Comment ID",
-      "to_field": "Comment ID",
-      "relationship_type": "one-to-many"
+      "from_table": "Value",
+      "to_table": "Comments",
+      "from_field": "Comment_ID",
+      "to_field": "Comment_ID",
+      "relationship_type": null
     },
     {
-      "from_table": "value",
-      "to_table": "metadata",
-      "from_field": "Metadata ID",
-      "to_field": "Metadata ID",
-      "relationship_type": "one-to-many"
+      "from_table": "Value",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
     }
   ]
 };
@@ -1748,37 +1823,46 @@
 
             initialize: function() {
                 joint.dia.ElementView.prototype.initialize.apply(this, arguments);
-                
+
                 // Create the DIV that will mock the element
                 this.div = document.createElement('div');
                 this.div.className = 'html-element';
-                this.div.id = this.model.id; 
-                
+                this.div.id = this.model.id;
+
+                // Check if this is a view
+                if (this.model.get('isView')) {
+                    this.div.classList.add('view');
+                }
+
                 // Prevent paper panning when clicking on the element
                 this.div.addEventListener('mousedown', (e) => {
                     // We handle our own interactions
-                    e.stopPropagation(); 
-                    
+                    e.stopPropagation();
+
                     // Visual Selection
                     document.querySelectorAll('.html-element').forEach(el => el.classList.remove('selected'));
                     this.div.classList.add('selected');
                 });
-                
+
                 this.renderContent();
                 this.model.on('change', this.updateBox, this);
             },
             renderContent: function() {
-                const data = this.model.get('tableData');
-                
+                const isView = this.model.get('isView');
+                const data = isView ? this.model.get('viewData') : this.model.get('tableData');
+
                 // Escape string for usage in onclick
-                const tableJson = JSON.stringify({
+                const entityJson = JSON.stringify({
                     name: data.label,
                     description: data.description,
-                    type: 'table'
+                    type: isView ? 'view' : 'table',
+                    definition: data.view_definition || null
                 }).replace(/"/g, '&quot;');
-                
+
                 let rowsHtml = '';
-                data.fields.forEach(field => {
+                const items = isView ? data.columns : data.fields;
+
+                items.forEach(field => {
                     let keyBadge = '';
                     if (field.is_pk) keyBadge = '<span class="pk-badge" title="Primary Key">PK</span>';
                     else if (field.is_fk) keyBadge = '<span class="fk-badge" title="Foreign Key">FK</span>';
@@ -1798,10 +1882,12 @@
                     `;
                 });
 
+                const badgeHtml = isView ? '<span class="view-badge">VIEW</span>' : '';
+
                 this.div.innerHTML = `
                     <div class="table-header" onmousedown="startDrag(event, '${this.model.id}')">
-                        <span>${data.label}</span>
-                        <span class="info-btn" onclick="showTableDetails('${tableJson}', event)">ℹ️</span>
+                        <span>${data.label}</span>${badgeHtml}
+                        <span class="info-btn" onclick="showTableDetails('${entityJson}', event)">ℹ️</span>
                     </div>
                     <div class="table-body">
                         ${rowsHtml}
@@ -1889,6 +1975,35 @@
 
             element.addTo(graph);
             tableElements[table.id] = element;
+        });
+
+        // 1b. Create View Nodes (with distinct styling)
+        const viewElements = {};
+        erdData.views.forEach(view => {
+            // Dynamic Width Calculation
+            let maxChars = view.label.length;
+            view.columns.forEach(col => {
+                const lineLength = col.name.length + col.sql_type.length + 5;
+                if (lineLength > maxChars) maxChars = lineLength;
+            });
+
+            let calculatedWidth = (maxChars * 10) + 80;
+            if (calculatedWidth < 280) calculatedWidth = 280;
+            if (calculatedWidth > 700) calculatedWidth = 700;
+
+            const headerHeight = 40;
+            const rowHeight = 30;
+            const height = headerHeight + (view.columns.length * rowHeight) + 10;
+
+            const viewElement = new joint.shapes.html.Element({
+                position: { x: 0, y: 0 },
+                size: { width: calculatedWidth, height: height },
+                viewData: view,
+                isView: true
+            });
+
+            viewElement.addTo(graph);
+            viewElements[view.id] = viewElement;
         });
 
         // Helper function to determine cardinality markers
@@ -2381,25 +2496,40 @@
         
         function showTableDetails(tableJson, event) {
             event.stopPropagation();
-            const table = JSON.parse(tableJson);
+            const entity = JSON.parse(tableJson);
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('sidebar-details');
-            
-            content.innerHTML = `
+
+            const typeLabel = entity.type === 'view' ? 'View' : 'Table';
+            const typeClass = entity.type === 'view' ? '#3b82f6' : '#64748b';
+
+            let html = `
                 <div class="field-detail">
                     <div class="detail-label">Type</div>
-                    <div class="type-tag">Table</div>
+                    <div class="type-tag" style="background: ${typeClass}; color: white;">${typeLabel}</div>
                 </div>
                 <div class="field-detail">
                     <div class="detail-label">Name</div>
-                    <div class="detail-value" style="font-weight: 600">${table.name}</div>
+                    <div class="detail-value" style="font-weight: 600">${entity.name}</div>
                 </div>
                 <div class="field-detail">
                     <div class="detail-label">Description</div>
-                    <div class="detail-value">${table.description || "No description available."}</div>
+                    <div class="detail-value">${entity.description || "No description available."}</div>
                 </div>
             `;
-            
+
+            // Show view definition if this is a view
+            if (entity.type === 'view' && entity.definition) {
+                html += `
+                    <div class="field-detail">
+                        <div class="detail-label">View Definition</div>
+                        <div class="detail-value" style="font-family: monospace; font-size: 11px; background: #f8fafc; padding: 8px; border-radius: 4px;">${entity.definition}</div>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = html;
+
             sidebar.classList.add('open');
             // Remove row highlights
             document.querySelectorAll('.table-row').forEach(r => r.style.background = '');

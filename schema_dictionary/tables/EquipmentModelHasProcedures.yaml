@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: EquipmentModelHasProcedures
+  schema: dbo
+  description: "Links equipment models to the relevant maintenance procedures"
+
+  columns:
+    - name: Equipment_model_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Equipment model table"
+      foreign_key:
+        table: EquipmentModel
+        column: Equipment_model_ID
+    - name: Procedure_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Procedures table"
+      foreign_key:
+        table: Procedures
+        column: Procedure_ID
+
+  primary_key: [Equipment_model_ID, Procedure_ID]

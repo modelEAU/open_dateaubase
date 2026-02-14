@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: ProjectHasSamplingPoints
+  schema: dbo
+  description: "Links projects to the sampling points used within them"
+
+  columns:
+    - name: Project_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Project table"
+      foreign_key:
+        table: Project
+        column: Project_ID
+    - name: Sampling_point_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Sampling_point table"
+      foreign_key:
+        table: SamplingPoints
+        column: Sampling_point_ID
+
+  primary_key: [Project_ID, Sampling_point_ID]

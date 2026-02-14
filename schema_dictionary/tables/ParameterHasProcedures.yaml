@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: ParameterHasProcedures
+  schema: dbo
+  description: "Links parameters to the relevant measurement procedures"
+
+  columns:
+    - name: Procedure_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Procedures table"
+      foreign_key:
+        table: Procedures
+        column: Procedure_ID
+    - name: Parameter_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Parameter table"
+      foreign_key:
+        table: Parameter
+        column: Parameter_ID
+
+  primary_key: [Procedure_ID, Parameter_ID]

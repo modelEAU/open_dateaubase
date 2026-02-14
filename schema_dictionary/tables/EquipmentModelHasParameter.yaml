@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: EquipmentModelHasParameter
+  schema: dbo
+  description: "Links equipment models to the parameters they can measure"
+
+  columns:
+    - name: Equipment_model_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Equipment model table"
+      foreign_key:
+        table: EquipmentModel
+        column: Equipment_model_ID
+    - name: Parameter_ID
+      logical_type: integer
+      nullable: true
+      description: "Link to the Parameter table"
+      foreign_key:
+        table: Parameter
+        column: Parameter_ID
+
+  primary_key: [Equipment_model_ID, Parameter_ID]

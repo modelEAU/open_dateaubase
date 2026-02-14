@@ -1,0 +1,3 @@
+schema_version: "1.0.1"
+description: "Baseline schema with SchemaVersion tracking table added"
+date: "2026-02-13"
