@@ -7,7 +7,7 @@ table:
   columns:
     - name: Watershed_ID
       logical_type: integer
-      nullable: true
+      nullable: false
       identity: true
       description: "Linked to the Watershed table"
     - name: name

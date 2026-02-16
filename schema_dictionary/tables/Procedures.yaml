@@ -7,7 +7,7 @@ table:
   columns:
     - name: Procedure_ID
       logical_type: integer
-      nullable: true
+      nullable: false
       identity: true
       description: "Link to the Procedures table"
     - name: Procedure_name

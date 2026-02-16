@@ -7,14 +7,14 @@ table:
   columns:
     - name: Equipment_model_ID
       logical_type: integer
-      nullable: true
+      nullable: false
       description: "Link to the Equipment model table"
       foreign_key:
         table: EquipmentModel
         column: Equipment_model_ID
     - name: Procedure_ID
       logical_type: integer
-      nullable: true
+      nullable: false
       description: "Link to the Procedures table"
       foreign_key:
         table: Procedures

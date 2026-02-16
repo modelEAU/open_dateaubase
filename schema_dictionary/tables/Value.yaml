@@ -21,7 +21,7 @@ table:
         column: Metadata_ID
     - name: Value_ID
       logical_type: integer
-      nullable: true
+      nullable: false
       identity: true
       description: "A unique ID is generated automatically by MySQL"
     - name: Value

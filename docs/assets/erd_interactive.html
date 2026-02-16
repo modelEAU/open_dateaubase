@@ -320,7 +320,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "A unique ID is generated automatically by MySQL"
         },
@@ -345,7 +345,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Link to the Contact table"
         },
@@ -505,7 +505,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Link to the Equipment table"
         },
@@ -575,7 +575,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Link to the Equipment model table"
         },
@@ -636,7 +636,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "equipment_model.Equipment_model_ID",
           "description": "Link to the Equipment model table"
         },
@@ -645,7 +645,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "parameter.Parameter_ID",
           "description": "Link to the Parameter table"
         }
@@ -661,7 +661,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "equipment_model.Equipment_model_ID",
           "description": "Link to the Equipment model table"
         },
@@ -670,7 +670,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "procedure.Procedure_ID",
           "description": "Link to the Procedures table"
         }
@@ -686,7 +686,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Linked to the Watershed table"
         },
@@ -871,7 +871,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Link to the Parameter table"
         },
@@ -896,7 +896,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "procedure.Procedure_ID",
           "description": "Link to the Procedures table"
         },
@@ -905,7 +905,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "parameter.Parameter_ID",
           "description": "Link to the Parameter table"
         }
@@ -921,7 +921,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Link to the Procedures table"
         },
@@ -973,7 +973,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Link to the Project table"
         },
@@ -1007,7 +1007,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "contact.Contact_ID",
           "description": "Link to the Contact table"
         },
@@ -1016,7 +1016,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "project.Project_ID",
           "description": "Link to the Project table"
         }
@@ -1032,7 +1032,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "equipment.Equipment_ID",
           "description": "Link to the Equipment table"
         },
@@ -1041,7 +1041,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "project.Project_ID",
           "description": "Link to the Project table"
         }
@@ -1057,7 +1057,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "project.Project_ID",
           "description": "Link to the Project table"
         },
@@ -1066,7 +1066,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "sampling_point.Sampling_point_ID",
           "description": "Link to the Sampling_point table"
         }
@@ -1082,7 +1082,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "A unique ID is generated automatically by MySQL"
         },
@@ -1116,7 +1116,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Link to the Sampling_point table"
         },
@@ -1247,7 +1247,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "A unique ID is generated automatically by MySQL"
         },
@@ -1362,7 +1362,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "A unique ID is generated automatically by MySQL"
         },
@@ -1387,7 +1387,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Linked to the Watershed table"
         },
@@ -1484,7 +1484,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "A unique ID is generated automatically by MySQL"
         },
@@ -1527,7 +1527,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "Linked to the Watershed table"
         },
@@ -1588,7 +1588,7 @@
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
           "description": "A unique ID is generated automatically by MySQL"
         },

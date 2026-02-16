@@ -1,15 +1,15 @@
 -- Baseline CREATE script for schema v1.0.1
 -- Platform: mssql
--- Generated: 2026-02-14 23:13:27 UTC
+-- Generated: 2026-02-16 19:32:29 UTC
 
 CREATE TABLE [dbo].[Comments] (
-    [Comment_ID] INT IDENTITY(1,1),
+    [Comment_ID] INT IDENTITY(1,1) NOT NULL,
     [Comment] NVARCHAR(MAX),
     CONSTRAINT [PK_Comments] PRIMARY KEY ([Comment_ID])
 );
 
 CREATE TABLE [dbo].[Contact] (
-    [Contact_ID] INT IDENTITY(1,1),
+    [Contact_ID] INT IDENTITY(1,1) NOT NULL,
     [Last_name] NVARCHAR(100),
     [First_name] NVARCHAR(255),
     [Company] NVARCHAR(MAX),
@@ -30,7 +30,7 @@ CREATE TABLE [dbo].[Contact] (
 );
 
 CREATE TABLE [dbo].[EquipmentModel] (
-    [Equipment_model_ID] INT IDENTITY(1,1),
+    [Equipment_model_ID] INT IDENTITY(1,1) NOT NULL,
     [Equipment_model] NVARCHAR(100),
     [Method] NVARCHAR(100),
     [Functions] NVARCHAR(MAX),
@@ -40,7 +40,7 @@ CREATE TABLE [dbo].[EquipmentModel] (
 );
 
 CREATE TABLE [dbo].[HydrologicalCharacteristics] (
-    [Watershed_ID] INT IDENTITY(1,1),
+    [Watershed_ID] INT IDENTITY(1,1) NOT NULL,
     [Urban_area] REAL,
     [Forest] REAL,
     [Wetlands] REAL,
@@ -51,7 +51,7 @@ CREATE TABLE [dbo].[HydrologicalCharacteristics] (
 );
 
 CREATE TABLE [dbo].[Procedures] (
-    [Procedure_ID] INT IDENTITY(1,1),
+    [Procedure_ID] INT IDENTITY(1,1) NOT NULL,
     [Procedure_name] NVARCHAR(100),
     [Procedure_type] NVARCHAR(255),
     [Description] NVARCHAR(MAX),
@@ -60,14 +60,14 @@ CREATE TABLE [dbo].[Procedures] (
 );
 
 CREATE TABLE [dbo].[Project] (
-    [Project_ID] INT IDENTITY(1,1),
+    [Project_ID] INT IDENTITY(1,1) NOT NULL,
     [name] NVARCHAR(100),
     [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_Project] PRIMARY KEY ([Project_ID])
 );
 
 CREATE TABLE [dbo].[Purpose] (
-    [Purpose_ID] INT IDENTITY(1,1),
+    [Purpose_ID] INT IDENTITY(1,1) NOT NULL,
     [Purpose] NVARCHAR(100),
     [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_Purpose] PRIMARY KEY ([Purpose_ID])
@@ -83,13 +83,13 @@ CREATE TABLE [dbo].[SchemaVersion] (
 );
 
 CREATE TABLE [dbo].[Unit] (
-    [Unit_ID] INT IDENTITY(1,1),
+    [Unit_ID] INT IDENTITY(1,1) NOT NULL,
     [Unit] NVARCHAR(100),
     CONSTRAINT [PK_Unit] PRIMARY KEY ([Unit_ID])
 );
 
 CREATE TABLE [dbo].[UrbanCharacteristics] (
-    [Watershed_ID] INT IDENTITY(1,1),
+    [Watershed_ID] INT IDENTITY(1,1) NOT NULL,
     [Commercial] REAL,
     [Green_spaces] REAL,
     [Industrial] REAL,
@@ -101,7 +101,7 @@ CREATE TABLE [dbo].[UrbanCharacteristics] (
 );
 
 CREATE TABLE [dbo].[Watershed] (
-    [Watershed_ID] INT IDENTITY(1,1),
+    [Watershed_ID] INT IDENTITY(1,1) NOT NULL,
     [name] NVARCHAR(100),
     [Description] NVARCHAR(MAX),
     [Surface_area] REAL,
@@ -111,14 +111,14 @@ CREATE TABLE [dbo].[Watershed] (
 );
 
 CREATE TABLE [dbo].[WeatherCondition] (
-    [Condition_ID] INT IDENTITY(1,1),
+    [Condition_ID] INT IDENTITY(1,1) NOT NULL,
     [Weather_condition] NVARCHAR(100),
     [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_WeatherCondition] PRIMARY KEY ([Condition_ID])
 );
 
 CREATE TABLE [dbo].[Equipment] (
-    [Equipment_ID] INT IDENTITY(1,1),
+    [Equipment_ID] INT IDENTITY(1,1) NOT NULL,
     [model_ID] INT,
     [identifier] NVARCHAR(100),
     [Serial_number] NVARCHAR(100),
@@ -129,14 +129,14 @@ CREATE TABLE [dbo].[Equipment] (
 );
 
 CREATE TABLE [dbo].[EquipmentModelHasParameter] (
-    [Equipment_model_ID] INT,
-    [Parameter_ID] INT,
+    [Equipment_model_ID] INT NOT NULL,
+    [Parameter_ID] INT NOT NULL,
     CONSTRAINT [PK_EquipmentModelHasParameter] PRIMARY KEY ([Equipment_model_ID], [Parameter_ID])
 );
 
 CREATE TABLE [dbo].[EquipmentModelHasProcedures] (
-    [Equipment_model_ID] INT,
-    [Procedure_ID] INT,
+    [Equipment_model_ID] INT NOT NULL,
+    [Procedure_ID] INT NOT NULL,
     CONSTRAINT [PK_EquipmentModelHasProcedures] PRIMARY KEY ([Equipment_model_ID], [Procedure_ID])
 );
 
@@ -157,37 +157,37 @@ CREATE TABLE [dbo].[MetaData] (
 CREATE TABLE [dbo].[Parameter] (
     [Unit_ID] INT,
     [Parameter] NVARCHAR(100),
-    [Parameter_ID] INT IDENTITY(1,1),
+    [Parameter_ID] INT IDENTITY(1,1) NOT NULL,
     [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_Parameter] PRIMARY KEY ([Parameter_ID])
 );
 
 CREATE TABLE [dbo].[ParameterHasProcedures] (
-    [Procedure_ID] INT,
-    [Parameter_ID] INT,
+    [Procedure_ID] INT NOT NULL,
+    [Parameter_ID] INT NOT NULL,
     CONSTRAINT [PK_ParameterHasProcedures] PRIMARY KEY ([Procedure_ID], [Parameter_ID])
 );
 
 CREATE TABLE [dbo].[ProjectHasContact] (
-    [Contact_ID] INT,
-    [Project_ID] INT,
+    [Contact_ID] INT NOT NULL,
+    [Project_ID] INT NOT NULL,
     CONSTRAINT [PK_ProjectHasContact] PRIMARY KEY ([Contact_ID], [Project_ID])
 );
 
 CREATE TABLE [dbo].[ProjectHasEquipment] (
-    [Equipment_ID] INT,
-    [Project_ID] INT,
+    [Equipment_ID] INT NOT NULL,
+    [Project_ID] INT NOT NULL,
     CONSTRAINT [PK_ProjectHasEquipment] PRIMARY KEY ([Equipment_ID], [Project_ID])
 );
 
 CREATE TABLE [dbo].[ProjectHasSamplingPoints] (
-    [Project_ID] INT,
-    [Sampling_point_ID] INT,
+    [Project_ID] INT NOT NULL,
+    [Sampling_point_ID] INT NOT NULL,
     CONSTRAINT [PK_ProjectHasSamplingPoints] PRIMARY KEY ([Project_ID], [Sampling_point_ID])
 );
 
 CREATE TABLE [dbo].[SamplingPoints] (
-    [Sampling_point_ID] INT IDENTITY(1,1),
+    [Sampling_point_ID] INT IDENTITY(1,1) NOT NULL,
     [Site_ID] INT,
     [Sampling_point] NVARCHAR(100),
     [Sampling_location] NVARCHAR(100),
@@ -199,7 +199,7 @@ CREATE TABLE [dbo].[SamplingPoints] (
 );
 
 CREATE TABLE [dbo].[Site] (
-    [Site_ID] INT IDENTITY(1,1),
+    [Site_ID] INT IDENTITY(1,1) NOT NULL,
     [Watershed_ID] INT,
     [name] NVARCHAR(100),
     [type] NVARCHAR(255),
@@ -217,7 +217,7 @@ CREATE TABLE [dbo].[Site] (
 CREATE TABLE [dbo].[Value] (
     [Comment_ID] INT,
     [Metadata_ID] INT,
-    [Value_ID] INT IDENTITY(1,1),
+    [Value_ID] INT IDENTITY(1,1) NOT NULL,
     [Value] FLOAT,
     [Number_of_experiment] INT,
     [Timestamp] INT,

@@ -17,7 +17,7 @@ Stores any additional textual comments, notes, or observations related to a spec
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Comment_ID | INT **(PK)** | - |  | <span id="Comment_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Comment_ID | INT **(PK)** | - | ✓ | <span id="Comment_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Comment | NVARCHAR(MAX) | - |  | <span id="Comment"></span>Comment on the data in the Value table | - |
 
 <span id="Contact"></span>
@@ -31,7 +31,7 @@ Stores detailed personal and professional information for people involved in pro
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Contact_ID | INT **(PK)** | - |  | <span id="Contact_ID"></span>Link to the Contact table | - |
+| Contact_ID | INT **(PK)** | - | ✓ | <span id="Contact_ID"></span>Link to the Contact table | - |
 | Last_name | NVARCHAR(100) | - |  | <span id="Last_name"></span>Last name of the contact | - |
 | First_name | NVARCHAR(255) | - |  | <span id="First_name"></span>First name of the contact | - |
 | Company | NVARCHAR(MAX) | - |  | <span id="Company"></span>Company name | - |
@@ -60,7 +60,7 @@ Stores information about a specific, physical piece of equipment (e.g., serial n
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_ID | INT **(PK)** | - |  | <span id="Equipment_ID"></span>Link to the Equipment table | - |
+| Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Link to the Equipment table | - |
 | model_ID | INT | - |  | <span id="model_ID"></span>Link to the Equipment model table | FK → [Equipment_model_ID](#Equipment_model_ID) |
 | identifier | NVARCHAR(100) | - |  | <span id="identifier"></span>Identification name of the equipments | - |
 | Serial_number | NVARCHAR(100) | - |  | <span id="Serial_number"></span>Serial number of the equipment | - |
@@ -79,7 +79,7 @@ Stores detailed, non-redundant specifications for a specific sensor or instrumen
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_model_ID | INT **(PK)** | - |  | <span id="Equipment_model_ID"></span>Link to the Equipment model table | - |
+| Equipment_model_ID | INT **(PK)** | - | ✓ | <span id="Equipment_model_ID"></span>Link to the Equipment model table | - |
 | Equipment_model | NVARCHAR(100) | - |  | <span id="Equipment_model"></span>Name of the equipment model. For example: ammo::lyser | - |
 | Method | NVARCHAR(100) | - |  | <span id="Method"></span>Method behind the equipment | - |
 | Functions | NVARCHAR(MAX) | - |  | <span id="Functions"></span>Description of the functions of the equipment | - |
@@ -97,8 +97,8 @@ Links equipment models to the parameters they can measure
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_model_ID | INT **(PK)** | - |  | <span id="Equipment_model_ID"></span>Link to the Equipment model table | FK → [Equipment_model_ID](#Equipment_model_ID) |
-| Parameter_ID | INT **(PK)** | - |  | <span id="Parameter_ID"></span>Link to the Parameter table | FK → [Parameter_ID](#Parameter_ID) |
+| Equipment_model_ID | INT **(PK)** | - | ✓ | <span id="Equipment_model_ID"></span>Link to the Equipment model table | FK → [Equipment_model_ID](#Equipment_model_ID) |
+| Parameter_ID | INT **(PK)** | - | ✓ | <span id="Parameter_ID"></span>Link to the Parameter table | FK → [Parameter_ID](#Parameter_ID) |
 
 <span id="EquipmentModelHasProcedures"></span>
 
@@ -111,8 +111,8 @@ Links equipment models to the relevant maintenance procedures
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_model_ID | INT **(PK)** | - |  | <span id="Equipment_model_ID"></span>Link to the Equipment model table | FK → [Equipment_model_ID](#Equipment_model_ID) |
-| Procedure_ID | INT **(PK)** | - |  | <span id="Procedure_ID"></span>Link to the Procedures table | FK → [Procedure_ID](#Procedure_ID) |
+| Equipment_model_ID | INT **(PK)** | - | ✓ | <span id="Equipment_model_ID"></span>Link to the Equipment model table | FK → [Equipment_model_ID](#Equipment_model_ID) |
+| Procedure_ID | INT **(PK)** | - | ✓ | <span id="Procedure_ID"></span>Link to the Procedures table | FK → [Procedure_ID](#Procedure_ID) |
 
 <span id="HydrologicalCharacteristics"></span>
 
@@ -125,7 +125,7 @@ Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Watershed_ID | INT **(PK)** | - |  | <span id="Watershed_ID"></span>Linked to the Watershed table | - |
+| Watershed_ID | INT **(PK)** | - | ✓ | <span id="Watershed_ID"></span>Linked to the Watershed table | - |
 | Urban_area | REAL | - |  | <span id="Urban_area"></span>Percentage [%] of urban areas | - |
 | Forest | REAL | - |  | <span id="Forest"></span>Percentage [%] of forest areas | - |
 | Wetlands | REAL | - |  | <span id="Wetlands"></span>Percentage [%] of wetlands | - |
@@ -168,7 +168,7 @@ Stores the different water quality or quantity parameters that are measured (e.g
 |-------|----------|-----------|----------|-------------|-------------|
 | Unit_ID | INT | - |  | <span id="Unit_ID"></span>A unique ID is generated automatically by MySQL | FK → [Unit_ID](#Unit_ID) |
 | Parameter | NVARCHAR(100) | - |  | <span id="Parameter"></span>Name of the parameter | - |
-| Parameter_ID | INT **(PK)** | - |  | <span id="Parameter_ID"></span>Link to the Parameter table | - |
+| Parameter_ID | INT **(PK)** | - | ✓ | <span id="Parameter_ID"></span>Link to the Parameter table | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the parameter | - |
 
 <span id="ParameterHasProcedures"></span>
@@ -182,8 +182,8 @@ Links parameters to the relevant measurement procedures
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Procedure_ID | INT **(PK)** | - |  | <span id="Procedure_ID"></span>Link to the Procedures table | FK → [Procedure_ID](#Procedure_ID) |
-| Parameter_ID | INT **(PK)** | - |  | <span id="Parameter_ID"></span>Link to the Parameter table | FK → [Parameter_ID](#Parameter_ID) |
+| Procedure_ID | INT **(PK)** | - | ✓ | <span id="Procedure_ID"></span>Link to the Procedures table | FK → [Procedure_ID](#Procedure_ID) |
+| Parameter_ID | INT **(PK)** | - | ✓ | <span id="Parameter_ID"></span>Link to the Parameter table | FK → [Parameter_ID](#Parameter_ID) |
 
 <span id="Procedures"></span>
 
@@ -196,7 +196,7 @@ Stores details for different measurement procedures (e.g., calibration, validati
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Procedure_ID | INT **(PK)** | - |  | <span id="Procedure_ID"></span>Link to the Procedures table | - |
+| Procedure_ID | INT **(PK)** | - | ✓ | <span id="Procedure_ID"></span>Link to the Procedures table | - |
 | Procedure_name | NVARCHAR(100) | - |  | <span id="Procedure_name"></span>Title name of the procedure | - |
 | Procedure_type | NVARCHAR(255) | - |  | <span id="Procedure_type"></span>Type of the procedure. For example, SOP | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the procedure | - |
@@ -213,7 +213,7 @@ Stores descriptive information about the research or monitoring project for whic
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Project_ID | INT **(PK)** | - |  | <span id="Project_ID"></span>Link to the Project table | - |
+| Project_ID | INT **(PK)** | - | ✓ | <span id="Project_ID"></span>Link to the Project table | - |
 | name | NVARCHAR(100) | - |  | <span id="name"></span>Name of the project | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the project | - |
 
@@ -228,8 +228,8 @@ Links projects to the personnel involved in them
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Contact_ID | INT **(PK)** | - |  | <span id="Contact_ID"></span>Link to the Contact table | FK → [Contact_ID](#Contact_ID) |
-| Project_ID | INT **(PK)** | - |  | <span id="Project_ID"></span>Link to the Project table | FK → [Project_ID](#Project_ID) |
+| Contact_ID | INT **(PK)** | - | ✓ | <span id="Contact_ID"></span>Link to the Contact table | FK → [Contact_ID](#Contact_ID) |
+| Project_ID | INT **(PK)** | - | ✓ | <span id="Project_ID"></span>Link to the Project table | FK → [Project_ID](#Project_ID) |
 
 <span id="ProjectHasEquipment"></span>
 
@@ -242,8 +242,8 @@ Links projects to the specific equipment used within them
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_ID | INT **(PK)** | - |  | <span id="Equipment_ID"></span>Link to the Equipment table | FK → [Equipment_ID](#Equipment_ID) |
-| Project_ID | INT **(PK)** | - |  | <span id="Project_ID"></span>Link to the Project table | FK → [Project_ID](#Project_ID) |
+| Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Link to the Equipment table | FK → [Equipment_ID](#Equipment_ID) |
+| Project_ID | INT **(PK)** | - | ✓ | <span id="Project_ID"></span>Link to the Project table | FK → [Project_ID](#Project_ID) |
 
 <span id="ProjectHasSamplingPoints"></span>
 
@@ -256,8 +256,8 @@ Links projects to the sampling points used within them
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Project_ID | INT **(PK)** | - |  | <span id="Project_ID"></span>Link to the Project table | FK → [Project_ID](#Project_ID) |
-| Sampling_point_ID | INT **(PK)** | - |  | <span id="Sampling_point_ID"></span>Link to the Sampling_point table | FK → [Sampling_point_ID](#Sampling_point_ID) |
+| Project_ID | INT **(PK)** | - | ✓ | <span id="Project_ID"></span>Link to the Project table | FK → [Project_ID](#Project_ID) |
+| Sampling_point_ID | INT **(PK)** | - | ✓ | <span id="Sampling_point_ID"></span>Link to the Sampling_point table | FK → [Sampling_point_ID](#Sampling_point_ID) |
 
 <span id="Purpose"></span>
 
@@ -270,7 +270,7 @@ Stores information about the aim of the measurement (e.g., on-line measurement, 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Purpose_ID | INT **(PK)** | - |  | <span id="Purpose_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Purpose_ID | INT **(PK)** | - | ✓ | <span id="Purpose_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Purpose | NVARCHAR(100) | - |  | <span id="Purpose"></span>Purpose of the data collection. For example, "Measurement", "Lab_analysis", "Calibration" and "Cleaning" | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the purpose | - |
 
@@ -285,7 +285,7 @@ Stores the identification, specific geographical coordinates (Latitude/Longitude
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Sampling_point_ID | INT **(PK)** | - |  | <span id="Sampling_point_ID"></span>Link to the Sampling_point table | - |
+| Sampling_point_ID | INT **(PK)** | - | ✓ | <span id="Sampling_point_ID"></span>Link to the Sampling_point table | - |
 | Site_ID | INT | - |  | <span id="Site_ID"></span>A unique ID is generated automatically by MySQL | FK → [Site_ID](#Site_ID) |
 | Sampling_point | NVARCHAR(100) | - |  | <span id="Sampling_point"></span>Where the sample was taken. For example: "Inlet", "Outlet" or "Upstream" | - |
 | Sampling_location | NVARCHAR(100) | - |  | <span id="Sampling_location"></span>Where the sample was taken. For example: "Biofiltration", "Sewer 01" or "Retention Tank" | - |
@@ -322,7 +322,7 @@ Stores general site information, including address, site type, and a link to the
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Site_ID | INT **(PK)** | - |  | <span id="Site_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Site_ID | INT **(PK)** | - | ✓ | <span id="Site_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Watershed_ID | INT | - |  | <span id="Watershed_ID"></span>Linked to the Watershed table | FK → [Watershed_ID](#Watershed_ID) |
 | name | NVARCHAR(100) | - |  | <span id="name"></span>Name of the site | - |
 | type | NVARCHAR(255) | - |  | <span id="type"></span>For example: "WWTP", "River" or "Sewer_system" | - |
@@ -346,7 +346,7 @@ Stores the SI units of measurement (or other relevant units) corresponding to th
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Unit_ID | INT **(PK)** | - |  | <span id="Unit_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Unit_ID | INT **(PK)** | - | ✓ | <span id="Unit_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Unit | NVARCHAR(100) | - |  | <span id="Unit"></span>SI-units only | - |
 
 <span id="UrbanCharacteristics"></span>
@@ -360,7 +360,7 @@ Stores the urban land use percentages (e.g., commercial, residential, green spac
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Watershed_ID | INT **(PK)** | - |  | <span id="Watershed_ID"></span>Linked to the Watershed table | - |
+| Watershed_ID | INT **(PK)** | - | ✓ | <span id="Watershed_ID"></span>Linked to the Watershed table | - |
 | Commercial | REAL | - |  | <span id="Commercial"></span>Percentage [%] of commercial areas. For example stores or bank areas | - |
 | Green_spaces | REAL | - |  | <span id="Green_spaces"></span>Percentage [%] of green spaces | - |
 | Industrial | REAL | - |  | <span id="Industrial"></span>Percentage [%] of industrial areas. For example factories | - |
@@ -382,7 +382,7 @@ Stores each measured water quality or quantity value, its time stamp, replicate 
 |-------|----------|-----------|----------|-------------|-------------|
 | Comment_ID | INT | - |  | <span id="Comment_ID"></span>A unique ID is generated automatically by MySQL | FK → [Comment_ID](#Comment_ID) |
 | Metadata_ID | INT | - |  | <span id="Metadata_ID"></span>A unique ID is generated automatically by MySQL | FK → [Metadata_ID](#Metadata_ID) |
-| Value_ID | INT **(PK)** | - |  | <span id="Value_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Value_ID | INT **(PK)** | - | ✓ | <span id="Value_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Value | FLOAT | - |  | <span id="Value"></span>Value of collected data | - |
 | Number_of_experiment | INT | - |  | <span id="Number_of_experiment"></span>Number of replica of an experiment | - |
 | Timestamp | INT | - |  | <span id="Timestamp"></span>Unix timestamp combining date and time of collected data | - |
@@ -398,7 +398,7 @@ Stores general information about the watershed area, including surface area, con
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Watershed_ID | INT **(PK)** | - |  | <span id="Watershed_ID"></span>Linked to the Watershed table | - |
+| Watershed_ID | INT **(PK)** | - | ✓ | <span id="Watershed_ID"></span>Linked to the Watershed table | - |
 | name | NVARCHAR(100) | - |  | <span id="name"></span>Name of the watershed | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the watershed | - |
 | Surface_area | REAL | - |  | <span id="Surface_area"></span>Surface area of the watershed [ha] | - |
@@ -416,6 +416,6 @@ Stores descriptive information about the prevailing weather conditions when the 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Condition_ID | INT **(PK)** | - |  | <span id="Condition_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Condition_ID | INT **(PK)** | - | ✓ | <span id="Condition_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Weather_condition | NVARCHAR(100) | - |  | <span id="Weather_condition"></span>Type of weather condition | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the condition | - |

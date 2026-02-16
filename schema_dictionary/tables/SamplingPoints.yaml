@@ -7,7 +7,7 @@ table:
   columns:
     - name: Sampling_point_ID
       logical_type: integer
-      nullable: true
+      nullable: false
       identity: true
       description: "Link to the Sampling_point table"
     - name: Site_ID
