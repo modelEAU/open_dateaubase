@@ -33,8 +33,9 @@ table:
       nullable: true
       description: "Number of replica of an experiment"
     - name: Timestamp
-      logical_type: integer
+      logical_type: timestamp
+      precision: 7
       nullable: true
-      description: "Unix timestamp combining date and time of collected data"
+      description: "UTC timestamp for date and time of collected data (stored in UTC by convention)"
 
   primary_key: [Value_ID]
