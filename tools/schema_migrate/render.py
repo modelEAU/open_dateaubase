@@ -13,6 +13,7 @@ LOGICAL_TYPE_MAP: dict[str, dict[str, str]] = {
         "float32": "REAL",
         "boolean": "BIT",
         "timestamp": "DATETIME2",
+        "timestamptz": "DATETIMEOFFSET",
         "date": "DATE",
         "text": "NVARCHAR(MAX)",
         "binary": "VARBINARY",
@@ -28,6 +29,7 @@ LOGICAL_TYPE_MAP: dict[str, dict[str, str]] = {
         "float32": "REAL",
         "boolean": "BOOLEAN",
         "timestamp": "TIMESTAMP",
+        "timestamptz": "TIMESTAMPTZ",
         "date": "DATE",
         "text": "TEXT",
         "binary": "BYTEA",
@@ -82,7 +84,7 @@ def render_column_type(col: dict, platform: str) -> str:
             return f"NUMERIC({precision},{scale})"
         return "NUMERIC"
 
-    if logical == "timestamp":
+    if logical in ("timestamp", "timestamptz"):
         precision = col.get("precision")
         if precision is not None:
             return f"{base}({precision})"
@@ -133,7 +135,13 @@ def render_column_def(col: dict, platform: str) -> str:
     default = col.get("default")
     if default is not None:
         if str(default).upper() == "CURRENT_TIMESTAMP":
-            parts.append("DEFAULT CURRENT_TIMESTAMP")
+            logical = col.get("logical_type", "")
+            if logical == "timestamptz" and platform == "mssql":
+                parts.append("DEFAULT SYSDATETIMEOFFSET()")
+            elif logical == "timestamp" and platform == "mssql":
+                parts.append("DEFAULT SYSUTCDATETIME()")
+            else:
+                parts.append("DEFAULT CURRENT_TIMESTAMP")
         else:
             parts.append(f"DEFAULT {default}")
 
@@ -156,6 +164,7 @@ def _render_create_table(table_name: str, table_dict: dict, platform: str) -> st
     columns: list[dict] = tbl.get("columns", [])
     primary_key: list[str] = tbl.get("primary_key", [])
     check_constraints: list[dict] = tbl.get("check_constraints", []) or []
+    unique_constraints: list[dict] = tbl.get("unique_constraints", []) or []
 
     col_defs: list[str] = [f"    {render_column_def(col, platform)}" for col in columns]
 
@@ -163,6 +172,11 @@ def _render_create_table(table_name: str, table_dict: dict, platform: str) -> st
         pk_cols = ", ".join(_q(c, platform) for c in primary_key)
         pk_name = f"PK_{table_name}"
         col_defs.append(f"    CONSTRAINT {_q(pk_name, platform)} PRIMARY KEY ({pk_cols})")
+
+    for uq in unique_constraints:
+        uq_name = uq.get("name", "")
+        uq_cols = ", ".join(_q(c, platform) for c in uq["columns"])
+        col_defs.append(f"    CONSTRAINT {_q(uq_name, platform)} UNIQUE ({uq_cols})")
 
     for ck in check_constraints:
         ck_name = ck.get("name", "")
@@ -190,7 +204,7 @@ def _render_add_fk(table_name: str, fk: dict, table_dict: dict, platform: str) -
     child_col = fk["column"]
     ref_table = fk["ref_table"]
     ref_col = fk["ref_column"]
-    fk_name = f"FK_{table_name}_{ref_table}"
+    fk_name = fk.get("constraint_name") or f"FK_{table_name}_{ref_table}"
 
     if platform == "mssql":
         return (
@@ -211,7 +225,7 @@ def _render_drop_fk(table_name: str, fk: dict, table_dict: dict, platform: str) 
     tbl = table_dict["table"]
     schema = tbl.get("schema", "dbo")
     ref_table = fk["ref_table"]
-    fk_name = f"FK_{table_name}_{ref_table}"
+    fk_name = fk.get("constraint_name") or f"FK_{table_name}_{ref_table}"
 
     if platform == "mssql":
         return (
@@ -257,7 +271,14 @@ def _table_fks(table_dict: dict) -> list[dict]:
     for col in table_dict.get("table", {}).get("columns", []) or []:
         fk = col.get("foreign_key")
         if fk:
-            fks.append({"column": col["name"], "ref_table": fk["table"], "ref_column": fk["column"]})
+            entry: dict = {
+                "column": col["name"],
+                "ref_table": fk["table"],
+                "ref_column": fk["column"],
+            }
+            if "constraint_name" in fk:
+                entry["constraint_name"] = fk["constraint_name"]
+            fks.append(entry)
     return fks
 
 
@@ -311,7 +332,6 @@ def render_migration(
     sorted_new = _sort_tables_fk_safe(diff.new_tables, new_schema)
     for table_name in sorted_new:
         fwd.append(_render_create_table(table_name, new_schema[table_name], platform))
-        rbk.append(_render_drop_table(table_name, new_schema[table_name], platform))
 
     # ── ADD COLUMN ───────────────────────────────────────────────────────────
     for table_name, cols in diff.new_columns.items():
@@ -321,10 +341,8 @@ def render_migration(
             col_def = render_column_def(col, platform)
             if platform == "mssql":
                 fwd.append(f"ALTER TABLE [{schema}].[{table_name}] ADD {col_def};")
-                rbk.append(f"ALTER TABLE [{schema}].[{table_name}] DROP COLUMN [{col['name']}];")
             else:
                 fwd.append(f'ALTER TABLE "{schema}"."{table_name}" ADD COLUMN {col_def};')
-                rbk.append(f'ALTER TABLE "{schema}"."{table_name}" DROP COLUMN "{col["name"]}";')
 
     # ── ALTER COLUMN ─────────────────────────────────────────────────────────
     for table_name, alterations in diff.altered_columns.items():
@@ -339,18 +357,10 @@ def render_migration(
                     f"ALTER TABLE [{schema}].[{table_name}] "
                     f"ALTER COLUMN [{col_name}] {new_type};"
                 )
-                rbk.append(
-                    f"ALTER TABLE [{schema}].[{table_name}] "
-                    f"ALTER COLUMN [{col_name}] {old_type};"
-                )
             else:
                 fwd.append(
                     f'ALTER TABLE "{schema}"."{table_name}" '
                     f'ALTER COLUMN "{col_name}" TYPE {new_type};'
-                )
-                rbk.append(
-                    f'ALTER TABLE "{schema}"."{table_name}" '
-                    f'ALTER COLUMN "{col_name}" TYPE {old_type};'
                 )
 
     # ── DROP COLUMN ──────────────────────────────────────────────────────────
@@ -362,40 +372,109 @@ def render_migration(
                 fwd.append(f"ALTER TABLE [{schema}].[{table_name}] DROP COLUMN [{col_name}];")
             else:
                 fwd.append(f'ALTER TABLE "{schema}"."{table_name}" DROP COLUMN "{col_name}";')
-            # rollback: re-add the column (we need the old definition — stored in diff)
-            # find it in altered_columns' old dicts — but dropped_columns only has names.
-            # We store rollback as a comment since we don't carry the old col dict here.
-            rbk.append(f"-- TODO: restore dropped column {col_name} on {table_name} manually.")
 
     # ── DROP TABLE ───────────────────────────────────────────────────────────
     for table_name in diff.dropped_tables:
-        # We don't have the old table body in new_schema; emit a comment.
         fwd.append(f"-- DROP TABLE {table_name} (was removed from schema)")
-        rbk.append(f"-- TODO: restore dropped table {table_name} manually.")
 
-    # ── CREATE INDEX ─────────────────────────────────────────────────────────
+    # ── CREATE INDEX (existing tables) ───────────────────────────────────────
     for table_name, indexes in diff.new_indexes.items():
         for idx in indexes:
             fwd.append(_render_create_index(table_name, idx, new_schema[table_name], platform))
-            rbk.append(_render_drop_index(table_name, idx, new_schema[table_name], platform))
+
+    # ── CREATE INDEX (new tables) ────────────────────────────────────────────
+    for table_name in sorted_new:
+        tbl = new_schema[table_name]["table"]
+        for idx in tbl.get("indexes", []) or []:
+            fwd.append(_render_create_index(table_name, idx, new_schema[table_name], platform))
 
     # ── DROP INDEX ───────────────────────────────────────────────────────────
     for table_name, indexes in diff.dropped_indexes.items():
         for idx in indexes:
             fwd.append(_render_drop_index(table_name, idx, new_schema[table_name], platform))
-            rbk.append(_render_create_index(table_name, idx, new_schema[table_name], platform))
 
-    # ── ADD FK ───────────────────────────────────────────────────────────────
+    # ── ADD FK (existing tables) ─────────────────────────────────────────────
     for table_name, fks in diff.new_fks.items():
         for fk in fks:
             fwd.append(_render_add_fk(table_name, fk, new_schema[table_name], platform))
-            rbk.append(_render_drop_fk(table_name, fk, new_schema[table_name], platform))
+
+    # ── ADD FK (new tables) ──────────────────────────────────────────────────
+    for table_name in sorted_new:
+        for fk in _table_fks(new_schema[table_name]):
+            fwd.append(_render_add_fk(table_name, fk, new_schema[table_name], platform))
 
     # ── DROP FK ──────────────────────────────────────────────────────────────
     for table_name, fks in diff.dropped_fks.items():
         for fk in fks:
             fwd.append(_render_drop_fk(table_name, fk, new_schema[table_name], platform))
+
+    # ── ROLLBACK (built separately for correct dependency ordering) ──────────
+
+    # 1. Drop FKs first (from new tables, then from existing tables)
+    for table_name in sorted_new:
+        for fk in _table_fks(new_schema[table_name]):
+            rbk.append(_render_drop_fk(table_name, fk, new_schema[table_name], platform))
+    for table_name, fks in diff.new_fks.items():
+        for fk in fks:
+            rbk.append(_render_drop_fk(table_name, fk, new_schema[table_name], platform))
+
+    # 2. Re-add dropped FKs
+    for table_name, fks in diff.dropped_fks.items():
+        for fk in fks:
             rbk.append(_render_add_fk(table_name, fk, new_schema[table_name], platform))
+
+    # 3. Drop new indexes (on new tables and on existing tables)
+    for table_name in sorted_new:
+        tbl = new_schema[table_name]["table"]
+        for idx in tbl.get("indexes", []) or []:
+            rbk.append(_render_drop_index(table_name, idx, new_schema[table_name], platform))
+    for table_name, indexes in diff.new_indexes.items():
+        for idx in indexes:
+            rbk.append(_render_drop_index(table_name, idx, new_schema[table_name], platform))
+
+    # 4. Re-add dropped indexes
+    for table_name, indexes in diff.dropped_indexes.items():
+        for idx in indexes:
+            rbk.append(_render_create_index(table_name, idx, new_schema[table_name], platform))
+
+    # 5. Reverse column changes on existing tables
+    for table_name, col_names in diff.dropped_columns.items():
+        for col_name in col_names:
+            rbk.append(f"-- TODO: restore dropped column {col_name} on {table_name} manually.")
+
+    for table_name, alterations in diff.altered_columns.items():
+        tbl = new_schema[table_name]["table"]
+        schema = tbl.get("schema", "dbo")
+        for alt in alterations:
+            col_name = alt["column"]
+            old_type = render_column_type(alt["old"], platform)
+            if platform == "mssql":
+                rbk.append(
+                    f"ALTER TABLE [{schema}].[{table_name}] "
+                    f"ALTER COLUMN [{col_name}] {old_type};"
+                )
+            else:
+                rbk.append(
+                    f'ALTER TABLE "{schema}"."{table_name}" '
+                    f'ALTER COLUMN "{col_name}" TYPE {old_type};'
+                )
+
+    for table_name, cols in diff.new_columns.items():
+        tbl = new_schema[table_name]["table"]
+        schema = tbl.get("schema", "dbo")
+        for col in cols:
+            if platform == "mssql":
+                rbk.append(f"ALTER TABLE [{schema}].[{table_name}] DROP COLUMN [{col['name']}];")
+            else:
+                rbk.append(f'ALTER TABLE "{schema}"."{table_name}" DROP COLUMN "{col["name"]}";')
+
+    # 6. Drop new tables (reverse FK-safe order so dependent tables drop first)
+    for table_name in reversed(sorted_new):
+        rbk.append(_render_drop_table(table_name, new_schema[table_name], platform))
+
+    # 7. Restore dropped tables
+    for table_name in diff.dropped_tables:
+        rbk.append(f"-- TODO: restore dropped table {table_name} manually.")
 
     return "\n\n".join(fwd) + "\n", "\n\n".join(rbk) + "\n"
 

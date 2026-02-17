@@ -74,6 +74,14 @@ class TestMSSQLTypeMapping:
         col = _col("X", "timestamp")
         assert render_column_type(col, "mssql") == "DATETIME2"
 
+    def test_timestamptz_with_precision(self):
+        col = _col("X", "timestamptz", precision=7)
+        assert render_column_type(col, "mssql") == "DATETIMEOFFSET(7)"
+
+    def test_timestamptz_default(self):
+        col = _col("X", "timestamptz")
+        assert render_column_type(col, "mssql") == "DATETIMEOFFSET"
+
 
 class TestPostgresTypeMapping:
     def test_integer(self):
@@ -94,6 +102,14 @@ class TestPostgresTypeMapping:
 
     def test_binary_large(self):
         assert render_column_type(_col("X", "binary_large"), "postgres") == "BYTEA"
+
+    def test_timestamptz_with_precision(self):
+        col = _col("X", "timestamptz", precision=7)
+        assert render_column_type(col, "postgres") == "TIMESTAMPTZ(7)"
+
+    def test_timestamptz_default(self):
+        col = _col("X", "timestamptz")
+        assert render_column_type(col, "postgres") == "TIMESTAMPTZ"
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +146,18 @@ class TestRenderColumnDef:
         col = {"name": "CreatedAt", "logical_type": "timestamp", "nullable": False, "default": "CURRENT_TIMESTAMP"}
         result = render_column_def(col, "mssql")
         assert "DEFAULT CURRENT_TIMESTAMP" in result
+
+    def test_default_current_timestamp_timestamptz_mssql(self):
+        col = {"name": "CreatedAt", "logical_type": "timestamptz", "precision": 7, "nullable": False, "default": "CURRENT_TIMESTAMP"}
+        result = render_column_def(col, "mssql")
+        assert "SYSDATETIMEOFFSET()" in result
+        assert "DATETIMEOFFSET(7)" in result
+
+    def test_default_current_timestamp_timestamptz_postgres(self):
+        col = {"name": "CreatedAt", "logical_type": "timestamptz", "precision": 7, "nullable": False, "default": "CURRENT_TIMESTAMP"}
+        result = render_column_def(col, "postgres")
+        assert "DEFAULT CURRENT_TIMESTAMP" in result
+        assert "TIMESTAMPTZ(7)" in result
 
     def test_postgres_quoting(self):
         col = {"name": "MyCol", "logical_type": "integer", "nullable": True}

@@ -80,6 +80,7 @@ def parse_yaml_for_docs(
 
             fk_info = col.get("foreign_key")
             fk_to = fk_info["column"] if fk_info else ""
+            fk_ref_table = fk_info["table"] if fk_info else ""
 
             sql_data_type = render_column_type(col, platform)
 
@@ -92,6 +93,7 @@ def parse_yaml_for_docs(
                 "is_required": not col.get("nullable", True),
                 "default_value": str(col["default"]) if col.get("default") is not None else "",
                 "fk_to": fk_to,
+                "fk_ref_table": fk_ref_table,
                 "relationship_type": None,
                 "value_set": "",
                 "sort_order": sort_order,
