@@ -10,6 +10,9 @@ table:
       nullable: false
       identity: true
       description: "Linked to the Watershed table"
+      foreign_key:
+        table: Watershed
+        column: Watershed_ID
     - name: Urban_area
       logical_type: float32
       nullable: true
