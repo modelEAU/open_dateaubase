@@ -30,12 +30,14 @@ nav:
   - Home: index.md
   - Contributing:
     - The Dictionary: contributing/dictionary.md
-  - Reference: 
+  - Reference:
     - Schema: reference/schema.md
     - Tables: reference/tables.md
     - Views: reference/views.md
     - Value Sets: reference/valuesets.md
     - ERD Diagram: reference/erd.md
+    - Inserting Data: reference/inserting_data.md
+    - Sample Data & Queries: reference/sample_data.md
 
 markdown_extensions:
   - admonition

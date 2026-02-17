@@ -43,6 +43,7 @@ The `logical_type` field abstracts over SQL dialects. The type renderer (in
 | `text` | `NVARCHAR(MAX)` | `TEXT` | unlimited text |
 | `boolean` | `BIT` | `BOOLEAN` | |
 | `timestamp` | `DATETIME2(p)` | `TIMESTAMP(p)` | `precision` defaults to 7 |
+| `timestamptz` | `DATETIMEOFFSET(p)` | `TIMESTAMPTZ` | timezone-aware; `precision` defaults to 7 |
 | `date` | `DATE` | `DATE` | |
 | `binary` | `VARBINARY(n)` | `BYTEA` | |
 | `binary_large` | `VARBINARY(MAX)` | `BYTEA` | |

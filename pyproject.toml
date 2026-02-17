@@ -21,6 +21,14 @@ dependencies = [
 dev = [
     "pytest>=8.4.2",
 ]
+db = [
+    "pyodbc>=5.1",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "db: requires running MSSQL Docker container",
+]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
