@@ -19,9 +19,34 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          SA_PASSWORD: "StrongPwd123!"
+          MSSQL_PID: "Developer"
+        ports:
+          - 14330:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U SA -P 'StrongPwd123!' -Q 'SELECT 1' -b -o /dev/null"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install Microsoft ODBC Driver 18 for SQL Server
+        run: |
+          curl -sSL https://packages.microsoft.com/keys/microsoft.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
+          curl -sSL https://packages.microsoft.com/config/ubuntu/22.04/prod.list \
+            | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -qq
+          sudo ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -33,7 +58,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install uv
           uv sync --all-extras
-          pip install -e .
+
+      - name: Initialise database
+        run: uv run python scripts/init_db.py
 
       - name: Build documentation
         run: uv run mkdocs build
