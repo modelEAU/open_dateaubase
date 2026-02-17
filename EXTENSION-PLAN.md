@@ -1,3 +1,5 @@
+NOTE: ALWAYS commit your work after each major task and/or phase!
+
 ## Phase 0: Foundation — Migration Infrastructure
 
 **Goal:** Establish the tooling that makes all subsequent phases safe and repeatable.
@@ -495,21 +497,17 @@ Acceptance criteria:
 ### Task 2a.1: Person Table
 
 ```markdown
-Task: Create the Person table
-
-New YAML: schema_dictionary/tables/Person.yaml
-
-Columns:
-  - PersonID (PK, identity)
-  - FullName (string max 200, not null)
-  - Email (string max 200, nullable)
-  - Affiliation (string max 200, nullable)
-
-Generate migration. This is a standalone table with no dependencies.
+Task: RENAME the Contact table to Person  
+Generate migration and rollback.
 
 Acceptance criteria:
-- [ ] Table created
+- [ ] Table renamed.
+- [ ] Table key renamed.
+- [ ] Status field renamed 'Role' -- a value set is added to dictionary.json (MSc, Postdoc, Intern, PhD, Professor, Research Professional, Technician, Administrator, Guest)
+- [ ] Obsolete methods of contact are removed (physical address, Skype ID)
 - [ ] Can insert and query persons
+- All linked tables refer to the new Person table. The name can remain Contact_ID where the person is the person in charge.
+
 ```
 
 ### Task 2a.2: Campaign Infrastructure
@@ -525,11 +523,11 @@ CampaignType columns:
   - CampaignTypeID (PK)
   - CampaignTypeName (string max 100, not null)
 
-CampaignType seed data:
+CampaignType seed data -- this is a value set that must be added to the json dictionary:
   1: Experiment
   2: Operations
   3: Commissioning
-  4: Audit
+
 
 Campaign columns:
   - CampaignID (PK, identity)
@@ -541,14 +539,12 @@ Campaign columns:
   - EndDate (timestamp, nullable)
   - ProjectID (FK → Project, nullable) — backward compat link
 
-IMPORTANT: The existing Project table/concept is NOT removed or altered.
-Campaign wraps it. Some campaigns map to existing projects; others don't.
+IMPORTANT: DISCUSS with the user about the link between the Project table and the Campaign table. Ask if it should be removed, how the data should be migrated between projects, sites snd campaigns.
 
 Acceptance criteria:
-- [ ] Both tables created with seed data
+- [ ] A strategy is established to migrate from Projects to Campaigns
+- [ ] Both new tables created with seed data
 - [ ] Campaign references Site (existing table) correctly
-- [ ] ProjectID FK works for campaigns that map to existing projects
-- [ ] ProjectID can be NULL for new campaigns with no legacy project
 ```
 
 ### Task 2a.3: DataProvenance Lookup and MetaData Columns
@@ -684,8 +680,10 @@ Sample columns:
   - SamplingLocationID (FK → SamplingLocation, not null)
   - SampledByPersonID (FK → Person, nullable)
   - CampaignID (FK → Campaign, nullable)
-  - SampleDateTime (timestamp, not null)
-  - SampleType (string max 50, nullable) — 'Grab', 'Composite24h', etc.
+  - SampleDateTimeStart (timestamp, not null)
+  - SampleDateTimeEnd (timestamp, nullable)
+  - SampleType (string max 50, nullable) — 'Grab', 'Composite24h', etc. -- Controlled vocabulary should be added to dictionary.json
+  - SampleEquipment (FK →, Equipment, nullable)
   - Description (string max 500, nullable)
 
 Depends on: Phase 2a (Person, Campaign tables must exist)
@@ -696,7 +694,9 @@ Acceptance criteria:
 - [ ] Both tables created
 - [ ] Sample correctly references SamplingLocation, Person, Campaign
 - [ ] Can model: "Marie took a grab sample from Primary Effluent at 
-      08:00 as part of Experiment A"
+      08:00 as part of plant Operations"
+- [ ] Can model: "John took a 24hComposite sample from Secondary Effluent at 
+      from 9:00 am to 9:00 am the next day as part of Campaign B"
 ```
 
 ### Task 2b.2: MetaData Lab Context Columns
@@ -710,13 +710,6 @@ Modified: schema_dictionary/tables/MetaData.yaml — add:
   - AnalystPersonID INT NULL (FK → Person)
 
 All nullable — only populated for lab data (DataProvenanceID=2).
-
-Optional CHECK constraint (add to YAML and migration):
-  If DataProvenanceID = 2 (Laboratory), then SampleID must not be NULL
-  and LaboratoryID must not be NULL.
-
-  NOTE: Only add this CHECK if the team agrees. It enforces data 
-  quality but makes ingestion stricter. Discuss before implementing.
 
 Generate migration and rollback.
 
@@ -760,9 +753,9 @@ Write a test:
   - Operations campaign uses: Primary Influent, Basin A, Basin B
   - Experiment A uses: Primary Influent, Basin A
   - Experiment B uses: Primary Influent, Basin B
-  - Query: "What locations does Experiment A use?" → Primary Influent, Basin A
+  - Query: "What locations does Campaign A use?" → Primary Influent, Basin A
   - Query: "What campaigns use Primary Influent?" → all three
-  - Query: "What campaigns overlap with Experiment A?" → Operations 
+  - Query: "What campaigns overlap with Campaign A?" → Operations 
     (shared locations)
 
 Acceptance criteria:
@@ -822,7 +815,7 @@ New YAMLs:
 - schema_dictionary/tables/EquipmentEventType.yaml
 - schema_dictionary/tables/EquipmentEvent.yaml
 
-EquipmentEventType seed data:
+EquipmentEventType seed data: -- controlled vocabulary should be added to dictionary.json
   1: Calibration
   2: Validation
   3: Maintenance
@@ -836,11 +829,12 @@ EquipmentEvent columns:
   - EquipmentEventID (PK, identity)
   - EquipmentID (FK → Equipment, not null)
   - EquipmentEventTypeID (FK → EquipmentEventType, not null)
-  - EventDateTime (timestamp, not null)
+  - EventDateTimeStart (timestamp, not null)
+  - EventDateTimeEnd (timestamp, nullable)
   - PerformedByPersonID (FK → Person, nullable)
   - CampaignID (FK → Campaign, nullable)
   - Notes (string max 2000, nullable)
-  - Index: (EquipmentID, EventDateTime)
+  - Index: (EquipmentID, EventDateTimeStart)
 
 Depends on: Phase 2a (Person, Campaign)
 
@@ -853,17 +847,17 @@ Acceptance criteria:
 ```
 
 ### Task 2c.2: Equipment Event ↔ MetaData Junction
+IF YOU REACH HERE, STOP EVERYTHING AND DISCUSS. This plan is NOT acceptable
 
 ```markdown
-Task: Create EquipmentEventMetaData junction table
+Task: Create EquipmentEventValue junction table
 
-New YAML: schema_dictionary/tables/EquipmentEventMetaData.yaml
+New YAML: schema_dictionary/tables/EquipmentEventValue.yaml
 
 Columns:
   - EquipmentEventID (FK → EquipmentEvent, not null)
-  - MetaDataID (FK → MetaData, not null)
-  - Role (string max 50, nullable) — 'Reference Standard', 
-    'Sensor Under Test', etc.
+  - ValueID (FK → Value, not null)
+  - EventValueRelation (string max 50, nullable) — 'Reference Standard', 'Lab assay comparison', etc.
   - PK: (EquipmentEventID, MetaDataID)
 
 This links calibration events to the measurements taken during 
@@ -871,16 +865,17 @@ calibration (both the reference measurement and the sensor reading).
 
 Write a test:
   1. Create a calibration event for sensor TSS_01
-  2. Create two MetaData entries: one for the reference standard, 
-     one for the sensor
-  3. Link both to the calibration event with appropriate roles
+  2. Create three MetaData entries: one for the reference standard, 
+     one for the sensor, one for the lab measurements
+  3. Create values: 3 for the reference standard (triplicates), one for the sensor, and 3 for the lab (triplicates)
+  3. Link all values to the calibration event with appropriate roles
   4. Query: "What measurements are associated with calibration event X?"
-  5. Query: "What calibration events involved sensor Y's MetaData?"
+  5. Query: "What calibration events involved sensor Y?"
 
 Acceptance criteria:
 - [ ] Junction table created
 - [ ] Many-to-many relationship works
-- [ ] Role field correctly distinguishes reference vs sensor-under-test
+- [ ] Role field correctly distinguishes reference vs lab assay comparison', etc.
 ```
 
 ### Task 2c.3: Equipment Installation and Temporal Sampling Locations
@@ -968,16 +963,14 @@ New YAML: schema_dictionary/tables/IngestionRoute.yaml
 
 Columns:
   - IngestionRouteID (PK, identity)
-  - EquipmentID (FK → Equipment, not null)
-  - VariableID (FK → Variable, not null)
-  - CampaignID (FK → Campaign, nullable)
-  - DataProvenanceID (FK → DataProvenance, not null, default 1)
-  - ProcessingDegree (string max 50, not null, default 'Raw')
-  - MetaDataID (FK → MetaData, not null) — the resolved target
+  - EquipmentID (FK → Equipment, nullable (non-sensor data))
+  - ParameterID (FK → Parameter, not null)
+  - DataProvenanceID (FK → DataProvenance, not null)
+  - ProcessingDegree (string max 50, not null, default 'Raw') -- Controlled vocabulary to add to dictionary.json
   - ValidFrom (timestamp, not null)
   - ValidTo (timestamp, nullable) — NULL = currently active
   - CreatedAt (timestamp, not null, default CURRENT_TIMESTAMP)
-  - CreatedByPersonID (FK → Person, nullable)
+  - MetaDataID (FK → MetaData, not null) — the resolved target
   - Notes (string max 500, nullable)
   - Index: (EquipmentID, VariableID, DataProvenanceID, ProcessingDegree, 
             ValidFrom)
@@ -987,7 +980,7 @@ Depends on: Phase 2a (Campaign, DataProvenance, Person)
 Acceptance criteria:
 - [ ] Table created
 - [ ] Can insert routing rules
-- [ ] Can query active route for a given equipment+variable+timestamp
+- [ ] Can query active route for a given equipment+parameter+provenance+processing degree+timestamp
 ```
 
 ### Task 2d.2: Route Resolution Logic
@@ -1128,7 +1121,7 @@ Acceptance criteria:
 Task: Add ProcessingDegree to MetaData
 
 Modified: schema_dictionary/tables/MetaData.yaml — add:
-  - ProcessingDegree (string max 50, nullable, default 'Raw')
+  - ProcessingDegree (string max 50, nullable, default 'Raw') (-- Controlled vocabulary to add to dictionary.json)
 
 NOTE: This is a DENORMALIZED convenience field. The ground truth is 
 the lineage graph. But it makes filtering ("show me only raw data") 
