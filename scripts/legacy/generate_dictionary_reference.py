@@ -220,8 +220,12 @@ def generate_tables_markdown(data):
                 # Build constraints column
                 constraints = []
                 if field["fk_to"]:
-                    # Link to FK target field
-                    constraints.append(f"FK → [{field['fk_to']}](#{field['fk_to']})")
+                    # Link to FK target table when available, otherwise fall back to field anchor
+                    fk_ref_table = field.get("fk_ref_table", "")
+                    if fk_ref_table:
+                        constraints.append(f"FK → [{fk_ref_table}.{field['fk_to']}](#{fk_ref_table})")
+                    else:
+                        constraints.append(f"FK → [{field['fk_to']}](#{field['fk_to']})")
                 if field["default_value"]:
                     constraints.append(f"Default: `{field['default_value']}`")
 

@@ -515,7 +515,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "equipment_model.Equipment_model_ID",
+          "fk_target": "EquipmentModel.Equipment_model_ID",
           "description": "Link to the Equipment model table"
         },
         {
@@ -637,7 +637,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "equipment_model.Equipment_model_ID",
+          "fk_target": "EquipmentModel.Equipment_model_ID",
           "description": "Link to the Equipment model table"
         },
         {
@@ -646,7 +646,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "parameter.Parameter_ID",
+          "fk_target": "Parameter.Parameter_ID",
           "description": "Link to the Parameter table"
         }
       ]
@@ -662,7 +662,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "equipment_model.Equipment_model_ID",
+          "fk_target": "EquipmentModel.Equipment_model_ID",
           "description": "Link to the Equipment model table"
         },
         {
@@ -671,7 +671,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "procedure.Procedure_ID",
+          "fk_target": "Procedures.Procedure_ID",
           "description": "Link to the Procedures table"
         }
       ]
@@ -685,9 +685,9 @@
           "name": "Watershed_ID",
           "sql_type": "INT",
           "is_pk": true,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": true,
-          "fk_target": null,
+          "fk_target": "Watershed.Watershed_ID",
           "description": "Linked to the Watershed table"
         },
         {
@@ -766,7 +766,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "project.Project_ID",
+          "fk_target": "Project.Project_ID",
           "description": "Links to the research or monitoring project"
         },
         {
@@ -775,7 +775,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "contact.Contact_ID",
+          "fk_target": "Contact.Contact_ID",
           "description": "Links to the person responsible for this measurement series"
         },
         {
@@ -784,7 +784,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "equipment.Equipment_ID",
+          "fk_target": "Equipment.Equipment_ID",
           "description": "Links to the physical instrument that produced the measurements"
         },
         {
@@ -793,7 +793,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "parameter.Parameter_ID",
+          "fk_target": "Parameter.Parameter_ID",
           "description": "Links to the measured analyte or parameter (e.g. TSS, pH)"
         },
         {
@@ -802,7 +802,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "procedure.Procedure_ID",
+          "fk_target": "Procedures.Procedure_ID",
           "description": "Links to the standard operating procedure used"
         },
         {
@@ -811,7 +811,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "unit.Unit_ID",
+          "fk_target": "Unit.Unit_ID",
           "description": "Links to the measurement unit (e.g. mg/L)"
         },
         {
@@ -820,7 +820,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "purpose.Purpose_ID",
+          "fk_target": "Purpose.Purpose_ID",
           "description": "Links to the measurement purpose (online, lab, calibration, validation)"
         },
         {
@@ -829,7 +829,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "sampling_point.Sampling_point_ID",
+          "fk_target": "SamplingPoints.Sampling_point_ID",
           "description": "Links to the physical sampling location"
         },
         {
@@ -838,8 +838,51 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "condition.Condition_ID",
+          "fk_target": "WeatherCondition.Condition_ID",
           "description": "Links to the prevailing weather condition at time of measurement"
+        },
+        {
+          "name": "ValueType_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueType.ValueType_ID",
+          "description": "Identifies the shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
+        }
+      ]
+    },
+    {
+      "id": "MetaDataAxis",
+      "label": "MetaDataAxis",
+      "description": "Junction table linking a MetaData measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix",
+      "fields": [
+        {
+          "name": "Metadata_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "References the measurement series"
+        },
+        {
+          "name": "AxisRole",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only)"
+        },
+        {
+          "name": "ValueBinningAxis_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueBinningAxis.ValueBinningAxis_ID",
+          "description": "References the binning axis for this role"
         }
       ]
     },
@@ -854,7 +897,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "unit.Unit_ID",
+          "fk_target": "Unit.Unit_ID",
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
@@ -897,7 +940,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "procedure.Procedure_ID",
+          "fk_target": "Procedures.Procedure_ID",
           "description": "Link to the Procedures table"
         },
         {
@@ -906,7 +949,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "parameter.Parameter_ID",
+          "fk_target": "Parameter.Parameter_ID",
           "description": "Link to the Parameter table"
         }
       ]
@@ -1008,7 +1051,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "contact.Contact_ID",
+          "fk_target": "Contact.Contact_ID",
           "description": "Link to the Contact table"
         },
         {
@@ -1017,7 +1060,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "project.Project_ID",
+          "fk_target": "Project.Project_ID",
           "description": "Link to the Project table"
         }
       ]
@@ -1033,7 +1076,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "equipment.Equipment_ID",
+          "fk_target": "Equipment.Equipment_ID",
           "description": "Link to the Equipment table"
         },
         {
@@ -1042,7 +1085,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "project.Project_ID",
+          "fk_target": "Project.Project_ID",
           "description": "Link to the Project table"
         }
       ]
@@ -1058,7 +1101,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "project.Project_ID",
+          "fk_target": "Project.Project_ID",
           "description": "Link to the Project table"
         },
         {
@@ -1067,7 +1110,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "sampling_point.Sampling_point_ID",
+          "fk_target": "SamplingPoints.Sampling_point_ID",
           "description": "Link to the Sampling_point table"
         }
       ]
@@ -1126,7 +1169,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "site.Site_ID",
+          "fk_target": "Site.Site_ID",
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
@@ -1215,7 +1258,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Datetime when this migration was applied"
+          "description": "UTC datetime when this migration was applied (stored in UTC by convention)"
         },
         {
           "name": "Description",
@@ -1257,7 +1300,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "watershed.Watershed_ID",
+          "fk_target": "Watershed.Watershed_ID",
           "description": "Linked to the Watershed table"
         },
         {
@@ -1386,9 +1429,9 @@
           "name": "Watershed_ID",
           "sql_type": "INT",
           "is_pk": true,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": true,
-          "fk_target": null,
+          "fk_target": "Watershed.Watershed_ID",
           "description": "Linked to the Watershed table"
         },
         {
@@ -1467,7 +1510,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "comment.Comment_ID",
+          "fk_target": "Comments.Comment_ID",
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
@@ -1476,7 +1519,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "metadata.Metadata_ID",
+          "fk_target": "MetaData.Metadata_ID",
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
@@ -1508,12 +1551,369 @@
         },
         {
           "name": "Timestamp",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC timestamp for date and time of collected data (stored in UTC by convention)"
+        }
+      ]
+    },
+    {
+      "id": "ValueBin",
+      "label": "ValueBin",
+      "description": "Individual bins on a ValueBinningAxis, each defined by a half-open interval [LowerBound, UpperBound) in the axis unit",
+      "fields": [
+        {
+          "name": "ValueBin_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "ValueBinningAxis_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueBinningAxis.ValueBinningAxis_ID",
+          "description": "References the parent binning axis"
+        },
+        {
+          "name": "BinIndex",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "0-based ordinal position of this bin within its axis"
+        },
+        {
+          "name": "LowerBound",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Inclusive lower edge of this bin in the axis unit"
+        },
+        {
+          "name": "UpperBound",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Exclusive upper edge of this bin in the axis unit; must be greater than LowerBound"
+        }
+      ]
+    },
+    {
+      "id": "ValueBinningAxis",
+      "label": "ValueBinningAxis",
+      "description": "Defines a named measurement axis for binned data (e.g. wavelength, particle size, velocity), linking to the Unit table for axis units",
+      "fields": [
+        {
+          "name": "ValueBinningAxis_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name identifying this axis configuration (e.g. 'S::CAN spectro::lyser UV-Vis')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Optional description of this axis"
+        },
+        {
+          "name": "NumberOfBins",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Total number of bins defined on this axis"
+        },
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Unit.Unit_ID",
+          "description": "Physical unit of the axis coordinates (e.g. nm, \u00b5m, m/s) \u2014 distinct from the measured value unit stored in MetaData"
+        }
+      ]
+    },
+    {
+      "id": "ValueImage",
+      "label": "ValueImage",
+      "description": "Stores image measurement references with metadata about the image dimensions, format, and storage location",
+      "fields": [
+        {
+          "name": "ValueImage_ID",
+          "sql_type": "BIGINT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Metadata_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "References the metadata context for this image"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC timestamp when the image was captured (stored in UTC by convention)"
+        },
+        {
+          "name": "ImageWidth",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Width of the image in pixels"
+        },
+        {
+          "name": "ImageHeight",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Height of the image in pixels"
+        },
+        {
+          "name": "NumberOfChannels",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Number of color channels (e.g. 3 for RGB, 1 for grayscale)"
+        },
+        {
+          "name": "ImageFormat",
+          "sql_type": "NVARCHAR(20)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Image file format (e.g. PNG, TIFF, JPEG)"
+        },
+        {
+          "name": "FileSizeBytes",
+          "sql_type": "BIGINT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "File size in bytes"
+        },
+        {
+          "name": "StorageBackend",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Storage backend type (e.g. FileSystem, S3, Azure Blob)"
+        },
+        {
+          "name": "StoragePath",
+          "sql_type": "NVARCHAR(1000)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Full path or URI to the stored image file"
+        },
+        {
+          "name": "Thumbnail",
+          "sql_type": "VARBINARY(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Optional thumbnail image stored inline as binary"
+        },
+        {
+          "name": "QualityCode",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Unix timestamp combining date and time of collected data"
+          "description": "Quality flag for this image"
+        }
+      ]
+    },
+    {
+      "id": "ValueMatrix",
+      "label": "ValueMatrix",
+      "description": "Stores 2D binned measurement data as one row per (row-bin, col-bin) cell per timestamp, supporting joint distributions such as particle size-velocity",
+      "fields": [
+        {
+          "name": "Metadata_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "References the metadata context for this measurement"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC timestamp of the measurement (stored in UTC by convention)"
+        },
+        {
+          "name": "RowValueBin_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueBin.ValueBin_ID",
+          "description": "References the bin on the row axis (AxisRole=0 in MetaDataAxis)"
+        },
+        {
+          "name": "ColValueBin_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueBin.ValueBin_ID",
+          "description": "References the bin on the column axis (AxisRole=1 in MetaDataAxis)"
+        },
+        {
+          "name": "Value",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Measured value at this (row-bin, col-bin) cell"
+        },
+        {
+          "name": "QualityCode",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Quality flag for this measurement"
+        }
+      ]
+    },
+    {
+      "id": "ValueType",
+      "label": "ValueType",
+      "description": "Lookup table defining the shape of stored measurement values (Scalar, Vector, Matrix, Image)",
+      "fields": [
+        {
+          "name": "ValueType_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "ValueType_Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name of the value type (Scalar, Vector, Matrix, or Image)"
+        }
+      ]
+    },
+    {
+      "id": "ValueVector",
+      "label": "ValueVector",
+      "description": "Stores 1D binned measurement data as one row per bin per timestamp, unifying spectra, particle size distributions, and any other 1D distribution over a physical axis",
+      "fields": [
+        {
+          "name": "Metadata_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "References the metadata context for this measurement"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC timestamp of the measurement (stored in UTC by convention)"
+        },
+        {
+          "name": "ValueBin_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueBin.ValueBin_ID",
+          "description": "References the bin (and through it, the axis) for this value"
+        },
+        {
+          "name": "Value",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Measured value at this bin"
+        },
+        {
+          "name": "QualityCode",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Quality flag for this measurement"
         }
       ]
     },
@@ -1617,28 +2017,28 @@
   "relationships": [
     {
       "from_table": "Equipment",
-      "to_table": "EquipmentModelHasProcedures",
+      "to_table": "EquipmentModel",
       "from_field": "model_ID",
       "to_field": "Equipment_model_ID",
       "relationship_type": null
     },
     {
       "from_table": "EquipmentModelHasParameter",
-      "to_table": "EquipmentModelHasProcedures",
+      "to_table": "EquipmentModel",
       "from_field": "Equipment_model_ID",
       "to_field": "Equipment_model_ID",
       "relationship_type": null
     },
     {
       "from_table": "EquipmentModelHasParameter",
-      "to_table": "ParameterHasProcedures",
+      "to_table": "Parameter",
       "from_field": "Parameter_ID",
       "to_field": "Parameter_ID",
       "relationship_type": null
     },
     {
       "from_table": "EquipmentModelHasProcedures",
-      "to_table": "EquipmentModelHasProcedures",
+      "to_table": "EquipmentModel",
       "from_field": "Equipment_model_ID",
       "to_field": "Equipment_model_ID",
       "relationship_type": null
@@ -1651,29 +2051,36 @@
       "relationship_type": null
     },
     {
+      "from_table": "HydrologicalCharacteristics",
+      "to_table": "Watershed",
+      "from_field": "Watershed_ID",
+      "to_field": "Watershed_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "MetaData",
-      "to_table": "ProjectHasSamplingPoints",
+      "to_table": "Project",
       "from_field": "Project_ID",
       "to_field": "Project_ID",
       "relationship_type": null
     },
     {
       "from_table": "MetaData",
-      "to_table": "ProjectHasContact",
+      "to_table": "Contact",
       "from_field": "Contact_ID",
       "to_field": "Contact_ID",
       "relationship_type": null
     },
     {
       "from_table": "MetaData",
-      "to_table": "ProjectHasEquipment",
+      "to_table": "Equipment",
       "from_field": "Equipment_ID",
       "to_field": "Equipment_ID",
       "relationship_type": null
     },
     {
       "from_table": "MetaData",
-      "to_table": "ParameterHasProcedures",
+      "to_table": "Parameter",
       "from_field": "Parameter_ID",
       "to_field": "Parameter_ID",
       "relationship_type": null
@@ -1714,6 +2121,27 @@
       "relationship_type": null
     },
     {
+      "from_table": "MetaData",
+      "to_table": "ValueType",
+      "from_field": "ValueType_ID",
+      "to_field": "ValueType_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "MetaDataAxis",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "MetaDataAxis",
+      "to_table": "ValueBinningAxis",
+      "from_field": "ValueBinningAxis_ID",
+      "to_field": "ValueBinningAxis_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "Parameter",
       "to_table": "Unit",
       "from_field": "Unit_ID",
@@ -1729,42 +2157,42 @@
     },
     {
       "from_table": "ParameterHasProcedures",
-      "to_table": "ParameterHasProcedures",
+      "to_table": "Parameter",
       "from_field": "Parameter_ID",
       "to_field": "Parameter_ID",
       "relationship_type": null
     },
     {
       "from_table": "ProjectHasContact",
-      "to_table": "ProjectHasContact",
+      "to_table": "Contact",
       "from_field": "Contact_ID",
       "to_field": "Contact_ID",
       "relationship_type": null
     },
     {
       "from_table": "ProjectHasContact",
-      "to_table": "ProjectHasSamplingPoints",
+      "to_table": "Project",
       "from_field": "Project_ID",
       "to_field": "Project_ID",
       "relationship_type": null
     },
     {
       "from_table": "ProjectHasEquipment",
-      "to_table": "ProjectHasEquipment",
+      "to_table": "Equipment",
       "from_field": "Equipment_ID",
       "to_field": "Equipment_ID",
       "relationship_type": null
     },
     {
       "from_table": "ProjectHasEquipment",
-      "to_table": "ProjectHasSamplingPoints",
+      "to_table": "Project",
       "from_field": "Project_ID",
       "to_field": "Project_ID",
       "relationship_type": null
     },
     {
       "from_table": "ProjectHasSamplingPoints",
-      "to_table": "ProjectHasSamplingPoints",
+      "to_table": "Project",
       "from_field": "Project_ID",
       "to_field": "Project_ID",
       "relationship_type": null
@@ -1791,6 +2219,13 @@
       "relationship_type": null
     },
     {
+      "from_table": "UrbanCharacteristics",
+      "to_table": "Watershed",
+      "from_field": "Watershed_ID",
+      "to_field": "Watershed_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "Value",
       "to_table": "Comments",
       "from_field": "Comment_ID",
@@ -1802,6 +2237,62 @@
       "to_table": "MetaData",
       "from_field": "Metadata_ID",
       "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueBin",
+      "to_table": "ValueBinningAxis",
+      "from_field": "ValueBinningAxis_ID",
+      "to_field": "ValueBinningAxis_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueBinningAxis",
+      "to_table": "Unit",
+      "from_field": "Unit_ID",
+      "to_field": "Unit_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueImage",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueMatrix",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueMatrix",
+      "to_table": "ValueBin",
+      "from_field": "RowValueBin_ID",
+      "to_field": "ValueBin_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueMatrix",
+      "to_table": "ValueBin",
+      "from_field": "ColValueBin_ID",
+      "to_field": "ValueBin_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueVector",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueVector",
+      "to_table": "ValueBin",
+      "from_field": "ValueBin_ID",
+      "to_field": "ValueBin_ID",
       "relationship_type": null
     }
   ]

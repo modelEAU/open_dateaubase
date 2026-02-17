@@ -336,10 +336,12 @@ def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
 
             fk_target = None
             if is_fk and field["fk_to"]:
-                # Extract target table from FK field (e.g., "Contact_ID" -> "contact")
                 fk_field = field["fk_to"]
-                if fk_field.endswith("_ID"):
-                    # Convert to lowercase to match table_id format
+                # Prefer explicit FK ref table when available
+                fk_ref = field.get("fk_ref_table", "")
+                if fk_ref:
+                    fk_target = f"{fk_ref}.{fk_field}"
+                elif fk_field.endswith("_ID"):
                     target_table = fk_field[:-3].lower()
                     fk_target = f"{target_table}.{fk_field}"
 
@@ -407,27 +409,33 @@ def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
     for table_id, table_info in parts_data["tables"].items():
         for field in table_info["fields"]:
             if field.get("fk_to"):
-                # fk_to contains the target field part_id (e.g., "Equipment_model_ID")
                 target_field_id = field["fk_to"]
 
-                # Look up which table has this field as its primary key
-                target_info = pk_id_to_table.get(target_field_id)
-
-                # Only create a relationship if we found a table with this as a primary key
-                if target_info:
+                # Prefer explicit FK ref table from YAML (avoids ambiguity
+                # when the same column is a PK in multiple tables, e.g.
+                # Contact_ID is PK in both Contact and ProjectHasContact).
+                fk_ref_table = field.get("fk_ref_table", "")
+                if fk_ref_table and fk_ref_table in parts_data["tables"]:
+                    target_table = fk_ref_table
+                    target_pk_label = target_field_id
+                else:
+                    # Fall back to pk_id_to_table lookup (legacy JSON path)
+                    target_info = pk_id_to_table.get(target_field_id)
+                    if not target_info:
+                        continue
                     target_table, target_pk_label = target_info
-                    if target_table in parts_data["tables"]:
-                        # Use explicit relationship_type from field metadata
-                        rel_type = field.get("relationship_type", "one-to-many")
 
-                        relationship = ERDRelationship(
-                            from_table=table_id,
-                            to_table=target_table,
-                            from_field=field["label"],
-                            to_field=target_pk_label,
-                            relationship_type=rel_type,
-                        )
-                        relationships.append(relationship)
+                if target_table in parts_data["tables"]:
+                    rel_type = field.get("relationship_type", "one-to-many")
+
+                    relationship = ERDRelationship(
+                        from_table=table_id,
+                        to_table=target_table,
+                        from_field=field["label"],
+                        to_field=target_pk_label,
+                        relationship_type=rel_type,
+                    )
+                    relationships.append(relationship)
 
     return {
         "tables": [asdict(t) for t in tables],
