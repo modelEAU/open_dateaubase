@@ -1,0 +1,51 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: open_dateaubase_db
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "StrongPwd123!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "14330:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    restart: unless-stopped
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    platform: linux/amd64
+    container_name: open_dateaubase_db_init
+    restart: "no"
+    profiles: ["init"]
+    depends_on:
+      - db
+    volumes:
+      - ./sql:/sql
+      - ./sql_generation_scripts:/sql_generation_scripts
+    entrypoint: |
+      /bin/bash -lc '
+      set -euo pipefail
+
+      SQLCMD=/opt/mssql-tools18/bin/sqlcmd
+      [ -x "$$SQLCMD" ] || SQLCMD=/opt/mssql-tools/bin/sqlcmd
+
+      echo "Waiting for SQL Server..."
+      for i in {1..60}; do
+        "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -Q "SELECT 1" && break
+        sleep 2
+      done
+
+      # Hard fail if still not reachable
+      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -Q "SELECT 1" >/dev/null
+
+      echo "Running init.sql..."
+      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -b -V 16 -r 1 -i /sql/init.sql
+
+      echo "Done."
+      '
+
+
+volumes:
+  mssql_data:
