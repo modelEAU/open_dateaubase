@@ -1,0 +1,34 @@
+_format_version: "1.0"
+table:
+  name: ValueVector
+  schema: dbo
+  description: "Stores 1D binned measurement data as one row per bin per timestamp, unifying spectra, particle size distributions, and any other 1D distribution over a physical axis"
+  columns:
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      description: "References the metadata context for this measurement"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+    - name: Timestamp
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC timestamp of the measurement (stored in UTC by convention)"
+    - name: ValueBin_ID
+      logical_type: integer
+      nullable: false
+      description: "References the bin (and through it, the axis) for this value"
+      foreign_key:
+        table: ValueBin
+        column: ValueBin_ID
+    - name: Value
+      logical_type: float64
+      nullable: true
+      description: "Measured value at this bin"
+    - name: QualityCode
+      logical_type: integer
+      nullable: true
+      description: "Quality flag for this measurement"
+  primary_key: [Metadata_ID, Timestamp, ValueBin_ID]

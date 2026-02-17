@@ -1,0 +1,43 @@
+_format_version: "1.0"
+table:
+  name: ValueMatrix
+  schema: dbo
+  description: "Stores 2D binned measurement data as one row per (row-bin, col-bin) cell per timestamp, supporting joint distributions such as particle size-velocity"
+  columns:
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      description: "References the metadata context for this measurement"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+    - name: Timestamp
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC timestamp of the measurement (stored in UTC by convention)"
+    - name: RowValueBin_ID
+      logical_type: integer
+      nullable: false
+      description: "References the bin on the row axis (AxisRole=0 in MetaDataAxis)"
+      foreign_key:
+        table: ValueBin
+        column: ValueBin_ID
+        constraint_name: FK_ValueMatrix_RowValueBin
+    - name: ColValueBin_ID
+      logical_type: integer
+      nullable: false
+      description: "References the bin on the column axis (AxisRole=1 in MetaDataAxis)"
+      foreign_key:
+        table: ValueBin
+        column: ValueBin_ID
+        constraint_name: FK_ValueMatrix_ColValueBin
+    - name: Value
+      logical_type: float64
+      nullable: true
+      description: "Measured value at this (row-bin, col-bin) cell"
+    - name: QualityCode
+      logical_type: integer
+      nullable: true
+      description: "Quality flag for this measurement"
+  primary_key: [Metadata_ID, Timestamp, RowValueBin_ID, ColValueBin_ID]

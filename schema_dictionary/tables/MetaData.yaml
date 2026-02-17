@@ -72,4 +72,12 @@ table:
       foreign_key:
         table: WeatherCondition
         column: Condition_ID
+    - name: ValueType_ID
+      logical_type: integer
+      nullable: false
+      default: 1
+      description: "Identifies the shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
+      foreign_key:
+        table: ValueType
+        column: ValueType_ID
   primary_key: [Metadata_ID]

@@ -1,0 +1,71 @@
+_format_version: "1.0"
+table:
+  name: ValueImage
+  schema: dbo
+  description: "Stores image measurement references with metadata about the image dimensions, format, and storage location"
+  columns:
+    - name: ValueImage_ID
+      logical_type: biginteger
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      description: "References the metadata context for this image"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+    - name: Timestamp
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC timestamp when the image was captured (stored in UTC by convention)"
+    - name: ImageWidth
+      logical_type: integer
+      nullable: false
+      description: "Width of the image in pixels"
+    - name: ImageHeight
+      logical_type: integer
+      nullable: false
+      description: "Height of the image in pixels"
+    - name: NumberOfChannels
+      logical_type: integer
+      nullable: false
+      default: 3
+      description: "Number of color channels (e.g. 3 for RGB, 1 for grayscale)"
+    - name: ImageFormat
+      logical_type: string
+      max_length: 20
+      nullable: false
+      description: "Image file format (e.g. PNG, TIFF, JPEG)"
+    - name: FileSizeBytes
+      logical_type: biginteger
+      nullable: true
+      description: "File size in bytes"
+    - name: StorageBackend
+      logical_type: string
+      max_length: 50
+      nullable: false
+      default: "'FileSystem'"
+      description: "Storage backend type (e.g. FileSystem, S3, Azure Blob)"
+    - name: StoragePath
+      logical_type: string
+      max_length: 1000
+      nullable: false
+      description: "Full path or URI to the stored image file"
+    - name: Thumbnail
+      logical_type: binary_large
+      nullable: true
+      description: "Optional thumbnail image stored inline as binary"
+    - name: QualityCode
+      logical_type: integer
+      nullable: true
+      description: "Quality flag for this image"
+  primary_key: [ValueImage_ID]
+  unique_constraints:
+    - name: UQ_ValueImage_MetaTimestamp
+      columns: [Metadata_ID, Timestamp]
+  indexes:
+    - name: IX_ValueImage_MetaTimestamp
+      columns: [Metadata_ID, Timestamp]

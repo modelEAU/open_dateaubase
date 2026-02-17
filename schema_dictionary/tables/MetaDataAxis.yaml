@@ -1,0 +1,28 @@
+_format_version: "1.0"
+table:
+  name: MetaDataAxis
+  schema: dbo
+  description: "Junction table linking a MetaData measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix"
+  columns:
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      description: "References the measurement series"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+    - name: AxisRole
+      logical_type: integer
+      nullable: false
+      description: "Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only)"
+    - name: ValueBinningAxis_ID
+      logical_type: integer
+      nullable: false
+      description: "References the binning axis for this role"
+      foreign_key:
+        table: ValueBinningAxis
+        column: ValueBinningAxis_ID
+  primary_key: [Metadata_ID, AxisRole]
+  check_constraints:
+    - name: CK_MetaDataAxis_AxisRole
+      expression: "AxisRole IN (0, 1)"

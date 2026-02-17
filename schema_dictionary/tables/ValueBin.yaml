@@ -1,0 +1,37 @@
+_format_version: "1.0"
+table:
+  name: ValueBin
+  schema: dbo
+  description: "Individual bins on a ValueBinningAxis, each defined by a half-open interval [LowerBound, UpperBound) in the axis unit"
+  columns:
+    - name: ValueBin_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: ValueBinningAxis_ID
+      logical_type: integer
+      nullable: false
+      description: "References the parent binning axis"
+      foreign_key:
+        table: ValueBinningAxis
+        column: ValueBinningAxis_ID
+    - name: BinIndex
+      logical_type: integer
+      nullable: false
+      description: "0-based ordinal position of this bin within its axis"
+    - name: LowerBound
+      logical_type: float64
+      nullable: false
+      description: "Inclusive lower edge of this bin in the axis unit"
+    - name: UpperBound
+      logical_type: float64
+      nullable: false
+      description: "Exclusive upper edge of this bin in the axis unit; must be greater than LowerBound"
+  primary_key: [ValueBin_ID]
+  unique_constraints:
+    - name: UQ_ValueBin_AxisIndex
+      columns: [ValueBinningAxis_ID, BinIndex]
+  check_constraints:
+    - name: CK_ValueBin_Bounds
+      expression: "UpperBound > LowerBound"

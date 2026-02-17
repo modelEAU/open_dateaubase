@@ -1,0 +1,17 @@
+_format_version: "1.0"
+table:
+  name: ValueType
+  schema: dbo
+  description: "Lookup table defining the shape of stored measurement values (Scalar, Vector, Matrix, Image)"
+  columns:
+    - name: ValueType_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: ValueType_Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Human-readable name of the value type (Scalar, Vector, Matrix, or Image)"
+  primary_key: [ValueType_ID]

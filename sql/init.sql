@@ -25,7 +25,13 @@ GO
 :r /sql/seed_v1.0.2.sql
 GO
 
-PRINT 'Database initialized at v1.0.2 with sample data.';
+-- v1.1.0: Phase 1 - Polymorphic value storage
+:r /migrations/v1.0.2_to_v1.1.0_mssql.sql
+GO
+:r /sql/seed_v1.1.0.sql
+GO
+
+PRINT 'Database initialized at v1.1.0 with sample data.';
 SELECT 'metadata' AS t, COUNT(*) AS n FROM dbo.metadata;
 SELECT 'value' AS t, COUNT(*) AS n FROM dbo.[value];
 SELECT 'schema_version' AS t, COUNT(*) AS n FROM dbo.SchemaVersion;

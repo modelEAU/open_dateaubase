@@ -1,0 +1,33 @@
+_format_version: "1.0"
+table:
+  name: ValueBinningAxis
+  schema: dbo
+  description: "Defines a named measurement axis for binned data (e.g. wavelength, particle size, velocity), linking to the Unit table for axis units"
+  columns:
+    - name: ValueBinningAxis_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable name identifying this axis configuration (e.g. 'S::CAN spectro::lyser UV-Vis')"
+    - name: Description
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Optional description of this axis"
+    - name: NumberOfBins
+      logical_type: integer
+      nullable: false
+      description: "Total number of bins defined on this axis"
+    - name: Unit_ID
+      logical_type: integer
+      nullable: false
+      description: "Physical unit of the axis coordinates (e.g. nm, µm, m/s) — distinct from the measured value unit stored in MetaData"
+      foreign_key:
+        table: Unit
+        column: Unit_ID
+  primary_key: [ValueBinningAxis_ID]
