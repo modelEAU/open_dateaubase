@@ -13,7 +13,14 @@ GO
 :r /sql/seed_v1.0.0.sql
 GO
 
-PRINT 'Database initialized at v1.0.0 with sample data.';
+-- v1.0.1: Add SchemaVersion tracking table
+:r /migrations/v1.0.0_to_v1.0.1_mssql.sql
+GO
+:r /sql/seed_v1.0.1.sql
+GO
+
+PRINT 'Database initialized at v1.0.1 with sample data.';
 SELECT 'metadata' AS t, COUNT(*) AS n FROM dbo.metadata;
 SELECT 'value' AS t, COUNT(*) AS n FROM dbo.[value];
+SELECT 'schema_version' AS t, COUNT(*) AS n FROM dbo.SchemaVersion;
 GO

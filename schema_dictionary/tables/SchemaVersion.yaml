@@ -19,7 +19,7 @@ table:
       precision: 7
       nullable: false
       default: "CURRENT_TIMESTAMP"
-      description: "Datetime when this migration was applied"
+      description: "UTC datetime when this migration was applied (stored in UTC by convention)"
     - name: Description
       logical_type: string
       max_length: 500
