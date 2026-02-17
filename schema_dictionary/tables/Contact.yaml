@@ -32,7 +32,7 @@ table:
     - name: Function
       logical_type: text
       nullable: true
-      description: "More detailed description about the functions"
+      description: "More detailed description about the person's assigned duties."
     - name: Office_number
       logical_type: string
       max_length: 100
