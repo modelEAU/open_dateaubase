@@ -1,19 +1,19 @@
-IF DB_ID(N'proposed_2025_11') IS NULL
+IF DB_ID(N'open_dateaubase') IS NULL
 BEGIN
-    CREATE DATABASE proposed_2025_11;
+    CREATE DATABASE open_dateaubase;
 END
 GO
 
-USE proposed_2025_11;
+USE open_dateaubase;
 GO
 
-:r /sql_generation_scripts/2025-11-27_proposed_.sql
+-- v1.0.0: Create baseline schema and seed data
+:r /migrations/v1.0.0_create_mssql.sql
+GO
+:r /sql/seed_v1.0.0.sql
 GO
 
-:r /sql_generation_scripts/2025-11-27_seed_test_data.sql
-GO
-
-PRINT 'DB init OK - tables check';
+PRINT 'Database initialized at v1.0.0 with sample data.';
 SELECT 'metadata' AS t, COUNT(*) AS n FROM dbo.metadata;
 SELECT 'value' AS t, COUNT(*) AS n FROM dbo.[value];
 GO

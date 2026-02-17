@@ -185,7 +185,7 @@ CREATE TABLE [dbo].[SamplingPoints] (
     [Latitude_GPS] NVARCHAR(100),
     [Longitude_GPS] NVARCHAR(100),
     [Description] NVARCHAR(MAX),
-    [Pictures] /* UNMAPPED TYPE */,
+    [Pictures] VARBINARY(MAX),
     CONSTRAINT [PK_SamplingPoints] PRIMARY KEY ([Sampling_point_ID])
 );
 
@@ -195,7 +195,7 @@ CREATE TABLE [dbo].[Site] (
     [name] NVARCHAR(100),
     [type] NVARCHAR(255),
     [Description] NVARCHAR(MAX),
-    [Picture] /* UNMAPPED TYPE */,
+    [Picture] VARBINARY(MAX),
     [Street_number] NVARCHAR(100),
     [Street_name] NVARCHAR(100),
     [City] NVARCHAR(255),

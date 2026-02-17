@@ -24,6 +24,7 @@ services:
     volumes:
       - ./sql:/sql
       - ./sql_generation_scripts:/sql_generation_scripts
+      - ./migrations:/migrations
     entrypoint: |
       /bin/bash -lc '
       set -euo pipefail
