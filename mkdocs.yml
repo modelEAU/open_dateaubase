@@ -30,6 +30,7 @@ nav:
   - Home: index.md
   - Contributing:
     - The Dictionary: contributing/dictionary.md
+    - Schema Dictionary Format: architecture/schema_dictionary_format.md
   - Reference:
     - Schema: reference/schema.md
     - Tables: reference/tables.md
@@ -38,7 +39,15 @@ nav:
     - ERD Diagram: reference/erd.md
     - Inserting Data: reference/inserting_data.md
     - Sample Data & Queries: reference/sample_data.md
-
+  - Architecture:
+    - Campaigns and Provenance: architecture/campaigns_and_provenance.md
+    - Current Schema Generation: architecture/current_schema_generation.md
+    - Ingestion Routing: architecture/ingestion_routing.md
+    - Lab data: architecture/lab_data.md
+    - Processing Lineage: architecture/processing_lineage.md
+    - Sensor Lifecycle: architecture/sensor_lifecycle.md
+  - Operations:
+    - Moving a sensor: operations/equipment_move_checklist.md
 markdown_extensions:
   - admonition
   - codehilite

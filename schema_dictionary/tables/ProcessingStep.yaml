@@ -1,0 +1,73 @@
+_format_version: "1.0"
+table:
+  name: ProcessingStep
+  schema: dbo
+  description: >
+    Records a single data-transformation step (outlier removal, interpolation,
+    smoothing, aggregation, etc.) applied to one or more time series.
+    Each row captures what was done, when, by whom, and with what parameters.
+    The DataLineage table links ProcessingStep rows to their input and output
+    MetaData entries, forming the full processing provenance graph.
+
+  columns:
+    - name: ProcessingStep_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable name for this processing step (e.g. 'Outlier removal — Hampel filter')"
+
+    - name: Description
+      logical_type: string
+      max_length: 2000
+      nullable: true
+      description: "Free-text description of what this step does and why it was applied"
+
+    - name: MethodName
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Machine-readable method identifier (e.g. 'outlier_removal', 'linear_interpolation'). Maps to a metEAUdata processing function name."
+
+    - name: MethodVersion
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Version of the method or library used (e.g. 'meteaudata 0.5.1')"
+
+    - name: ProcessingType
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: >
+        Category of processing applied. Stored as a string mirroring
+        metEAUdata's ProcessingType enum values (e.g. 'Smoothing', 'Filtering',
+        'Resampling', 'GapFilling'). No lookup table — metEAUdata's enum is the
+        source of truth. Controlled vocabulary: see ProcessingType_set.
+      value_set: processing_type_set
+
+    - name: Parameters
+      logical_type: text
+      nullable: true
+      description: "JSON blob of method parameters (e.g. '{\"window\": 5, \"threshold\": 3.0}')"
+
+    - name: ExecutedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "UTC timestamp when this processing step was executed"
+
+    - name: ExecutedByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who ran or triggered this processing step. NULL for automated/unattended runs."
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+  primary_key: [ProcessingStep_ID]

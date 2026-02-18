@@ -1,0 +1,13 @@
+-- Seed data for schema v1.6.0
+-- Phase 3: Processing Lineage
+--
+-- Prerequisites: seed_v1.5.0.sql must have been applied.
+--
+-- ProcessingStep and DataLineage rows are created at runtime by
+-- application code (via open_dateaubase.meteaudata_bridge.record_processing).
+-- No static seed data is required for these tables.
+--
+-- ProcessingType values are stored as plain strings mirroring metEAUdata's
+-- ProcessingType enum; no lookup table is needed.
+
+-- (intentionally empty)

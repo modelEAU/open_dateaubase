@@ -21,8 +21,8 @@ table:
       nullable: true
       description: "Links to the person responsible for this measurement series"
       foreign_key:
-        table: Contact
-        column: Contact_ID
+        table: Person
+        column: Person_ID
     - name: Equipment_ID
       logical_type: integer
       nullable: true
@@ -80,4 +80,54 @@ table:
       foreign_key:
         table: ValueType
         column: ValueType_ID
+    - name: DataProvenance_ID
+      logical_type: integer
+      nullable: true
+      description: "How this data was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source). NULL for legacy rows; backfilled by migration."
+      foreign_key:
+        table: DataProvenance
+        column: DataProvenance_ID
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign this measurement series belongs to. NULL for legacy rows."
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+    - name: Sample_ID
+      logical_type: integer
+      nullable: true
+      description: "Discrete sample analysed to produce this measurement series. Only populated for lab data (DataProvenance_ID=2)."
+      foreign_key:
+        table: Sample
+        column: Sample_ID
+    - name: Laboratory_ID
+      logical_type: integer
+      nullable: true
+      description: "Laboratory where analysis was performed. Only populated for lab data (DataProvenance_ID=2)."
+      foreign_key:
+        table: Laboratory
+        column: Laboratory_ID
+    - name: AnalystPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who performed the analysis. Only populated for lab data (DataProvenance_ID=2)."
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+    - name: ProcessingDegree
+      logical_type: string
+      max_length: 50
+      nullable: true
+      default: "Raw"
+      description: >
+        Denormalized field indicating the level of processing applied to this
+        time series. Ground truth is the DataLineage graph; this field exists
+        for fast filtering. Set once at row creation and never changed — if the
+        processing degree changes, a new MetaData row is created.
+        Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated.
+        Backfilled to 'Raw' for all rows existing before v1.6.0.
+      value_set: processing_degree_set
+
   primary_key: [Metadata_ID]

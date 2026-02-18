@@ -1,0 +1,56 @@
+_format_version: "1.0"
+table:
+  name: DataLineage
+  schema: dbo
+  description: >
+    Junction table that records the input/output relationships between
+    ProcessingStep rows and MetaData rows. Each row asserts that a given
+    MetaData entry was either an Input to, or an Output of, a given
+    ProcessingStep. Together these rows form a directed acyclic graph (DAG)
+    of data transformations.
+
+    Example: outlier-removal step takes MetaData 10 (raw TSS) as Input
+    and produces MetaData 11 (cleaned TSS) as Output.
+
+  columns:
+    - name: DataLineage_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: ProcessingStep_ID
+      logical_type: integer
+      nullable: false
+      description: "The processing step that consumed or produced the MetaData entry"
+      foreign_key:
+        table: ProcessingStep
+        column: ProcessingStep_ID
+
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      description: "The MetaData entry (time series) that participates in this lineage edge"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+
+    - name: Role
+      logical_type: string
+      max_length: 10
+      nullable: false
+      description: >
+        Whether this MetaData entry was an Input (consumed by the step) or
+        an Output (produced by the step). CHECK constraint enforces 'Input'
+        or 'Output'.
+
+  primary_key: [DataLineage_ID]
+
+  indexes:
+    - name: IX_DataLineage_Metadata
+      columns: [Metadata_ID]
+      description: "Supports backward lineage queries: given a MetaData_ID, find all steps it participated in"
+
+    - name: IX_DataLineage_Step_Role
+      columns: [ProcessingStep_ID, Role]
+      description: "Supports forward/backward traversal: given a step, find its inputs or outputs efficiently"
