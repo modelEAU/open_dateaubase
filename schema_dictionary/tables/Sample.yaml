@@ -1,0 +1,76 @@
+_format_version: "1.0"
+table:
+  name: Sample
+  schema: dbo
+  description: "A discrete physical sample collected at a sampling location or prepared in a laboratory. Supports field samples, calibration standards, blanks, and derived sub-samples via ParentSample_ID."
+
+  columns:
+    - name: Sample_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: ParentSample_ID
+      logical_type: integer
+      nullable: true
+      description: "Parent sample this was derived from (e.g., an aliquot of a master standard). NULL for primary samples."
+      foreign_key:
+        table: Sample
+        column: Sample_ID
+    - name: SampleCategory
+      logical_type: string
+      max_length: 50
+      nullable: true
+      description: "Nature of the sample. Controlled vocabulary: Field, Synthetic, Master Standard, Derived Standard, Blank"
+      value_set: sample_category_set
+    - name: Sampling_point_ID
+      logical_type: integer
+      nullable: false
+      description: "Sampling location where the sample was collected or prepared"
+      foreign_key:
+        table: SamplingPoints
+        column: Sampling_point_ID
+    - name: SampledByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who collected the sample"
+      foreign_key:
+        table: Person
+        column: Person_ID
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign this sample belongs to"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+    - name: SampleDateTimeStart
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "Date and time sampling began (UTC)"
+    - name: SampleDateTimeEnd
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "Date and time sampling ended (UTC). NULL for instantaneous grab samples."
+    - name: SampleType
+      logical_type: string
+      max_length: 50
+      nullable: true
+      description: "Method of sample collection. Controlled vocabulary: Grab, Composite24h, Composite8h, Passive, Other"
+      value_set: sample_type_set
+    - name: SampleEquipment_ID
+      logical_type: integer
+      nullable: true
+      description: "Equipment used to collect the sample (e.g., auto-sampler)"
+      foreign_key:
+        table: Equipment
+        column: Equipment_ID
+    - name: Description
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Additional notes about the sample"
+
+  primary_key: [Sample_ID]

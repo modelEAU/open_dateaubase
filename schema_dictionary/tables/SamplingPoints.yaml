@@ -45,5 +45,22 @@ table:
       logical_type: # TODO: unmapped SQL type: BLOB
       nullable: true
       description: "Picture of the site"
+    - name: ValidFrom
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "Date from which this sampling point record is considered valid (UTC). NULL means valid from the beginning of records."
+    - name: ValidTo
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "Date until which this sampling point record is valid (UTC). NULL means currently active."
+    - name: CreatedByCampaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign during which this sampling point was first established (if applicable)"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
 
   primary_key: [Sampling_point_ID]

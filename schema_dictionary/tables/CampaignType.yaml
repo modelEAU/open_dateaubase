@@ -1,0 +1,28 @@
+_format_version: "1.0"
+table:
+  name: CampaignType
+  schema: dbo
+  description: "Lookup table classifying the nature of a Campaign (Experiment, Operations, Commissioning)"
+
+  columns:
+    - name: CampaignType_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: CampaignType_Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the campaign type. Controlled vocabulary: Experiment, Operations, Commissioning"
+      value_set: campaign_type_set
+
+  primary_key: [CampaignType_ID]
+
+  seed_data:
+    - CampaignType_ID: 1
+      CampaignType_Name: "Experiment"
+    - CampaignType_ID: 2
+      CampaignType_Name: "Operations"
+    - CampaignType_ID: 3
+      CampaignType_Name: "Commissioning"

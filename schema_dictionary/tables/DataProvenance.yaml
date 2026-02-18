@@ -1,0 +1,32 @@
+_format_version: "1.0"
+table:
+  name: DataProvenance
+  schema: dbo
+  description: "Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source)"
+
+  columns:
+    - name: DataProvenance_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: DataProvenance_Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source"
+      value_set: data_provenance_set
+
+  primary_key: [DataProvenance_ID]
+
+  seed_data:
+    - DataProvenance_ID: 1
+      DataProvenance_Name: "Sensor"
+    - DataProvenance_ID: 2
+      DataProvenance_Name: "Laboratory"
+    - DataProvenance_ID: 3
+      DataProvenance_Name: "Manual Entry"
+    - DataProvenance_ID: 4
+      DataProvenance_Name: "Model Output"
+    - DataProvenance_ID: 5
+      DataProvenance_Name: "External Source"

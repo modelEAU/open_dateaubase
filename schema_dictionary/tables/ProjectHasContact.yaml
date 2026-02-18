@@ -10,8 +10,8 @@ table:
       nullable: false
       description: "Link to the Contact table"
       foreign_key:
-        table: Contact
-        column: Contact_ID
+        table: Person
+        column: Person_ID
     - name: Project_ID
       logical_type: integer
       nullable: false

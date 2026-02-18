@@ -1,0 +1,55 @@
+_format_version: "1.0"
+table:
+  name: Campaign
+  schema: dbo
+  description: "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Replaces direct use of Project for new data."
+
+  columns:
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: CampaignType_ID
+      logical_type: integer
+      nullable: false
+      description: "Type of campaign (Experiment, Operations, Commissioning)"
+      foreign_key:
+        table: CampaignType
+        column: CampaignType_ID
+    - name: Site_ID
+      logical_type: integer
+      nullable: false
+      description: "Site where the campaign is conducted"
+      foreign_key:
+        table: Site
+        column: Site_ID
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable name for the campaign"
+    - name: Description
+      logical_type: string
+      max_length: 2000
+      nullable: true
+      description: "Detailed description of the campaign objectives and scope"
+    - name: StartDate
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "Date and time the campaign began (UTC)"
+    - name: EndDate
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "Date and time the campaign ended (UTC); NULL if ongoing"
+    - name: Project_ID
+      logical_type: integer
+      nullable: true
+      description: "Optional backward-compatibility link to the legacy Project table"
+      foreign_key:
+        table: Project
+        column: Project_ID
+
+  primary_key: [Campaign_ID]

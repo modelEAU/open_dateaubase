@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: CampaignParameter
+  schema: dbo
+  description: "Junction table: parameters (variables) measured during a campaign."
+
+  columns:
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: false
+      description: "Campaign measuring this parameter"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+    - name: Parameter_ID
+      logical_type: integer
+      nullable: false
+      description: "Parameter measured during the campaign"
+      foreign_key:
+        table: Parameter
+        column: Parameter_ID
+
+  primary_key: [Campaign_ID, Parameter_ID]

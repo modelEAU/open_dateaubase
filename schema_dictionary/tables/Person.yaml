@@ -1,0 +1,58 @@
+_format_version: "1.0"
+table:
+  name: Person
+  schema: dbo
+  description: "Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone). Renamed from Contact in v1.2.0."
+
+  columns:
+    - name: Person_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: Last_name
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Last name of the person"
+    - name: First_name
+      logical_type: string
+      max_length: 255
+      nullable: true
+      description: "First name of the person"
+    - name: Company
+      logical_type: text
+      nullable: true
+      description: "Affiliated organisation or company"
+    - name: Role
+      logical_type: string
+      max_length: 255
+      nullable: true
+      description: "Role of the person. Controlled vocabulary: MSc, Postdoc, Intern, PhD, Professor, Research Professional, Technician, Administrator, Guest"
+      value_set: person_role_set
+    - name: Function
+      logical_type: text
+      nullable: true
+      description: "Detailed description of the person's assigned duties"
+    - name: Email
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "E-mail address"
+    - name: Phone
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Phone number"
+    - name: Linkedin
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "LinkedIn profile URL"
+    - name: Website
+      logical_type: string
+      max_length: 60
+      nullable: true
+      description: "Personal or organisation website URL"
+
+  primary_key: [Person_ID]

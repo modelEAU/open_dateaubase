@@ -1,0 +1,33 @@
+_format_version: "1.0"
+table:
+  name: EquipmentEventMetaData
+  schema: dbo
+  description: "Junction table linking an equipment lifecycle event to the MetaData series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration)."
+
+  columns:
+    - name: EquipmentEvent_ID
+      logical_type: integer
+      nullable: false
+      description: "Equipment event this link belongs to"
+      foreign_key:
+        table: EquipmentEvent
+        column: EquipmentEvent_ID
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      description: "MetaData series associated with this event (sensor series or lab result series)"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+    - name: WindowStart
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "Start of the relevant time window within the MetaData series (e.g., when sensor was immersed in solution). NULL means use all values in the series."
+    - name: WindowEnd
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "End of the relevant time window. NULL means use all values in the series."
+
+  primary_key: [EquipmentEvent_ID, Metadata_ID]

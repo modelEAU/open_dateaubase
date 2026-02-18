@@ -1,0 +1,28 @@
+_format_version: "1.0"
+table:
+  name: CampaignSamplingLocation
+  schema: dbo
+  description: "Junction table: sampling locations actively monitored during a campaign."
+
+  columns:
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: false
+      description: "Campaign using this sampling location"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+    - name: Sampling_point_ID
+      logical_type: integer
+      nullable: false
+      description: "Sampling location used by the campaign"
+      foreign_key:
+        table: SamplingPoints
+        column: Sampling_point_ID
+    - name: Role
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Role of this location in the campaign (e.g., 'Inlet', 'Reference')"
+
+  primary_key: [Campaign_ID, Sampling_point_ID]

@@ -1,0 +1,38 @@
+_format_version: "1.0"
+table:
+  name: EquipmentEventType
+  schema: dbo
+  description: "Lookup table classifying the type of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)"
+
+  columns:
+    - name: EquipmentEventType_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: EquipmentEventType_Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the event type. Controlled vocabulary: Calibration, Validation, Maintenance, Installation, Removal, Firmware Update, Failure, Repair"
+      value_set: equipment_event_type_set
+
+  primary_key: [EquipmentEventType_ID]
+
+  seed_data:
+    - EquipmentEventType_ID: 1
+      EquipmentEventType_Name: "Calibration"
+    - EquipmentEventType_ID: 2
+      EquipmentEventType_Name: "Validation"
+    - EquipmentEventType_ID: 3
+      EquipmentEventType_Name: "Maintenance"
+    - EquipmentEventType_ID: 4
+      EquipmentEventType_Name: "Installation"
+    - EquipmentEventType_ID: 5
+      EquipmentEventType_Name: "Removal"
+    - EquipmentEventType_ID: 6
+      EquipmentEventType_Name: "Firmware Update"
+    - EquipmentEventType_ID: 7
+      EquipmentEventType_Name: "Failure"
+    - EquipmentEventType_ID: 8
+      EquipmentEventType_Name: "Repair"

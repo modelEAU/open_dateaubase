@@ -1,0 +1,31 @@
+_format_version: "1.0"
+table:
+  name: Laboratory
+  schema: dbo
+  description: "A laboratory where discrete samples are analysed. May be on-site or external."
+
+  columns:
+    - name: Laboratory_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Name of the laboratory"
+    - name: Site_ID
+      logical_type: integer
+      nullable: true
+      description: "Site where the laboratory is located, if on-site. NULL for external labs."
+      foreign_key:
+        table: Site
+        column: Site_ID
+    - name: Description
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Additional information about the laboratory"
+
+  primary_key: [Laboratory_ID]
