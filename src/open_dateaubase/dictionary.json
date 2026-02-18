@@ -95,9 +95,9 @@
       "Sort_order": null
     },
     {
-      "Part_ID": "contact",
-      "Label": "Contact",
-      "Description": "Stores detailed personal and professional information for people involved in projects (e.g., name, affiliation, function, e-mail, phone)",
+      "Part_ID": "person",
+      "Label": "Person",
+      "Description": "Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone). Renamed from Contact in v1.2.0.",
       "Part_type": "table",
       "Sort_order": null
     },
@@ -337,7 +337,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 4,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -387,9 +387,9 @@
       }
     },
     {
-      "Part_ID": "Contact_ID",
-      "Label": "Contact ID",
-      "Description": "Link to the Contact table",
+      "Part_ID": "Person_ID",
+      "Label": "Person ID",
+      "Description": "Link to the Person table",
       "Part_type": "key",
       "SQL_data_type": "int",
       "Is_required": false,
@@ -397,11 +397,6 @@
       "Value_set_part_ID": null,
       "Sort_order": 1,
       "table_presence": {
-        "contact": {
-          "role": "key",
-          "required": false,
-          "order": 999
-        },
         "metadata": {
           "role": "property",
           "required": false,
@@ -413,6 +408,11 @@
           "required": false,
           "order": 999,
           "relationship_type": "many-to-many"
+        },
+        "person": {
+          "role": "key",
+          "required": false,
+          "order": 999
         }
       }
     },
@@ -445,7 +445,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 8,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -565,7 +565,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 3,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -601,7 +601,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 6,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -727,7 +727,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 2,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -737,7 +737,7 @@
     {
       "Part_ID": "Latitude_GPS",
       "Label": "Latitude GPS",
-      "Description": "GPS coordinates. For example: 47°54′25.103\" ",
+      "Description": "GPS coordinates. For example: 47\u00b054\u203225.103\" ",
       "Part_type": "property",
       "SQL_data_type": "nvarchar(100)",
       "Is_required": false,
@@ -763,7 +763,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 11,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -903,24 +903,6 @@
       }
     },
     {
-      "Part_ID": "Office_number",
-      "Label": "Office Number",
-      "Description": "Number of the office",
-      "Part_type": "property",
-      "SQL_data_type": "nvarchar(100)",
-      "Is_required": false,
-      "Default_value": null,
-      "Value_set_part_ID": null,
-      "Sort_order": 7,
-      "table_presence": {
-        "contact": {
-          "role": "property",
-          "required": false,
-          "order": 999
-        }
-      }
-    },
-    {
       "Part_ID": "Owner",
       "Label": "Owner",
       "Description": "Name of the owner of the equipment",
@@ -1001,7 +983,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 9,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -1453,35 +1435,17 @@
       }
     },
     {
-      "Part_ID": "Skype_name",
-      "Label": "Skype Name",
-      "Description": "Skype name",
-      "Part_type": "property",
-      "SQL_data_type": "nvarchar(100)",
-      "Is_required": false,
-      "Default_value": null,
-      "Value_set_part_ID": null,
-      "Sort_order": 10,
-      "table_presence": {
-        "contact": {
-          "role": "property",
-          "required": false,
-          "order": 999
-        }
-      }
-    },
-    {
-      "Part_ID": "Status",
-      "Label": "Status",
-      "Description": "Status of the person. For example: \"Master student\", \"Postdoc\" or \"Intern\"",
+      "Part_ID": "Role",
+      "Label": "Role",
+      "Description": "Role of the person in the project. Controlled vocabulary: MSc, Postdoc, Intern, PhD, Professor, Research Professional, Technician, Administrator, Guest",
       "Part_type": "property",
       "SQL_data_type": "nvarchar(255)",
       "Is_required": false,
       "Default_value": null,
-      "Value_set_part_ID": null,
+      "Value_set_part_ID": "person_role_set",
       "Sort_order": 5,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -1727,7 +1691,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 17,
       "table_presence": {
-        "contact": {
+        "person": {
           "role": "property",
           "required": false,
           "order": 999
@@ -1746,96 +1710,6 @@
       "Sort_order": 4,
       "table_presence": {
         "hydrological_characteristics": {
-          "role": "property",
-          "required": false,
-          "order": 999
-        }
-      }
-    },
-    {
-      "Part_ID": "contact_City",
-      "Label": "Contact City",
-      "Description": "Address: name of the city",
-      "Part_type": "property",
-      "SQL_data_type": "nvarchar(255)",
-      "Is_required": false,
-      "Default_value": null,
-      "Value_set_part_ID": null,
-      "Sort_order": 14,
-      "table_presence": {
-        "contact": {
-          "role": "property",
-          "required": false,
-          "order": 999
-        }
-      }
-    },
-    {
-      "Part_ID": "contact_Country",
-      "Label": "Contact Country",
-      "Description": "Address: name of the country",
-      "Part_type": "property",
-      "SQL_data_type": "nvarchar(255)",
-      "Is_required": false,
-      "Default_value": null,
-      "Value_set_part_ID": null,
-      "Sort_order": 16,
-      "table_presence": {
-        "contact": {
-          "role": "property",
-          "required": false,
-          "order": 999
-        }
-      }
-    },
-    {
-      "Part_ID": "contact_Street_name",
-      "Label": "Contact Street Name",
-      "Description": "Address: name of the street",
-      "Part_type": "property",
-      "SQL_data_type": "nvarchar(100)",
-      "Is_required": false,
-      "Default_value": null,
-      "Value_set_part_ID": null,
-      "Sort_order": 13,
-      "table_presence": {
-        "contact": {
-          "role": "property",
-          "required": false,
-          "order": 999
-        }
-      }
-    },
-    {
-      "Part_ID": "contact_Street_number",
-      "Label": "Contact Street Number",
-      "Description": "Address: number of the street",
-      "Part_type": "property",
-      "SQL_data_type": "nvarchar(100)",
-      "Is_required": false,
-      "Default_value": null,
-      "Value_set_part_ID": null,
-      "Sort_order": 12,
-      "table_presence": {
-        "contact": {
-          "role": "property",
-          "required": false,
-          "order": 999
-        }
-      }
-    },
-    {
-      "Part_ID": "contact_Zip_code",
-      "Label": "Contact Zip Code",
-      "Description": "Address: zip code",
-      "Part_type": "property",
-      "SQL_data_type": "nvarchar(45)",
-      "Is_required": false,
-      "Default_value": null,
-      "Value_set_part_ID": null,
-      "Sort_order": 15,
-      "table_presence": {
-        "contact": {
           "role": "property",
           "required": false,
           "order": 999
@@ -2075,6 +1949,459 @@
           "order": 999
         }
       }
+    },
+    {
+      "Part_ID": "person_role_set",
+      "Label": "Person Role Set",
+      "Description": "Valid role values for a Person record",
+      "Part_type": "valueSet",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "person_role_msc",
+      "Label": "MSc",
+      "Description": "Person role: MSc",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 1
+    },
+    {
+      "Part_ID": "person_role_postdoc",
+      "Label": "Postdoc",
+      "Description": "Person role: Postdoc",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 2
+    },
+    {
+      "Part_ID": "person_role_intern",
+      "Label": "Intern",
+      "Description": "Person role: Intern",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 3
+    },
+    {
+      "Part_ID": "person_role_phd",
+      "Label": "PhD",
+      "Description": "Person role: PhD",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 4
+    },
+    {
+      "Part_ID": "person_role_professor",
+      "Label": "Professor",
+      "Description": "Person role: Professor",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 5
+    },
+    {
+      "Part_ID": "person_role_research_professional",
+      "Label": "Research Professional",
+      "Description": "Person role: Research Professional",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 6
+    },
+    {
+      "Part_ID": "person_role_technician",
+      "Label": "Technician",
+      "Description": "Person role: Technician",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 7
+    },
+    {
+      "Part_ID": "person_role_administrator",
+      "Label": "Administrator",
+      "Description": "Person role: Administrator",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 8
+    },
+    {
+      "Part_ID": "person_role_guest",
+      "Label": "Guest",
+      "Description": "Person role: Guest",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "person_role_set",
+      "Sort_order": 9
+    },
+    {
+      "Part_ID": "campaign_type_set",
+      "Label": "Campaign Type Set",
+      "Description": "Valid campaign type values",
+      "Part_type": "valueSet",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "campaign_type_experiment",
+      "Label": "Experiment",
+      "Description": "Campaign type: Experiment",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "campaign_type_set",
+      "Sort_order": 1
+    },
+    {
+      "Part_ID": "campaign_type_operations",
+      "Label": "Operations",
+      "Description": "Campaign type: Operations",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "campaign_type_set",
+      "Sort_order": 2
+    },
+    {
+      "Part_ID": "campaign_type_commissioning",
+      "Label": "Commissioning",
+      "Description": "Campaign type: Commissioning",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "campaign_type_set",
+      "Sort_order": 3
+    },
+    {
+      "Part_ID": "data_provenance_set",
+      "Label": "Data Provenance Set",
+      "Description": "Valid data provenance values describing how a measurement was produced",
+      "Part_type": "valueSet",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "data_provenance_sensor",
+      "Label": "Sensor",
+      "Description": "Data provenance: Sensor",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "data_provenance_set",
+      "Sort_order": 1
+    },
+    {
+      "Part_ID": "data_provenance_laboratory",
+      "Label": "Laboratory",
+      "Description": "Data provenance: Laboratory",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "data_provenance_set",
+      "Sort_order": 2
+    },
+    {
+      "Part_ID": "data_provenance_manual_entry",
+      "Label": "Manual Entry",
+      "Description": "Data provenance: Manual Entry",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "data_provenance_set",
+      "Sort_order": 3
+    },
+    {
+      "Part_ID": "data_provenance_model_output",
+      "Label": "Model Output",
+      "Description": "Data provenance: Model Output",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "data_provenance_set",
+      "Sort_order": 4
+    },
+    {
+      "Part_ID": "data_provenance_external_source",
+      "Label": "External Source",
+      "Description": "Data provenance: External Source",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "data_provenance_set",
+      "Sort_order": 5
+    },
+    {
+      "Part_ID": "processing_degree_set",
+      "Label": "Processing Degree Set",
+      "Description": "Valid processing degree values describing the level of processing applied to a measurement series",
+      "Part_type": "valueSet",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "processing_degree_raw",
+      "Label": "Raw",
+      "Description": "Data as received directly from the instrument with no post-processing",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "processing_degree_set",
+      "Sort_order": 1
+    },
+    {
+      "Part_ID": "processing_degree_cleaned",
+      "Label": "Cleaned",
+      "Description": "Outliers, artefacts or invalid values have been removed or flagged",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "processing_degree_set",
+      "Sort_order": 2
+    },
+    {
+      "Part_ID": "processing_degree_validated",
+      "Label": "Validated",
+      "Description": "Data has been reviewed and accepted by a human analyst",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "processing_degree_set",
+      "Sort_order": 3
+    },
+    {
+      "Part_ID": "processing_degree_interpolated",
+      "Label": "Interpolated",
+      "Description": "Gaps in the time series have been filled by interpolation",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "processing_degree_set",
+      "Sort_order": 4
+    },
+    {
+      "Part_ID": "processing_degree_aggregated",
+      "Label": "Aggregated",
+      "Description": "Values have been time-averaged or otherwise aggregated from higher-frequency data",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "processing_degree_set",
+      "Sort_order": 5
+    },
+    {
+      "Part_ID": "campaign_type",
+      "Label": "Campaign Type",
+      "Description": "Lookup table classifying the nature of a Campaign (Experiment, Operations, Commissioning)",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "campaign",
+      "Label": "Campaign",
+      "Description": "A named collection of measurement activities at a site, classified by type",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "data_provenance",
+      "Label": "Data Provenance",
+      "Description": "Lookup table describing how a measurement was produced",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "laboratory",
+      "Label": "Laboratory",
+      "Description": "A laboratory where discrete samples are analysed. May be on-site or external.",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "sample",
+      "Label": "Sample",
+      "Description": "A discrete physical sample collected at a sampling location for laboratory analysis.",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "campaign_sampling_location",
+      "Label": "Campaign Sampling Location",
+      "Description": "Junction table: sampling locations actively monitored during a campaign.",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "campaign_equipment",
+      "Label": "Campaign Equipment",
+      "Description": "Junction table: equipment deployed during a campaign.",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "campaign_parameter",
+      "Label": "Campaign Parameter",
+      "Description": "Junction table: parameters measured during a campaign.",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "sample_type_set",
+      "Label": "Sample Type Set",
+      "Description": "Valid sample collection method values",
+      "Part_type": "valueSet",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "sample_type_grab",
+      "Label": "Grab",
+      "Description": "Sample type: Grab",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_type_set",
+      "Sort_order": 1
+    },
+    {
+      "Part_ID": "sample_type_composite24h",
+      "Label": "Composite24h",
+      "Description": "Sample type: Composite24h",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_type_set",
+      "Sort_order": 2
+    },
+    {
+      "Part_ID": "sample_type_composite8h",
+      "Label": "Composite8h",
+      "Description": "Sample type: Composite8h",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_type_set",
+      "Sort_order": 3
+    },
+    {
+      "Part_ID": "sample_type_passive",
+      "Label": "Passive",
+      "Description": "Sample type: Passive",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_type_set",
+      "Sort_order": 4
+    },
+    {
+      "Part_ID": "sample_type_other",
+      "Label": "Other",
+      "Description": "Sample type: Other",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_type_set",
+      "Sort_order": 5
+    },
+    {
+      "Part_ID": "sample_category_set",
+      "Label": "Sample Category Set",
+      "Description": "Nature of a sample (field collection, prepared standard, blank, etc.)",
+      "Part_type": "valueSet",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "sample_category_field",
+      "Label": "Field",
+      "Description": "Sample category: Field",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_category_set",
+      "Sort_order": 1
+    },
+    {
+      "Part_ID": "sample_category_synthetic",
+      "Label": "Synthetic",
+      "Description": "Sample category: Synthetic",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_category_set",
+      "Sort_order": 2
+    },
+    {
+      "Part_ID": "sample_category_master_standard",
+      "Label": "Master Standard",
+      "Description": "Sample category: Master Standard",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_category_set",
+      "Sort_order": 3
+    },
+    {
+      "Part_ID": "sample_category_derived_standard",
+      "Label": "Derived Standard",
+      "Description": "Sample category: Derived Standard",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_category_set",
+      "Sort_order": 4
+    },
+    {
+      "Part_ID": "sample_category_blank",
+      "Label": "Blank",
+      "Description": "Sample category: Blank",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "sample_category_set",
+      "Sort_order": 5
+    },
+    {
+      "Part_ID": "equipment_event_type_set",
+      "Label": "Equipment Event Type Set",
+      "Description": "Valid event types for equipment lifecycle events",
+      "Part_type": "valueSet",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "equipment_event_type_calibration",
+      "Label": "Calibration",
+      "Description": "Equipment event type: Calibration",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "equipment_event_type_set",
+      "Sort_order": 1
+    },
+    {
+      "Part_ID": "equipment_event_type_validation",
+      "Label": "Validation",
+      "Description": "Equipment event type: Validation",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "equipment_event_type_set",
+      "Sort_order": 2
+    },
+    {
+      "Part_ID": "equipment_event_type_maintenance",
+      "Label": "Maintenance",
+      "Description": "Equipment event type: Maintenance",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "equipment_event_type_set",
+      "Sort_order": 3
+    },
+    {
+      "Part_ID": "equipment_event_type_installation",
+      "Label": "Installation",
+      "Description": "Equipment event type: Installation",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "equipment_event_type_set",
+      "Sort_order": 4
+    },
+    {
+      "Part_ID": "equipment_event_type_removal",
+      "Label": "Removal",
+      "Description": "Equipment event type: Removal",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "equipment_event_type_set",
+      "Sort_order": 5
+    },
+    {
+      "Part_ID": "equipment_event_type_firmware_update",
+      "Label": "Firmware Update",
+      "Description": "Equipment event type: Firmware Update",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "equipment_event_type_set",
+      "Sort_order": 6
+    },
+    {
+      "Part_ID": "equipment_event_type_failure",
+      "Label": "Failure",
+      "Description": "Equipment event type: Failure",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "equipment_event_type_set",
+      "Sort_order": 7
+    },
+    {
+      "Part_ID": "equipment_event_type_repair",
+      "Label": "Repair",
+      "Description": "Equipment event type: Repair",
+      "Part_type": "valueSetMember",
+      "Member_of_set_part_ID": "equipment_event_type_set",
+      "Sort_order": 8
+    },
+    {
+      "Part_ID": "equipment_event_type",
+      "Label": "Equipment Event Type",
+      "Description": "Lookup table classifying the type of lifecycle event that occurred on a piece of equipment",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "equipment_event",
+      "Label": "Equipment Event",
+      "Description": "Records a discrete lifecycle event (calibration, maintenance, failure, etc.) on a specific piece of equipment",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "equipment_event_metadata",
+      "Label": "Equipment Event MetaData",
+      "Description": "Junction table linking an equipment lifecycle event to the MetaData series it involves, with optional time-window columns",
+      "Part_type": "table",
+      "Sort_order": null
+    },
+    {
+      "Part_ID": "equipment_installation",
+      "Label": "Equipment Installation",
+      "Description": "Records the physical deployment history of equipment at sampling locations",
+      "Part_type": "table",
+      "Sort_order": null
     }
   ]
 }

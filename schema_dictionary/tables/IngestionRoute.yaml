@@ -1,0 +1,92 @@
+_format_version: "1.0"
+table:
+  name: IngestionRoute
+  schema: dbo
+  description: >
+    Routing table that maps an (Equipment, Parameter, DataProvenance, ProcessingDegree)
+    key to the target MetaData entry. Ingestion scripts look up this table
+    instead of hardcoding MetaDataIDs, so that when a sensor moves or a
+    campaign changes, only a single row needs to be updated.
+    ValidFrom/ValidTo define the temporal validity of each route; at most
+    one route may be active for a given key at any point in time.
+
+  columns:
+    - name: IngestionRoute_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Equipment_ID
+      logical_type: integer
+      nullable: true
+      description: "Equipment that produces the data. NULL for non-sensor provenance (e.g. lab, manual)."
+      foreign_key:
+        table: Equipment
+        column: Equipment_ID
+
+    - name: Parameter_ID
+      logical_type: integer
+      nullable: false
+      description: "Measured parameter (e.g. TSS, pH, DO)"
+      foreign_key:
+        table: Parameter
+        column: Parameter_ID
+
+    - name: DataProvenance_ID
+      logical_type: integer
+      nullable: false
+      description: "How this data is produced (Sensor=1, Laboratory=2, Manual Entry=3, …)"
+      foreign_key:
+        table: DataProvenance
+        column: DataProvenance_ID
+
+    - name: ProcessingDegree
+      logical_type: string
+      max_length: 50
+      nullable: false
+      default: "Raw"
+      description: >
+        Level of processing applied before storage.
+        Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated.
+      value_set: processing_degree_set
+
+    - name: ValidFrom
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "Start of the interval during which this route is active (inclusive)"
+
+    - name: ValidTo
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "End of the interval. NULL means the route is still active."
+
+    - name: CreatedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: CURRENT_TIMESTAMP
+      description: "Timestamp when this routing rule was created"
+
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      description: "Target MetaData entry where data will be stored"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+
+    - name: Notes
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Free-text notes about why this route was created or changed"
+
+  primary_key: [IngestionRoute_ID]
+
+  indexes:
+    - name: IX_IngestionRoute_Lookup
+      columns: [Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree, ValidFrom]
+      description: "Optimises the route-resolution query for a given equipment+parameter+provenance+processing key"

@@ -55,13 +55,25 @@ SQL_FILES = {
     "v1.0.0_to_v1.0.1": MIGRATIONS_DIR / "v1.0.0_to_v1.0.1_mssql.sql",
     "v1.0.1_to_v1.0.2": MIGRATIONS_DIR / "v1.0.1_to_v1.0.2_mssql.sql",
     "v1.0.2_to_v1.1.0": MIGRATIONS_DIR / "v1.0.2_to_v1.1.0_mssql.sql",
+    "v1.1.0_to_v1.2.0": MIGRATIONS_DIR / "v1.1.0_to_v1.2.0_mssql.sql",
+    "v1.2.0_to_v1.3.0": MIGRATIONS_DIR / "v1.2.0_to_v1.3.0_mssql.sql",
+    "v1.3.0_to_v1.4.0": MIGRATIONS_DIR / "v1.3.0_to_v1.4.0_mssql.sql",
+    "v1.4.0_to_v1.5.0": MIGRATIONS_DIR / "v1.4.0_to_v1.5.0_mssql.sql",
     "rollback_v1.0.1": MIGRATIONS_DIR / "v1.0.0_to_v1.0.1_mssql_rollback.sql",
     "rollback_v1.0.2": MIGRATIONS_DIR / "v1.0.1_to_v1.0.2_mssql_rollback.sql",
     "rollback_v1.1.0": MIGRATIONS_DIR / "v1.0.2_to_v1.1.0_mssql_rollback.sql",
+    "rollback_v1.2.0": MIGRATIONS_DIR / "v1.1.0_to_v1.2.0_mssql_rollback.sql",
+    "rollback_v1.3.0": MIGRATIONS_DIR / "v1.2.0_to_v1.3.0_mssql_rollback.sql",
+    "rollback_v1.4.0": MIGRATIONS_DIR / "v1.3.0_to_v1.4.0_mssql_rollback.sql",
+    "rollback_v1.5.0": MIGRATIONS_DIR / "v1.4.0_to_v1.5.0_mssql_rollback.sql",
     "seed_v1.0.0": SEED_DIR / "seed_v1.0.0.sql",
     "seed_v1.0.1": SEED_DIR / "seed_v1.0.1.sql",
     "seed_v1.0.2": SEED_DIR / "seed_v1.0.2.sql",
     "seed_v1.1.0": SEED_DIR / "seed_v1.1.0.sql",
+    "seed_v1.2.0": SEED_DIR / "seed_v1.2.0.sql",
+    "seed_v1.3.0": SEED_DIR / "seed_v1.3.0.sql",
+    "seed_v1.4.0": SEED_DIR / "seed_v1.4.0.sql",
+    "seed_v1.5.0": SEED_DIR / "seed_v1.5.0.sql",
 }
 
 
@@ -251,6 +263,106 @@ def db_at_v110(fresh_db):
             "seed_v1.0.2",
             "v1.0.2_to_v1.1.0",
             "seed_v1.1.0",
+        ],
+    )
+    yield conn, db_name
+
+
+@pytest.fixture()
+def db_at_v120(fresh_db):
+    """Database migrated to v1.2.0 with all sample data."""
+    conn, db_name = fresh_db
+    _apply_schema_and_seeds(
+        conn,
+        [
+            "v1.0.0_create",
+            "seed_v1.0.0",
+            "v1.0.0_to_v1.0.1",
+            "seed_v1.0.1",
+            "v1.0.1_to_v1.0.2",
+            "seed_v1.0.2",
+            "v1.0.2_to_v1.1.0",
+            "seed_v1.1.0",
+            "v1.1.0_to_v1.2.0",
+            "seed_v1.2.0",
+        ],
+    )
+    yield conn, db_name
+
+
+@pytest.fixture()
+def db_at_v130(fresh_db):
+    """Database migrated to v1.3.0 with all sample data."""
+    conn, db_name = fresh_db
+    _apply_schema_and_seeds(
+        conn,
+        [
+            "v1.0.0_create",
+            "seed_v1.0.0",
+            "v1.0.0_to_v1.0.1",
+            "seed_v1.0.1",
+            "v1.0.1_to_v1.0.2",
+            "seed_v1.0.2",
+            "v1.0.2_to_v1.1.0",
+            "seed_v1.1.0",
+            "v1.1.0_to_v1.2.0",
+            "seed_v1.2.0",
+            "v1.2.0_to_v1.3.0",
+            "seed_v1.3.0",
+        ],
+    )
+    yield conn, db_name
+
+
+@pytest.fixture()
+def db_at_v140(fresh_db):
+    """Database migrated to v1.4.0 with all sample data."""
+    conn, db_name = fresh_db
+    _apply_schema_and_seeds(
+        conn,
+        [
+            "v1.0.0_create",
+            "seed_v1.0.0",
+            "v1.0.0_to_v1.0.1",
+            "seed_v1.0.1",
+            "v1.0.1_to_v1.0.2",
+            "seed_v1.0.2",
+            "v1.0.2_to_v1.1.0",
+            "seed_v1.1.0",
+            "v1.1.0_to_v1.2.0",
+            "seed_v1.2.0",
+            "v1.2.0_to_v1.3.0",
+            "seed_v1.3.0",
+            "v1.3.0_to_v1.4.0",
+            "seed_v1.4.0",
+        ],
+    )
+    yield conn, db_name
+
+
+@pytest.fixture()
+def db_at_v150(fresh_db):
+    """Database migrated to v1.5.0 with all sample data."""
+    conn, db_name = fresh_db
+    _apply_schema_and_seeds(
+        conn,
+        [
+            "v1.0.0_create",
+            "seed_v1.0.0",
+            "v1.0.0_to_v1.0.1",
+            "seed_v1.0.1",
+            "v1.0.1_to_v1.0.2",
+            "seed_v1.0.2",
+            "v1.0.2_to_v1.1.0",
+            "seed_v1.1.0",
+            "v1.1.0_to_v1.2.0",
+            "seed_v1.2.0",
+            "v1.2.0_to_v1.3.0",
+            "seed_v1.3.0",
+            "v1.3.0_to_v1.4.0",
+            "seed_v1.4.0",
+            "v1.4.0_to_v1.5.0",
+            "seed_v1.5.0",
         ],
     )
     yield conn, db_name
