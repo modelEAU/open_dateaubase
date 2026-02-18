@@ -1,26 +1,21 @@
 import streamlit as st
 from api_metadata.services.db_client import api_post, api_get, ApiError
 
-LOGIN_PAGE = "api_metadata/pages/login.py"
-
-
 def ensure_auth_state():
-    st.session_state.setdefault("authenticated", False)
-    st.session_state.setdefault("token", None)
-    st.session_state.setdefault("username", None)
-
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+    if "token" not in st.session_state:
+        st.session_state["token"] = None
+    if "username" not in st.session_state:
+        st.session_state["username"] = None
 
 def logout():
-    # On ne fait PAS st.session_state.clear()
-    for k in ["authenticated", "token", "username", "selected_metadata_id"]:
-        st.session_state.pop(k, None)
-    st.switch_page(LOGIN_PAGE)
-
+    st.session_state["authenticated"] = False
+    st.session_state["token"] = None
+    st.session_state["username"] = None
+    st.rerun()
 
 def render_login():
-    ensure_auth_state()
-
-    # Déjà connecté
     if st.session_state.get("authenticated") and st.session_state.get("token"):
         st.info(f"Connecté en tant que **{st.session_state.get('username')}**")
         if st.button("Se déconnecter"):
@@ -45,37 +40,24 @@ def render_login():
         resp = api_post(
             "/auth/login",
             json={"username": username, "password": password},
-            with_auth=False,
+            with_auth=False
         )
         token = resp["access_token"]
 
-        # On set le state AVANT de tester /auth/me
         st.session_state["authenticated"] = True
         st.session_state["token"] = token
         st.session_state["username"] = username
 
-        # Vérifie token valide
-        api_get("/auth/me")
+        _ = api_get("/auth/me")
 
         st.success("Connexion réussie ✅")
-
-        # Important: naviguer vers le workspace (au lieu de rerun sur login)
-        st.switch_page("api_metadata/pages/workspace.py")
+        st.rerun()
 
     except ApiError as e:
         msg = str(e)
-        # reset state si login échoue
-        st.session_state["authenticated"] = False
-        st.session_state["token"] = None
-        st.session_state["username"] = None
-
         if msg.startswith("401:"):
             st.error("Identifiants invalides ❌")
         else:
-            st.error(f"Erreur lors de la connexion à l’API ❌ ({msg})")
-
-    except Exception as e:
-        st.session_state["authenticated"] = False
-        st.session_state["token"] = None
-        st.session_state["username"] = None
-        st.error(f"Erreur inattendue ❌ ({e})")
+            st.error("Erreur lors de la connexion à l’API ❌")
+    except Exception:
+        st.error("Erreur inattendue ❌")

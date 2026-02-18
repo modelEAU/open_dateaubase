@@ -1,20 +1,18 @@
 import streamlit as st
-
-from api_metadata.components.auth import ensure_auth_state, render_login
+from api_metadata.components.auth import ensure_auth_state, render_login, logout
 from api_metadata.components.sidebar import render_sidebar
-from api_metadata.pages import dashboard, metadata_explorer
+from api_metadata.services.db_client import api_get
+from api_metadata.ui_style import apply_global_style
+from api_metadata.workspace_pages import dashboard, metadata_explorer
 
-st.set_page_config(
-    page_title="datEAUbase",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-def main():
-    ensure_auth_state()
+st.set_page_config(page_title="datEAUbase", layout="wide", initial_sidebar_state="collapsed")
 
-    if not st.session_state["authenticated"]:
-        render_login()
-        return
+def workspace():
+    try:
+        api_get("/auth/me")
+    except Exception:
+        logout()
+        st.stop()
 
     route = render_sidebar(st.session_state.get("username", ""))
 
@@ -26,6 +24,19 @@ def main():
         metadata_explorer.render_create()
     else:
         st.error("Page inconnue.")
+
+def main():
+    ensure_auth_state()
+    is_auth = bool(st.session_state.get("authenticated") and st.session_state.get("token"))
+
+    # IMPORTANT: assure-toi que apply_global_style accepte authenticated=...
+    apply_global_style(authenticated=is_auth)
+
+    if not is_auth:
+        render_login()
+        st.stop()
+
+    workspace()
 
 if __name__ == "__main__":
     main()

@@ -1,16 +1,51 @@
+# api_metadata/workspace_pages/metadata_list.py  (ou ton chemin actuel)
 import pandas as pd
 import streamlit as st
 
-from api_metadata.utils.auth_guard import require_login
 from api_metadata.ui_style import apply_global_style, render_header_logos
-from api_metadata.db import get_connection
+from api_metadata.services.db_client import api_get, ApiError
 
-LOGIN_PAGE = "api_metadata/pages/login.py"
+LOGIN_PAGE = "pages/login.py"
+
+
+
+def _to_dt(ts):
+    if ts is None:
+        return None
+    try:
+        return pd.to_datetime(int(ts), unit="s", utc=True)
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=3600)
+def _load_lookup(path: str, token: str):
+    """
+    token est volontairement un paramètre pour que le cache varie
+    selon l'utilisateur / session (évite de garder un 401 en cache).
+    """
+    return api_get(path, with_auth=True)
+
+
+def _options(items):
+    opts = ["Tous"]
+    mapping = {"Tous": None}
+
+    for it in items or []:
+        # Supporte {"id":..., "label":...} et variantes
+        label = it.get("label") or it.get("name") or str(it.get("id"))
+        opt = f"{label} (ID: {it['id']})"
+        opts.append(opt)
+        mapping[opt] = it["id"]
+
+    return opts, mapping
 
 def main():
-    require_login()
-    apply_global_style()
+    if not st.session_state.get("token"):
+        st.switch_page("pages/login.py")
 
+
+    apply_global_style()
     st.markdown("<div class='authenticated'>", unsafe_allow_html=True)
 
     # Sidebar logout
@@ -21,138 +56,157 @@ def main():
     render_header_logos()
 
     st.title("🧾 Liste des métadonnées")
-    st.caption("Recherche, filtres, et affichage lisible (avec noms).")
+    st.caption("Recherche, filtres, et affichage lisible (via FastAPI).")
 
-    # ---- Filters UI ----
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
-
-    with c1:
-        limit = st.slider("Nombre de lignes", 50, 1000, 200, 50)
-    with c2:
-        active_only = st.checkbox("Actives seulement", value=False)
-    with c3:
-        equipment_id = st.text_input("Filtrer Equipment_ID", placeholder="ex: 1")
-    with c4:
-        parameter_id = st.text_input("Filtrer Parameter_ID", placeholder="ex: 2")
-
-    search = st.text_input(
-        "Recherche texte (équipement / paramètre / projet / point)",
-        placeholder="ex: pH, débit, Roma, station, …",
-    )
-
-    # ---- Build SQL ----
-    where = []
-    params = []
-
-    if active_only:
-        where.append("m.StartDate <= DATEDIFF(SECOND, '19700101', GETUTCDATE()) AND (m.EndDate IS NULL OR m.EndDate > DATEDIFF(SECOND, '19700101', GETUTCDATE()))")
-
-    if equipment_id.strip().isdigit():
-        where.append("m.Equipment_ID = ?")
-        params.append(int(equipment_id.strip()))
-
-    if parameter_id.strip().isdigit():
-        where.append("m.Parameter_ID = ?")
-        params.append(int(parameter_id.strip()))
-
-    if search.strip():
-        s = f"%{search.strip()}%"
-        where.append("""
-            (
-              e.Equipment_identifier LIKE ?
-              OR p.Parameter LIKE ?
-              OR pr.Project_name LIKE ?
-              OR sp.Sampling_point LIKE ?
-            )
-        """)
-        params.extend([s, s, s, s])
-
-    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
-
-    query = f"""
-        SELECT TOP {int(limit)}
-            m.Metadata_ID,
-
-            m.Equipment_ID,
-            e.Equipment_identifier AS Equipment,
-
-            m.Parameter_ID,
-            p.Parameter AS Parameter,
-
-            m.Unit_ID,
-            u.Unit AS Unit,
-
-            m.Purpose_ID,
-            pu.Purpose AS Purpose,
-
-            m.Project_ID,
-            pr.Project_name AS Project,
-
-            m.Sampling_point_ID,
-            sp.Sampling_point AS Sampling_point,
-
-            m.Procedure_ID,
-            proc.Procedure_name AS Procedure,
-
-            m.Contact_ID,
-            c.First_name AS Contact,
-
-            m.Condition_ID,
-            wc.Weather_condition AS Weather_condition,
-
-            m.StartDate,
-            m.EndDate
-        FROM metadata m
-        LEFT JOIN equipment e ON e.Equipment_ID = m.Equipment_ID
-        LEFT JOIN parameter p ON p.Parameter_ID = m.Parameter_ID
-        LEFT JOIN unit u ON u.Unit_ID = m.Unit_ID
-        LEFT JOIN purpose pu ON pu.Purpose_ID = m.Purpose_ID
-        LEFT JOIN project pr ON pr.Project_ID = m.Project_ID
-        LEFT JOIN sampling_points sp ON sp.Sampling_point_ID = m.Sampling_point_ID
-        LEFT JOIN procedures proc ON proc.Procedure_ID = m.Procedure_ID
-        LEFT JOIN contact c ON c.Contact_ID = m.Contact_ID
-        LEFT JOIN weather_condition wc ON wc.Condition_ID = m.Condition_ID
-        {where_sql}
-        ORDER BY m.Metadata_ID DESC
-    """
-
-    # ---- Execute ----
-    conn = get_connection()
+    # --- Lookups ---
+    token = st.session_state.get("token") or ""
     try:
-        df = pd.read_sql(query, conn, params=params)
-    finally:
-        conn.close()
+        equipment = _load_lookup("/lookups/equipment", token)
+        parameters = _load_lookup("/lookups/parameter", token)
+        projects = _load_lookup("/lookups/project", token)
+        sampling_points = _load_lookup("/lookups/sampling_points", token)
+    except ApiError as e:
+        st.error("Impossible de charger les listes (lookups). Vérifie l’API.")
+        st.caption(str(e))
+        if str(e).startswith("401:"):
+            st.info("Ton token est absent/expiré → reconnecte-toi.")
+            st.session_state.clear()
+            st.switch_page(LOGIN_PAGE)
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+    except Exception as e:
+        st.error("Impossible de charger les listes (lookups).")
+        st.caption(str(e))
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
 
-    if df.empty:
+    eq_opts, eq_map = _options(equipment)
+    pa_opts, pa_map = _options(parameters)
+    pr_opts, pr_map = _options(projects)
+    sp_opts, sp_map = _options(sampling_points)
+
+    # --- UI Filters ---
+    with st.container():
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
+        with c1:
+            q = st.text_input("Recherche", placeholder="pH, débit, Roma, station…")
+        with c2:
+            equipment_choice = st.selectbox("Équipement", eq_opts, index=0)
+        with c3:
+            parameter_choice = st.selectbox("Paramètre", pa_opts, index=0)
+        with c4:
+            project_choice = st.selectbox("Projet", pr_opts, index=0)
+
+        c5, c6, c7, c8 = st.columns([1, 1, 1, 1])
+        with c5:
+            sampling_choice = st.selectbox("Point d’échantillonnage", sp_opts, index=0)
+        with c6:
+            active_only = st.checkbox("Actives seulement", value=False)
+        with c7:
+            limit = st.selectbox("Lignes par page", [50, 100, 200, 500], index=2)
+        with c8:
+            page = st.number_input("Page", min_value=1, value=1, step=1)
+
+        a1, a2 = st.columns([1, 1])
+        with a1:
+            st.button("✅ Appliquer", use_container_width=True)  # optionnel
+        with a2:
+            if st.button("♻️ Réinitialiser", use_container_width=True):
+                st.rerun()
+
+    offset = (int(page) - 1) * int(limit)
+
+    params = {
+        "limit": int(limit),
+        "offset": int(offset),
+        "active_only": bool(active_only),
+    }
+
+    eq_id = eq_map.get(equipment_choice)
+    pa_id = pa_map.get(parameter_choice)
+    pr_id = pr_map.get(project_choice)
+    sp_id = sp_map.get(sampling_choice)
+
+    if q and q.strip():
+        params["q"] = q.strip()
+    if eq_id is not None:
+        params["equipment_id"] = int(eq_id)
+    if pa_id is not None:
+        params["parameter_id"] = int(pa_id)
+    if pr_id is not None:
+        params["project_id"] = int(pr_id)
+    if sp_id is not None:
+        params["sampling_point_id"] = int(sp_id)
+
+    # --- Fetch metadata ---
+    try:
+        resp = api_get("/metadata", params=params, with_auth=True)
+    except ApiError as e:
+        st.error(f"Erreur lors du chargement des métadonnées depuis l’API. Détail: {e}")
+        if str(e).startswith("401:"):
+            st.info("Ton token est absent/expiré → reconnecte-toi.")
+            st.session_state.clear()
+            st.switch_page(LOGIN_PAGE)
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+    except Exception as e:
+        st.error(f"Erreur lors du chargement des métadonnées depuis l’API. Détail: {e}")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    total = resp.get("total", 0)
+    items = resp.get("items", [])
+
+    if total == 0 or not items:
         st.info("Aucune métadonnée ne correspond aux filtres.")
         st.markdown("</div>", unsafe_allow_html=True)
         return
 
-    # Convert unix timestamps
-    for col in ["StartDate", "EndDate"]:
-        if col in df.columns:
-            df[col] = pd.to_datetime(df[col], unit="s", errors="coerce", utc=True)
+    st.caption(f"Résultats: **{total}** (page {page})")
 
-    # Nice column ordering (names first)
-    preferred = [
-        "Metadata_ID",
-        "Equipment", "Equipment_ID",
-        "Parameter", "Parameter_ID",
-        "Unit", "Unit_ID",
-        "Purpose", "Purpose_ID",
-        "Project", "Project_ID",
-        "Sampling_point", "Sampling_point_ID",
-        "Procedure", "Procedure_ID",
-        "Contact", "Contact_ID",
-        "Weather_condition", "Condition_ID",
-        "StartDate", "EndDate",
-    ]
-    cols = [c for c in preferred if c in df.columns] + [c for c in df.columns if c not in preferred]
-    df = df[cols]
+    rows = []
+    for it in items:
+        rows.append(
+            {
+                "Metadata_ID": it.get("metadata_id"),
+                "Equipment": (it.get("equipment") or {}).get("label"),
+                "Equipment_ID": (it.get("equipment") or {}).get("id"),
+                "Parameter": (it.get("parameter") or {}).get("label"),
+                "Parameter_ID": (it.get("parameter") or {}).get("id"),
+                "Unit": (it.get("unit") or {}).get("label"),
+                "Unit_ID": (it.get("unit") or {}).get("id"),
+                "Project": (it.get("project") or {}).get("label"),
+                "Project_ID": (it.get("project") or {}).get("id"),
+                "Sampling_point": (it.get("sampling_point") or {}).get("label"),
+                "Sampling_point_ID": (it.get("sampling_point") or {}).get("id"),
+                "StartDate": _to_dt(it.get("start_ts")),
+                "EndDate": _to_dt(it.get("end_ts")),
+            }
+        )
 
-    st.dataframe(df, use_container_width=True)
+    df = pd.DataFrame(rows)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    st.markdown("### Ouvrir une métadonnée")
+    selected = st.selectbox(
+        "Choisir une Metadata_ID à explorer",
+        df["Metadata_ID"].dropna().astype(int).tolist(),
+    )
+    if st.button("🔍 Ouvrir dans Metadata Explorer", use_container_width=True):
+        st.session_state["selected_metadata_id"] = int(selected)
+        st.rerun()
+
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "⬇️ Exporter CSV (page actuelle)",
+        data=csv,
+        file_name="metadata_page.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()

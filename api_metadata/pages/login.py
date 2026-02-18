@@ -1,33 +1,27 @@
-import os
 import streamlit as st
+
 from api_metadata.ui_style import (
     apply_global_style,
     render_header_logos,
     open_login_form,
     close_login_form,
 )
+from api_metadata.services.db_client import api_post, api_get, ApiError
 
-USERS = {
-    "admin": os.getenv("UI_ADMIN_PASSWORD", "admin123"),
-    "user": os.getenv("UI_USER_PASSWORD", "user123"),
-}
-
-DASHBOARD_PAGE = "api_metadata/pages/dashboard.py"
-
-def check_credentials(username: str, password: str) -> bool:
-    return username in USERS and USERS[username] == password
+DASHBOARD_PAGE = "pages/dashboard.py"
 
 def main():
+    # état session
     st.session_state.setdefault("authenticated", False)
     st.session_state.setdefault("username", "")
+    st.session_state.setdefault("token", None)
 
-    # If already logged in, go straight to app
-    if st.session_state["authenticated"]:
+    if st.session_state.get("authenticated") and st.session_state.get("token"):
         st.switch_page(DASHBOARD_PAGE)
 
     apply_global_style()
 
-    # Hide multipage sidebar/nav on login
+    # Hide multipage sidebar/nav on login (si ton CSS l’utilise)
     st.markdown("<div class='unauthenticated'>", unsafe_allow_html=True)
 
     render_header_logos()
@@ -48,13 +42,36 @@ def main():
     close_login_form()
 
     if login_btn:
-        if check_credentials(username, password):
-            st.session_state["authenticated"] = True
-            st.session_state["username"] = username
-            st.success("Connexion réussie ✅")
-            st.switch_page(DASHBOARD_PAGE)
+        if not username or not password:
+            st.error("Veuillez remplir le nom d’utilisateur et le mot de passe.")
         else:
-            st.error("Identifiants invalides ❌")
+            try:
+                # ✅ Auth via FastAPI
+                resp = api_post(
+                    "/auth/login",
+                    json={"username": username, "password": password},
+                    with_auth=False,
+                )
+                token = resp["access_token"]
+
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = username
+                st.session_state["token"] = token
+
+                # ✅ sanity check token
+                _ = api_get("/auth/me", with_auth=True)
+
+                st.success("Connexion réussie ✅")
+                st.switch_page(DASHBOARD_PAGE)
+
+            except ApiError as e:
+                msg = str(e)
+                if msg.startswith("401:"):
+                    st.error("Identifiants invalides ❌")
+                else:
+                    st.error(f"Erreur lors de la connexion à l’API ❌ ({e})")
+            except Exception as e:
+                st.error(f"Erreur inattendue ❌ ({e})")
 
     st.markdown("</div>", unsafe_allow_html=True)
 

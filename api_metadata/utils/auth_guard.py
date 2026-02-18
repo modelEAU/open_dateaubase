@@ -1,10 +1,12 @@
 import streamlit as st
+from api_metadata.components.auth import ensure_auth_state, render_login
 
-LOGIN_PAGE = "api_metadata/pages/login.py"
-
-def require_login():
-    st.session_state.setdefault("authenticated", False)
-    st.session_state.setdefault("username", "")
-
-    if not st.session_state["authenticated"]:
-        st.switch_page(LOGIN_PAGE)
+def require_auth():
+    """
+    Must be called at the very top of app/page.
+    If not authenticated, shows login and stops the page.
+    """
+    ensure_auth_state()
+    if not st.session_state.get("authenticated") or not st.session_state.get("token"):
+        render_login()
+        st.stop()

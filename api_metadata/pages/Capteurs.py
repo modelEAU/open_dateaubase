@@ -2,13 +2,12 @@ import pandas as pd
 from datetime import datetime
 import streamlit as st
 
-from api_metadata.utils.auth_guard import require_login
 from api_metadata.ui_style import apply_global_style, render_header_logos
 from api_metadata.db import get_connection
 
-LOGIN_PAGE = "api_metadata/pages/login.py"
+LOGIN_PAGE = "pages/login.py"
+
 def main():
-    require_login()
     apply_global_style()
     render_header_logos()
 
