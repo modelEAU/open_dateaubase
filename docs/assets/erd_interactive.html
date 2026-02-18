@@ -311,6 +311,203 @@
         const erdData = {
   "tables": [
     {
+      "id": "Campaign",
+      "label": "Campaign",
+      "description": "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Replaces direct use of Project for new data.",
+      "fields": [
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "CampaignType_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "CampaignType.CampaignType_ID",
+          "description": "Type of campaign (Experiment, Operations, Commissioning)"
+        },
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Site.Site_ID",
+          "description": "Site where the campaign is conducted"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name for the campaign"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(2000)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Detailed description of the campaign objectives and scope"
+        },
+        {
+          "name": "StartDate",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date and time the campaign began (UTC)"
+        },
+        {
+          "name": "EndDate",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date and time the campaign ended (UTC); NULL if ongoing"
+        },
+        {
+          "name": "Project_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Project.Project_ID",
+          "description": "Optional backward-compatibility link to the legacy Project table"
+        }
+      ]
+    },
+    {
+      "id": "CampaignEquipment",
+      "label": "CampaignEquipment",
+      "description": "Junction table: equipment deployed during a campaign.",
+      "fields": [
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign using this equipment"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Equipment deployed during the campaign"
+        },
+        {
+          "name": "Role",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Role of this equipment in the campaign (e.g., 'Primary sensor', 'Auto-sampler')"
+        }
+      ]
+    },
+    {
+      "id": "CampaignParameter",
+      "label": "CampaignParameter",
+      "description": "Junction table: parameters (variables) measured during a campaign.",
+      "fields": [
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign measuring this parameter"
+        },
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Parameter.Parameter_ID",
+          "description": "Parameter measured during the campaign"
+        }
+      ]
+    },
+    {
+      "id": "CampaignSamplingLocation",
+      "label": "CampaignSamplingLocation",
+      "description": "Junction table: sampling locations actively monitored during a campaign.",
+      "fields": [
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign using this sampling location"
+        },
+        {
+          "name": "Sampling_point_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SamplingPoints.Sampling_point_ID",
+          "description": "Sampling location used by the campaign"
+        },
+        {
+          "name": "Role",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Role of this location in the campaign (e.g., 'Inlet', 'Reference')"
+        }
+      ]
+    },
+    {
+      "id": "CampaignType",
+      "label": "CampaignType",
+      "description": "Lookup table classifying the nature of a Campaign (Experiment, Operations, Commissioning)",
+      "fields": [
+        {
+          "name": "CampaignType_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "CampaignType_Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the campaign type. Controlled vocabulary: Experiment, Operations, Commissioning"
+        }
+      ]
+    },
+    {
       "id": "Comments",
       "label": "Comments",
       "description": "Stores any additional textual comments, notes, or observations related to a specific measured value",
@@ -336,162 +533,27 @@
       ]
     },
     {
-      "id": "Contact",
-      "label": "Contact",
-      "description": "Stores detailed personal and professional information for people involved in projects (e.g., name, affiliation, function, e-mail, phone)",
+      "id": "DataProvenance",
+      "label": "DataProvenance",
+      "description": "Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source)",
       "fields": [
         {
-          "name": "Contact_ID",
+          "name": "DataProvenance_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Link to the Contact table"
+          "description": "Surrogate primary key"
         },
         {
-          "name": "Last_name",
-          "sql_type": "NVARCHAR(100)",
+          "name": "DataProvenance_Name",
+          "sql_type": "NVARCHAR(50)",
           "is_pk": false,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
-          "description": "Last name of the contact"
-        },
-        {
-          "name": "First_name",
-          "sql_type": "NVARCHAR(255)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "First name of the contact"
-        },
-        {
-          "name": "Company",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Company name"
-        },
-        {
-          "name": "Status",
-          "sql_type": "NVARCHAR(255)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Status of the person. For example: \"Master student\", \"Postdoc\" or \"Intern\""
-        },
-        {
-          "name": "Function",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "More detailed description about the functions"
-        },
-        {
-          "name": "Office_number",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Number of the office"
-        },
-        {
-          "name": "Email",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "E-mail address"
-        },
-        {
-          "name": "Phone",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Phone number"
-        },
-        {
-          "name": "Skype_name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Skype name"
-        },
-        {
-          "name": "Linkedin",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "LinkedIn account"
-        },
-        {
-          "name": "Street_number",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Address: number of the street"
-        },
-        {
-          "name": "Street_name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Address: name of the street"
-        },
-        {
-          "name": "City",
-          "sql_type": "NVARCHAR(255)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Address: name of the city"
-        },
-        {
-          "name": "Zip_code",
-          "sql_type": "NVARCHAR(45)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Address: zip code"
-        },
-        {
-          "name": "Country",
-          "sql_type": "NVARCHAR(255)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Address: name of the country"
-        },
-        {
-          "name": "Website",
-          "sql_type": "NVARCHAR(60)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Website URL of the contact or organization"
+          "description": "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source"
         }
       ]
     },
@@ -562,6 +624,223 @@
           "is_required": false,
           "fk_target": null,
           "description": "Date when the equipment was bought: 'YYYY-MM-DD"
+        }
+      ]
+    },
+    {
+      "id": "EquipmentEvent",
+      "label": "EquipmentEvent",
+      "description": "Records a discrete lifecycle event (calibration, maintenance, failure, etc.) that occurred on a specific piece of equipment.",
+      "fields": [
+        {
+          "name": "EquipmentEvent_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Equipment on which the event occurred"
+        },
+        {
+          "name": "EquipmentEventType_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "EquipmentEventType.EquipmentEventType_ID",
+          "description": "Type of lifecycle event"
+        },
+        {
+          "name": "EventDateTimeStart",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Date and time the event began (UTC)"
+        },
+        {
+          "name": "EventDateTimeEnd",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date and time the event ended (UTC). NULL if instantaneous or ongoing."
+        },
+        {
+          "name": "PerformedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who performed or recorded the event"
+        },
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign during which this event occurred (if applicable)"
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(1000)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about the event"
+        }
+      ]
+    },
+    {
+      "id": "EquipmentEventMetaData",
+      "label": "EquipmentEventMetaData",
+      "description": "Junction table linking an equipment lifecycle event to the MetaData series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration).",
+      "fields": [
+        {
+          "name": "EquipmentEvent_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "EquipmentEvent.EquipmentEvent_ID",
+          "description": "Equipment event this link belongs to"
+        },
+        {
+          "name": "Metadata_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "MetaData series associated with this event (sensor series or lab result series)"
+        },
+        {
+          "name": "WindowStart",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Start of the relevant time window within the MetaData series (e.g., when sensor was immersed in solution). NULL means use all values in the series."
+        },
+        {
+          "name": "WindowEnd",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "End of the relevant time window. NULL means use all values in the series."
+        }
+      ]
+    },
+    {
+      "id": "EquipmentEventType",
+      "label": "EquipmentEventType",
+      "description": "Lookup table classifying the type of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)",
+      "fields": [
+        {
+          "name": "EquipmentEventType_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "EquipmentEventType_Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the event type. Controlled vocabulary: Calibration, Validation, Maintenance, Installation, Removal, Firmware Update, Failure, Repair"
+        }
+      ]
+    },
+    {
+      "id": "EquipmentInstallation",
+      "label": "EquipmentInstallation",
+      "description": "Records the physical deployment history of a piece of equipment at a sampling location. Enables reconstructing which sensor was active at which location during any past interval.",
+      "fields": [
+        {
+          "name": "Installation_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Equipment that was installed"
+        },
+        {
+          "name": "Sampling_point_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SamplingPoints.Sampling_point_ID",
+          "description": "Sampling location where the equipment was installed"
+        },
+        {
+          "name": "InstalledDate",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Date and time the equipment was installed at this location (UTC)"
+        },
+        {
+          "name": "RemovedDate",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date and time the equipment was removed (UTC). NULL means currently installed."
+        },
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign during which this installation occurred (if applicable)"
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about the installation or removal"
         }
       ]
     },
@@ -747,6 +1026,146 @@
       ]
     },
     {
+      "id": "IngestionRoute",
+      "label": "IngestionRoute",
+      "description": "Routing table that maps an (Equipment, Parameter, DataProvenance, ProcessingDegree) key to the target MetaData entry. Ingestion scripts look up this table instead of hardcoding MetaDataIDs, so that when a sensor moves or a campaign changes, only a single row needs to be updated. ValidFrom/ValidTo define the temporal validity of each route; at most one route may be active for a given key at any point in time.\n",
+      "fields": [
+        {
+          "name": "IngestionRoute_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Equipment that produces the data. NULL for non-sensor provenance (e.g. lab, manual)."
+        },
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Parameter.Parameter_ID",
+          "description": "Measured parameter (e.g. TSS, pH, DO)"
+        },
+        {
+          "name": "DataProvenance_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "DataProvenance.DataProvenance_ID",
+          "description": "How this data is produced (Sensor=1, Laboratory=2, Manual Entry=3, \u2026)"
+        },
+        {
+          "name": "ProcessingDegree",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Level of processing applied before storage. Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated.\n"
+        },
+        {
+          "name": "ValidFrom",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Start of the interval during which this route is active (inclusive)"
+        },
+        {
+          "name": "ValidTo",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "End of the interval. NULL means the route is still active."
+        },
+        {
+          "name": "CreatedAt",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Timestamp when this routing rule was created"
+        },
+        {
+          "name": "Metadata_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "Target MetaData entry where data will be stored"
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about why this route was created or changed"
+        }
+      ]
+    },
+    {
+      "id": "Laboratory",
+      "label": "Laboratory",
+      "description": "A laboratory where discrete samples are analysed. May be on-site or external.",
+      "fields": [
+        {
+          "name": "Laboratory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the laboratory"
+        },
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Site.Site_ID",
+          "description": "Site where the laboratory is located, if on-site. NULL for external labs."
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Additional information about the laboratory"
+        }
+      ]
+    },
+    {
       "id": "MetaData",
       "label": "MetaData",
       "description": "Central context aggregator linking every measurement to its full provenance (project, contact, equipment, parameter, procedure, unit, purpose, sampling point, and condition)",
@@ -775,7 +1194,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "Contact.Contact_ID",
+          "fk_target": "Person.Person_ID",
           "description": "Links to the person responsible for this measurement series"
         },
         {
@@ -849,6 +1268,51 @@
           "is_required": true,
           "fk_target": "ValueType.ValueType_ID",
           "description": "Identifies the shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
+        },
+        {
+          "name": "DataProvenance_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "DataProvenance.DataProvenance_ID",
+          "description": "How this data was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source). NULL for legacy rows; backfilled by migration."
+        },
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign this measurement series belongs to. NULL for legacy rows."
+        },
+        {
+          "name": "Sample_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Sample.Sample_ID",
+          "description": "Discrete sample analysed to produce this measurement series. Only populated for lab data (DataProvenance_ID=2)."
+        },
+        {
+          "name": "Laboratory_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Laboratory.Laboratory_ID",
+          "description": "Laboratory where analysis was performed. Only populated for lab data (DataProvenance_ID=2)."
+        },
+        {
+          "name": "AnalystPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who performed the analysis. Only populated for lab data (DataProvenance_ID=2)."
         }
       ]
     },
@@ -955,6 +1419,103 @@
       ]
     },
     {
+      "id": "Person",
+      "label": "Person",
+      "description": "Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone). Renamed from Contact in v1.2.0.",
+      "fields": [
+        {
+          "name": "Person_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Last_name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Last name of the person"
+        },
+        {
+          "name": "First_name",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "First name of the person"
+        },
+        {
+          "name": "Company",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Affiliated organisation or company"
+        },
+        {
+          "name": "Role",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Role of the person. Controlled vocabulary: MSc, Postdoc, Intern, PhD, Professor, Research Professional, Technician, Administrator, Guest"
+        },
+        {
+          "name": "Function",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Detailed description of the person's assigned duties"
+        },
+        {
+          "name": "Email",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "E-mail address"
+        },
+        {
+          "name": "Phone",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Phone number"
+        },
+        {
+          "name": "Linkedin",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "LinkedIn profile URL"
+        },
+        {
+          "name": "Website",
+          "sql_type": "NVARCHAR(60)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Personal or organisation website URL"
+        }
+      ]
+    },
+    {
       "id": "Procedures",
       "label": "Procedures",
       "description": "Stores details for different measurement procedures (e.g., calibration, validation, standard operating procedures, ISO methods)",
@@ -1051,7 +1612,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Contact.Contact_ID",
+          "fk_target": "Person.Person_ID",
           "description": "Link to the Contact table"
         },
         {
@@ -1150,6 +1711,112 @@
       ]
     },
     {
+      "id": "Sample",
+      "label": "Sample",
+      "description": "A discrete physical sample collected at a sampling location or prepared in a laboratory. Supports field samples, calibration standards, blanks, and derived sub-samples via ParentSample_ID.",
+      "fields": [
+        {
+          "name": "Sample_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "ParentSample_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Sample.Sample_ID",
+          "description": "Parent sample this was derived from (e.g., an aliquot of a master standard). NULL for primary samples."
+        },
+        {
+          "name": "SampleCategory",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Nature of the sample. Controlled vocabulary: Field, Synthetic, Master Standard, Derived Standard, Blank"
+        },
+        {
+          "name": "Sampling_point_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SamplingPoints.Sampling_point_ID",
+          "description": "Sampling location where the sample was collected or prepared"
+        },
+        {
+          "name": "SampledByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who collected the sample"
+        },
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign this sample belongs to"
+        },
+        {
+          "name": "SampleDateTimeStart",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Date and time sampling began (UTC)"
+        },
+        {
+          "name": "SampleDateTimeEnd",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date and time sampling ended (UTC). NULL for instantaneous grab samples."
+        },
+        {
+          "name": "SampleType",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Method of sample collection. Controlled vocabulary: Grab, Composite24h, Composite8h, Passive, Other"
+        },
+        {
+          "name": "SampleEquipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Equipment used to collect the sample (e.g., auto-sampler)"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Additional notes about the sample"
+        }
+      ]
+    },
+    {
       "id": "SamplingPoints",
       "label": "SamplingPoints",
       "description": "Stores the identification, specific geographical coordinates (Latitude/Longitude/GPS), and description of a particular spot where a sample or measurement is taken",
@@ -1225,6 +1892,33 @@
           "is_required": false,
           "fk_target": null,
           "description": "Picture of the site"
+        },
+        {
+          "name": "ValidFrom",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date from which this sampling point record is considered valid (UTC). NULL means valid from the beginning of records."
+        },
+        {
+          "name": "ValidTo",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date until which this sampling point record is valid (UTC). NULL means currently active."
+        },
+        {
+          "name": "CreatedByCampaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign during which this sampling point was first established (if applicable)"
         }
       ]
     },
@@ -2016,10 +2710,136 @@
   "views": [],
   "relationships": [
     {
+      "from_table": "Campaign",
+      "to_table": "CampaignType",
+      "from_field": "CampaignType_ID",
+      "to_field": "CampaignType_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Campaign",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Campaign",
+      "to_table": "Project",
+      "from_field": "Project_ID",
+      "to_field": "Project_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "CampaignEquipment",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "CampaignEquipment",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "CampaignParameter",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "CampaignParameter",
+      "to_table": "Parameter",
+      "from_field": "Parameter_ID",
+      "to_field": "Parameter_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "CampaignSamplingLocation",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "CampaignSamplingLocation",
+      "to_table": "SamplingPoints",
+      "from_field": "Sampling_point_ID",
+      "to_field": "Sampling_point_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "Equipment",
       "to_table": "EquipmentModel",
       "from_field": "model_ID",
       "to_field": "Equipment_model_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentEvent",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentEvent",
+      "to_table": "EquipmentEventType",
+      "from_field": "EquipmentEventType_ID",
+      "to_field": "EquipmentEventType_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentEvent",
+      "to_table": "Person",
+      "from_field": "PerformedByPerson_ID",
+      "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentEvent",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentEventMetaData",
+      "to_table": "EquipmentEvent",
+      "from_field": "EquipmentEvent_ID",
+      "to_field": "EquipmentEvent_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentEventMetaData",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentInstallation",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentInstallation",
+      "to_table": "SamplingPoints",
+      "from_field": "Sampling_point_ID",
+      "to_field": "Sampling_point_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentInstallation",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
       "relationship_type": null
     },
     {
@@ -2058,6 +2878,41 @@
       "relationship_type": null
     },
     {
+      "from_table": "IngestionRoute",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "IngestionRoute",
+      "to_table": "Parameter",
+      "from_field": "Parameter_ID",
+      "to_field": "Parameter_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "IngestionRoute",
+      "to_table": "DataProvenance",
+      "from_field": "DataProvenance_ID",
+      "to_field": "DataProvenance_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "IngestionRoute",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Laboratory",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "MetaData",
       "to_table": "Project",
       "from_field": "Project_ID",
@@ -2066,9 +2921,9 @@
     },
     {
       "from_table": "MetaData",
-      "to_table": "Contact",
+      "to_table": "Person",
       "from_field": "Contact_ID",
-      "to_field": "Contact_ID",
+      "to_field": "Person_ID",
       "relationship_type": null
     },
     {
@@ -2128,6 +2983,41 @@
       "relationship_type": null
     },
     {
+      "from_table": "MetaData",
+      "to_table": "DataProvenance",
+      "from_field": "DataProvenance_ID",
+      "to_field": "DataProvenance_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "MetaData",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "MetaData",
+      "to_table": "Sample",
+      "from_field": "Sample_ID",
+      "to_field": "Sample_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "MetaData",
+      "to_table": "Laboratory",
+      "from_field": "Laboratory_ID",
+      "to_field": "Laboratory_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "MetaData",
+      "to_table": "Person",
+      "from_field": "AnalystPerson_ID",
+      "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "MetaDataAxis",
       "to_table": "MetaData",
       "from_field": "Metadata_ID",
@@ -2164,9 +3054,9 @@
     },
     {
       "from_table": "ProjectHasContact",
-      "to_table": "Contact",
+      "to_table": "Person",
       "from_field": "Contact_ID",
-      "to_field": "Contact_ID",
+      "to_field": "Person_ID",
       "relationship_type": null
     },
     {
@@ -2205,10 +3095,52 @@
       "relationship_type": null
     },
     {
+      "from_table": "Sample",
+      "to_table": "Sample",
+      "from_field": "ParentSample_ID",
+      "to_field": "Sample_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Sample",
+      "to_table": "SamplingPoints",
+      "from_field": "Sampling_point_ID",
+      "to_field": "Sampling_point_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Sample",
+      "to_table": "Person",
+      "from_field": "SampledByPerson_ID",
+      "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Sample",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Sample",
+      "to_table": "Equipment",
+      "from_field": "SampleEquipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "SamplingPoints",
       "to_table": "Site",
       "from_field": "Site_ID",
       "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SamplingPoints",
+      "to_table": "Campaign",
+      "from_field": "CreatedByCampaign_ID",
+      "to_field": "Campaign_ID",
       "relationship_type": null
     },
     {
