@@ -1,0 +1,39 @@
+_format_version: "1.0"
+table:
+  name: AnnotationType
+  schema: dbo
+  description: >
+    Lookup table defining the kinds of annotations that can be applied
+    to time series data. Each type has a display color for UI rendering.
+  columns:
+    - name: AnnotationType_ID
+      logical_type: integer
+      nullable: false
+      description: "Primary key, manually assigned"
+    - name: AnnotationTypeName
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Human-readable name of the annotation type"
+    - name: Description
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Explanation of when to use this annotation type"
+    - name: Color
+      logical_type: string
+      max_length: 7
+      nullable: true
+      description: "Hex color code for UI rendering, e.g. '#FF6B6B'"
+  primary_key: [AnnotationType_ID]
+  seed_data:
+    - { AnnotationType_ID: 1,  AnnotationTypeName: "Fault",              Description: "Sensor or process fault",                  Color: "#FF4444" }
+    - { AnnotationType_ID: 2,  AnnotationTypeName: "Maintenance",        Description: "Sensor under maintenance",                 Color: "#FFA500" }
+    - { AnnotationType_ID: 3,  AnnotationTypeName: "Calibration Period", Description: "Data during calibration — may be invalid",  Color: "#FFD700" }
+    - { AnnotationType_ID: 4,  AnnotationTypeName: "Anomaly",            Description: "Unexpected behavior, needs investigation",  Color: "#FF69B4" }
+    - { AnnotationType_ID: 5,  AnnotationTypeName: "Experiment",         Description: "Data collected during a specific experiment", Color: "#4488FF" }
+    - { AnnotationType_ID: 6,  AnnotationTypeName: "Process Event",      Description: "Known process event (storm, dosing, etc.)", Color: "#44BB44" }
+    - { AnnotationType_ID: 7,  AnnotationTypeName: "Data Quality",       Description: "Suspect data quality (drift, fouling)",     Color: "#AA44FF" }
+    - { AnnotationType_ID: 8,  AnnotationTypeName: "Note",               Description: "General commentary",                       Color: "#888888" }
+    - { AnnotationType_ID: 9,  AnnotationTypeName: "Exclusion",          Description: "Data should be excluded from analysis",     Color: "#CC0000" }
+    - { AnnotationType_ID: 10, AnnotationTypeName: "Validated",          Description: "Data has been reviewed and accepted",       Color: "#00AA00" }

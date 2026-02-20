@@ -1,0 +1,91 @@
+_format_version: "1.0"
+table:
+  name: Annotation
+  schema: dbo
+  description: >
+    Human-authored annotations on time series data. Each annotation
+    applies to a single MetaData entry (one measurement channel) over
+    a time range. Multiple annotations can overlap on the same range.
+    EndTime=NULL means either a point annotation or an ongoing situation.
+  columns:
+    - name: Annotation_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Primary key, auto-incremented"
+    - name: Metadata_ID
+      logical_type: integer
+      nullable: false
+      description: "The time series this annotation applies to"
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+    - name: AnnotationType_ID
+      logical_type: integer
+      nullable: false
+      description: "What kind of annotation this is"
+      foreign_key:
+        table: AnnotationType
+        column: AnnotationType_ID
+    - name: StartTime
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "Start of the annotated time range"
+    - name: EndTime
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "End of the annotated range. NULL = point annotation or ongoing"
+    - name: AuthorPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who created this annotation"
+      foreign_key:
+        table: Person
+        column: Person_ID
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign this annotation is associated with, if any"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+    - name: EquipmentEvent_ID
+      logical_type: integer
+      nullable: true
+      description: "Equipment event that caused this annotation, if any"
+      foreign_key:
+        table: EquipmentEvent
+        column: EquipmentEvent_ID
+    - name: Title
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Short title for the annotation"
+    - name: Comment
+      logical_type: string
+      max_length: max
+      nullable: true
+      description: "Detailed free-text comment"
+    - name: CreatedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: CURRENT_TIMESTAMP
+      description: "When this annotation was created"
+    - name: ModifiedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "When this annotation was last modified"
+  primary_key: [Annotation_ID]
+  indexes:
+    - name: IX_Annotation_MetaData_Time
+      columns: [Metadata_ID, StartTime, EndTime]
+      unique: false
+      description: "Optimizes interval overlap queries"
+    - name: IX_Annotation_Author
+      columns: [AuthorPerson_ID, CreatedAt]
+      unique: false
+      description: "Optimizes 'my annotations' and 'recent annotations' queries"
