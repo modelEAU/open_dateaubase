@@ -6,6 +6,48 @@ This documentation is auto-generated from dictionary.json.
 ## Tables
 
 
+<span id="Annotation"></span>
+
+### Annotation
+
+Human-authored annotations on time series data. Each annotation applies to a single MetaData entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Annotation_ID | INT **(PK)** | - | ✓ | <span id="Annotation_ID"></span>Primary key, auto-incremented | - |
+| Metadata_ID | INT | - | ✓ | <span id="Metadata_ID"></span>The time series this annotation applies to | FK → [MetaData.Metadata_ID](#MetaData) |
+| AnnotationType_ID | INT | - | ✓ | <span id="AnnotationType_ID"></span>What kind of annotation this is | FK → [AnnotationType.AnnotationType_ID](#AnnotationType) |
+| StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>Start of the annotated time range | - |
+| EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the annotated range. NULL = point annotation or ongoing | - |
+| AuthorPerson_ID | INT | - |  | <span id="AuthorPerson_ID"></span>Person who created this annotation | FK → [Person.Person_ID](#Person) |
+| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this annotation is associated with, if any | FK → [Campaign.Campaign_ID](#Campaign) |
+| EquipmentEvent_ID | INT | - |  | <span id="EquipmentEvent_ID"></span>Equipment event that caused this annotation, if any | FK → [EquipmentEvent.EquipmentEvent_ID](#EquipmentEvent) |
+| Title | NVARCHAR(200) | - |  | <span id="Title"></span>Short title for the annotation | - |
+| Comment | NVARCHAR(MAX) | - |  | <span id="Comment"></span>Detailed free-text comment | - |
+| CreatedAt | DATETIME2(7) | - | ✓ | <span id="CreatedAt"></span>When this annotation was created | Default: `CURRENT_TIMESTAMP` |
+| ModifiedAt | DATETIME2(7) | - |  | <span id="ModifiedAt"></span>When this annotation was last modified | - |
+
+<span id="AnnotationType"></span>
+
+### AnnotationType
+
+Lookup table defining the kinds of annotations that can be applied to time series data. Each type has a display color for UI rendering.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| AnnotationType_ID | INT **(PK)** | - | ✓ | <span id="AnnotationType_ID"></span>Primary key, manually assigned | - |
+| AnnotationTypeName | NVARCHAR(100) | - | ✓ | <span id="AnnotationTypeName"></span>Human-readable name of the annotation type | - |
+| Description | NVARCHAR(500) | - |  | <span id="Description"></span>Explanation of when to use this annotation type | - |
+| Color | NVARCHAR(7) | - |  | <span id="Color"></span>Hex color code for UI rendering, e.g. '#FF6B6B' | - |
+
 <span id="Campaign"></span>
 
 ### Campaign
@@ -97,6 +139,25 @@ Stores any additional textual comments, notes, or observations related to a spec
 |-------|----------|-----------|----------|-------------|-------------|
 | Comment_ID | INT **(PK)** | - | ✓ | <span id="Comment_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Comment | NVARCHAR(MAX) | - |  | <span id="Comment"></span>Comment on the data in the Value table | - |
+
+<span id="DataLineage"></span>
+
+### DataLineage
+
+Junction table that records the input/output relationships between ProcessingStep rows and MetaData rows. Each row asserts that a given MetaData entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.
+Example: outlier-removal step takes MetaData 10 (raw TSS) as Input and produces MetaData 11 (cleaned TSS) as Output.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| DataLineage_ID | INT **(PK)** | - | ✓ | <span id="DataLineage_ID"></span>Surrogate primary key | - |
+| ProcessingStep_ID | INT | - | ✓ | <span id="ProcessingStep_ID"></span>The processing step that consumed or produced the MetaData entry | FK → [ProcessingStep.ProcessingStep_ID](#ProcessingStep) |
+| Metadata_ID | INT | - | ✓ | <span id="Metadata_ID"></span>The MetaData entry (time series) that participates in this lineage edge | FK → [MetaData.Metadata_ID](#MetaData) |
+| Role | NVARCHAR(10) | - | ✓ | <span id="Role"></span>Whether this MetaData entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.
+ | - |
 
 <span id="DataProvenance"></span>
 
@@ -332,6 +393,12 @@ Central context aggregator linking every measurement to its full provenance (pro
 | Sample_ID | INT | - |  | <span id="Sample_ID"></span>Discrete sample analysed to produce this measurement series. Only populated for lab data (DataProvenance_ID=2). | FK → [Sample.Sample_ID](#Sample) |
 | Laboratory_ID | INT | - |  | <span id="Laboratory_ID"></span>Laboratory where analysis was performed. Only populated for lab data (DataProvenance_ID=2). | FK → [Laboratory.Laboratory_ID](#Laboratory) |
 | AnalystPerson_ID | INT | - |  | <span id="AnalystPerson_ID"></span>Person who performed the analysis. Only populated for lab data (DataProvenance_ID=2). | FK → [Person.Person_ID](#Person) |
+| ProcessingDegree | NVARCHAR(50) | - |  | <span id="ProcessingDegree"></span>Denormalized field indicating the level of processing applied to this time series. Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation and never changed — if the processing degree changes, a new MetaData row is created. Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated. Backfilled to 'Raw' for all rows existing before v1.6.0.
+ | Default: `Raw` |
+| StatusOfMetaDataID | INT | - |  | <span id="StatusOfMetaDataID"></span>If this MetaData entry is a status time series, this points  to the measurement MetaData entry it describes. NULL for  measurement entries and non-status entries.
+ | FK → [MetaData.Metadata_ID](#MetaData) |
+| StatusOfEquipmentID | INT | - |  | <span id="StatusOfEquipmentID"></span>If this MetaData entry is a device-level status time series,  this points to the Equipment it describes. NULL for channel- level status and non-status entries.
+ | FK → [Equipment.Equipment_ID](#Equipment) |
 
 <span id="MetaDataAxis"></span>
 
@@ -416,6 +483,29 @@ Stores details for different measurement procedures (e.g., calibration, validati
 | Procedure_type | NVARCHAR(255) | - |  | <span id="Procedure_type"></span>Type of the procedure. For example, SOP | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the procedure | - |
 | Procedure_location | NVARCHAR(100) | - |  | <span id="Procedure_location"></span>Where is the procedure stored | - |
+
+<span id="ProcessingStep"></span>
+
+### ProcessingStep
+
+Records a single data-transformation step (outlier removal, interpolation, smoothing, aggregation, etc.) applied to one or more time series. Each row captures what was done, when, by whom, and with what parameters. The DataLineage table links ProcessingStep rows to their input and output MetaData entries, forming the full processing provenance graph.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ProcessingStep_ID | INT **(PK)** | - | ✓ | <span id="ProcessingStep_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable name for this processing step (e.g. 'Outlier removal — Hampel filter') | - |
+| Description | NVARCHAR(2000) | - |  | <span id="Description"></span>Free-text description of what this step does and why it was applied | - |
+| MethodName | NVARCHAR(200) | - |  | <span id="MethodName"></span>Machine-readable method identifier (e.g. 'outlier_removal', 'linear_interpolation'). Maps to a metEAUdata processing function name. | - |
+| MethodVersion | NVARCHAR(100) | - |  | <span id="MethodVersion"></span>Version of the method or library used (e.g. 'meteaudata 0.5.1') | - |
+| ProcessingType | NVARCHAR(100) | - |  | <span id="ProcessingType"></span>Category of processing applied. Stored as a string mirroring metEAUdata's ProcessingType enum values (e.g. 'Smoothing', 'Filtering', 'Resampling', 'GapFilling'). No lookup table — metEAUdata's enum is the source of truth. Controlled vocabulary: see ProcessingType_set.
+ | - |
+| Parameters | NVARCHAR(MAX) | - |  | <span id="Parameters"></span>JSON blob of method parameters (e.g. '{"window": 5, "threshold": 3.0}') | - |
+| ExecutedAt | DATETIME2(7) | - |  | <span id="ExecutedAt"></span>UTC timestamp when this processing step was executed | - |
+| ExecutedByPerson_ID | INT | - |  | <span id="ExecutedByPerson_ID"></span>Person who ran or triggered this processing step. NULL for automated/unattended runs. | FK → [Person.Person_ID](#Person) |
 
 <span id="Project"></span>
 
@@ -551,6 +641,25 @@ Tracks which schema versions have been applied to this database instance
 | AppliedAt | DATETIME2(7) | - | ✓ | <span id="AppliedAt"></span>UTC datetime when this migration was applied (stored in UTC by convention) | Default: `CURRENT_TIMESTAMP` |
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Human-readable description of what this migration does | - |
 | MigrationScript | NVARCHAR(200) | - |  | <span id="MigrationScript"></span>Filename of the migration script that was applied | - |
+
+<span id="SensorStatusCode"></span>
+
+### SensorStatusCode
+
+Lookup table defining sensor status codes. Each code represents  a state a sensor channel or device can be in. IsOperational  indicates whether data collected in this state should be considered  trustworthy. Severity indicates the urgency (0=normal, 1=warning,  2=fault, 3=critical).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| StatusCodeID | INT **(PK)** | - | ✓ | <span id="StatusCodeID"></span>Primary key, manually assigned. This is the value stored in dbo.Value. | - |
+| StatusName | NVARCHAR(50) | - | ✓ | <span id="StatusName"></span>Human-readable status name | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Detailed description of what this status means | - |
+| IsOperational | BIT | - | ✓ | <span id="IsOperational"></span>Whether data collected during this status should be considered  trustworthy. true = data is valid, false = data may be invalid.
+ | Default: `True` |
+| Severity | INT | - | ✓ | <span id="Severity"></span>0=normal, 1=warning, 2=fault, 3=critical | Default: `0` |
 
 <span id="Site"></span>
 

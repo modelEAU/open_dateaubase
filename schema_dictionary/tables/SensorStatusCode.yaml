@@ -1,0 +1,50 @@
+_format_version: "1.0"
+table:
+  name: SensorStatusCode
+  schema: dbo
+  description: >
+    Lookup table defining sensor status codes. Each code represents 
+    a state a sensor channel or device can be in. IsOperational 
+    indicates whether data collected in this state should be considered 
+    trustworthy. Severity indicates the urgency (0=normal, 1=warning, 
+    2=fault, 3=critical).
+  columns:
+    - name: StatusCodeID
+      logical_type: integer
+      nullable: false
+      description: "Primary key, manually assigned. This is the value stored in dbo.Value."
+    - name: StatusName
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Human-readable status name"
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Detailed description of what this status means"
+    - name: IsOperational
+      logical_type: boolean
+      nullable: false
+      default: true
+      description: >
+        Whether data collected during this status should be considered 
+        trustworthy. true = data is valid, false = data may be invalid.
+    - name: Severity
+      logical_type: integer
+      nullable: false
+      default: 0
+      description: "0=normal, 1=warning, 2=fault, 3=critical"
+  primary_key: [StatusCodeID]
+  seed_data:
+    - { StatusCodeID: 0,  StatusName: "Unknown",      Description: "Status not reported or not available",              IsOperational: false, Severity: 1 }
+    - { StatusCodeID: 1,  StatusName: "Operational",   Description: "Sensor channel is functioning normally",            IsOperational: true,  Severity: 0 }
+    - { StatusCodeID: 2,  StatusName: "Warning",       Description: "Sensor is operational but a warning condition exists", IsOperational: true,  Severity: 1 }
+    - { StatusCodeID: 3,  StatusName: "Fault",         Description: "Sensor channel has faulted, data is unreliable",   IsOperational: false, Severity: 2 }
+    - { StatusCodeID: 4,  StatusName: "Maintenance",   Description: "Sensor is undergoing maintenance",                 IsOperational: false, Severity: 1 }
+    - { StatusCodeID: 5,  StatusName: "Calibrating",   Description: "Sensor channel is being calibrated",               IsOperational: false, Severity: 1 }
+    - { StatusCodeID: 6,  StatusName: "Starting Up",   Description: "Sensor is in startup/warmup phase",                IsOperational: false, Severity: 1 }
+    - { StatusCodeID: 7,  StatusName: "Shutting Down",  Description: "Sensor is shutting down",                          IsOperational: false, Severity: 1 }
+    - { StatusCodeID: 8,  StatusName: "Offline",       Description: "Sensor is powered off or disconnected",            IsOperational: false, Severity: 0 }
+    - { StatusCodeID: 9,  StatusName: "Degraded",      Description: "Sensor is operational but accuracy may be reduced", IsOperational: true,  Severity: 1 }
+    - { StatusCodeID: 10, StatusName: "Fouled",        Description: "Sensor probe is fouled, readings likely biased",   IsOperational: true,  Severity: 2 }

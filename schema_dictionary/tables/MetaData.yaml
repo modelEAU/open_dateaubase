@@ -130,4 +130,34 @@ table:
         Backfilled to 'Raw' for all rows existing before v1.6.0.
       value_set: processing_degree_set
 
+    - name: StatusOfMetaDataID
+      logical_type: integer
+      nullable: true
+      description: >
+        If this MetaData entry is a status time series, this points 
+        to the measurement MetaData entry it describes. NULL for 
+        measurement entries and non-status entries.
+      foreign_key:
+        table: MetaData
+        column: Metadata_ID
+
+    - name: StatusOfEquipmentID
+      logical_type: integer
+      nullable: true
+      description: >
+        If this MetaData entry is a device-level status time series, 
+        this points to the Equipment it describes. NULL for channel-
+        level status and non-status entries.
+      foreign_key:
+        table: Equipment
+        column: Equipment_ID
+
+  check_constraints:
+    - name: CK_MetaData_StatusTarget
+      expression: "NOT (StatusOfMetaDataID IS NOT NULL AND StatusOfEquipmentID IS NOT NULL)"
+      description: >
+        A status entry is about either a measurement channel OR a 
+        device, never both. At most one of StatusOfMetaDataID and 
+        StatusOfEquipmentID can be non-NULL.
+
   primary_key: [Metadata_ID]

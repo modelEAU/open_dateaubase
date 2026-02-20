@@ -1,0 +1,49 @@
+_format_version: "1.0"
+view:
+  name: vw_ChannelStatus
+  schema: dbo
+  description: "Join view for per-channel sensor status queries"
+  columns:
+    - name: StatusMetaDataID
+      description: "MetaDataID of the status time series"
+    - name: MeasurementMetaDataID
+      description: "MetaDataID of the measurement channel this status describes"
+    - name: EquipmentID
+      description: "Equipment ID of the sensor"
+    - name: EquipmentName
+      description: "Name of the equipment"
+    - name: MeasurementParameter
+      description: "Name of the measured parameter (TSS, pH, etc.)"
+    - name: LocationName
+      description: "Name of the sampling location"
+    - name: Timestamp
+      description: "Timestamp of the status transition"
+    - name: StatusCodeID
+      description: "Status code from SensorStatusCode"
+    - name: StatusName
+      description: "Human-readable status name"
+    - name: IsOperational
+      description: "Whether data is trustworthy in this status"
+    - name: Severity
+      description: "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
+  view_definition: |
+    SELECT
+        statusMD.[Metadata_ID] AS StatusMetaDataID,
+        statusMD.[StatusOfMetaDataID] AS MeasurementMetaDataID,
+        measMD.[Equipment_ID] AS EquipmentID,
+        e.[identifier] AS EquipmentName,
+        p.[Parameter] AS MeasurementParameter,
+        sp.[Sampling_point] AS LocationName,
+        v.[Timestamp],
+        CAST(v.[Value] AS INT) AS StatusCodeID,
+        sc.[StatusName],
+        sc.[IsOperational],
+        sc.[Severity]
+    FROM [dbo].[Value] v
+    JOIN [dbo].[MetaData] statusMD ON statusMD.[Metadata_ID] = v.[Metadata_ID]
+    JOIN [dbo].[MetaData] measMD ON measMD.[Metadata_ID] = statusMD.[StatusOfMetaDataID]
+    JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = measMD.[Parameter_ID]
+    JOIN [dbo].[SamplingPoints] sp ON sp.[Sampling_point_ID] = measMD.[Sampling_point_ID]
+    JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = measMD.[Equipment_ID]
+    LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
+    WHERE statusMD.[StatusOfMetaDataID] IS NOT NULL

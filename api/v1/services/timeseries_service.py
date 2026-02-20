@@ -19,11 +19,14 @@ def get_timeseries(
     metadata_id: int,
     from_dt: datetime | None,
     to_dt: datetime | None,
+    operational_only: bool = False,
 ) -> dict:
     """Load metadata context and dispatch to the correct value table."""
     meta = metadata_repository.get_metadata_by_id(conn, metadata_id)
     if meta is None:
-        raise HTTPException(status_code=404, detail=f"MetaData {metadata_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"MetaData {metadata_id} not found."
+        )
 
     data = value_repository.get_values_for_metadata(
         conn,
@@ -31,6 +34,7 @@ def get_timeseries(
         meta.get("value_type_id"),
         from_dt,
         to_dt,
+        operational_only=operational_only,
     )
 
     timestamps = [row["timestamp"] for row in data if row.get("timestamp")]
@@ -69,9 +73,7 @@ def get_timeseries_by_context(
         page=1,
         page_size=50,
     )
-    return [
-        get_timeseries(conn, item["metadata_id"], from_dt, to_dt) for item in items
-    ]
+    return [get_timeseries(conn, item["metadata_id"], from_dt, to_dt) for item in items]
 
 
 def get_full_context(
@@ -86,7 +88,9 @@ def get_full_context(
 
     meta = metadata_repository.get_metadata_by_id(conn, metadata_id)
     if meta is None:
-        raise HTTPException(status_code=404, detail=f"MetaData {metadata_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"MetaData {metadata_id} not found."
+        )
 
     # All processing degrees for same location + parameter
     cursor = conn.cursor()
@@ -104,7 +108,10 @@ def get_full_context(
         GROUP BY m.[Metadata_ID], m.[ProcessingDegree]
         ORDER BY m.[ProcessingDegree], m.[Metadata_ID]
         """,
-        from_dt, from_dt, to_dt, to_dt,
+        from_dt,
+        from_dt,
+        to_dt,
+        to_dt,
         meta.get("location_id"),
         meta.get("parameter_id"),
     )
@@ -117,7 +124,9 @@ def get_full_context(
     equipment_id = meta.get("equipment_id")
     events = []
     if equipment_id:
-        events = equipment_repository.get_equipment_events(conn, equipment_id, from_dt, to_dt)
+        events = equipment_repository.get_equipment_events(
+            conn, equipment_id, from_dt, to_dt
+        )
 
     # Lineage
     lineage = get_full_lineage_tree(metadata_id, conn)

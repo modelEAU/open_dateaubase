@@ -1,0 +1,37 @@
+_format_version: "1.0"
+view:
+  name: vw_DeviceStatus
+  schema: dbo
+  description: "Join view for device-level sensor status queries"
+  columns:
+    - name: StatusMetaDataID
+      description: "MetaDataID of the status time series"
+    - name: EquipmentID
+      description: "Equipment ID this status describes"
+    - name: EquipmentName
+      description: "Name of the equipment"
+    - name: Timestamp
+      description: "Timestamp of the status transition"
+    - name: StatusCodeID
+      description: "Status code from SensorStatusCode"
+    - name: StatusName
+      description: "Human-readable status name"
+    - name: IsOperational
+      description: "Whether data is trustworthy in this status"
+    - name: Severity
+      description: "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
+  view_definition: |
+    SELECT
+        statusMD.[Metadata_ID] AS StatusMetaDataID,
+        statusMD.[StatusOfEquipmentID] AS EquipmentID,
+        e.[identifier] AS EquipmentName,
+        v.[Timestamp],
+        CAST(v.[Value] AS INT) AS StatusCodeID,
+        sc.[StatusName],
+        sc.[IsOperational],
+        sc.[Severity]
+    FROM [dbo].[Value] v
+    JOIN [dbo].[MetaData] statusMD ON statusMD.[Metadata_ID] = v.[Metadata_ID]
+    JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = statusMD.[StatusOfEquipmentID]
+    LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
+    WHERE statusMD.[StatusOfEquipmentID] IS NOT NULL

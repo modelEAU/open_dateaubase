@@ -311,6 +311,164 @@
         const erdData = {
   "tables": [
     {
+      "id": "Annotation",
+      "label": "Annotation",
+      "description": "Human-authored annotations on time series data. Each annotation applies to a single MetaData entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.\n",
+      "fields": [
+        {
+          "name": "Annotation_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key, auto-incremented"
+        },
+        {
+          "name": "Metadata_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "The time series this annotation applies to"
+        },
+        {
+          "name": "AnnotationType_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "AnnotationType.AnnotationType_ID",
+          "description": "What kind of annotation this is"
+        },
+        {
+          "name": "StartTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Start of the annotated time range"
+        },
+        {
+          "name": "EndTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "End of the annotated range. NULL = point annotation or ongoing"
+        },
+        {
+          "name": "AuthorPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who created this annotation"
+        },
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign this annotation is associated with, if any"
+        },
+        {
+          "name": "EquipmentEvent_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "EquipmentEvent.EquipmentEvent_ID",
+          "description": "Equipment event that caused this annotation, if any"
+        },
+        {
+          "name": "Title",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Short title for the annotation"
+        },
+        {
+          "name": "Comment",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Detailed free-text comment"
+        },
+        {
+          "name": "CreatedAt",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "When this annotation was created"
+        },
+        {
+          "name": "ModifiedAt",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "When this annotation was last modified"
+        }
+      ]
+    },
+    {
+      "id": "AnnotationType",
+      "label": "AnnotationType",
+      "description": "Lookup table defining the kinds of annotations that can be applied to time series data. Each type has a display color for UI rendering.\n",
+      "fields": [
+        {
+          "name": "AnnotationType_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key, manually assigned"
+        },
+        {
+          "name": "AnnotationTypeName",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name of the annotation type"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of when to use this annotation type"
+        },
+        {
+          "name": "Color",
+          "sql_type": "NVARCHAR(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Hex color code for UI rendering, e.g. '#FF6B6B'"
+        }
+      ]
+    },
+    {
       "id": "Campaign",
       "label": "Campaign",
       "description": "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Replaces direct use of Project for new data.",
@@ -529,6 +687,49 @@
           "is_required": false,
           "fk_target": null,
           "description": "Comment on the data in the Value table"
+        }
+      ]
+    },
+    {
+      "id": "DataLineage",
+      "label": "DataLineage",
+      "description": "Junction table that records the input/output relationships between ProcessingStep rows and MetaData rows. Each row asserts that a given MetaData entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.\nExample: outlier-removal step takes MetaData 10 (raw TSS) as Input and produces MetaData 11 (cleaned TSS) as Output.\n",
+      "fields": [
+        {
+          "name": "DataLineage_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "ProcessingStep_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ProcessingStep.ProcessingStep_ID",
+          "description": "The processing step that consumed or produced the MetaData entry"
+        },
+        {
+          "name": "Metadata_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "The MetaData entry (time series) that participates in this lineage edge"
+        },
+        {
+          "name": "Role",
+          "sql_type": "NVARCHAR(10)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether this MetaData entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.\n"
         }
       ]
     },
@@ -1313,6 +1514,33 @@
           "is_required": false,
           "fk_target": "Person.Person_ID",
           "description": "Person who performed the analysis. Only populated for lab data (DataProvenance_ID=2)."
+        },
+        {
+          "name": "ProcessingDegree",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Denormalized field indicating the level of processing applied to this time series. Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation and never changed \u2014 if the processing degree changes, a new MetaData row is created. Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated. Backfilled to 'Raw' for all rows existing before v1.6.0.\n"
+        },
+        {
+          "name": "StatusOfMetaDataID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "MetaData.Metadata_ID",
+          "description": "If this MetaData entry is a status time series, this points  to the measurement MetaData entry it describes. NULL for  measurement entries and non-status entries.\n"
+        },
+        {
+          "name": "StatusOfEquipmentID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "If this MetaData entry is a device-level status time series,  this points to the Equipment it describes. NULL for channel- level status and non-status entries.\n"
         }
       ]
     },
@@ -1564,6 +1792,94 @@
           "is_required": false,
           "fk_target": null,
           "description": "Where is the procedure stored"
+        }
+      ]
+    },
+    {
+      "id": "ProcessingStep",
+      "label": "ProcessingStep",
+      "description": "Records a single data-transformation step (outlier removal, interpolation, smoothing, aggregation, etc.) applied to one or more time series. Each row captures what was done, when, by whom, and with what parameters. The DataLineage table links ProcessingStep rows to their input and output MetaData entries, forming the full processing provenance graph.\n",
+      "fields": [
+        {
+          "name": "ProcessingStep_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name for this processing step (e.g. 'Outlier removal \u2014 Hampel filter')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(2000)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text description of what this step does and why it was applied"
+        },
+        {
+          "name": "MethodName",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Machine-readable method identifier (e.g. 'outlier_removal', 'linear_interpolation'). Maps to a metEAUdata processing function name."
+        },
+        {
+          "name": "MethodVersion",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Version of the method or library used (e.g. 'meteaudata 0.5.1')"
+        },
+        {
+          "name": "ProcessingType",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Category of processing applied. Stored as a string mirroring metEAUdata's ProcessingType enum values (e.g. 'Smoothing', 'Filtering', 'Resampling', 'GapFilling'). No lookup table \u2014 metEAUdata's enum is the source of truth. Controlled vocabulary: see ProcessingType_set.\n"
+        },
+        {
+          "name": "Parameters",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "JSON blob of method parameters (e.g. '{\"window\": 5, \"threshold\": 3.0}')"
+        },
+        {
+          "name": "ExecutedAt",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC timestamp when this processing step was executed"
+        },
+        {
+          "name": "ExecutedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who ran or triggered this processing step. NULL for automated/unattended runs."
         }
       ]
     },
@@ -1971,6 +2287,58 @@
           "is_required": false,
           "fk_target": null,
           "description": "Filename of the migration script that was applied"
+        }
+      ]
+    },
+    {
+      "id": "SensorStatusCode",
+      "label": "SensorStatusCode",
+      "description": "Lookup table defining sensor status codes. Each code represents  a state a sensor channel or device can be in. IsOperational  indicates whether data collected in this state should be considered  trustworthy. Severity indicates the urgency (0=normal, 1=warning,  2=fault, 3=critical).\n",
+      "fields": [
+        {
+          "name": "StatusCodeID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key, manually assigned. This is the value stored in dbo.Value."
+        },
+        {
+          "name": "StatusName",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable status name"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Detailed description of what this status means"
+        },
+        {
+          "name": "IsOperational",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether data collected during this status should be considered  trustworthy. true = data is valid, false = data may be invalid.\n"
+        },
+        {
+          "name": "Severity",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "0=normal, 1=warning, 2=fault, 3=critical"
         }
       ]
     },
@@ -2707,8 +3075,231 @@
       ]
     }
   ],
-  "views": [],
+  "views": [
+    {
+      "id": "vw_ChannelStatus",
+      "label": "vw_ChannelStatus",
+      "description": "Join view for per-channel sensor status queries",
+      "view_definition": "SELECT\n    statusMD.[Metadata_ID] AS StatusMetaDataID,\n    statusMD.[StatusOfMetaDataID] AS MeasurementMetaDataID,\n    measMD.[Equipment_ID] AS EquipmentID,\n    e.[identifier] AS EquipmentName,\n    p.[Parameter] AS MeasurementParameter,\n    sp.[Sampling_point] AS LocationName,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT) AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[MetaData] statusMD ON statusMD.[Metadata_ID] = v.[Metadata_ID]\nJOIN [dbo].[MetaData] measMD ON measMD.[Metadata_ID] = statusMD.[StatusOfMetaDataID]\nJOIN [dbo].[Parameter] p ON p.[Parameter_ID] = measMD.[Parameter_ID]\nJOIN [dbo].[SamplingPoints] sp ON sp.[Sampling_point_ID] = measMD.[Sampling_point_ID]\nJOIN [dbo].[Equipment] e ON e.[Equipment_ID] = measMD.[Equipment_ID]\nLEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)\nWHERE statusMD.[StatusOfMetaDataID] IS NOT NULL",
+      "columns": [
+        {
+          "name": "StatusMetaDataID",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "MetaDataID of the status time series"
+        },
+        {
+          "name": "MeasurementMetaDataID",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "MetaDataID of the measurement channel this status describes"
+        },
+        {
+          "name": "EquipmentID",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Equipment ID of the sensor"
+        },
+        {
+          "name": "EquipmentName",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Name of the equipment"
+        },
+        {
+          "name": "MeasurementParameter",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Name of the measured parameter (TSS, pH, etc.)"
+        },
+        {
+          "name": "LocationName",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Name of the sampling location"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Timestamp of the status transition"
+        },
+        {
+          "name": "StatusCodeID",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Status code from SensorStatusCode"
+        },
+        {
+          "name": "StatusName",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Human-readable status name"
+        },
+        {
+          "name": "IsOperational",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Whether data is trustworthy in this status"
+        },
+        {
+          "name": "Severity",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
+        }
+      ]
+    },
+    {
+      "id": "vw_DeviceStatus",
+      "label": "vw_DeviceStatus",
+      "description": "Join view for device-level sensor status queries",
+      "view_definition": "SELECT\n    statusMD.[Metadata_ID] AS StatusMetaDataID,\n    statusMD.[StatusOfEquipmentID] AS EquipmentID,\n    e.[identifier] AS EquipmentName,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT) AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[MetaData] statusMD ON statusMD.[Metadata_ID] = v.[Metadata_ID]\nJOIN [dbo].[Equipment] e ON e.[Equipment_ID] = statusMD.[StatusOfEquipmentID]\nLEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)\nWHERE statusMD.[StatusOfEquipmentID] IS NOT NULL",
+      "columns": [
+        {
+          "name": "StatusMetaDataID",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "MetaDataID of the status time series"
+        },
+        {
+          "name": "EquipmentID",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Equipment ID this status describes"
+        },
+        {
+          "name": "EquipmentName",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Name of the equipment"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Timestamp of the status transition"
+        },
+        {
+          "name": "StatusCodeID",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Status code from SensorStatusCode"
+        },
+        {
+          "name": "StatusName",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Human-readable status name"
+        },
+        {
+          "name": "IsOperational",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Whether data is trustworthy in this status"
+        },
+        {
+          "name": "Severity",
+          "sql_type": "unknown",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
+        }
+      ]
+    }
+  ],
   "relationships": [
+    {
+      "from_table": "Annotation",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Annotation",
+      "to_table": "AnnotationType",
+      "from_field": "AnnotationType_ID",
+      "to_field": "AnnotationType_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Annotation",
+      "to_table": "Person",
+      "from_field": "AuthorPerson_ID",
+      "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Annotation",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Annotation",
+      "to_table": "EquipmentEvent",
+      "from_field": "EquipmentEvent_ID",
+      "to_field": "EquipmentEvent_ID",
+      "relationship_type": null
+    },
     {
       "from_table": "Campaign",
       "to_table": "CampaignType",
@@ -2770,6 +3361,20 @@
       "to_table": "SamplingPoints",
       "from_field": "Sampling_point_ID",
       "to_field": "Sampling_point_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "DataLineage",
+      "to_table": "ProcessingStep",
+      "from_field": "ProcessingStep_ID",
+      "to_field": "ProcessingStep_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "DataLineage",
+      "to_table": "MetaData",
+      "from_field": "Metadata_ID",
+      "to_field": "Metadata_ID",
       "relationship_type": null
     },
     {
@@ -3018,6 +3623,20 @@
       "relationship_type": null
     },
     {
+      "from_table": "MetaData",
+      "to_table": "MetaData",
+      "from_field": "StatusOfMetaDataID",
+      "to_field": "Metadata_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "MetaData",
+      "to_table": "Equipment",
+      "from_field": "StatusOfEquipmentID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "MetaDataAxis",
       "to_table": "MetaData",
       "from_field": "Metadata_ID",
@@ -3050,6 +3669,13 @@
       "to_table": "Parameter",
       "from_field": "Parameter_ID",
       "to_field": "Parameter_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessingStep",
+      "to_table": "Person",
+      "from_field": "ExecutedByPerson_ID",
+      "to_field": "Person_ID",
       "relationship_type": null
     },
     {
