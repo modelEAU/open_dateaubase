@@ -7,32 +7,20 @@ GO
 USE open_dateaubase;
 GO
 
--- v1.0.0: Create baseline schema and seed data
+-- Step 1: Create the v1.0.0 baseline schema
 :r /migrations/v1.0.0_create_mssql.sql
 GO
-:r /sql/seed_v1.0.0.sql
+
+-- Step 2: Apply the consolidated migration to v2.1.0
+:r /migrations/v1.0.0_to_v2.1.0_mssql.sql
 GO
 
--- v1.0.1: Add SchemaVersion tracking table
-:r /migrations/v1.0.0_to_v1.0.1_mssql.sql
-GO
-:r /sql/seed_v1.0.1.sql
+-- Step 3: Load test seed data for the Quebec City monitoring scenario
+:r /sql/seed_v2.1.0.sql
 GO
 
--- v1.0.2: UTC timestamp storage convention
-:r /migrations/v1.0.1_to_v1.0.2_mssql.sql
-GO
-:r /sql/seed_v1.0.2.sql
-GO
-
--- v1.1.0: Phase 1 - Polymorphic value storage
-:r /migrations/v1.0.2_to_v1.1.0_mssql.sql
-GO
-:r /sql/seed_v1.1.0.sql
-GO
-
-PRINT 'Database initialized at v1.1.0 with sample data.';
-SELECT 'metadata' AS t, COUNT(*) AS n FROM dbo.metadata;
-SELECT 'value' AS t, COUNT(*) AS n FROM dbo.[value];
-SELECT 'schema_version' AS t, COUNT(*) AS n FROM dbo.SchemaVersion;
+PRINT 'Database initialized at v2.1.0 with sample data.';
+SELECT [Version], [AppliedAt], [Description] FROM dbo.SchemaVersion ORDER BY [AppliedAt];
+SELECT 'channel' AS t, COUNT(*) AS n FROM dbo.Channel;
+SELECT 'value'   AS t, COUNT(*) AS n FROM dbo.[Value];
 GO
