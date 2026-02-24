@@ -5,7 +5,6 @@ table:
   description: >
     A single measured value from a lab analysis, for a specific parameter and unit.
     Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate).
-    Added in v2.0.0 (Phase B).
 
   columns:
     - name: LabValue_ID

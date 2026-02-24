@@ -6,7 +6,7 @@ table:
     One analytical run on a discrete physical sample. Groups together all LabValue rows
     from a single lab session. Lab data does not fit the continuous-stream Channel abstraction
     (it is tied to a physical sample, not an equipment stream), so it lives here rather than
-    in Channel + Value. Added in v2.0.0 (Phase B).
+    in Channel + Value.
 
   columns:
     - name: LabAnalysis_ID

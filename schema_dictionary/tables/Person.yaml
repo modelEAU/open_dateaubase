@@ -2,7 +2,7 @@ _format_version: "1.0"
 table:
   name: Person
   schema: dbo
-  description: "Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone). Renamed from Contact in v1.2.0."
+  description: "Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone)."
 
   columns:
     - name: Person_ID

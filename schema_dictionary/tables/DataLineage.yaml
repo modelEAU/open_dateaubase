@@ -30,7 +30,7 @@ table:
     - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "The Channel entry (time series) that participates in this lineage edge (was Metadata_ID prior to v2.0.0)"
+      description: "The Channel entry (time series) that participates in this lineage edge"
       foreign_key:
         table: Channel
         column: Channel_ID

@@ -2,7 +2,7 @@ _format_version: "1.0"
 view:
   name: vw_DeviceStatus
   schema: dbo
-  description: "Join view for device-level sensor status queries. Updated in v2.1.0 (Phase C) to join via EquipmentStatusChannel instead of the legacy StatusOfEquipmentID column on Channel."
+  description: "Join view for device-level sensor status queries. Joins via EquipmentStatusChannel to resolve the equipment-level status Channel for each piece of equipment."
   columns:
     - name: StatusChannelID
       sql_data_type: INT

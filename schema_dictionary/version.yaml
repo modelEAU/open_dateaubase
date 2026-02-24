@@ -1,3 +1,3 @@
 schema_version: "2.1.0"
-description: "Phase C — Status system cleanup: StatusChannel_ID replaces StatusOfMetaDataID; EquipmentStatusChannel table replaces StatusOfEquipmentID column."
+description: "Current schema version. StatusChannel_ID on Channel marks per-channel status streams; EquipmentStatusChannel maps each equipment to its device-level status Channel."
 date: "2026-02-24"

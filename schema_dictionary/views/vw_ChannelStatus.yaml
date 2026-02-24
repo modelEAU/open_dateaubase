@@ -2,7 +2,7 @@ _format_version: "1.0"
 view:
   name: vw_ChannelStatus
   schema: dbo
-  description: "Join view for per-channel sensor status queries. Updated in v2.1.0 (Phase C) to use Channel.StatusChannel_ID instead of the legacy StatusOfMetaDataID column."
+  description: "Join view for per-channel sensor status queries. Selects all Channel rows where StatusChannel_ID is non-NULL, joining each status time series back to its measurement Channel."
   columns:
     - name: StatusChannelID
       sql_data_type: INT

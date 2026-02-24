@@ -4,9 +4,7 @@ table:
   schema: dbo
   description: >
     Maps each piece of equipment to the Channel that carries its device-level
-    status codes. Introduced in v2.1.0 (Phase C) to replace the
-    StatusOfEquipmentID column that was previously held directly on the Channel
-    table. One equipment can have at most one device-level status channel.
+    status codes. One equipment can have at most one device-level status channel.
 
   columns:
     - name: Equipment_ID

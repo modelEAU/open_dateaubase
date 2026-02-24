@@ -7,16 +7,15 @@ table:
     Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree)
     combination. Context that varies over time (location, campaign) is derived at
     query time via EquipmentInstallation and CampaignEquipment joins — it is NOT stored here.
-    Renamed from MetaData in v2.0.0 (Phase B). Lab data moved to LabAnalysis + LabValue.
-    In v2.1.0 (Phase C), StatusOfMetaDataID replaced by StatusChannel_ID and
-    StatusOfEquipmentID moved to the EquipmentStatusChannel table.
+    Lab measurements are stored in Value (scalar) or ValueVector/ValueMatrix/ValueImage.
+    Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
 
   columns:
     - name: Channel_ID
       logical_type: integer
       nullable: false
       identity: true
-      description: "Surrogate primary key (was Metadata_ID prior to v2.0.0)"
+      description: "Surrogate primary key"
 
     - name: Equipment_ID
       logical_type: integer
@@ -77,8 +76,7 @@ table:
       description: >
         If this Channel is a per-measurement-channel status time series, this points to
         the measurement Channel_ID it describes. NULL for measurement channels and
-        device-level status channels. Introduced in v2.1.0 (Phase C) replacing
-        the StatusOfMetaDataID column.
+        device-level status channels.
       foreign_key:
         table: Channel
         column: Channel_ID

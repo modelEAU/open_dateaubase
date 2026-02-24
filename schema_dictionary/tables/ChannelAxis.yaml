@@ -2,12 +2,12 @@ _format_version: "1.0"
 table:
   name: ChannelAxis
   schema: dbo
-  description: "Junction table linking a Channel measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix. Renamed from MetaDataAxis in v2.0.0 (Phase B)."
+  description: "Junction table linking a Channel measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix."
   columns:
     - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "References the measurement channel (was Metadata_ID prior to v2.0.0)"
+      description: "References the measurement channel"
       foreign_key:
         table: Channel
         column: Channel_ID

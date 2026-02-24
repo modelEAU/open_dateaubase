@@ -16,7 +16,7 @@ table:
     - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "The time series this annotation applies to (was Metadata_ID prior to v2.0.0)"
+      description: "The time series this annotation applies to"
       foreign_key:
         table: Channel
         column: Channel_ID
