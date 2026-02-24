@@ -62,7 +62,7 @@ class TestSensorStatusEndpointsContract:
         }
         mock_repo.get_all_channel_statuses_for_equipment.return_value = [
             {
-                "measurement_metadata_id": 42,
+                "measurement_channel_id": 42,
                 "measurement_parameter": "TSS",
                 "location_name": "Primary Effluent",
                 "status_code_id": 1,
@@ -85,9 +85,9 @@ class TestSensorStatusEndpointsContract:
 
     def test_timeseries_status_response_format(self, mock_repo, mock_service):
         """GET /timeseries/{id}/status should return documented schema."""
-        mock_repo.check_metadata_exists.return_value = True
+        mock_repo.check_channel_exists.return_value = True
         mock_repo.get_parameter_name.return_value = "pH"
-        mock_repo.get_equipment_for_metadata.return_value = 5
+        mock_repo.get_equipment_for_channel.return_value = 5
         mock_repo.get_equipment_name.return_value = "SC1000"
         mock_repo.get_status_band.return_value = [
             {
@@ -101,13 +101,13 @@ class TestSensorStatusEndpointsContract:
         ]
 
         result = mock_service.get_timeseries_status_band(
-            metadata_id=42,
+            channel_id=42,
             from_dt=datetime(2025, 2, 1),
             to_dt=datetime(2025, 2, 28),
         )
 
         assert result is not None
-        assert result["metadata_id"] == 42
+        assert result["channel_id"] == 42
         assert result["parameter"] == "pH"
         assert "query_range" in result
         assert "status_intervals" in result
@@ -128,7 +128,7 @@ class TestSensorStatusEndpointsContract:
         ]
         mock_repo.get_all_channel_statuses_for_equipment.return_value = [
             {
-                "measurement_metadata_id": 42,
+                "measurement_channel_id": 42,
                 "measurement_parameter": "pH",
                 "status_code_id": 10,
                 "status_name": "Fouled",

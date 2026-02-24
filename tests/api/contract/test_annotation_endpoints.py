@@ -72,7 +72,7 @@ def _mock_annotation_type():
 def _mock_annotation():
     return {
         "annotation_id": 1,
-        "metadata_id": 42,
+        "channel_id": 42,
         "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
         "start_time": "2025-02-15T10:00:00",
         "end_time": "2025-02-15T14:00:00",
@@ -89,7 +89,7 @@ def _mock_annotation():
 
 def _mock_annotation_list():
     return {
-        "metadata_id": 42,
+        "channel_id": 42,
         "query_range": {"from": "2025-02-01T00:00:00", "to": "2025-02-28T23:59:59"},
         "annotations": [_mock_annotation()],
         "count": 1,
@@ -160,7 +160,7 @@ class TestAnnotationTypesContract:
 # ---------------------------------------------------------------------------
 
 REQUIRED_ANNOTATION_LIST_FIELDS = {"annotations", "count"}
-REQUIRED_ANNOTATION_FIELDS = {"annotation_id", "metadata_id", "type", "start_time", "created_at"}
+REQUIRED_ANNOTATION_FIELDS = {"annotation_id", "channel_id", "type", "start_time", "created_at"}
 REQUIRED_ANNOTATION_TYPE_IN_ANNOTATION = {"id", "name"}
 
 
@@ -236,13 +236,13 @@ class TestGetAnnotationsForTimeseries:
             r = c.get("/api/v1/timeseries/42/annotations?from=2025-02-01T00:00:00&to=2025-02-28T23:59:59")
         assert isinstance(r.json()["count"], int)
 
-    def test_metadata_404_propagates(self, patched_client):
+    def test_channel_404_propagates(self, patched_client):
         c, conn, cursor = patched_client
         from fastapi import HTTPException
 
         with patch(
             "api.v1.services.annotation_service.get_annotations_for_timeseries",
-            side_effect=HTTPException(status_code=404, detail="MetaData 999 not found."),
+            side_effect=HTTPException(status_code=404, detail="Channel 999 not found."),
         ):
             r = c.get("/api/v1/timeseries/999/annotations?from=2025-02-01T00:00:00&to=2025-02-28T23:59:59")
         assert r.status_code == 404
@@ -253,7 +253,7 @@ class TestGetAnnotationsForTimeseries:
 # POST /api/v1/timeseries/{id}/annotations
 # ---------------------------------------------------------------------------
 
-REQUIRED_CREATE_RESPONSE_FIELDS = {"annotation_id", "metadata_id", "type", "start_time", "created_at"}
+REQUIRED_CREATE_RESPONSE_FIELDS = {"annotation_id", "channel_id", "type", "start_time", "created_at"}
 
 
 class TestCreateAnnotation:
@@ -270,7 +270,7 @@ class TestCreateAnnotation:
         c, conn, cursor = patched_client
         mock_response = {
             "annotation_id": 17,
-            "metadata_id": 42,
+            "channel_id": 42,
             "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
             "start_time": "2025-02-15T10:00:00",
             "end_time": "2025-02-15T14:00:00",
@@ -288,7 +288,7 @@ class TestCreateAnnotation:
         c, conn, cursor = patched_client
         mock_response = {
             "annotation_id": 17,
-            "metadata_id": 42,
+            "channel_id": 42,
             "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
             "start_time": "2025-02-15T10:00:00",
             "end_time": "2025-02-15T14:00:00",
@@ -327,7 +327,7 @@ class TestCreateAnnotation:
         c, conn, cursor = patched_client
         mock_response = {
             "annotation_id": 18,
-            "metadata_id": 42,
+            "channel_id": 42,
             "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
             "start_time": "2025-02-15T10:00:00",
             "end_time": None,
@@ -520,7 +520,7 @@ class TestAnnotationsByType:
 class TestAnnotationOpenAPISpec:
     REQUIRED_ANNOTATION_PATHS = [
         "/api/v1/annotation-types",
-        "/api/v1/timeseries/{metadata_id}/annotations",
+        "/api/v1/timeseries/{channel_id}/annotations",
         "/api/v1/annotations/recent",
         "/api/v1/annotations/by-type/{type_name}",
         "/api/v1/annotations/{annotation_id}",
@@ -535,7 +535,7 @@ class TestAnnotationOpenAPISpec:
 
     def test_timeseries_annotations_accepts_get_and_post(self, client):
         r = client.get("/openapi.json")
-        path = r.json()["paths"].get("/api/v1/timeseries/{metadata_id}/annotations", {})
+        path = r.json()["paths"].get("/api/v1/timeseries/{channel_id}/annotations", {})
         assert "get" in path, "GET not documented for timeseries annotations"
         assert "post" in path, "POST not documented for timeseries annotations"
 
@@ -547,11 +547,11 @@ class TestAnnotationOpenAPISpec:
 
 
 # ---------------------------------------------------------------------------
-# Backwards-compatibility: existing timeseries contract is unbroken
+# Backwards-compatibility: timeseries contract uses channel_id
 # ---------------------------------------------------------------------------
 
 REQUIRED_TIMESERIES_FIELDS = {
-    "metadata_id", "location", "site", "parameter", "unit",
+    "channel_id", "location", "site", "parameter", "unit",
     "data_shape", "provenance", "processing_degree", "campaign",
     "from_timestamp", "to_timestamp", "row_count", "data",
 }
@@ -562,9 +562,9 @@ class TestTimeseriesContractUnchanged:
 
     def _mock_timeseries(self):
         return {
-            "metadata_id": 1,
-            "location": "Primary Effluent",
-            "site": "WRRF",
+            "channel_id": 1,
+            "location": None,
+            "site": None,
             "parameter": "TSS",
             "unit": "mg/L",
             "data_shape": "Scalar",

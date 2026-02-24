@@ -93,19 +93,19 @@ class TestRoot:
 class TestHealth:
     def test_health_endpoint_exists(self, patched_client):
         c, conn, cursor = patched_client
-        cursor.fetchone.return_value = ("1.6.0",)
+        cursor.fetchone.return_value = ("2.0.0",)
         r = c.get("/api/v1/health")
         assert r.status_code in (200, 503)
 
     def test_health_schema_has_status_field(self, patched_client):
         c, conn, cursor = patched_client
-        cursor.fetchone.return_value = ("1.6.0",)
+        cursor.fetchone.return_value = ("2.0.0",)
         r = c.get("/api/v1/health")
         assert "status" in r.json()
 
     def test_health_schema_has_api_version(self, patched_client):
         c, conn, cursor = patched_client
-        cursor.fetchone.return_value = ("1.6.0",)
+        cursor.fetchone.return_value = ("2.0.0",)
         r = c.get("/api/v1/health")
         assert "api_version" in r.json()
         assert isinstance(r.json()["api_version"], str)
@@ -156,33 +156,29 @@ class TestSitesContract:
 
 
 # ---------------------------------------------------------------------------
-# Metadata
+# Channels
 # ---------------------------------------------------------------------------
 
-REQUIRED_METADATA_FIELDS = {
-    "metadata_id", "parameter_id", "parameter_name",
-    "unit_id", "unit_name", "location_id", "location_name",
-    "site_id", "site_name", "equipment_id", "equipment_identifier",
-    "campaign_id", "campaign_name", "campaign_type",
+REQUIRED_CHANNEL_FIELDS = {
+    "channel_id", "parameter_id", "parameter_name",
+    "unit_id", "unit_name",
+    "equipment_id", "equipment_identifier",
     "data_provenance_id", "data_provenance", "processing_degree",
-    "laboratory_id", "laboratory_name", "analyst_id", "analyst_name",
-    "contact_id", "contact_name", "project_id", "project_name",
-    "purpose_id", "purpose_name", "value_type_id", "value_type_name",
-    "start_date", "end_date",
+    "value_type_id", "value_type_name",
 }
 
 REQUIRED_PAGINATED_FIELDS = {"items", "total", "page", "page_size", "has_next"}
 
 
-def _mock_metadata():
-    return {f: None for f in REQUIRED_METADATA_FIELDS} | {"metadata_id": 1, "processing_degree": "Raw"}
+def _mock_channel():
+    return {f: None for f in REQUIRED_CHANNEL_FIELDS} | {"channel_id": 1, "processing_degree": "Raw"}
 
 
-class TestMetadataContract:
-    def test_list_metadata_returns_paginated_envelope(self, patched_client):
+class TestChannelsContract:
+    def test_list_channels_returns_paginated_envelope(self, patched_client):
         c, conn, cursor = patched_client
-        with patch("api.v1.repositories.metadata_repository.list_metadata", return_value=([_mock_metadata()], 1)):
-            r = c.get("/api/v1/metadata")
+        with patch("api.v1.repositories.channel_repository.list_channels", return_value=([_mock_channel()], 1)):
+            r = c.get("/api/v1/channels")
         assert r.status_code == 200
         body = r.json()
         for field in REQUIRED_PAGINATED_FIELDS:
@@ -190,8 +186,8 @@ class TestMetadataContract:
 
     def test_paginated_envelope_types(self, patched_client):
         c, conn, cursor = patched_client
-        with patch("api.v1.repositories.metadata_repository.list_metadata", return_value=([_mock_metadata()], 1)):
-            r = c.get("/api/v1/metadata")
+        with patch("api.v1.repositories.channel_repository.list_channels", return_value=([_mock_channel()], 1)):
+            r = c.get("/api/v1/channels")
         body = r.json()
         assert isinstance(body["items"], list)
         assert isinstance(body["total"], int)
@@ -199,25 +195,25 @@ class TestMetadataContract:
         assert isinstance(body["page_size"], int)
         assert isinstance(body["has_next"], bool)
 
-    def test_metadata_item_has_all_required_fields(self, patched_client):
+    def test_channel_item_has_all_required_fields(self, patched_client):
         c, conn, cursor = patched_client
-        with patch("api.v1.repositories.metadata_repository.list_metadata", return_value=([_mock_metadata()], 1)):
-            r = c.get("/api/v1/metadata")
+        with patch("api.v1.repositories.channel_repository.list_channels", return_value=([_mock_channel()], 1)):
+            r = c.get("/api/v1/channels")
         item = r.json()["items"][0]
-        for field in REQUIRED_METADATA_FIELDS:
-            assert field in item, f"Missing metadata field: {field}"
+        for field in REQUIRED_CHANNEL_FIELDS:
+            assert field in item, f"Missing channel field: {field}"
 
-    def test_metadata_by_id_404_has_detail(self, patched_client):
+    def test_channel_by_id_404_has_detail(self, patched_client):
         c, conn, cursor = patched_client
-        with patch("api.v1.repositories.metadata_repository.get_metadata_by_id", return_value=None):
-            r = c.get("/api/v1/metadata/999999")
+        with patch("api.v1.repositories.channel_repository.get_channel_by_id", return_value=None):
+            r = c.get("/api/v1/channels/999999")
         assert r.status_code == 404
         assert "detail" in r.json()
 
     def test_pagination_query_params_accepted(self, patched_client):
         c, conn, cursor = patched_client
-        with patch("api.v1.repositories.metadata_repository.list_metadata", return_value=([], 0)):
-            r = c.get("/api/v1/metadata?page=2&page_size=10&processing_degree=Raw")
+        with patch("api.v1.repositories.channel_repository.list_channels", return_value=([], 0)):
+            r = c.get("/api/v1/channels?page=2&page_size=10&processing_degree=Raw")
         assert r.status_code == 200
 
 
@@ -226,7 +222,7 @@ class TestMetadataContract:
 # ---------------------------------------------------------------------------
 
 REQUIRED_TIMESERIES_FIELDS = {
-    "metadata_id", "location", "site", "parameter", "unit",
+    "channel_id", "location", "site", "parameter", "unit",
     "data_shape", "provenance", "processing_degree", "campaign",
     "from_timestamp", "to_timestamp", "row_count", "data",
 }
@@ -234,9 +230,9 @@ REQUIRED_TIMESERIES_FIELDS = {
 
 def _mock_timeseries():
     return {
-        "metadata_id": 1,
-        "location": "Primary Effluent",
-        "site": "WRRF",
+        "channel_id": 1,
+        "location": None,
+        "site": None,
         "parameter": "TSS",
         "unit": "mg/L",
         "data_shape": "Scalar",
@@ -282,7 +278,7 @@ class TestTimeseriesContract:
     def test_by_context_returns_list(self, patched_client):
         c, conn, cursor = patched_client
         with patch("api.v1.services.timeseries_service.get_timeseries_by_context", return_value=[]):
-            r = c.get("/api/v1/timeseries/by-context/search?location_id=1&parameter_id=1")
+            r = c.get("/api/v1/timeseries/by-context/search?equipment_id=1&parameter_id=1")
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
@@ -300,7 +296,7 @@ class TestTimeseriesContract:
 REQUIRED_CAMPAIGN_FIELDS = {
     "campaign_id", "campaign_type_id", "campaign_type_name",
     "site_id", "site_name", "name", "description",
-    "start_date", "end_date", "project_id", "project_name",
+    "start_date", "end_date",
 }
 
 
@@ -431,20 +427,20 @@ class TestLineageContract:
 
     def test_lineage_tree_has_required_fields(self, patched_client):
         c, conn, cursor = patched_client
-        mock_tree = {"metadata_id": 1, "parents": [], "children": []}
+        mock_tree = {"channel_id": 1, "parents": [], "children": []}
         with patch("api.v1.services.lineage_service.full_lineage_tree", return_value=mock_tree):
             r = c.get("/api/v1/lineage/1/tree")
         assert r.status_code == 200
         body = r.json()
-        for field in ("metadata_id", "parents", "children"):
+        for field in ("channel_id", "parents", "children"):
             assert field in body, f"Missing tree field: {field}"
 
-    def test_lineage_tree_metadata_id_is_int(self, patched_client):
+    def test_lineage_tree_channel_id_is_int(self, patched_client):
         c, conn, cursor = patched_client
-        mock_tree = {"metadata_id": 1, "parents": [], "children": []}
+        mock_tree = {"channel_id": 1, "parents": [], "children": []}
         with patch("api.v1.services.lineage_service.full_lineage_tree", return_value=mock_tree):
             r = c.get("/api/v1/lineage/1/tree")
-        assert isinstance(r.json()["metadata_id"], int)
+        assert isinstance(r.json()["channel_id"], int)
 
 
 # ---------------------------------------------------------------------------
@@ -456,7 +452,7 @@ class TestIngestionRequestValidation:
 
     def test_sensor_ingest_rejects_empty_values(self, patched_client):
         c, conn, cursor = patched_client
-        payload = {"equipment_id": 1, "parameter_id": 1, "values": []}
+        payload = {"equipment_id": 1, "parameter_id": 1, "unit_id": 1, "values": []}
         r = c.post("/api/v1/ingest/sensor", json=payload)
         assert r.status_code == 422
 
@@ -464,21 +460,22 @@ class TestIngestionRequestValidation:
         c, conn, cursor = patched_client
         payload = {
             "parameter_id": 1,
+            "unit_id": 1,
             "values": [{"timestamp": "2025-01-01T00:00:00", "value": 24.5}],
         }
         r = c.post("/api/v1/ingest/sensor", json=payload)
         assert r.status_code == 422
 
-    def test_lab_ingest_requires_parameter_and_location(self, patched_client):
+    def test_lab_ingest_rejects_empty_values(self, patched_client):
         c, conn, cursor = patched_client
-        payload = {"values": [{"timestamp": "2025-01-01T00:00:00", "value": 24.5}]}
+        payload = {"values": []}
         r = c.post("/api/v1/ingest/lab", json=payload)
         assert r.status_code == 422
 
     def test_processed_ingest_rejects_empty_sources(self, patched_client):
         c, conn, cursor = patched_client
         payload = {
-            "source_metadata_ids": [],
+            "source_channel_ids": [],
             "processing": {"method_name": "outlier_removal", "processing_type": "Cleaning"},
             "output": {
                 "processing_degree": "Cleaned",
@@ -492,12 +489,12 @@ class TestIngestionRequestValidation:
         """Pydantic model test — no HTTP call needed."""
         from api.v1.schemas.ingestion import IngestResponse
 
-        resp = IngestResponse(metadata_id=1, rows_written=5)
+        resp = IngestResponse(channel_id=1, rows_written=5)
         data = resp.model_dump()
-        assert "metadata_id" in data
+        assert "channel_id" in data
         assert "rows_written" in data
         assert "processing_step_id" in data
-        assert isinstance(data["metadata_id"], int)
+        assert isinstance(data["channel_id"], int)
         assert isinstance(data["rows_written"], int)
 
 
@@ -511,10 +508,10 @@ class TestOpenAPISpec:
         "/api/v1/sites",
         "/api/v1/sites/{site_id}",
         "/api/v1/sites/{site_id}/sampling-locations",
-        "/api/v1/metadata",
-        "/api/v1/metadata/{metadata_id}",
-        "/api/v1/timeseries/{metadata_id}",
-        "/api/v1/timeseries/{metadata_id}/full-context",
+        "/api/v1/channels",
+        "/api/v1/channels/{channel_id}",
+        "/api/v1/timeseries/{channel_id}",
+        "/api/v1/timeseries/{channel_id}/full-context",
         "/api/v1/timeseries/by-context/search",
         "/api/v1/campaigns",
         "/api/v1/campaigns/{campaign_id}",
@@ -522,10 +519,10 @@ class TestOpenAPISpec:
         "/api/v1/equipment",
         "/api/v1/equipment/{equipment_id}",
         "/api/v1/equipment/{equipment_id}/lifecycle",
-        "/api/v1/lineage/{metadata_id}/forward",
-        "/api/v1/lineage/{metadata_id}/backward",
-        "/api/v1/lineage/{metadata_id}/tree",
-        "/api/v1/lineage/by-location/degrees",
+        "/api/v1/lineage/{channel_id}/forward",
+        "/api/v1/lineage/{channel_id}/backward",
+        "/api/v1/lineage/{channel_id}/tree",
+        "/api/v1/lineage/by-equipment/degrees",
         "/api/v1/ingest/sensor",
         "/api/v1/ingest/lab",
         "/api/v1/ingest/processed",
@@ -554,5 +551,5 @@ class TestOpenAPISpec:
     def test_read_endpoints_accept_get(self, client):
         r = client.get("/openapi.json")
         paths = r.json()["paths"]
-        for path in ("/api/v1/sites", "/api/v1/metadata", "/api/v1/campaigns", "/api/v1/equipment"):
+        for path in ("/api/v1/sites", "/api/v1/channels", "/api/v1/campaigns", "/api/v1/equipment"):
             assert "get" in paths[path], f"{path} must accept GET"
