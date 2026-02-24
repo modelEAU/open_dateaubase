@@ -1,6 +1,6 @@
 # Schema Dictionary Format Specification
 
-*Version 1.0 — Phase 0 deliverable*
+*Version 1.0*
 
 ---
 

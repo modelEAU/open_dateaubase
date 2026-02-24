@@ -10,17 +10,7 @@ Result tables in §2 and §3 are **generated live** from the database at documen
 ### 1.1 Scenario
 
 The sample data represents a realistic **wastewater and stormwater monitoring programme** at a treatment plant and a combined sewer overflow outfall in Quebec City.
-Data is built up in layers — one layer per schema version — so the dataset grows naturally as the schema evolves.
-
-| Schema version | What was added |
-| --- | --- |
-| v1.0.0 | Baseline monitoring data: sites, equipment, parameters, scalar measurements |
-| v1.0.1 | Schema version history records |
-| v1.0.2 | New scalar measurements with timezone-aware `DATETIMEOFFSET` timestamps |
-| v1.1.0 | UV-Vis spectrometer data (spectra), camera images, particle size distribution arrays |
-| v1.9.0 | Channel model cleanup — `IngestionRoute` dropped; UNIQUE constraint on Channel stream |
-| v2.0.0 | `MetaData` renamed to `Channel`; `LabAnalysis` + `LabValue` tables added |
-| v2.1.0 | `StatusChannel_ID` on Channel; `EquipmentStatusChannel` table |
+The dataset covers: baseline monitoring data (sites, equipment, parameters, scalar measurements), UV-Vis spectrometer spectra, camera images, particle size distribution arrays, lab analyses, and sensor status tracking.
 
 ### 1.2 Spatial context
 
@@ -61,8 +51,7 @@ Two sites, three sampling points:
 
 ### 1.5 Campaigns
 
-Campaigns replace the old Project model as the primary organisational grouping.
-Equipment is associated to a campaign via `CampaignEquipment`, and sampling points via `CampaignSamplingPoints`.
+Equipment is associated to a campaign via `CampaignEquipment`, and sampling points via `CampaignSamplingLocation`.
 
 | Campaign | Equipment | Sampling points |
 | --- | --- | --- |
@@ -71,7 +60,7 @@ Equipment is associated to a campaign via `CampaignEquipment`, and sampling poin
 
 ### 1.6 Scalar measurements (dbo.Value)
 
-22 rows total after v1.0.2 seed data. Key subsets:
+22 rows total. Key subsets:
 
 | Value_ID | Parameter | Equipment | Value | Timestamp (UTC) | QA comment |
 | --- | --- | --- | --- | --- | --- |
@@ -85,10 +74,10 @@ Equipment is associated to a campaign via `CampaignEquipment`, and sampling poin
 | 13 | TSS | ISCO-001 | 12.5 mg/L | 2024-01-15 13:00 | — |
 | 14 | TSS | ISCO-001 | 15.0 mg/L | 2024-01-16 13:00 | — |
 | 18 | TSS | ISCO-001 | 200.0 mg/L | **NULL** | Edge case: no timestamp |
-| 19 | TSS | ISCO-001 | 145.2 mg/L | 2025-06-15 12:00 EDT | v1.0.2 seed |
-| 20 | TSS | ISCO-001 | 160.8 mg/L | 2025-06-15 18:30 EDT | v1.0.2 seed |
+| 19 | TSS | ISCO-001 | 145.2 mg/L | 2025-06-15 12:00 EDT | — |
+| 20 | TSS | ISCO-001 | 160.8 mg/L | 2025-06-15 18:30 EDT | — |
 
-### 1.7 Polymorphic value types (v1.1.0)
+### 1.7 Polymorphic value types
 
 | Type | Channel_ID | Description | Rows |
 | --- | --- | --- | --- |
@@ -97,7 +86,7 @@ Equipment is associated to a campaign via `CampaignEquipment`, and sampling poin
 | Vector (particle size) | 9 | 4-fraction PSD at WWTP-IN-01, 2 timestamps | 8 rows in ValueVector |
 | Matrix (size × velocity) | 10 | Joint distribution at WWTP-IN-01, 3×2 bins | 6 rows in ValueMatrix |
 
-All 6 pre-existing `Channel` rows (IDs 1–6) have `ValueType_ID = 1` (Scalar) after the v1.1.0 migration.
+The scalar Channel rows (IDs 1–6) all have `ValueType_ID = 1` (Scalar).
 
 ---
 
@@ -228,7 +217,7 @@ ORDER BY v.[Value_ID]
 """))
 ```
 
-### 2.9 UV-Vis spectra — `dbo.ValueVector` (v1.1.0)
+### 2.9 UV-Vis spectra — `dbo.ValueVector`
 
 ```python exec="true" session="bq"
 print(run_bq("""
@@ -246,7 +235,7 @@ ORDER BY vv.[Timestamp], vb.[BinIndex]
 """))
 ```
 
-### 2.10 Camera images — `dbo.ValueImage` (v1.1.0)
+### 2.10 Camera images — `dbo.ValueImage`
 
 ```python exec="true" session="bq"
 print(run_bq("""
@@ -263,7 +252,7 @@ ORDER BY [Timestamp]
 """))
 ```
 
-### 2.11 Particle size distribution vectors — `dbo.ValueVector` (v1.1.0)
+### 2.11 Particle size distribution vectors — `dbo.ValueVector`
 
 ```python exec="true" session="bq"
 print(run_bq("""
@@ -287,23 +276,23 @@ ORDER BY vv.[Timestamp], vb.[BinIndex]
 This section documents queries that the schema is designed to answer.
 The test suite `tests/integration/test_business_queries.py` runs every query and asserts that results meet the expected criteria.
 
-| ID | Category | Business question | Min. schema | Test |
-| --- | --- | --- | --- | --- |
-| BQ-01 | Measurement retrieval | What are all TSS measurements from ISCO-001, sorted by timestamp? | v2.0.0 | `test_bq01` |
-| BQ-02 | Measurement retrieval | What are the TSS measurements from ISCO-001 in January 2024? | v2.0.0 | `test_bq02` |
-| BQ-03 | Measurement retrieval | What is the average TSS concentration per equipment unit? | v2.0.0 | `test_bq03` |
-| BQ-04 | Equipment | Which equipment models are capable of measuring TSS? | v1.0.0 | `test_bq04` |
-| BQ-05 | Equipment | What parameters can each equipment model measure? | v1.0.0 | `test_bq05` |
-| BQ-06 | Equipment | Where has ISCO-001 been deployed (installation history)? | v1.4.0 | `test_bq06` |
-| BQ-07 | Site | What equipment is currently installed at WWTP-IN-01? | v1.4.0 | `test_bq07` |
-| BQ-08 | Watershed | How many measurements of each parameter are available per sampling point in the Saint-Charles watershed? | v2.0.0 | `test_bq08` |
-| BQ-09 | Campaigns | Which campaigns have data from the CSO outfall? | v1.5.0 | `test_bq09` |
-| BQ-10 | Data quality | Which measurements carry a QA/QC comment? | v1.0.2 | `test_bq10` |
-| BQ-11 | Data quality | Are there duplicate measurements at the same Channel and timestamp? | v2.0.0 | `test_bq11` |
-| BQ-12 | Data quality | Which Channel rows have no EquipmentInstallation record covering their data window? | v2.0.0 | `test_bq12` |
-| BQ-13 | Polymorphic types | What value types are recorded per equipment unit? | v2.0.0 | `test_bq13` |
-| BQ-14 | Polymorphic types | What is the UV-Vis absorbance spectrum at 10:00 on 2025-09-10? | v1.1.0 | `test_bq14` |
-| BQ-15 | Polymorphic types | What is the total particle concentration (sum of PSD fractions) at each timestamp? | v1.1.0 | `test_bq15` |
+| ID | Category | Business question | Test |
+| --- | --- | --- | --- |
+| BQ-01 | Measurement retrieval | What are all TSS measurements from ISCO-001, sorted by timestamp? | `test_bq01` |
+| BQ-02 | Measurement retrieval | What are the TSS measurements from ISCO-001 in January 2024? | `test_bq02` |
+| BQ-03 | Measurement retrieval | What is the average TSS concentration per equipment unit? | `test_bq03` |
+| BQ-04 | Equipment | Which equipment models are capable of measuring TSS? | `test_bq04` |
+| BQ-05 | Equipment | What parameters can each equipment model measure? | `test_bq05` |
+| BQ-06 | Equipment | Where has ISCO-001 been deployed (installation history)? | `test_bq06` |
+| BQ-07 | Site | What equipment is currently installed at WWTP-IN-01? | `test_bq07` |
+| BQ-08 | Watershed | How many measurements of each parameter are available per sampling point in the Saint-Charles watershed? | `test_bq08` |
+| BQ-09 | Campaigns | Which campaigns have data from the CSO outfall? | `test_bq09` |
+| BQ-10 | Data quality | Which measurements carry a QA/QC comment? | `test_bq10` |
+| BQ-11 | Data quality | Are there duplicate measurements at the same Channel and timestamp? | `test_bq11` |
+| BQ-12 | Data quality | Which Channel rows have no EquipmentInstallation record covering their data window? | `test_bq12` |
+| BQ-13 | Polymorphic types | What value types are recorded per equipment unit? | `test_bq13` |
+| BQ-14 | Polymorphic types | What is the UV-Vis absorbance spectrum at 10:00 on 2025-09-10? | `test_bq14` |
+| BQ-15 | Polymorphic types | What is the total particle concentration (sum of PSD fractions) at each timestamp? | `test_bq15` |
 
 ### 3.1 Detailed queries
 
@@ -329,7 +318,7 @@ WHERE p.[Parameter]    = 'TSS'
 ORDER BY v.[Timestamp];
 ```
 
-**Live result** — 6 rows expected (3 from v1.0.0 seed + 1 NULL-timestamp edge case + 2 from v1.0.2 seed):
+**Live result** — 6 rows expected:
 
 ```python exec="true" session="bq"
 print(run_bq("""
@@ -751,7 +740,7 @@ ORDER BY c.[Channel_ID]
 
 ---
 
-#### BQ-13 — Value types per equipment unit (v1.1.0)
+#### BQ-13 — Value types per equipment unit
 
 **Business question:** "What kinds of data (scalar, spectral, image, array) are collected by each instrument?"
 
@@ -784,7 +773,7 @@ ORDER BY e.[identifier], vt.[ValueType_Name]
 
 ---
 
-#### BQ-14 — UV-Vis absorption spectrum at a specific timestamp (v1.1.0)
+#### BQ-14 — UV-Vis absorption spectrum at a specific timestamp
 
 **Business question:** "Give me the full absorbance spectrum recorded at 14:00 on 2025-09-10."
 
@@ -819,7 +808,7 @@ ORDER BY vb.[BinIndex]
 
 ---
 
-#### BQ-15 — Total particle mass per timestamp from PSD vector (v1.1.0)
+#### BQ-15 — Total particle mass per timestamp from PSD vector
 
 **Business question:** "What is the total suspended particle concentration (sum of all size fractions) at each measurement time?"
 
@@ -861,8 +850,8 @@ These checks assert structural and domain-logic invariants the schema is designe
 | IC-03 | Domain logic | All pH values fall within the physical range 0–14 | 0 rows |
 | IC-04 | Unit consistency | The unit recorded in `Channel` matches the default unit of the `Parameter` | 0 rows |
 | IC-05 | Referential | Every `Channel` row references an existing `Equipment` and `Parameter` | 0 rows |
-| IC-06 | Polymorphic (v1.1.0) | Every `Channel` row with `ValueType = Vector` has at least one `ChannelAxis` row | 0 rows |
-| IC-07 | Polymorphic (v1.1.0) | Every `Channel` row with `ValueType = Scalar` has no rows in `ValueVector`, `ValueMatrix`, or `ValueImage` | 0 rows |
+| IC-06 | Polymorphic | Every `Channel` row with `ValueType = Vector` has at least one `ChannelAxis` row | 0 rows |
+| IC-07 | Polymorphic | Every `Channel` row with `ValueType = Scalar` has no rows in `ValueVector`, `ValueMatrix`, or `ValueImage` | 0 rows |
 | IC-08 | Cardinality | No `Value` row references a `Channel_ID` that does not exist | 0 rows |
 
 ---
@@ -975,7 +964,7 @@ WHERE c.[Equipment_ID] IS NULL OR c.[Parameter_ID] IS NULL
 
 ---
 
-#### IC-06 — Vector Channel without a ChannelAxis (v1.1.0)
+#### IC-06 — Vector Channel without a ChannelAxis
 
 ```sql
 SELECT c.[Channel_ID]
@@ -1003,7 +992,7 @@ WHERE vt.[ValueType_Name] = 'Vector'
 
 ---
 
-#### IC-07 — Scalar Channel with data in polymorphic tables (v1.1.0)
+#### IC-07 — Scalar Channel with data in polymorphic tables
 
 ```sql
 SELECT c.[Channel_ID], 'ValueVector' AS violation_table

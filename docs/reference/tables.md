@@ -19,7 +19,7 @@ Human-authored annotations on time series data. Each annotation applies to a sin
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Annotation_ID | INT **(PK)** | - | ✓ | <span id="Annotation_ID"></span>Primary key, auto-incremented | - |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The time series this annotation applies to (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The time series this annotation applies to | FK → [Channel.Channel_ID](#Channel) |
 | AnnotationType_ID | INT | - | ✓ | <span id="AnnotationType_ID"></span>What kind of annotation this is | FK → [AnnotationType.AnnotationType_ID](#AnnotationType) |
 | StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>Start of the annotated time range | - |
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the annotated range. NULL = point annotation or ongoing | - |
@@ -129,7 +129,7 @@ Lookup table classifying the nature of a Campaign (Experiment, Operations, Commi
 
 ### Channel
 
-Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins — it is NOT stored here. Renamed from MetaData in v2.0.0 (Phase B). Lab data moved to LabAnalysis + LabValue. In v2.1.0 (Phase C), StatusOfMetaDataID replaced by StatusChannel_ID and StatusOfEquipmentID moved to the EquipmentStatusChannel table.
+Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins — it is NOT stored here. Lab measurements are stored in Value (scalar) or ValueVector/ValueMatrix/ValueImage. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
 
 
 
@@ -137,7 +137,7 @@ Invariant descriptor for a measurement stream (sensor channel). Each row identif
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Surrogate primary key (was Metadata_ID prior to v2.0.0) | - |
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Surrogate primary key | - |
 | Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>Physical instrument that produces this measurement stream. | FK → [Equipment.Equipment_ID](#Equipment) |
 | Parameter_ID | INT | - |  | <span id="Parameter_ID"></span>Measured analyte or parameter (e.g. TSS, pH) | FK → [Parameter.Parameter_ID](#Parameter) |
 | Unit_ID | INT | - |  | <span id="Unit_ID"></span>Measurement unit (e.g. mg/L) | FK → [Unit.Unit_ID](#Unit) |
@@ -145,21 +145,21 @@ Invariant descriptor for a measurement stream (sensor channel). Each row identif
 | ProcessingDegree | NVARCHAR(50) | - |  | <span id="ProcessingDegree"></span>Level of processing applied to this time series. Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation — if the processing degree changes, a new Channel row is created. Controlled vocabulary: Raw, Cleaned, Calibrated, Validated, Filtered, Predicted.
  | Default: `Raw` |
 | ValueType_ID | INT | - | ✓ | <span id="ValueType_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueType.ValueType_ID](#ValueType)<br>Default: `1` |
-| StatusChannel_ID | INT | - |  | <span id="StatusChannel_ID"></span>If this Channel is a per-measurement-channel status time series, this points to the measurement Channel_ID it describes. NULL for measurement channels and device-level status channels. Introduced in v2.1.0 (Phase C) replacing the StatusOfMetaDataID column.
+| StatusChannel_ID | INT | - |  | <span id="StatusChannel_ID"></span>If this Channel is a per-measurement-channel status time series, this points to the measurement Channel_ID it describes. NULL for measurement channels and device-level status channels.
  | FK → [Channel.Channel_ID](#Channel) |
 
 <span id="ChannelAxis"></span>
 
 ### ChannelAxis
 
-Junction table linking a Channel measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix. Renamed from MetaDataAxis in v2.0.0 (Phase B).
+Junction table linking a Channel measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix.
 
 
 #### Fields
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the measurement channel (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the measurement channel | FK → [Channel.Channel_ID](#Channel) |
 | AxisRole | INT **(PK)** | - | ✓ | <span id="AxisRole"></span>Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only) | - |
 | ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the binning axis for this role | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
 
@@ -192,7 +192,7 @@ Example: outlier-removal step takes Channel 10 (raw TSS) as Input and produces C
 |-------|----------|-----------|----------|-------------|-------------|
 | DataLineage_ID | INT **(PK)** | - | ✓ | <span id="DataLineage_ID"></span>Surrogate primary key | - |
 | ProcessingStep_ID | INT | - | ✓ | <span id="ProcessingStep_ID"></span>The processing step that consumed or produced the Channel entry | FK → [ProcessingStep.ProcessingStep_ID](#ProcessingStep) |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel entry (time series) that participates in this lineage edge (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel entry (time series) that participates in this lineage edge | FK → [Channel.Channel_ID](#Channel) |
 | Role | NVARCHAR(10) | - | ✓ | <span id="Role"></span>Whether this Channel entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.
  | - |
 
@@ -253,7 +253,7 @@ Records a discrete lifecycle event (calibration, maintenance, failure, etc.) tha
 
 ### EquipmentEventChannel
 
-Junction table linking an equipment lifecycle event to the Channel series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration). Renamed from EquipmentEventMetaData in v2.0.0 (Phase B).
+Junction table linking an equipment lifecycle event to the Channel series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration).
 
 
 #### Fields
@@ -261,7 +261,7 @@ Junction table linking an equipment lifecycle event to the Channel series it inv
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | EquipmentEvent_ID | INT **(PK)** | - | ✓ | <span id="EquipmentEvent_ID"></span>Equipment event this link belongs to | FK → [EquipmentEvent.EquipmentEvent_ID](#EquipmentEvent) |
-| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Channel series associated with this event (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Channel series associated with this event | FK → [Channel.Channel_ID](#Channel) |
 | WindowStart | DATETIME2(7) | - |  | <span id="WindowStart"></span>Start of the relevant time window within the Channel series. NULL means use all values. | - |
 | WindowEnd | DATETIME2(7) | - |  | <span id="WindowEnd"></span>End of the relevant time window. NULL means use all values. | - |
 
@@ -348,7 +348,7 @@ Links equipment models to the relevant maintenance procedures
 
 ### EquipmentStatusChannel
 
-Maps each piece of equipment to the Channel that carries its device-level status codes. Introduced in v2.1.0 (Phase C) to replace the StatusOfEquipmentID column that was previously held directly on the Channel table. One equipment can have at most one device-level status channel.
+Maps each piece of equipment to the Channel that carries its device-level status codes. One equipment can have at most one device-level status channel.
 
 
 
@@ -382,7 +382,7 @@ Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, 
 
 ### LabAnalysis
 
-One analytical run on a discrete physical sample. Groups together all LabValue rows from a single lab session. Lab data does not fit the continuous-stream Channel abstraction (it is tied to a physical sample, not an equipment stream), so it lives here rather than in Channel + Value. Added in v2.0.0 (Phase B).
+One analytical run on a discrete physical sample. Groups together all LabValue rows from a single lab session. Lab data does not fit the continuous-stream Channel abstraction (it is tied to a physical sample, not an equipment stream), so it lives here rather than in Channel + Value.
 
 
 
@@ -403,7 +403,7 @@ One analytical run on a discrete physical sample. Groups together all LabValue r
 
 ### LabValue
 
-A single measured value from a lab analysis, for a specific parameter and unit. Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate). Added in v2.0.0 (Phase B).
+A single measured value from a lab analysis, for a specific parameter and unit. Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate).
 
 
 
@@ -470,7 +470,7 @@ Links parameters to the relevant measurement procedures
 
 ### Person
 
-Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone). Renamed from Contact in v1.2.0.
+Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone).
 
 
 #### Fields
@@ -680,7 +680,7 @@ Stores each measured water quality or quantity value, its time stamp, replicate 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Comment_ID | INT | - |  | <span id="Comment_ID"></span>A unique ID is generated automatically by MySQL | FK → [Comments.Comment_ID](#Comments) |
-| Channel_ID | INT | - |  | <span id="Channel_ID"></span>The measurement channel this value belongs to (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT | - |  | <span id="Channel_ID"></span>The measurement channel this value belongs to | FK → [Channel.Channel_ID](#Channel) |
 | Value_ID | INT **(PK)** | - | ✓ | <span id="Value_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Value | FLOAT | - |  | <span id="Value"></span>Value of collected data | - |
 | Number_of_experiment | INT | - |  | <span id="Number_of_experiment"></span>Number of replica of an experiment | - |

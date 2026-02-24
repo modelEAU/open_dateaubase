@@ -1,17 +1,11 @@
-# Campaigns and Provenance (v1.2.0+)
-
-This document describes the Campaign and DataProvenance concepts introduced in schema
-version 1.2.0 (Phase 2a), and their relationship to the Channel model.
-
----
+# Campaigns and Provenance
 
 ## Background: Why Campaigns?
 
 A **Campaign** is a time-bounded measurement context. It answers: *"What were we trying
 to do when this data was collected?"*
 
-Campaigns replaced the old `Project` table, which was dropped entirely in v1.10.0. The
-`Campaign` table is the sole organisational grouping for measurements and samples.
+The `Campaign` table is the sole organisational grouping for measurements and samples.
 
 ---
 
@@ -85,26 +79,6 @@ To associate equipment with the campaign:
 INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role])
 VALUES (@campaign_id, @sensor_equipment_id, 'Primary sensor');
 ```
-
----
-
-## Schema Changes in v1.2.0
-
-### Renamed: Contact → Person
-
-- Table name: `Contact` → `Person`
-- PK column: `Contact_ID` → `Person_ID`
-- Obsolete columns dropped: `Skype_name`, `Street_number`, `Street_name`, `City`,
-  `Zip_code`, `Country`, `Office_number`
-- Column renamed: `Status` → `Role`
-- `Role` controlled vocabulary: MSc, Postdoc, Intern, PhD, Professor, Research
-  Professional, Technician, Administrator, Guest
-
-### New tables (v1.2.0)
-
-- `CampaignType` — lookup with 3 seed rows
-- `Campaign` — time-bounded measurement context
-- `DataProvenance` — lookup with 5 seed rows
 
 ---
 

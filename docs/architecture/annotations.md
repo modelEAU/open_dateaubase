@@ -1,4 +1,4 @@
-# Time Series Annotations (v1.7.0)
+# Time Series Annotations
 
 ## What annotations are and why they exist
 
@@ -16,7 +16,7 @@ Annotations are distinct from:
 | Concept | Table | Purpose |
 | --- | --- | --- |
 | `EquipmentEvent` | `dbo.EquipmentEvent` | Structured lifecycle events (calibration, maintenance, deployment) |
-| `DataLineage` / `ProcessingStep` | Phase 3 tables | Automated audit trail of algorithmic transformations |
+| `DataLineage` / `ProcessingStep` | `dbo.DataLineage` / `dbo.ProcessingStep` | Automated audit trail of algorithmic transformations |
 | `Annotation` | `dbo.Annotation` | Free-form human commentary on any interval |
 
 An annotation may optionally reference the `EquipmentEvent` that triggered it

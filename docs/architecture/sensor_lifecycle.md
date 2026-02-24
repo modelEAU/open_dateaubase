@@ -1,16 +1,10 @@
-# Sensor Lifecycle Tracking (v1.4.0)
-
-This document describes the equipment lifecycle concepts introduced in schema version
-1.4.0 (Phase 2c).
-
----
+# Sensor Lifecycle Tracking
 
 ## Background
 
 In continuous water quality monitoring, sensors undergo frequent interventions:
 calibration, maintenance, firmware updates, temporary removal, and replacement.
-Phase 2c adds structured tables for recording these events — as expand-only additions
-with no changes to existing data.
+Structured tables record these events alongside existing data.
 
 ---
 
@@ -52,7 +46,6 @@ sensor's event history.
 ### EquipmentEventChannel
 
 Junction table linking a lifecycle event to the Channel series it involves.
-Renamed from `EquipmentEventMetaData` in v2.0.0 (Phase B).
 
 | Column | Type | Notes |
 | --- | --- | --- |
@@ -83,7 +76,7 @@ Two indexes support efficient queries: by equipment over time, and by location o
 
 ---
 
-## SamplingPoints Additions (v1.4.0)
+## SamplingPoints Additions
 
 Three nullable columns added to `SamplingPoints`:
 
@@ -93,7 +86,7 @@ Three nullable columns added to `SamplingPoints`:
 | `ValidTo` | DATETIME2(7) | When it became inactive (NULL = currently active) |
 | `CreatedByCampaign_ID` | INT FK→Campaign | Which campaign established this location |
 
-All existing rows have NULL in these columns — fully non-breaking.
+All existing rows may have NULL in these columns.
 
 ---
 

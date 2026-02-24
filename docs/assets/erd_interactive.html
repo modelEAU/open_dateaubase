@@ -331,7 +331,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "Channel.Channel_ID",
-          "description": "The time series this annotation applies to (was Metadata_ID prior to v2.0.0)"
+          "description": "The time series this annotation applies to"
         },
         {
           "name": "AnnotationType_ID",
@@ -659,7 +659,7 @@
     {
       "id": "Channel",
       "label": "Channel",
-      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins \u2014 it is NOT stored here. Renamed from MetaData in v2.0.0 (Phase B). Lab data moved to LabAnalysis + LabValue. In v2.1.0 (Phase C), StatusOfMetaDataID replaced by StatusChannel_ID and StatusOfEquipmentID moved to the EquipmentStatusChannel table.\n",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins \u2014 it is NOT stored here. Lab measurements are stored in Value (scalar) or ValueVector/ValueMatrix/ValueImage. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
       "fields": [
         {
           "name": "Channel_ID",
@@ -668,7 +668,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Surrogate primary key (was Metadata_ID prior to v2.0.0)"
+          "description": "Surrogate primary key"
         },
         {
           "name": "Equipment_ID",
@@ -731,14 +731,14 @@
           "is_fk": true,
           "is_required": false,
           "fk_target": "Channel.Channel_ID",
-          "description": "If this Channel is a per-measurement-channel status time series, this points to the measurement Channel_ID it describes. NULL for measurement channels and device-level status channels. Introduced in v2.1.0 (Phase C) replacing the StatusOfMetaDataID column.\n"
+          "description": "If this Channel is a per-measurement-channel status time series, this points to the measurement Channel_ID it describes. NULL for measurement channels and device-level status channels.\n"
         }
       ]
     },
     {
       "id": "ChannelAxis",
       "label": "ChannelAxis",
-      "description": "Junction table linking a Channel measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix. Renamed from MetaDataAxis in v2.0.0 (Phase B).",
+      "description": "Junction table linking a Channel measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix.",
       "fields": [
         {
           "name": "Channel_ID",
@@ -747,7 +747,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "Channel.Channel_ID",
-          "description": "References the measurement channel (was Metadata_ID prior to v2.0.0)"
+          "description": "References the measurement channel"
         },
         {
           "name": "AxisRole",
@@ -824,7 +824,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "Channel.Channel_ID",
-          "description": "The Channel entry (time series) that participates in this lineage edge (was Metadata_ID prior to v2.0.0)"
+          "description": "The Channel entry (time series) that participates in this lineage edge"
         },
         {
           "name": "Role",
@@ -1014,7 +1014,7 @@
     {
       "id": "EquipmentEventChannel",
       "label": "EquipmentEventChannel",
-      "description": "Junction table linking an equipment lifecycle event to the Channel series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration). Renamed from EquipmentEventMetaData in v2.0.0 (Phase B).",
+      "description": "Junction table linking an equipment lifecycle event to the Channel series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration).",
       "fields": [
         {
           "name": "EquipmentEvent_ID",
@@ -1032,7 +1032,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "Channel.Channel_ID",
-          "description": "Channel series associated with this event (was Metadata_ID prior to v2.0.0)"
+          "description": "Channel series associated with this event"
         },
         {
           "name": "WindowStart",
@@ -1263,7 +1263,7 @@
     {
       "id": "EquipmentStatusChannel",
       "label": "EquipmentStatusChannel",
-      "description": "Maps each piece of equipment to the Channel that carries its device-level status codes. Introduced in v2.1.0 (Phase C) to replace the StatusOfEquipmentID column that was previously held directly on the Channel table. One equipment can have at most one device-level status channel.\n",
+      "description": "Maps each piece of equipment to the Channel that carries its device-level status codes. One equipment can have at most one device-level status channel.\n",
       "fields": [
         {
           "name": "Equipment_ID",
@@ -1358,7 +1358,7 @@
     {
       "id": "LabAnalysis",
       "label": "LabAnalysis",
-      "description": "One analytical run on a discrete physical sample. Groups together all LabValue rows from a single lab session. Lab data does not fit the continuous-stream Channel abstraction (it is tied to a physical sample, not an equipment stream), so it lives here rather than in Channel + Value. Added in v2.0.0 (Phase B).\n",
+      "description": "One analytical run on a discrete physical sample. Groups together all LabValue rows from a single lab session. Lab data does not fit the continuous-stream Channel abstraction (it is tied to a physical sample, not an equipment stream), so it lives here rather than in Channel + Value.\n",
       "fields": [
         {
           "name": "LabAnalysis_ID",
@@ -1437,7 +1437,7 @@
     {
       "id": "LabValue",
       "label": "LabValue",
-      "description": "A single measured value from a lab analysis, for a specific parameter and unit. Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate). Added in v2.0.0 (Phase B).\n",
+      "description": "A single measured value from a lab analysis, for a specific parameter and unit. Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate).\n",
       "fields": [
         {
           "name": "LabValue_ID",
@@ -1627,7 +1627,7 @@
     {
       "id": "Person",
       "label": "Person",
-      "description": "Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone). Renamed from Contact in v1.2.0.",
+      "description": "Personal and professional information for people involved in projects (e.g., name, affiliation, role, e-mail, phone).",
       "fields": [
         {
           "name": "Person_ID",
@@ -2417,7 +2417,7 @@
           "is_fk": true,
           "is_required": false,
           "fk_target": "Channel.Channel_ID",
-          "description": "The measurement channel this value belongs to (was Metadata_ID prior to v2.0.0)"
+          "description": "The measurement channel this value belongs to"
         },
         {
           "name": "Value_ID",
@@ -2914,7 +2914,7 @@
     {
       "id": "vw_ChannelStatus",
       "label": "vw_ChannelStatus",
-      "description": "Join view for per-channel sensor status queries. Updated in v2.1.0 (Phase C) to use Channel.StatusChannel_ID instead of the legacy StatusOfMetaDataID column.",
+      "description": "Join view for per-channel sensor status queries. Selects all Channel rows where StatusChannel_ID is non-NULL, joining each status time series back to its measurement Channel.",
       "view_definition": "SELECT\n    statusC.[Channel_ID]          AS StatusChannelID,\n    statusC.[StatusChannel_ID]    AS MeasurementChannelID,\n    measC.[Equipment_ID]          AS EquipmentID,\n    e.[identifier]                AS EquipmentName,\n    p.[Parameter]                 AS MeasurementParameter,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT)        AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]\nJOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]\nJOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]\nJOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]\nLEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)\nWHERE statusC.[StatusChannel_ID] IS NOT NULL\n",
       "columns": [
         {
@@ -3012,7 +3012,7 @@
     {
       "id": "vw_DeviceStatus",
       "label": "vw_DeviceStatus",
-      "description": "Join view for device-level sensor status queries. Updated in v2.1.0 (Phase C) to join via EquipmentStatusChannel instead of the legacy StatusOfEquipmentID column on Channel.",
+      "description": "Join view for device-level sensor status queries. Joins via EquipmentStatusChannel to resolve the equipment-level status Channel for each piece of equipment.",
       "view_definition": "SELECT\n    statusC.[Channel_ID]          AS StatusChannelID,\n    esc.[Equipment_ID]            AS EquipmentID,\n    e.[identifier]                AS EquipmentName,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT)        AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]\nJOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]\nJOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]\nLEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT)\n",
       "columns": [
         {

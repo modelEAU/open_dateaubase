@@ -1,14 +1,4 @@
-# Sensor Status Architecture (v2.1.0)
-
-**Phase C** replaced the v1.8.0 self-referential `StatusOfMetaDataID` and
-`StatusOfEquipmentID` columns with a cleaner structure:
-
-- **Per-channel status**: `Channel.StatusChannel_ID` (nullable FK → Channel) — a
-  measurement Channel optionally points to the Channel that carries its status codes.
-- **Device-level status**: `EquipmentStatusChannel` table — maps one Equipment row to
-  its device-level status Channel.
-
----
+# Sensor Status Architecture
 
 ## Overview
 

@@ -1,14 +1,4 @@
-# Self-Configuring Ingestion (v1.9.0+)
-
-**Schema version introduced:** 1.9.0
-**Phase:** A
-
-> **Note — IngestionRoute removed.** Prior to v1.9.0, a separate `IngestionRoute` table
-> was required before any data could flow. That table has been dropped. The current model
-> is self-configuring: the first write for a new sensor stream creates the Channel row
-> automatically. No pre-configuration required.
-
----
+# Self-Configuring Ingestion
 
 ## Overview
 

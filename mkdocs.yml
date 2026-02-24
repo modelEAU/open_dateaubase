@@ -41,7 +41,6 @@ nav:
     - Sample Data & Queries: reference/sample_data.md
   - Architecture:
     - Campaigns and Provenance: architecture/campaigns_and_provenance.md
-    - Current Schema Generation: architecture/current_schema_generation.md
     - Ingestion Routing: architecture/ingestion_routing.md
     - Lab data: architecture/lab_data.md
     - Processing Lineage: architecture/processing_lineage.md

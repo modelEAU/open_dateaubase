@@ -1,4 +1,4 @@
-# Processing Lineage (v1.6.0)
+# Processing Lineage
 
 This document explains how open_dateaubase records **data transformation history** — the
 chain of processing steps that transform raw sensor measurements into cleaned, validated,
@@ -22,7 +22,7 @@ that transformed them, so users can always trace:
 
 ---
 
-## Tables (v1.6.0)
+## Tables
 
 ### `dbo.ProcessingStep`
 

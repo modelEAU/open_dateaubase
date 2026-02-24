@@ -1,9 +1,4 @@
-# Lab Data (v2.0.0+)
-
-**Schema version introduced:** 2.0.0
-**Phase:** B
-
----
+# Lab Data
 
 ## Background
 
@@ -173,8 +168,7 @@ ORDER BY la.[AnalyzedAt];
 
 ## Campaign Junction Tables
 
-Three junction tables define which resources a campaign uses — all introduced in v1.3.0,
-unchanged since:
+Three junction tables define which resources a campaign uses:
 
 | Table | Links | Purpose |
 | --- | --- | --- |

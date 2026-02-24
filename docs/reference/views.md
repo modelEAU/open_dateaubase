@@ -7,7 +7,7 @@ Virtual tables defined by SQL queries.
 
 ## vw_ChannelStatus
 
-Join view for per-channel sensor status queries. Updated in v2.1.0 (Phase C) to use Channel.StatusChannel_ID instead of the legacy StatusOfMetaDataID column.
+Join view for per-channel sensor status queries. Selects all Channel rows where StatusChannel_ID is non-NULL, joining each status time series back to its measurement Channel.
 
 
 **View Definition:**
@@ -54,7 +54,7 @@ WHERE statusC.[StatusChannel_ID] IS NOT NULL
 
 ## vw_DeviceStatus
 
-Join view for device-level sensor status queries. Updated in v2.1.0 (Phase C) to join via EquipmentStatusChannel instead of the legacy StatusOfEquipmentID column on Channel.
+Join view for device-level sensor status queries. Joins via EquipmentStatusChannel to resolve the equipment-level status Channel for each piece of equipment.
 
 
 **View Definition:**
