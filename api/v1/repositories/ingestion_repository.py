@@ -2,172 +2,156 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
 import pyodbc
-from fastapi import HTTPException
 
 
-class RouteNotFound(Exception):
-    pass
-
-
-class RouteAmbiguous(Exception):
-    pass
-
-
-def resolve_ingestion_route(
+def find_or_create_sensor_metadata(
     conn: pyodbc.Connection,
+    *,
     equipment_id: int,
     parameter_id: int,
+    unit_id: int,
     data_provenance_id: int,
     processing_degree: str,
-    timestamp: datetime,
+    value_type_id: int = 1,
 ) -> int:
-    """Find the active IngestionRoute and return its Metadata_ID.
+    """Find or create a Channel row for a sensor stream. Returns Channel_ID.
 
-    Raises:
-        RouteNotFound: No active route for this combination.
-        RouteAmbiguous: Multiple active routes found.
+    Uses the UNIQUE sensor stream constraint:
+    (Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree) WHERE Equipment_ID IS NOT NULL.
+
+    On first ingest, a new row is created automatically — no pre-configuration needed.
+    Subsequent calls for the same stream return the existing Channel_ID.
     """
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [Metadata_ID], [IngestionRoute_ID]
-        FROM [dbo].[IngestionRoute]
+        IF NOT EXISTS (
+            SELECT 1 FROM [dbo].[Channel]
+            WHERE [Equipment_ID] = ?
+              AND [Parameter_ID] = ?
+              AND [DataProvenance_ID] = ?
+              AND [ProcessingDegree] = ?
+        )
+        INSERT INTO [dbo].[Channel]
+            ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID],
+             [ProcessingDegree], [ValueType_ID])
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        equipment_id, parameter_id, data_provenance_id, processing_degree,
+        equipment_id, parameter_id, unit_id, data_provenance_id, processing_degree, value_type_id,
+    )
+    conn.commit()
+    cursor.execute(
+        """
+        SELECT [Channel_ID] FROM [dbo].[Channel]
         WHERE [Equipment_ID] = ?
           AND [Parameter_ID] = ?
           AND [DataProvenance_ID] = ?
           AND [ProcessingDegree] = ?
-          AND [ValidFrom] <= ?
-          AND ([ValidTo] IS NULL OR [ValidTo] > ?)
         """,
-        equipment_id,
-        parameter_id,
-        data_provenance_id,
-        processing_degree,
-        timestamp,
-        timestamp,
+        equipment_id, parameter_id, data_provenance_id, processing_degree,
     )
-    rows = cursor.fetchall()
-    if not rows:
-        # Get hint: list any routes for this equipment+parameter
-        cursor.execute(
-            """
-            SELECT [IngestionRoute_ID], [DataProvenance_ID], [ProcessingDegree],
-                   [ValidFrom], [ValidTo]
-            FROM [dbo].[IngestionRoute]
-            WHERE [Equipment_ID] = ? AND [Parameter_ID] = ?
-            """,
-            equipment_id,
-            parameter_id,
-        )
-        existing = cursor.fetchall()
-        hint = (
-            f" Active routes: {existing}" if existing else " No routes exist for this equipment+parameter."
-        )
-        raise RouteNotFound(
-            f"No active IngestionRoute for Equipment={equipment_id}, Parameter={parameter_id}, "
-            f"DataProvenance={data_provenance_id}, ProcessingDegree='{processing_degree}', "
-            f"timestamp={timestamp}.{hint}"
-        )
-    if len(rows) > 1:
-        route_ids = [r[1] for r in rows]
-        raise RouteAmbiguous(
-            f"Multiple active IngestionRoutes for Equipment={equipment_id}, "
-            f"Parameter={parameter_id}: route IDs {route_ids}. "
-            "Please close overlapping routes."
-        )
-    return rows[0][0]
+    return cursor.fetchone()[0]
 
 
-def find_or_create_metadata_for_lab(
+def find_or_create_derived_metadata(
     conn: pyodbc.Connection,
     *,
-    parameter_id: int,
-    unit_id: int,
-    sampling_point_id: int,
-    laboratory_id: int | None,
-    analyst_person_id: int | None,
-    campaign_id: int | None,
-    sample_id: int | None,
+    source_channel_id: int,
+    processing_degree: str,
 ) -> int:
-    """Find an existing lab MetaData row or create a new one. Returns Metadata_ID."""
+    """Find or create a Channel row for a processed output stream.
+
+    Clones identity fields (Equipment, Parameter, Unit, DataProvenance, ValueType)
+    from the source Channel row and applies the new ProcessingDegree.
+    """
+    from fastapi import HTTPException
+
     cursor = conn.cursor()
-
-    where_parts = [
-        "m.[Parameter_ID] = ?",
-        "m.[Unit_ID] = ?",
-        "m.[Sampling_point_ID] = ?",
-        "m.[DataProvenance_ID] = 2",  # Laboratory
-    ]
-    params: list = [parameter_id, unit_id, sampling_point_id]
-
-    if laboratory_id is not None:
-        where_parts.append("m.[Laboratory_ID] = ?")
-        params.append(laboratory_id)
-    if analyst_person_id is not None:
-        where_parts.append("m.[AnalystPerson_ID] = ?")
-        params.append(analyst_person_id)
-    if campaign_id is not None:
-        where_parts.append("m.[Campaign_ID] = ?")
-        params.append(campaign_id)
-    if sample_id is not None:
-        where_parts.append("m.[Sample_ID] = ?")
-        params.append(sample_id)
-
-    cursor.execute(
-        f"SELECT TOP 1 [Metadata_ID] FROM [dbo].[MetaData] m WHERE {' AND '.join(where_parts)}",
-        *params,
-    )
-    row = cursor.fetchone()
-    if row:
-        return row[0]
-
-    # Create new MetaData row
     cursor.execute(
         """
-        INSERT INTO [dbo].[MetaData]
-            ([Parameter_ID], [Unit_ID], [Sampling_point_ID], [DataProvenance_ID],
-             [Laboratory_ID], [AnalystPerson_ID], [Campaign_ID], [Sample_ID],
-             [ProcessingDegree])
-        OUTPUT INSERTED.[Metadata_ID]
-        VALUES (?, ?, ?, 2, ?, ?, ?, ?, 'Raw')
+        SELECT [Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ValueType_ID]
+        FROM [dbo].[Channel]
+        WHERE [Channel_ID] = ?
         """,
-        parameter_id,
-        unit_id,
-        sampling_point_id,
+        source_channel_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Source channel {source_channel_id} not found.",
+        )
+    equipment_id, parameter_id, unit_id, data_provenance_id, value_type_id = row
+    return find_or_create_sensor_metadata(
+        conn,
+        equipment_id=equipment_id,
+        parameter_id=parameter_id,
+        unit_id=unit_id,
+        data_provenance_id=data_provenance_id,
+        processing_degree=processing_degree,
+        value_type_id=value_type_id or 1,
+    )
+
+
+def insert_lab_analysis(
+    conn: pyodbc.Connection,
+    *,
+    sample_id: int,
+    laboratory_id: int | None,
+    analyst_person_id: int | None,
+    procedure_id: int | None,
+    campaign_id: int | None,
+    notes: str | None,
+) -> int:
+    """Insert a LabAnalysis row. Returns LabAnalysis_ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[LabAnalysis]
+            ([Sample_ID], [Laboratory_ID], [AnalystPerson_ID], [Procedure_ID],
+             [Campaign_ID], [Notes])
+        OUTPUT INSERTED.[LabAnalysis_ID]
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        sample_id,
         laboratory_id,
         analyst_person_id,
+        procedure_id,
         campaign_id,
-        sample_id,
+        notes,
     )
     new_id: int = cursor.fetchone()[0]
     conn.commit()
     return new_id
 
 
-def create_processed_metadata(
+def insert_lab_value(
     conn: pyodbc.Connection,
     *,
-    source_metadata_id: int,
-    processing_degree: str,
+    lab_analysis_id: int,
+    parameter_id: int,
+    unit_id: int,
+    value: float,
+    replicate: int = 1,
+    quality_code: int | None = None,
 ) -> int:
-    """Create a MetaData row for processed output, cloning context from the source."""
+    """Insert a LabValue row. Returns LabValue_ID."""
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO [dbo].[MetaData]
-            ([Parameter_ID], [Unit_ID], [Sampling_point_ID], [Equipment_ID],
-             [DataProvenance_ID], [Campaign_ID], [ValueType_ID], [ProcessingDegree])
-        OUTPUT INSERTED.[Metadata_ID]
-        SELECT [Parameter_ID], [Unit_ID], [Sampling_point_ID], [Equipment_ID],
-               [DataProvenance_ID], [Campaign_ID], [ValueType_ID], ?
-        FROM [dbo].[MetaData]
-        WHERE [Metadata_ID] = ?
+        INSERT INTO [dbo].[LabValue]
+            ([LabAnalysis_ID], [Parameter_ID], [Unit_ID], [Value], [Replicate], [QualityCode])
+        OUTPUT INSERTED.[LabValue_ID]
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        processing_degree,
-        source_metadata_id,
+        lab_analysis_id,
+        parameter_id,
+        unit_id,
+        value,
+        replicate,
+        quality_code,
     )
     new_id: int = cursor.fetchone()[0]
     conn.commit()

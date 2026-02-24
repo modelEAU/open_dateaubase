@@ -7,7 +7,7 @@ from datetime import datetime
 import pyodbc
 from fastapi import HTTPException
 
-from ..repositories import annotation_repository, metadata_repository
+from ..repositories import annotation_repository, channel_repository
 from ..schemas.annotations import AnnotationCreate, AnnotationUpdate
 
 
@@ -36,7 +36,7 @@ def _build_annotation_response(row: dict) -> dict:
         }
     return {
         "annotation_id": row["annotation_id"],
-        "metadata_id": row["metadata_id"],
+        "channel_id": row["channel_id"],
         "type": {
             "id": row["annotation_type_id"],
             "name": row["annotation_type_name"],
@@ -72,14 +72,14 @@ def get_annotation_types(conn: pyodbc.Connection) -> dict:
 
 def get_annotations_for_timeseries(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime,
     to_dt: datetime,
     type_filter: str | int | None = None,
 ) -> dict:
-    meta = metadata_repository.get_metadata_by_id(conn, metadata_id)
-    if meta is None:
-        raise HTTPException(status_code=404, detail=f"MetaData {metadata_id} not found.")
+    ch = channel_repository.get_channel_by_id(conn, channel_id)
+    if ch is None:
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
 
     annotation_type_id: int | None = None
     if type_filter is not None:
@@ -87,10 +87,10 @@ def get_annotations_for_timeseries(
         annotation_type_id = at["annotation_type_id"]
 
     rows = annotation_repository.get_annotations_for_timeseries(
-        conn, metadata_id, from_dt, to_dt, annotation_type_id
+        conn, channel_id, from_dt, to_dt, annotation_type_id
     )
     return {
-        "metadata_id": metadata_id,
+        "channel_id": channel_id,
         "query_range": {"from": from_dt.isoformat(), "to": to_dt.isoformat()},
         "annotations": [_build_annotation_response(r) for r in rows],
         "count": len(rows),
@@ -99,18 +99,18 @@ def get_annotations_for_timeseries(
 
 def create_annotation(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     data: AnnotationCreate,
 ) -> dict:
-    meta = metadata_repository.get_metadata_by_id(conn, metadata_id)
-    if meta is None:
-        raise HTTPException(status_code=404, detail=f"MetaData {metadata_id} not found.")
+    ch = channel_repository.get_channel_by_id(conn, channel_id)
+    if ch is None:
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
 
     at = _resolve_annotation_type(conn, data.annotation_type)
 
     created = annotation_repository.create_annotation(
         conn,
-        metadata_id=metadata_id,
+        channel_id=channel_id,
         annotation_type_id=at["annotation_type_id"],
         start_time=data.start_time,
         end_time=data.end_time,
@@ -123,7 +123,7 @@ def create_annotation(
 
     return {
         "annotation_id": created["annotation_id"],
-        "metadata_id": metadata_id,
+        "channel_id": channel_id,
         "type": {
             "id": at["annotation_type_id"],
             "name": at["annotation_type_name"],

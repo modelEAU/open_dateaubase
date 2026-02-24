@@ -14,10 +14,11 @@ class ValueItem(BaseModel):
 
 
 class SensorIngestRequest(BaseModel):
-    """Ingest raw sensor data. Route is resolved via IngestionRoute table."""
+    """Ingest raw sensor data. Channel is resolved (or created) from the stream identity."""
 
     equipment_id: int
     parameter_id: int
+    unit_id: int
     data_provenance_id: int = 1
     processing_degree: str = "Raw"
     values: list[ValueItem]
@@ -30,17 +31,26 @@ class SensorIngestRequest(BaseModel):
         return v
 
 
-class LabIngestRequest(BaseModel):
-    """Ingest lab measurement data with full laboratory context."""
+class LabValueItem(BaseModel):
+    """One measured value within a lab analysis."""
 
-    sample_id: int | None = None
     parameter_id: int
     unit_id: int
+    value: float | None
+    replicate: int = 1
+    quality_code: int | None = None
+
+
+class LabIngestRequest(BaseModel):
+    """Ingest lab analysis results into LabAnalysis + LabValue tables."""
+
+    sample_id: int | None = None
     laboratory_id: int | None = None
     analyst_person_id: int | None = None
+    procedure_id: int | None = None
     campaign_id: int | None = None
-    sampling_point_id: int
-    values: list[ValueItem]
+    notes: str | None = None
+    values: list[LabValueItem]
 
     @field_validator("values")
     @classmethod
@@ -67,19 +77,24 @@ class ProcessedOutputSpec(BaseModel):
 class ProcessedIngestRequest(BaseModel):
     """Ingest processed data with full lineage tracking."""
 
-    source_metadata_ids: list[int]
+    source_channel_ids: list[int]
     processing: ProcessingInfo
     output: ProcessedOutputSpec
 
-    @field_validator("source_metadata_ids")
+    @field_validator("source_channel_ids")
     @classmethod
     def sources_not_empty(cls, v: list) -> list:
         if not v:
-            raise ValueError("source_metadata_ids must not be empty")
+            raise ValueError("source_channel_ids must not be empty")
         return v
 
 
 class IngestResponse(BaseModel):
-    metadata_id: int
+    channel_id: int
     rows_written: int
     processing_step_id: int | None = None
+
+
+class LabIngestResponse(BaseModel):
+    lab_analysis_id: int
+    rows_written: int

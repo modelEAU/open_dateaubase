@@ -19,9 +19,9 @@ from ..repositories.sensor_status_repository import SensorStatusRepository
 router = APIRouter()
 
 
-@router.get("/{metadata_id}", response_model=TimeseriesOut)
+@router.get("/{channel_id}", response_model=TimeseriesOut)
 def get_timeseries(
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime | None = Query(
         None, alias="from", description="Start of time range (ISO 8601)"
     ),
@@ -34,9 +34,9 @@ def get_timeseries(
     ),
     conn=Depends(get_db),
 ):
-    """Return the time series for a MetaData entry, dispatching to the correct value table."""
+    """Return the time series for a Channel entry, dispatching to the correct value table."""
     result = timeseries_service.get_timeseries(
-        conn, metadata_id, from_dt, to_dt, operational_only=operational_only
+        conn, channel_id, from_dt, to_dt, operational_only=operational_only
     )
 
     if include_status and result:
@@ -48,7 +48,7 @@ def get_timeseries(
 
         if query_from and query_to:
             status_band = status_service.get_timeseries_status_band(
-                metadata_id, query_from, query_to
+                channel_id, query_from, query_to
             )
 
             if status_band:
@@ -58,30 +58,30 @@ def get_timeseries(
     return result
 
 
-@router.get("/{metadata_id}/full-context")
+@router.get("/{channel_id}/full-context")
 def get_full_context(
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime | None = Query(None, alias="from"),
     to_dt: datetime | None = Query(None, alias="to"),
     conn=Depends(get_db),
 ):
     """Return the full context: all processing degrees, equipment events, lineage."""
-    return timeseries_service.get_full_context(conn, metadata_id, from_dt, to_dt)
+    return timeseries_service.get_full_context(conn, channel_id, from_dt, to_dt)
 
 
 @router.get("/by-context/search", response_model=list[TimeseriesOut])
 def get_timeseries_by_context(
-    location_id: int | None = Query(None, description="Sampling location ID"),
+    equipment_id: int | None = Query(None, description="Equipment ID"),
     parameter_id: int | None = Query(None, description="Parameter ID"),
     processing_degree: str | None = Query(None),
     from_dt: datetime | None = Query(None, alias="from"),
     to_dt: datetime | None = Query(None, alias="to"),
     conn=Depends(get_db),
 ):
-    """Find all time series matching location + parameter + processing degree."""
+    """Find all time series matching equipment + parameter + processing degree."""
     return timeseries_service.get_timeseries_by_context(
         conn,
-        location_id=location_id,
+        equipment_id=equipment_id,
         parameter_id=parameter_id,
         processing_degree=processing_degree,
         from_dt=from_dt,

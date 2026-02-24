@@ -49,7 +49,7 @@ class SensorStatusService:
         for ch in channel_statuses:
             formatted_channel_statuses.append(
                 {
-                    "measurement_metadata_id": ch["measurement_metadata_id"],
+                    "measurement_channel_id": ch["measurement_channel_id"],
                     "parameter": ch["measurement_parameter"],
                     "location": ch["location_name"],
                     "status_code": ch["status_code_id"],
@@ -101,14 +101,14 @@ class SensorStatusService:
 
         channel_transitions = {}
         for ch in all_channels:
-            metadata_id = ch["measurement_metadata_id"]
+            channel_id = ch["measurement_channel_id"]
             parameter = ch["measurement_parameter"]
 
             if channel and parameter != channel:
                 continue
 
             transitions = self.repo.get_channel_status_transitions(
-                metadata_id, from_dt, to_dt
+                channel_id, from_dt, to_dt
             )
             formatted_transitions = [
                 {
@@ -121,7 +121,7 @@ class SensorStatusService:
             ]
 
             channel_transitions[parameter] = {
-                "measurement_metadata_id": metadata_id,
+                "measurement_channel_id": channel_id,
                 "transitions": formatted_transitions,
             }
 
@@ -147,19 +147,19 @@ class SensorStatusService:
         }
 
     def get_timeseries_status_band(
-        self, metadata_id: int, from_dt: datetime, to_dt: datetime
+        self, channel_id: int, from_dt: datetime, to_dt: datetime
     ) -> Optional[dict]:
         """Get status band for a measurement channel."""
-        if not self.repo.check_metadata_exists(metadata_id):
+        if not self.repo.check_channel_exists(channel_id):
             return None
 
-        parameter_name = self.repo.get_parameter_name(metadata_id)
-        equipment_id = self.repo.get_equipment_for_metadata(metadata_id)
+        parameter_name = self.repo.get_parameter_name(channel_id)
+        equipment_id = self.repo.get_equipment_for_channel(channel_id)
         equipment_name = None
         if equipment_id:
             equipment_name = self.repo.get_equipment_name(equipment_id)
 
-        status_intervals = self.repo.get_status_band(metadata_id, from_dt, to_dt)
+        status_intervals = self.repo.get_status_band(channel_id, from_dt, to_dt)
 
         has_status_data = len(status_intervals) > 0
 
@@ -177,7 +177,7 @@ class SensorStatusService:
             )
 
         return {
-            "metadata_id": metadata_id,
+            "channel_id": channel_id,
             "parameter": parameter_name,
             "equipment_name": equipment_name,
             "query_range": {

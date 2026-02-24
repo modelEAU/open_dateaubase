@@ -17,8 +17,6 @@ class CampaignOut(BaseModel):
     description: str | None
     start_date: datetime | None
     end_date: datetime | None
-    project_id: int | None
-    project_name: str | None
 
 
 class CampaignContextOut(BaseModel):

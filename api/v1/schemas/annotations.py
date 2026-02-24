@@ -22,7 +22,7 @@ class AnnotationAuthor(BaseModel):
 
 class AnnotationResponse(BaseModel):
     annotation_id: int
-    metadata_id: int
+    channel_id: int
     type: AnnotationTypeResponse
     start_time: datetime
     end_time: Optional[datetime] = None
@@ -37,7 +37,7 @@ class AnnotationResponse(BaseModel):
 
 
 class AnnotationListResponse(BaseModel):
-    metadata_id: Optional[int] = None
+    channel_id: Optional[int] = None
     query_range: Optional[dict] = None
     annotations: list[AnnotationResponse]
     count: int

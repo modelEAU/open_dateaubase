@@ -79,7 +79,7 @@ def get_annotation_type_by_name(conn: pyodbc.Connection, name: str) -> dict | No
 def _row_to_annotation(row) -> dict:
     return {
         "annotation_id": row[0],
-        "metadata_id": row[1],
+        "channel_id": row[1],
         "annotation_type_id": row[2],
         "annotation_type_name": row[3],
         "color": row[4],
@@ -100,7 +100,7 @@ def _row_to_annotation(row) -> dict:
 _ANNOTATION_SELECT = """
     SELECT
         a.[Annotation_ID],
-        a.[Metadata_ID],
+        a.[Channel_ID],
         at.[AnnotationType_ID],
         at.[AnnotationTypeName],
         at.[Color],
@@ -126,22 +126,22 @@ _ANNOTATION_SELECT = """
 
 
 # ---------------------------------------------------------------------------
-# Query 1: Annotations overlapping a time range for a single MetaData entry
+# Query 1: Annotations overlapping a time range for a single Channel entry
 # ---------------------------------------------------------------------------
 
 def get_annotations_for_timeseries(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime,
     to_dt: datetime,
     annotation_type_id: int | None = None,
 ) -> list[dict]:
     where = (
-        "WHERE a.[Metadata_ID] = ?"
+        "WHERE a.[Channel_ID] = ?"
         "  AND a.[StartTime] <= ?"
         "  AND (a.[EndTime] IS NULL OR a.[EndTime] >= ?)"
     )
-    params: list = [metadata_id, to_dt, from_dt]
+    params: list = [channel_id, to_dt, from_dt]
 
     if annotation_type_id is not None:
         where += "  AND a.[AnnotationType_ID] = ?"
@@ -165,11 +165,11 @@ def get_annotations_by_type(
     from_dt: datetime,
     to_dt: datetime,
 ) -> list[dict]:
-    # Extend _ANNOTATION_SELECT with MetaData join for location/parameter context
+    # Extend _ANNOTATION_SELECT with Channel join for parameter context
     select_with_context = """
     SELECT
         a.[Annotation_ID],
-        a.[Metadata_ID],
+        a.[Channel_ID],
         at.[AnnotationType_ID],
         at.[AnnotationTypeName],
         at.[Color],
@@ -184,17 +184,15 @@ def get_annotations_by_type(
         a.[EquipmentEvent_ID],
         a.[CreatedAt],
         a.[ModifiedAt],
-        sp.[Sampling_location]    AS LocationName,
+        NULL                      AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationType] at
         ON at.[AnnotationType_ID] = a.[AnnotationType_ID]
-    JOIN [dbo].[MetaData] md
-        ON md.[Metadata_ID] = a.[Metadata_ID]
-    LEFT JOIN [dbo].[SamplingPoints] sp
-        ON sp.[Sampling_point_ID] = md.[Sampling_point_ID]
+    JOIN [dbo].[Channel] ch
+        ON ch.[Channel_ID] = a.[Channel_ID]
     LEFT JOIN [dbo].[Parameter] par
-        ON par.[Parameter_ID] = md.[Parameter_ID]
+        ON par.[Parameter_ID] = ch.[Parameter_ID]
     LEFT JOIN [dbo].[Person] p
         ON p.[Person_ID] = a.[AuthorPerson_ID]
     LEFT JOIN [dbo].[Campaign] c
@@ -227,7 +225,7 @@ def get_recent_annotations(
     select_with_context = """
     SELECT TOP (?)
         a.[Annotation_ID],
-        a.[Metadata_ID],
+        a.[Channel_ID],
         at.[AnnotationType_ID],
         at.[AnnotationTypeName],
         at.[Color],
@@ -242,17 +240,15 @@ def get_recent_annotations(
         a.[EquipmentEvent_ID],
         a.[CreatedAt],
         a.[ModifiedAt],
-        sp.[Sampling_location]    AS LocationName,
+        NULL                      AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationType] at
         ON at.[AnnotationType_ID] = a.[AnnotationType_ID]
-    JOIN [dbo].[MetaData] md
-        ON md.[Metadata_ID] = a.[Metadata_ID]
-    LEFT JOIN [dbo].[SamplingPoints] sp
-        ON sp.[Sampling_point_ID] = md.[Sampling_point_ID]
+    JOIN [dbo].[Channel] ch
+        ON ch.[Channel_ID] = a.[Channel_ID]
     LEFT JOIN [dbo].[Parameter] par
-        ON par.[Parameter_ID] = md.[Parameter_ID]
+        ON par.[Parameter_ID] = ch.[Parameter_ID]
     LEFT JOIN [dbo].[Person] p
         ON p.[Person_ID] = a.[AuthorPerson_ID]
     LEFT JOIN [dbo].[Campaign] c
@@ -296,7 +292,7 @@ def get_annotation_by_id(conn: pyodbc.Connection, annotation_id: int) -> dict | 
 def create_annotation(
     conn: pyodbc.Connection,
     *,
-    metadata_id: int,
+    channel_id: int,
     annotation_type_id: int,
     start_time: datetime,
     end_time: datetime | None,
@@ -310,14 +306,14 @@ def create_annotation(
     cursor.execute(
         """
         INSERT INTO [dbo].[Annotation] (
-            [Metadata_ID], [AnnotationType_ID], [StartTime], [EndTime],
+            [Channel_ID], [AnnotationType_ID], [StartTime], [EndTime],
             [AuthorPerson_ID], [Campaign_ID], [EquipmentEvent_ID],
             [Title], [Comment]
         )
         OUTPUT INSERTED.[Annotation_ID], INSERTED.[CreatedAt]
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        metadata_id, annotation_type_id, start_time, end_time,
+        channel_id, annotation_type_id, start_time, end_time,
         author_person_id, campaign_id, equipment_event_id,
         title, comment,
     )
@@ -340,7 +336,6 @@ def update_annotation(
     title: str | None,
     comment: str | None,
 ) -> dict | None:
-    # Build SET clause only for provided fields
     set_parts = ["[ModifiedAt] = SYSUTCDATETIME()"]
     params: list = []
 

@@ -21,13 +21,13 @@ _VALUE_TYPE_IMAGE = 4
 
 def get_scalar_values(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime | None,
     to_dt: datetime | None,
     operational_only: bool = False,
 ) -> list[dict]:
-    params: list = [metadata_id]
-    where = "WHERE v.[Metadata_ID] = ?"
+    params: list = [channel_id]
+    where = "WHERE v.[Channel_ID] = ?"
     if from_dt:
         where += " AND v.[Timestamp] >= ?"
         params.append(from_dt)
@@ -38,16 +38,16 @@ def get_scalar_values(
     if operational_only:
         where += """
         AND (EXISTS (
-            SELECT 1 FROM dbo.MetaData statusMD
-            JOIN dbo.Value sv ON sv.Metadata_ID = statusMD.Metadata_ID
-            WHERE statusMD.StatusOfMetaDataID = v.Metadata_ID
+            SELECT 1 FROM dbo.Channel statusC
+            JOIN dbo.Value sv ON sv.Channel_ID = statusC.Channel_ID
+            WHERE statusC.StatusOfMetaDataID = v.Channel_ID
               AND sv.Timestamp <= v.Timestamp
         ) = 0
         OR EXISTS (
-            SELECT 1 FROM dbo.MetaData statusMD
-            JOIN dbo.Value sv ON sv.Metadata_ID = statusMD.Metadata_ID
+            SELECT 1 FROM dbo.Channel statusC
+            JOIN dbo.Value sv ON sv.Channel_ID = statusC.Channel_ID
             JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(sv.Value AS INT)
-            WHERE statusMD.StatusOfMetaDataID = v.Metadata_ID
+            WHERE statusC.StatusOfMetaDataID = v.Channel_ID
               AND sv.Timestamp <= v.Timestamp
               AND sc.IsOperational = 1
         ))
@@ -71,12 +71,12 @@ def get_scalar_values(
 
 def get_vector_values(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
-    params: list = [metadata_id]
-    where = "WHERE vv.[Metadata_ID] = ?"
+    params: list = [channel_id]
+    where = "WHERE vv.[Channel_ID] = ?"
     if from_dt:
         where += " AND vv.[Timestamp] >= ?"
         params.append(from_dt)
@@ -111,12 +111,12 @@ def get_vector_values(
 
 def get_matrix_values(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
-    params: list = [metadata_id]
-    where = "WHERE vm.[Metadata_ID] = ?"
+    params: list = [channel_id]
+    where = "WHERE vm.[Channel_ID] = ?"
     if from_dt:
         where += " AND vm.[Timestamp] >= ?"
         params.append(from_dt)
@@ -151,12 +151,12 @@ def get_matrix_values(
 
 def get_image_values(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
-    params: list = [metadata_id]
-    where = "WHERE vi.[Metadata_ID] = ?"
+    params: list = [channel_id]
+    where = "WHERE vi.[Channel_ID] = ?"
     if from_dt:
         where += " AND vi.[Timestamp] >= ?"
         params.append(from_dt)
@@ -194,7 +194,7 @@ def get_image_values(
 
 def get_values_for_metadata(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     value_type_id: int | None,
     from_dt: datetime | None,
     to_dt: datetime | None,
@@ -203,18 +203,18 @@ def get_values_for_metadata(
     """Dispatch to the correct value table based on value_type_id."""
     vt = value_type_id or _VALUE_TYPE_SCALAR
     if vt == _VALUE_TYPE_VECTOR:
-        return get_vector_values(conn, metadata_id, from_dt, to_dt)
+        return get_vector_values(conn, channel_id, from_dt, to_dt)
     elif vt == _VALUE_TYPE_MATRIX:
-        return get_matrix_values(conn, metadata_id, from_dt, to_dt)
+        return get_matrix_values(conn, channel_id, from_dt, to_dt)
     elif vt == _VALUE_TYPE_IMAGE:
-        return get_image_values(conn, metadata_id, from_dt, to_dt)
+        return get_image_values(conn, channel_id, from_dt, to_dt)
     else:
-        return get_scalar_values(conn, metadata_id, from_dt, to_dt, operational_only)
+        return get_scalar_values(conn, channel_id, from_dt, to_dt, operational_only)
 
 
 def insert_scalar_values(
     conn: pyodbc.Connection,
-    metadata_id: int,
+    channel_id: int,
     values: list[dict],
 ) -> int:
     """Insert rows into dbo.Value. Returns rows written."""
@@ -222,10 +222,10 @@ def insert_scalar_values(
     for v in values:
         cursor.execute(
             """
-            INSERT INTO [dbo].[Value] ([Metadata_ID], [Timestamp], [Value], [QualityCode])
+            INSERT INTO [dbo].[Value] ([Channel_ID], [Timestamp], [Value], [QualityCode])
             VALUES (?, ?, ?, ?)
             """,
-            metadata_id,
+            channel_id,
             v["timestamp"],
             v["value"],
             v.get("quality_code"),

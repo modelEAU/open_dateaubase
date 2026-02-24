@@ -50,7 +50,7 @@ class ImageValueOut(BaseModel):
 class TimeseriesOut(BaseModel):
     """Uniform time series response regardless of underlying value table."""
 
-    metadata_id: int
+    channel_id: int
     location: str | None
     site: str | None
     parameter: str | None

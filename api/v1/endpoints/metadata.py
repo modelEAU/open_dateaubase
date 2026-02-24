@@ -14,10 +14,7 @@ router = APIRouter()
 
 @router.get("", response_model=PaginatedResponse[MetadataOut])
 def list_metadata(
-    site_id: int | None = Query(None, description="Filter by site ID"),
-    location_id: int | None = Query(None, description="Filter by sampling location ID"),
     parameter_id: int | None = Query(None, description="Filter by parameter ID"),
-    campaign_id: int | None = Query(None, description="Filter by campaign ID"),
     data_provenance_id: int | None = Query(None, description="Filter by data provenance ID"),
     processing_degree: str | None = Query(None, description="Filter by processing degree (e.g. 'Raw', 'Cleaned')"),
     equipment_id: int | None = Query(None, description="Filter by equipment ID"),
@@ -28,10 +25,7 @@ def list_metadata(
     """Return a paginated list of MetaData rows with all foreign keys resolved."""
     items, total = metadata_repository.list_metadata(
         conn,
-        site_id=site_id,
-        location_id=location_id,
         parameter_id=parameter_id,
-        campaign_id=campaign_id,
         data_provenance_id=data_provenance_id,
         processing_degree=processing_degree,
         equipment_id=equipment_id,

@@ -13,33 +13,33 @@ from ..services import lineage_service
 router = APIRouter()
 
 
-@router.get("/{metadata_id}/forward")
-def get_forward_lineage(metadata_id: int, conn=Depends(get_db)):
+@router.get("/{channel_id}/forward")
+def get_forward_lineage(channel_id: int, conn=Depends(get_db)):
     """What was this data processed into? Follow outputs forward."""
-    return lineage_service.forward_lineage(conn, metadata_id)
+    return lineage_service.forward_lineage(conn, channel_id)
 
 
-@router.get("/{metadata_id}/backward")
-def get_backward_lineage(metadata_id: int, conn=Depends(get_db)):
+@router.get("/{channel_id}/backward")
+def get_backward_lineage(channel_id: int, conn=Depends(get_db)):
     """Where did this data come from? Trace inputs backward."""
-    return lineage_service.backward_lineage(conn, metadata_id)
+    return lineage_service.backward_lineage(conn, channel_id)
 
 
-@router.get("/{metadata_id}/tree", response_model=LineageTreeOut)
-def get_lineage_tree(metadata_id: int, conn=Depends(get_db)):
-    """Return the complete processing DAG rooted at this MetaData."""
-    return lineage_service.full_lineage_tree(conn, metadata_id)
+@router.get("/{channel_id}/tree", response_model=LineageTreeOut)
+def get_lineage_tree(channel_id: int, conn=Depends(get_db)):
+    """Return the complete processing DAG rooted at this Channel."""
+    return lineage_service.full_lineage_tree(conn, channel_id)
 
 
-@router.get("/by-location/degrees", response_model=list[ProcessingDegreeSummaryOut])
+@router.get("/by-equipment/degrees", response_model=list[ProcessingDegreeSummaryOut])
 def get_processing_degrees(
-    location_id: int = Query(..., description="Sampling location ID"),
+    equipment_id: int = Query(..., description="Equipment ID"),
     parameter_id: int = Query(..., description="Parameter ID"),
     from_dt: datetime | None = Query(None, alias="from"),
     to_dt: datetime | None = Query(None, alias="to"),
     conn=Depends(get_db),
 ):
-    """Show all processing degrees (versions) of a time series at a given location."""
+    """Show all processing degrees (versions) of a time series for a given equipment."""
     from open_dateaubase.lineage import get_all_processing_degrees
     from datetime import datetime as dt
 
@@ -47,7 +47,7 @@ def get_processing_degrees(
     to_effective = to_dt or dt(2100, 1, 1)
 
     return get_all_processing_degrees(
-        sampling_point_id=location_id,
+        equipment_id=equipment_id,
         parameter_id=parameter_id,
         from_dt=from_effective,
         to_dt=to_effective,

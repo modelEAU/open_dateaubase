@@ -1,8 +1,8 @@
 """Data ingestion endpoints.
 
 Three paths:
-  POST /ingest/sensor   — raw sensor data, route resolved via IngestionRoute
-  POST /ingest/lab      — lab measurement data
+  POST /ingest/sensor    — raw sensor data, channel resolved/created via stream identity
+  POST /ingest/lab       — lab analysis data (LabAnalysis + LabValue tables)
   POST /ingest/processed — processed data with lineage tracking
 """
 
@@ -15,10 +15,11 @@ from ..repositories import ingestion_repository, value_repository
 from ..schemas.ingestion import (
     IngestResponse,
     LabIngestRequest,
+    LabIngestResponse,
     ProcessedIngestRequest,
     SensorIngestRequest,
 )
-from ..services import lineage_service, routing_service
+from ..services import lineage_service
 
 router = APIRouter()
 
@@ -27,94 +28,100 @@ router = APIRouter()
 def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
     """Ingest raw sensor measurements.
 
-    Resolves the MetaData target via the IngestionRoute table using the
-    timestamp of the first value in the batch.
+    Resolves (or creates) the Channel via the UNIQUE stream identity:
+    (equipment_id, parameter_id, data_provenance_id, processing_degree).
+    No pre-configuration is required.
     """
-    reference_ts = data.values[0].timestamp
-
-    metadata_id = routing_service.resolve_route(
+    channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
         equipment_id=data.equipment_id,
         parameter_id=data.parameter_id,
+        unit_id=data.unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree=data.processing_degree,
-        timestamp=reference_ts,
     )
 
     rows = value_repository.insert_scalar_values(
         conn,
-        metadata_id,
+        channel_id,
         [v.model_dump() for v in data.values],
     )
 
-    return IngestResponse(metadata_id=metadata_id, rows_written=rows)
+    return IngestResponse(channel_id=channel_id, rows_written=rows)
 
 
-@router.post("/lab", response_model=IngestResponse, status_code=201)
+@router.post("/lab", response_model=LabIngestResponse, status_code=201)
 def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
-    """Ingest laboratory measurement data.
+    """Ingest laboratory analysis results.
 
-    Finds or creates a MetaData entry with the given lab context,
-    then inserts scalar values.
+    Creates one LabAnalysis record plus one LabValue row per measurement.
+    sample_id is required when associating with a physical sample.
     """
-    metadata_id = ingestion_repository.find_or_create_metadata_for_lab(
+    lab_analysis_id = ingestion_repository.insert_lab_analysis(
         conn,
-        parameter_id=data.parameter_id,
-        unit_id=data.unit_id,
-        sampling_point_id=data.sampling_point_id,
+        sample_id=data.sample_id,
         laboratory_id=data.laboratory_id,
         analyst_person_id=data.analyst_person_id,
+        procedure_id=data.procedure_id,
         campaign_id=data.campaign_id,
-        sample_id=data.sample_id,
+        notes=data.notes,
     )
 
-    rows = value_repository.insert_scalar_values(
-        conn,
-        metadata_id,
-        [v.model_dump() for v in data.values],
-    )
+    rows = 0
+    for item in data.values:
+        ingestion_repository.insert_lab_value(
+            conn,
+            lab_analysis_id=lab_analysis_id,
+            parameter_id=item.parameter_id,
+            unit_id=item.unit_id,
+            value=item.value,
+            replicate=item.replicate,
+            quality_code=item.quality_code,
+        )
+        rows += 1
 
-    return IngestResponse(metadata_id=metadata_id, rows_written=rows)
+    return LabIngestResponse(lab_analysis_id=lab_analysis_id, rows_written=rows)
 
 
 @router.post("/processed", response_model=IngestResponse, status_code=201)
 def ingest_processed(data: ProcessedIngestRequest, conn=Depends(get_db)):
     """Ingest processed data with full lineage tracking.
 
-    Creates a new MetaData entry (cloning context from the primary source),
-    writes processed values, and records a ProcessingStep + DataLineage.
+    Derives the output channel from the primary source (cloning stream identity
+    with a new ProcessingDegree), writes processed values, and records a
+    ProcessingStep + DataLineage.
     """
-    if not data.source_metadata_ids:
-        raise HTTPException(status_code=400, detail="source_metadata_ids must not be empty.")
+    if not data.source_channel_ids:
+        raise HTTPException(status_code=400, detail="source_channel_ids must not be empty.")
 
-    primary_source_id = data.source_metadata_ids[0]
+    primary_source_id = data.source_channel_ids[0]
 
-    output_metadata_id = ingestion_repository.create_processed_metadata(
+    output_channel_id = ingestion_repository.find_or_create_derived_metadata(
         conn,
-        source_metadata_id=primary_source_id,
+        source_channel_id=primary_source_id,
         processing_degree=data.output.processing_degree,
     )
 
     rows = value_repository.insert_scalar_values(
         conn,
-        output_metadata_id,
+        output_channel_id,
         [v.model_dump() for v in data.output.values],
     )
 
     step_id = lineage_service.persist_processing(
         conn,
-        source_metadata_ids=data.source_metadata_ids,
+        source_metadata_ids=data.source_channel_ids,
         method_name=data.processing.method_name,
         method_version=data.processing.method_version,
         processing_type=data.processing.processing_type,
         parameters=data.processing.parameters,
         executed_at=data.processing.executed_at,
         executed_by_person_id=data.processing.executed_by_person_id,
-        output_metadata_id=output_metadata_id,
+        output_metadata_id=output_channel_id,
     )
 
     return IngestResponse(
-        metadata_id=output_metadata_id,
+        channel_id=output_channel_id,
         rows_written=rows,
         processing_step_id=step_id,
     )

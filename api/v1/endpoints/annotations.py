@@ -1,7 +1,7 @@
 """Annotation endpoints.
 
 Three router groups registered in api/v1/router.py:
-  - timeseries_router  → prefix /timeseries   (GET/POST /{metadata_id}/annotations)
+  - timeseries_router  → prefix /timeseries   (GET/POST /{channel_id}/annotations)
   - annotations_router → prefix /annotations  (GET/PUT/DELETE /{annotation_id}, /recent, /by-type/{type_name})
   - annotation_types_router → prefix /annotation-types  (GET /)
 """
@@ -23,18 +23,18 @@ from ..schemas.annotations import (
 from ..services import annotation_service
 
 # ---------------------------------------------------------------------------
-# Timeseries sub-resource: /timeseries/{metadata_id}/annotations
+# Timeseries sub-resource: /timeseries/{channel_id}/annotations
 # ---------------------------------------------------------------------------
 
 timeseries_router = APIRouter()
 
 
 @timeseries_router.get(
-    "/{metadata_id}/annotations",
+    "/{channel_id}/annotations",
     response_model=AnnotationListResponse,
 )
 def list_annotations_for_timeseries(
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime = Query(..., alias="from", description="Start of query range (ISO 8601)"),
     to_dt: datetime = Query(..., alias="to", description="End of query range (ISO 8601)"),
     type: str | None = Query(None, description="Filter by annotation type name or ID"),
@@ -48,22 +48,22 @@ def list_annotations_for_timeseries(
         except ValueError:
             type_filter = type
     return annotation_service.get_annotations_for_timeseries(
-        conn, metadata_id, from_dt, to_dt, type_filter
+        conn, channel_id, from_dt, to_dt, type_filter
     )
 
 
 @timeseries_router.post(
-    "/{metadata_id}/annotations",
+    "/{channel_id}/annotations",
     response_model=AnnotationResponse,
     status_code=201,
 )
 def create_annotation(
-    metadata_id: int,
+    channel_id: int,
     body: AnnotationCreate,
     conn=Depends(get_db),
 ):
     """Create a new annotation on a time series."""
-    return annotation_service.create_annotation(conn, metadata_id, body)
+    return annotation_service.create_annotation(conn, channel_id, body)
 
 
 # ---------------------------------------------------------------------------

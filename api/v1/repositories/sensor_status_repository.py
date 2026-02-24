@@ -37,7 +37,7 @@ class SensorStatusRepository:
         ]
 
     def get_current_channel_status(
-        self, measurement_metadata_id: int
+        self, measurement_channel_id: int
     ) -> Optional[dict]:
         """Get the current status for a measurement channel (Query 1)."""
         cursor = self.conn.cursor()
@@ -49,13 +49,13 @@ class SensorStatusRepository:
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity,
                 v.[Timestamp] AS status_since
-            FROM dbo.MetaData statusMD
-            JOIN dbo.Value v ON v.[Metadata_ID] = statusMD.[Metadata_ID]
+            FROM dbo.Channel statusC
+            JOIN dbo.Value v ON v.[Channel_ID] = statusC.[Channel_ID]
             JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(v.Value AS INT)
-            WHERE statusMD.StatusOfMetaDataID = ?
+            WHERE statusC.StatusChannel_ID = ?
             ORDER BY v.[Timestamp] DESC
             """,
-            measurement_metadata_id,
+            measurement_channel_id,
         )
         row = cursor.fetchone()
         cursor.close()
@@ -70,7 +70,7 @@ class SensorStatusRepository:
         }
 
     def get_channel_status_at_time(
-        self, measurement_metadata_id: int, timestamp: datetime
+        self, measurement_channel_id: int, timestamp: datetime
     ) -> Optional[dict]:
         """Get the status at a specific point in time (Query 2)."""
         cursor = self.conn.cursor()
@@ -82,14 +82,14 @@ class SensorStatusRepository:
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity,
                 v.[Timestamp] AS status_since
-            FROM dbo.MetaData statusMD
-            JOIN dbo.Value v ON v.[Metadata_ID] = statusMD.[Metadata_ID]
+            FROM dbo.Channel statusC
+            JOIN dbo.Value v ON v.[Channel_ID] = statusC.[Channel_ID]
             JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(v.Value AS INT)
-            WHERE statusMD.StatusOfMetaDataID = ?
+            WHERE statusC.StatusChannel_ID = ?
               AND v.[Timestamp] <= ?
             ORDER BY v.[Timestamp] DESC
             """,
-            measurement_metadata_id,
+            measurement_channel_id,
             timestamp,
         )
         row = cursor.fetchone()
@@ -105,7 +105,7 @@ class SensorStatusRepository:
         }
 
     def get_channel_status_transitions(
-        self, measurement_metadata_id: int, t1: datetime, t2: datetime
+        self, measurement_channel_id: int, t1: datetime, t2: datetime
     ) -> list[dict]:
         """Get channel status transitions in a time range (Query 3)."""
         cursor = self.conn.cursor()
@@ -117,14 +117,14 @@ class SensorStatusRepository:
                 sc.StatusName AS status_name,
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity
-            FROM dbo.MetaData statusMD
-            JOIN dbo.Value v ON v.[Metadata_ID] = statusMD.[Metadata_ID]
+            FROM dbo.Channel statusC
+            JOIN dbo.Value v ON v.[Channel_ID] = statusC.[Channel_ID]
             JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(v.Value AS INT)
-            WHERE statusMD.StatusOfMetaDataID = ?
+            WHERE statusC.StatusChannel_ID = ?
               AND v.[Timestamp] BETWEEN ? AND ?
             ORDER BY v.[Timestamp]
             """,
-            measurement_metadata_id,
+            measurement_channel_id,
             t1,
             t2,
         )
@@ -154,10 +154,11 @@ class SensorStatusRepository:
                 sc.StatusName AS status_name,
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity
-            FROM dbo.MetaData statusMD
-            JOIN dbo.Value v ON v.[Metadata_ID] = statusMD.[Metadata_ID]
+            FROM dbo.EquipmentStatusChannel esc
+            JOIN dbo.Channel statusC ON statusC.[Channel_ID] = esc.[StatusChannel_ID]
+            JOIN dbo.Value v ON v.[Channel_ID] = statusC.[Channel_ID]
             JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(v.Value AS INT)
-            WHERE statusMD.StatusOfEquipmentID = ?
+            WHERE esc.Equipment_ID = ?
               AND v.[Timestamp] BETWEEN ? AND ?
             ORDER BY v.[Timestamp]
             """,
@@ -179,7 +180,7 @@ class SensorStatusRepository:
         ]
 
     def get_status_band(
-        self, measurement_metadata_id: int, t1: datetime, t2: datetime
+        self, measurement_channel_id: int, t1: datetime, t2: datetime
     ) -> list[dict]:
         """Get status intervals for rendering (Query 4)."""
         cursor = self.conn.cursor()
@@ -189,9 +190,9 @@ class SensorStatusRepository:
                 SELECT TOP 1
                     v.[Timestamp] AS transition_time,
                     CAST(v.Value AS INT) AS status_code_id
-                FROM dbo.MetaData statusMD
-                JOIN dbo.Value v ON v.[Metadata_ID] = statusMD.[Metadata_ID]
-                WHERE statusMD.StatusOfMetaDataID = ?
+                FROM dbo.Channel statusC
+                JOIN dbo.Value v ON v.[Channel_ID] = statusC.[Channel_ID]
+                WHERE statusC.StatusChannel_ID = ?
                   AND v.[Timestamp] <= ?
                 ORDER BY v.[Timestamp] DESC
 
@@ -200,9 +201,9 @@ class SensorStatusRepository:
                 SELECT
                     v.[Timestamp] AS transition_time,
                     CAST(v.Value AS INT) AS status_code_id
-                FROM dbo.MetaData statusMD
-                JOIN dbo.Value v ON v.[Metadata_ID] = statusMD.[Metadata_ID]
-                WHERE statusMD.StatusOfMetaDataID = ?
+                FROM dbo.Channel statusC
+                JOIN dbo.Value v ON v.[Channel_ID] = statusC.[Channel_ID]
+                WHERE statusC.StatusChannel_ID = ?
                   AND v.[Timestamp] > ? AND v.[Timestamp] <= ?
             ),
             StatusIntervals AS (
@@ -226,13 +227,14 @@ class SensorStatusRepository:
             WHERE si.interval_end IS NULL OR si.interval_end > ?
             ORDER BY si.interval_start
             """,
-            measurement_metadata_id,
+            measurement_channel_id,
             t1,
-            measurement_metadata_id,
+            measurement_channel_id,
             t1,
             t2,
             t1,
             t1,
+            t2,
             t2,
             t2,
             t1,
@@ -257,27 +259,26 @@ class SensorStatusRepository:
         cursor.execute(
             """
             SELECT
-                measMD.[Metadata_ID] AS measurement_metadata_id,
+                measC.[Channel_ID] AS measurement_channel_id,
                 p.[Parameter] AS measurement_parameter,
-                sp.[Sampling_point] AS location_name,
+                NULL AS location_name,
                 sc.StatusCodeID AS status_code_id,
                 sc.StatusName AS status_name,
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity,
                 latestStatus.[Timestamp] AS status_since
-            FROM dbo.MetaData statusMD
-            JOIN dbo.MetaData measMD ON measMD.[Metadata_ID] = statusMD.StatusOfMetaDataID
-            JOIN dbo.Parameter p ON p.Parameter_ID = measMD.Parameter_ID
-            JOIN dbo.SamplingPoints sp ON sp.Sampling_point_ID = measMD.Sampling_point_ID
+            FROM dbo.Channel statusC
+            JOIN dbo.Channel measC ON measC.[Channel_ID] = statusC.StatusChannel_ID
+            JOIN dbo.Parameter p ON p.Parameter_ID = measC.Parameter_ID
             CROSS APPLY (
                 SELECT TOP 1 v.[Timestamp], v.Value
                 FROM dbo.Value v
-                WHERE v.[Metadata_ID] = statusMD.[Metadata_ID]
+                WHERE v.[Channel_ID] = statusC.[Channel_ID]
                 ORDER BY v.[Timestamp] DESC
             ) latestStatus
             JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(latestStatus.Value AS INT)
-            WHERE measMD.Equipment_ID = ?
-              AND statusMD.StatusOfMetaDataID IS NOT NULL
+            WHERE measC.Equipment_ID = ?
+              AND statusC.StatusChannel_ID IS NOT NULL
             ORDER BY p.[Parameter]
             """,
             equipment_id,
@@ -286,7 +287,7 @@ class SensorStatusRepository:
         cursor.close()
         return [
             {
-                "measurement_metadata_id": row[0],
+                "measurement_channel_id": row[0],
                 "measurement_parameter": row[1],
                 "location_name": row[2],
                 "status_code_id": row[3],
@@ -309,10 +310,11 @@ class SensorStatusRepository:
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity,
                 v.[Timestamp] AS status_since
-            FROM dbo.MetaData statusMD
-            JOIN dbo.Value v ON v.[Metadata_ID] = statusMD.[Metadata_ID]
+            FROM dbo.EquipmentStatusChannel esc
+            JOIN dbo.Channel statusC ON statusC.[Channel_ID] = esc.[StatusChannel_ID]
+            JOIN dbo.Value v ON v.[Channel_ID] = statusC.[Channel_ID]
             JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(v.Value AS INT)
-            WHERE statusMD.StatusOfEquipmentID = ?
+            WHERE esc.Equipment_ID = ?
             ORDER BY v.[Timestamp] DESC
             """,
             equipment_id,
@@ -340,39 +342,39 @@ class SensorStatusRepository:
         cursor.close()
         return row[0] if row else None
 
-    def get_parameter_name(self, metadata_id: int) -> Optional[str]:
-        """Get parameter name for a MetaData entry."""
+    def get_parameter_name(self, channel_id: int) -> Optional[str]:
+        """Get parameter name for a Channel entry."""
         cursor = self.conn.cursor()
         cursor.execute(
             """
             SELECT p.[Parameter]
-            FROM dbo.MetaData md
-            JOIN dbo.Parameter p ON p.Parameter_ID = md.Parameter_ID
-            WHERE md.Metadata_ID = ?
+            FROM dbo.Channel c
+            JOIN dbo.Parameter p ON p.Parameter_ID = c.Parameter_ID
+            WHERE c.Channel_ID = ?
             """,
-            metadata_id,
+            channel_id,
         )
         row = cursor.fetchone()
         cursor.close()
         return row[0] if row else None
 
-    def get_equipment_for_metadata(self, metadata_id: int) -> Optional[int]:
-        """Get equipment ID for a MetaData entry."""
+    def get_equipment_for_channel(self, channel_id: int) -> Optional[int]:
+        """Get equipment ID for a Channel entry."""
         cursor = self.conn.cursor()
         cursor.execute(
-            "SELECT Equipment_ID FROM dbo.MetaData WHERE Metadata_ID = ?",
-            metadata_id,
+            "SELECT Equipment_ID FROM dbo.Channel WHERE Channel_ID = ?",
+            channel_id,
         )
         row = cursor.fetchone()
         cursor.close()
         return row[0] if row else None
 
-    def check_metadata_exists(self, metadata_id: int) -> bool:
-        """Check if a MetaData entry exists."""
+    def check_channel_exists(self, channel_id: int) -> bool:
+        """Check if a Channel entry exists."""
         cursor = self.conn.cursor()
         cursor.execute(
-            "SELECT 1 FROM dbo.MetaData WHERE Metadata_ID = ?",
-            metadata_id,
+            "SELECT 1 FROM dbo.Channel WHERE Channel_ID = ?",
+            channel_id,
         )
         row = cursor.fetchone()
         cursor.close()

@@ -27,7 +27,7 @@ class StatusCodeListResponse(BaseModel):
 class ChannelStatus(BaseModel):
     """Status for a single measurement channel."""
 
-    measurement_metadata_id: int
+    measurement_channel_id: int
     parameter: str
     location: str
     status_code: int
@@ -71,7 +71,7 @@ class StatusTransition(BaseModel):
 class ChannelTransitions(BaseModel):
     """Status transitions for a single channel."""
 
-    measurement_metadata_id: int
+    measurement_channel_id: int
     transitions: list[StatusTransition]
 
 
@@ -109,7 +109,7 @@ class StatusInterval(BaseModel):
 class TimeSeriesStatusBand(BaseModel):
     """Status band response for a time series."""
 
-    metadata_id: int
+    channel_id: int
     parameter: Optional[str] = None
     equipment_name: Optional[str] = None
     query_range: dict
@@ -120,7 +120,7 @@ class TimeSeriesStatusBand(BaseModel):
 class TimeSeriesOut(BaseModel):
     """Extended time series response with optional status."""
 
-    metadata_id: int
+    channel_id: int
     location: Optional[str] = None
     site: Optional[str] = None
     parameter: Optional[str] = None

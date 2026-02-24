@@ -22,16 +22,16 @@ class ProcessingStepOut(BaseModel):
 class LineageEdgeOut(BaseModel):
     """A single directed edge in the processing DAG."""
 
-    metadata_id: int
+    channel_id: int
     processing_step: ProcessingStepOut
     role: str
-    output_metadata_ids: list[int]
+    output_channel_ids: list[int]
 
 
 class LineageTreeOut(BaseModel):
-    """Complete lineage tree rooted at a given MetaData node."""
+    """Complete lineage tree rooted at a given Channel node."""
 
-    metadata_id: int
+    channel_id: int
     parents: list[dict]
     children: list[dict]
 
@@ -39,6 +39,6 @@ class LineageTreeOut(BaseModel):
 class ProcessingDegreeSummaryOut(BaseModel):
     """Summary of one version of a time series (one ProcessingDegree)."""
 
-    metadata_id: int
+    channel_id: int
     processing_degree: str | None
     value_count: int

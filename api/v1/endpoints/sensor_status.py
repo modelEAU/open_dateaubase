@@ -72,15 +72,15 @@ def get_equipment_status_history(
     return result
 
 
-@router.get("/timeseries/{metadata_id}/status", response_model=TimeSeriesStatusBand)
+@router.get("/timeseries/{channel_id}/status", response_model=TimeSeriesStatusBand)
 def get_timeseries_status(
-    metadata_id: int,
+    channel_id: int,
     from_dt: datetime = Query(..., description="Start of range (ISO 8601)"),
     to_dt: datetime = Query(..., description="End of range (ISO 8601)"),
     service=Depends(get_status_service),
 ):
     """Get the status band for a specific measurement channel over a time range."""
-    result = service.get_timeseries_status_band(metadata_id, from_dt, to_dt)
+    result = service.get_timeseries_status_band(channel_id, from_dt, to_dt)
     if result is None:
-        raise HTTPException(status_code=404, detail="MetaData entry not found")
+        raise HTTPException(status_code=404, detail="Channel not found")
     return result

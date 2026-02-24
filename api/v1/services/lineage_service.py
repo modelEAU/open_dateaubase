@@ -18,16 +18,16 @@ from open_dateaubase.lineage import (
 from open_dateaubase.meteaudata_bridge import record_processing
 
 
-def forward_lineage(conn: pyodbc.Connection, metadata_id: int) -> list[dict]:
-    return get_lineage_forward(metadata_id, conn)
+def forward_lineage(conn: pyodbc.Connection, channel_id: int) -> list[dict]:
+    return get_lineage_forward(channel_id, conn)
 
 
-def backward_lineage(conn: pyodbc.Connection, metadata_id: int) -> list[dict]:
-    return get_lineage_backward(metadata_id, conn)
+def backward_lineage(conn: pyodbc.Connection, channel_id: int) -> list[dict]:
+    return get_lineage_backward(channel_id, conn)
 
 
-def full_lineage_tree(conn: pyodbc.Connection, metadata_id: int) -> dict:
-    return get_full_lineage_tree(metadata_id, conn)
+def full_lineage_tree(conn: pyodbc.Connection, channel_id: int) -> dict:
+    return get_full_lineage_tree(channel_id, conn)
 
 
 def persist_processing(
