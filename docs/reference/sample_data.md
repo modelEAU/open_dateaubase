@@ -14,10 +14,13 @@ Data is built up in layers — one layer per schema version — so the dataset g
 
 | Schema version | What was added |
 | --- | --- |
-| v1.0.0 | Baseline monitoring data: sites, equipment, parameters, projects, contacts, scalar measurements with Unix-epoch timestamps |
+| v1.0.0 | Baseline monitoring data: sites, equipment, parameters, scalar measurements |
 | v1.0.1 | Schema version history records |
-| v1.0.2 | New scalar measurements inserted with timezone-aware `DATETIMEOFFSET` timestamps |
+| v1.0.2 | New scalar measurements with timezone-aware `DATETIMEOFFSET` timestamps |
 | v1.1.0 | UV-Vis spectrometer data (spectra), camera images, particle size distribution arrays |
+| v1.9.0 | Channel model cleanup — `IngestionRoute` dropped; UNIQUE constraint on Channel stream |
+| v2.0.0 | `MetaData` renamed to `Channel`; `LabAnalysis` + `LabValue` tables added |
+| v2.1.0 | `StatusChannel_ID` on Channel; `EquipmentStatusChannel` table |
 
 ### 1.2 Spatial context
 
@@ -42,13 +45,13 @@ Two sites, three sampling points:
 
 | Equipment | Model | Capabilities |
 | --- | --- | --- |
-| ISCO-001 | ISCO 6712 autosampler | TSS, COD (via 24 h composite and grab sampling) |
-| YSI-001 | YSI ProDSS multi-parameter probe | pH, Temperature, Conductivity (online continuous) |
+| ISCO-001 | ISCO 6712 autosampler | TSS, COD |
+| YSI-001 | YSI ProDSS multi-parameter probe | pH, Temperature, Conductivity |
 | HACH-001 | Hach 2100Q turbidimeter | No parameter capabilities recorded in this dataset |
 
 ### 1.4 Parameters and units
 
-| Parameter | Unit | Metadata rows | Total Value rows |
+| Parameter | Unit | Channel rows | Total Value rows |
 | --- | --- | --- | --- |
 | TSS | mg/L | 3 (WWTP-IN, WWTP-OUT, CSO) | 11 |
 | COD | mg/L | 1 (WWTP-IN) | 3 |
@@ -56,42 +59,45 @@ Two sites, three sampling points:
 | Temperature | °C | 1 (WWTP-IN) | 3 |
 | Conductivity | mS/cm | 0 | 0 |
 
-### 1.5 Projects and contacts
+### 1.5 Campaigns
 
-| Project | Contact(s) | Equipment | Sampling points |
-| --- | --- | --- | --- |
-| WWTP Inlet Monitoring 2024 | M. Tremblay, P. Gagnon | ISCO-001, YSI-001, HACH-001 | WWTP-IN-01, WWTP-OUT-01 |
-| CSO Event Study 2024 | P. Gagnon | ISCO-001 | CSO-12-OUT |
+Campaigns replace the old Project model as the primary organisational grouping.
+Equipment is associated to a campaign via `CampaignEquipment`, and sampling points via `CampaignSamplingPoints`.
+
+| Campaign | Equipment | Sampling points |
+| --- | --- | --- |
+| WWTP Inlet Monitoring 2024 | ISCO-001, YSI-001, HACH-001 | WWTP-IN-01, WWTP-OUT-01 |
+| CSO Event Study 2024 | ISCO-001 | CSO-12-OUT |
 
 ### 1.6 Scalar measurements (dbo.Value)
 
 22 rows total after v1.0.2 seed data. Key subsets:
 
-| Value_ID | Parameter | Sampling point | Value | Timestamp (UTC) | QA comment |
+| Value_ID | Parameter | Equipment | Value | Timestamp (UTC) | QA comment |
 | --- | --- | --- | --- | --- | --- |
-| 1 | TSS | WWTP-IN-01 | 185.0 mg/L | 2024-01-15 13:00 | Normal |
-| 2 | TSS | WWTP-IN-01 | 210.5 mg/L | 2024-01-15 19:00 | — |
-| 3 | TSS | WWTP-IN-01 | 192.3 mg/L | 2024-01-16 13:00 | Normal |
-| 9 | pH | WWTP-IN-01 | 7.8 pH units | 2024-01-15 17:00 | **Possible equipment drift** |
-| 10 | TSS | CSO-12-OUT | 350.0 mg/L | 2024-03-20 12:00 | — |
-| 11 | TSS | CSO-12-OUT | 580.2 mg/L | 2024-03-20 14:00 | — |
-| 12 | TSS | CSO-12-OUT | 345.0 mg/L | 2024-03-20 14:00 | **Duplicate (QA/QC)** |
-| 13 | TSS | WWTP-OUT-01 | 12.5 mg/L | 2024-01-15 13:00 | — |
-| 14 | TSS | WWTP-OUT-01 | 15.0 mg/L | 2024-01-16 13:00 | — |
-| 18 | TSS | WWTP-IN-01 | 200.0 mg/L | **NULL** | Edge case: no timestamp |
-| 19 | TSS | WWTP-IN-01 | 145.2 mg/L | 2025-06-15 12:00 EDT | v1.0.2 seed |
-| 20 | TSS | WWTP-IN-01 | 160.8 mg/L | 2025-06-15 18:30 EDT | v1.0.2 seed |
+| 1 | TSS | ISCO-001 | 185.0 mg/L | 2024-01-15 13:00 | Normal |
+| 2 | TSS | ISCO-001 | 210.5 mg/L | 2024-01-15 19:00 | — |
+| 3 | TSS | ISCO-001 | 192.3 mg/L | 2024-01-16 13:00 | Normal |
+| 9 | pH | YSI-001 | 7.8 pH units | 2024-01-15 17:00 | **Possible equipment drift** |
+| 10 | TSS | ISCO-001 | 350.0 mg/L | 2024-03-20 12:00 | — |
+| 11 | TSS | ISCO-001 | 580.2 mg/L | 2024-03-20 14:00 | — |
+| 12 | TSS | ISCO-001 | 345.0 mg/L | 2024-03-20 14:00 | **Duplicate (QA/QC)** |
+| 13 | TSS | ISCO-001 | 12.5 mg/L | 2024-01-15 13:00 | — |
+| 14 | TSS | ISCO-001 | 15.0 mg/L | 2024-01-16 13:00 | — |
+| 18 | TSS | ISCO-001 | 200.0 mg/L | **NULL** | Edge case: no timestamp |
+| 19 | TSS | ISCO-001 | 145.2 mg/L | 2025-06-15 12:00 EDT | v1.0.2 seed |
+| 20 | TSS | ISCO-001 | 160.8 mg/L | 2025-06-15 18:30 EDT | v1.0.2 seed |
 
 ### 1.7 Polymorphic value types (v1.1.0)
 
-| Type | Metadata_ID | Description | Rows |
+| Type | Channel_ID | Description | Rows |
 | --- | --- | --- | --- |
 | Vector (UV-Vis) | 7 | S::CAN spectro::lyser, 200–750 nm, 7 sample bins across 2 timestamps | 10 rows in ValueVector |
 | Image | 8 | Camera at CSO-12-OUT during rain, 1920×1080 JPEG | 2 rows in ValueImage |
 | Vector (particle size) | 9 | 4-fraction PSD at WWTP-IN-01, 2 timestamps | 8 rows in ValueVector |
 | Matrix (size × velocity) | 10 | Joint distribution at WWTP-IN-01, 3×2 bins | 6 rows in ValueMatrix |
 
-All 6 pre-existing `Metadata` rows (IDs 1–6) have `ValueType_ID = 1` (Scalar) after the v1.1.0 migration.
+All 6 pre-existing `Channel` rows (IDs 1–6) have `ValueType_ID = 1` (Scalar) after the v1.1.0 migration.
 
 ---
 
@@ -183,89 +189,69 @@ ORDER BY p.[Parameter]
 """))
 ```
 
-### 2.7 Contacts — `dbo.Contact`
+### 2.7 Channel series — `dbo.Channel`
+
+Each row in `Channel` defines one measurement stream (a parameter measured by an instrument
+at a given processing degree).
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT [First_name], [Last_name], [Email], [Function]
-FROM [dbo].[Contact]
-ORDER BY [Last_name], [First_name]
-"""))
-```
-
-### 2.8 Projects — `dbo.Project`
-
-```python exec="true" session="bq"
-print(run_bq("""
-SELECT [name], [Description]
-FROM [dbo].[Project]
-ORDER BY [name]
-"""))
-```
-
-### 2.9 MetaData series — `dbo.MetaData`
-
-Each row in `MetaData` defines one measurement series (a parameter measured at a location with a given instrument).
-
-```python exec="true" session="bq"
-print(run_bq("""
-SELECT m.[Metadata_ID],
+SELECT c.[Channel_ID],
        vt.[ValueType_Name]  AS [ValueType],
        p.[Parameter],
-       sp.[Sampling_point],
        e.[identifier]       AS [Equipment],
-       u.[Unit]
-FROM [dbo].[MetaData]       m
-LEFT JOIN [dbo].[ValueType]      vt ON m.[ValueType_ID]       = vt.[ValueType_ID]
-LEFT JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]       = p.[Parameter_ID]
-LEFT JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID]  = sp.[Sampling_point_ID]
-LEFT JOIN [dbo].[Equipment]      e  ON m.[Equipment_ID]       = e.[Equipment_ID]
-LEFT JOIN [dbo].[Unit]           u  ON m.[Unit_ID]            = u.[Unit_ID]
-ORDER BY m.[Metadata_ID]
+       u.[Unit],
+       c.[ProcessingDegree]
+FROM [dbo].[Channel]        c
+LEFT JOIN [dbo].[ValueType]  vt ON c.[ValueType_ID]  = vt.[ValueType_ID]
+LEFT JOIN [dbo].[Parameter]  p  ON c.[Parameter_ID]  = p.[Parameter_ID]
+LEFT JOIN [dbo].[Equipment]  e  ON c.[Equipment_ID]  = e.[Equipment_ID]
+LEFT JOIN [dbo].[Unit]       u  ON c.[Unit_ID]       = u.[Unit_ID]
+ORDER BY c.[Channel_ID]
 """))
 ```
 
-### 2.10 Scalar measurements — `dbo.Value`
+### 2.8 Scalar measurements — `dbo.Value`
 
 ```python exec="true" session="bq"
 print(run_bq("""
 SELECT v.[Value_ID],
        p.[Parameter],
-       sp.[Sampling_point],
+       e.[identifier]  AS [Equipment],
        v.[Value],
        v.[Timestamp]
-FROM [dbo].[Value]          v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]     = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID]= sp.[Sampling_point_ID]
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
 ORDER BY v.[Value_ID]
 """))
 ```
 
-### 2.11 UV-Vis spectra — `dbo.ValueVector` (v1.1.0)
+### 2.9 UV-Vis spectra — `dbo.ValueVector` (v1.1.0)
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT vv.[Metadata_ID],
+SELECT vv.[Channel_ID],
        vv.[Timestamp],
        vb.[BinIndex],
        (vb.[LowerBound] + vb.[UpperBound]) / 2.0 AS [Wavelength_nm],
        vv.[Value]        AS [Absorbance]
 FROM [dbo].[ValueVector] vv
 JOIN [dbo].[ValueBin] vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
-JOIN [dbo].[MetaDataAxis] mda ON vv.[Metadata_ID] = mda.[Metadata_ID]
-JOIN [dbo].[ValueBinningAxis] vba ON mda.[ValueBinningAxis_ID] = vba.[ValueBinningAxis_ID]
+JOIN [dbo].[ChannelAxis] ca ON vv.[Channel_ID] = ca.[Channel_ID]
+JOIN [dbo].[ValueBinningAxis] vba ON ca.[ValueBinningAxis_ID] = vba.[ValueBinningAxis_ID]
 WHERE vba.[Name] = 'S::CAN spectro::lyser UV-Vis'
 ORDER BY vv.[Timestamp], vb.[BinIndex]
 """))
 ```
 
-### 2.12 Camera images — `dbo.ValueImage` (v1.1.0)
+### 2.10 Camera images — `dbo.ValueImage` (v1.1.0)
 
 ```python exec="true" session="bq"
 print(run_bq("""
 SELECT [ValueImage_ID],
-       [Metadata_ID],
+       [Channel_ID],
        [Timestamp],
        [ImageWidth],
        [ImageHeight],
@@ -277,18 +263,18 @@ ORDER BY [Timestamp]
 """))
 ```
 
-### 2.13 Particle size distribution vectors — `dbo.ValueVector` (v1.1.0)
+### 2.11 Particle size distribution vectors — `dbo.ValueVector` (v1.1.0)
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT vv.[Metadata_ID],
+SELECT vv.[Channel_ID],
        vv.[Timestamp],
        vb.[BinIndex],
        vv.[Value]
 FROM [dbo].[ValueVector] vv
 JOIN [dbo].[ValueBin] vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
-JOIN [dbo].[MetaDataAxis] mda ON vv.[Metadata_ID] = mda.[Metadata_ID]
-JOIN [dbo].[ValueBinningAxis] vba ON mda.[ValueBinningAxis_ID] = vba.[ValueBinningAxis_ID]
+JOIN [dbo].[ChannelAxis] ca ON vv.[Channel_ID] = ca.[Channel_ID]
+JOIN [dbo].[ValueBinningAxis] vba ON ca.[ValueBinningAxis_ID] = vba.[ValueBinningAxis_ID]
 WHERE vba.[Name] = 'LISST-200X particle size'
 ORDER BY vv.[Timestamp], vb.[BinIndex]
 """))
@@ -303,29 +289,29 @@ The test suite `tests/integration/test_business_queries.py` runs every query and
 
 | ID | Category | Business question | Min. schema | Test |
 | --- | --- | --- | --- | --- |
-| BQ-01 | Measurement retrieval | What are all TSS measurements at WWTP-IN-01, sorted by timestamp? | v1.0.2 | `test_bq01` |
-| BQ-02 | Measurement retrieval | What are the TSS measurements at WWTP-IN-01 in January 2024? | v1.0.2 | `test_bq02` |
-| BQ-03 | Measurement retrieval | What is the average TSS concentration per sampling point? | v1.0.2 | `test_bq03` |
+| BQ-01 | Measurement retrieval | What are all TSS measurements from ISCO-001, sorted by timestamp? | v2.0.0 | `test_bq01` |
+| BQ-02 | Measurement retrieval | What are the TSS measurements from ISCO-001 in January 2024? | v2.0.0 | `test_bq02` |
+| BQ-03 | Measurement retrieval | What is the average TSS concentration per equipment unit? | v2.0.0 | `test_bq03` |
 | BQ-04 | Equipment | Which equipment models are capable of measuring TSS? | v1.0.0 | `test_bq04` |
 | BQ-05 | Equipment | What parameters can each equipment model measure? | v1.0.0 | `test_bq05` |
-| BQ-06 | Equipment | Where has ISCO-001 been deployed (which projects)? | v1.0.0 | `test_bq06` |
-| BQ-07 | Site & project | What sampling points exist in the WWTP Inlet Monitoring 2024 project? | v1.0.0 | `test_bq07` |
-| BQ-08 | Site & project | How many measurements of each parameter are available per sampling point in the Saint-Charles watershed? | v1.0.2 | `test_bq08` |
-| BQ-09 | Site & project | Which contacts are associated with the CSO Event Study? | v1.0.0 | `test_bq09` |
+| BQ-06 | Equipment | Where has ISCO-001 been deployed (installation history)? | v1.4.0 | `test_bq06` |
+| BQ-07 | Site | What equipment is currently installed at WWTP-IN-01? | v1.4.0 | `test_bq07` |
+| BQ-08 | Watershed | How many measurements of each parameter are available per sampling point in the Saint-Charles watershed? | v2.0.0 | `test_bq08` |
+| BQ-09 | Campaigns | Which campaigns have data from the CSO outfall? | v1.5.0 | `test_bq09` |
 | BQ-10 | Data quality | Which measurements carry a QA/QC comment? | v1.0.2 | `test_bq10` |
-| BQ-11 | Data quality | Are there duplicate measurements at the same location and timestamp? | v1.0.2 | `test_bq11` |
-| BQ-12 | Data quality | Which MetaData entries are missing a contact, equipment, or weather condition? | v1.0.2 | `test_bq12` |
-| BQ-13 | Polymorphic types | What value types are recorded at each sampling point? | v1.1.0 | `test_bq13` |
-| BQ-14 | Polymorphic types | What is the UV-Vis absorbance spectrum at WWTP-IN-01 at 10:00 on 2025-09-10? | v1.1.0 | `test_bq14` |
+| BQ-11 | Data quality | Are there duplicate measurements at the same Channel and timestamp? | v2.0.0 | `test_bq11` |
+| BQ-12 | Data quality | Which Channel rows have no EquipmentInstallation record covering their data window? | v2.0.0 | `test_bq12` |
+| BQ-13 | Polymorphic types | What value types are recorded per equipment unit? | v2.0.0 | `test_bq13` |
+| BQ-14 | Polymorphic types | What is the UV-Vis absorbance spectrum at 10:00 on 2025-09-10? | v1.1.0 | `test_bq14` |
 | BQ-15 | Polymorphic types | What is the total particle concentration (sum of PSD fractions) at each timestamp? | v1.1.0 | `test_bq15` |
 
 ### 3.1 Detailed queries
 
 ---
 
-#### BQ-01 — All TSS measurements at WWTP-IN-01
+#### BQ-01 — All TSS measurements from ISCO-001
 
-**Business question:** What are all TSS values measured at the WWTP inlet sampling point, in chronological order?
+**Business question:** What are all TSS values measured by ISCO-001, in chronological order?
 
 **SQL:**
 
@@ -334,12 +320,12 @@ SELECT
     v.[Value_ID],
     v.[Value],
     v.[Timestamp]
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]       = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]       = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID]  = sp.[Sampling_point_ID]
-WHERE p.[Parameter]       = 'TSS'
-  AND sp.[Sampling_point] = 'WWTP-IN-01'
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
+WHERE p.[Parameter]    = 'TSS'
+  AND e.[identifier]   = 'ISCO-001'
 ORDER BY v.[Timestamp];
 ```
 
@@ -348,18 +334,25 @@ ORDER BY v.[Timestamp];
 ```python exec="true" session="bq"
 print(run_bq("""
 SELECT v.[Value_ID], v.[Value], v.[Timestamp]
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]       = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]       = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID]  = sp.[Sampling_point_ID]
-WHERE p.[Parameter] = 'TSS' AND sp.[Sampling_point] = 'WWTP-IN-01'
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
+WHERE p.[Parameter] = 'TSS' AND e.[identifier] = 'ISCO-001'
+  AND c.[Channel_ID] = (
+      SELECT TOP 1 c2.[Channel_ID] FROM [dbo].[Channel] c2
+      JOIN [dbo].[Parameter] p2 ON c2.[Parameter_ID] = p2.[Parameter_ID]
+      JOIN [dbo].[Equipment] e2 ON c2.[Equipment_ID] = e2.[Equipment_ID]
+      WHERE p2.[Parameter] = 'TSS' AND e2.[identifier] = 'ISCO-001'
+        AND c2.[ProcessingDegree] = 'Raw'
+  )
 ORDER BY v.[Timestamp]
 """))
 ```
 
 ---
 
-#### BQ-02 — TSS at WWTP-IN-01 in January 2024
+#### BQ-02 — TSS from ISCO-001 in January 2024
 
 **Business question:** Filter measurements to a specific date range (the standard "give me data between dates" query).
 
@@ -367,12 +360,12 @@ ORDER BY v.[Timestamp]
 
 ```sql
 SELECT v.[Value], v.[Timestamp]
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
-WHERE p.[Parameter]       = 'TSS'
-  AND sp.[Sampling_point] = 'WWTP-IN-01'
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
+WHERE p.[Parameter]  = 'TSS'
+  AND e.[identifier] = 'ISCO-001'
   AND v.[Timestamp] >= '2024-01-15T00:00:00.0000000+00:00'
   AND v.[Timestamp] <  '2024-01-17T00:00:00.0000000+00:00'
 ORDER BY v.[Timestamp];
@@ -383,11 +376,11 @@ ORDER BY v.[Timestamp];
 ```python exec="true" session="bq"
 print(run_bq("""
 SELECT v.[Value], v.[Timestamp]
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
-WHERE p.[Parameter] = 'TSS' AND sp.[Sampling_point] = 'WWTP-IN-01'
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
+WHERE p.[Parameter] = 'TSS' AND e.[identifier] = 'ISCO-001'
   AND v.[Timestamp] >= '2024-01-15T00:00:00.0000000+00:00'
   AND v.[Timestamp] <  '2024-01-17T00:00:00.0000000+00:00'
 ORDER BY v.[Timestamp]
@@ -396,43 +389,40 @@ ORDER BY v.[Timestamp]
 
 ---
 
-#### BQ-03 — Average TSS per sampling point
+#### BQ-03 — Average TSS per equipment unit
 
-**Business question:** Aggregate statistics per location — the classic "what is the typical concentration at site X" question.
+**Business question:** Aggregate statistics per instrument — "what is the typical concentration seen by sensor X?".
 
 **SQL:**
 
 ```sql
 SELECT
-    sp.[Sampling_point],
-    AVG(v.[Value])       AS avg_tss_mg_L,
-    COUNT(v.[Value_ID])  AS n_measurements
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
+    e.[identifier]      AS equipment,
+    AVG(v.[Value])      AS avg_tss_mg_L,
+    COUNT(v.[Value_ID]) AS n_measurements
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
 WHERE p.[Parameter] = 'TSS'
-GROUP BY sp.[Sampling_point]
-ORDER BY sp.[Sampling_point];
+GROUP BY e.[identifier]
+ORDER BY e.[identifier];
 ```
 
-**Live result** — 3 rows expected (CSO-12-OUT ≈ 425.1, WWTP-IN-01 ≈ 182.3, WWTP-OUT-01 = 13.75):
+**Live result** — 1 row expected (ISCO-001):
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT sp.[Sampling_point], AVG(v.[Value]) AS avg_tss_mg_L, COUNT(v.[Value_ID]) AS n_measurements
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
+SELECT e.[identifier] AS equipment, AVG(v.[Value]) AS avg_tss_mg_L, COUNT(v.[Value_ID]) AS n_measurements
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
 WHERE p.[Parameter] = 'TSS'
-GROUP BY sp.[Sampling_point]
-ORDER BY sp.[Sampling_point]
+GROUP BY e.[identifier]
+ORDER BY e.[identifier]
 """))
 ```
-
-!!! note "Removal efficiency"
-    Dividing the WWTP-OUT-01 average by the WWTP-IN-01 average gives an apparent TSS removal efficiency. This is the kind of derived calculation a user would perform after retrieving data from the schema.
 
 ---
 
@@ -498,61 +488,70 @@ ORDER BY em.[Equipment_model], p.[Parameter]
 
 #### BQ-06 — Equipment deployment history
 
-**Business question:** "Where has sensor ISCO-001 been deployed over its lifespan?" — at the project level.
+**Business question:** "Where has sensor ISCO-001 been deployed over its lifespan?"
 
 **SQL:**
 
 ```sql
-SELECT e.[identifier], p.[name] AS project, em.[Equipment_model]
-FROM [dbo].[Equipment]           e
-JOIN [dbo].[EquipmentModel]      em  ON e.[model_ID]     = em.[Equipment_model_ID]
-JOIN [dbo].[ProjectHasEquipment] phe ON e.[Equipment_ID] = phe.[Equipment_ID]
-JOIN [dbo].[Project]             p   ON phe.[Project_ID] = p.[Project_ID]
-ORDER BY e.[identifier], p.[name];
+SELECT e.[identifier],
+       sp.[Sampling_point],
+       s.[name]          AS site,
+       ei.[InstalledDate],
+       ei.[RemovedDate]
+FROM [dbo].[Equipment]             e
+JOIN [dbo].[EquipmentInstallation] ei ON e.[Equipment_ID]        = ei.[Equipment_ID]
+JOIN [dbo].[SamplingPoints]        sp ON ei.[Sampling_point_ID]  = sp.[Sampling_point_ID]
+JOIN [dbo].[Site]                  s  ON sp.[Site_ID]            = s.[Site_ID]
+WHERE e.[identifier] = 'ISCO-001'
+ORDER BY ei.[InstalledDate];
 ```
 
-**Live result** — 4 rows expected:
+**Live result** — rows expected per installation record:
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT e.[identifier], p.[name] AS project, em.[Equipment_model]
-FROM [dbo].[Equipment]           e
-JOIN [dbo].[EquipmentModel]      em  ON e.[model_ID]     = em.[Equipment_model_ID]
-JOIN [dbo].[ProjectHasEquipment] phe ON e.[Equipment_ID] = phe.[Equipment_ID]
-JOIN [dbo].[Project]             p   ON phe.[Project_ID] = p.[Project_ID]
-ORDER BY e.[identifier], p.[name]
+SELECT e.[identifier], sp.[Sampling_point], s.[name] AS site,
+       ei.[InstalledDate], ei.[RemovedDate]
+FROM [dbo].[Equipment]             e
+JOIN [dbo].[EquipmentInstallation] ei ON e.[Equipment_ID]       = ei.[Equipment_ID]
+JOIN [dbo].[SamplingPoints]        sp ON ei.[Sampling_point_ID] = sp.[Sampling_point_ID]
+JOIN [dbo].[Site]                  s  ON sp.[Site_ID]           = s.[Site_ID]
+WHERE e.[identifier] = 'ISCO-001'
+ORDER BY ei.[InstalledDate]
 """))
 ```
 
 ---
 
-#### BQ-07 — Sampling points in a project
+#### BQ-07 — Equipment currently installed at a location
 
-**Business question:** "What sampling points exist in the WWTP Inlet Monitoring 2024 project?"
+**Business question:** "What sensors are currently active at WWTP-IN-01?"
 
 **SQL:**
 
 ```sql
-SELECT sp.[Sampling_point], sp.[Sampling_location], s.[name] AS site
-FROM [dbo].[SamplingPoints]           sp
-JOIN [dbo].[ProjectHasSamplingPoints] phs ON sp.[Sampling_point_ID] = phs.[Sampling_point_ID]
-JOIN [dbo].[Project]                  p   ON phs.[Project_ID]        = p.[Project_ID]
-JOIN [dbo].[Site]                     s   ON sp.[Site_ID]            = s.[Site_ID]
-WHERE p.[name] = 'WWTP Inlet Monitoring 2024'
-ORDER BY sp.[Sampling_point];
+SELECT e.[identifier], em.[Equipment_model], ei.[InstalledDate]
+FROM [dbo].[EquipmentInstallation] ei
+JOIN [dbo].[Equipment]             e  ON ei.[Equipment_ID]       = e.[Equipment_ID]
+JOIN [dbo].[EquipmentModel]        em ON e.[model_ID]            = em.[Equipment_model_ID]
+JOIN [dbo].[SamplingPoints]        sp ON ei.[Sampling_point_ID]  = sp.[Sampling_point_ID]
+WHERE sp.[Sampling_point] = 'WWTP-IN-01'
+  AND ei.[RemovedDate]    IS NULL
+ORDER BY e.[identifier];
 ```
 
-**Live result** — 2 rows expected:
+**Live result** — rows expected per currently installed sensor:
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT sp.[Sampling_point], sp.[Sampling_location], s.[name] AS site
-FROM [dbo].[SamplingPoints]           sp
-JOIN [dbo].[ProjectHasSamplingPoints] phs ON sp.[Sampling_point_ID] = phs.[Sampling_point_ID]
-JOIN [dbo].[Project]                  p   ON phs.[Project_ID]        = p.[Project_ID]
-JOIN [dbo].[Site]                     s   ON sp.[Site_ID]            = s.[Site_ID]
-WHERE p.[name] = 'WWTP Inlet Monitoring 2024'
-ORDER BY sp.[Sampling_point]
+SELECT e.[identifier], em.[Equipment_model], ei.[InstalledDate]
+FROM [dbo].[EquipmentInstallation] ei
+JOIN [dbo].[Equipment]             e  ON ei.[Equipment_ID]       = e.[Equipment_ID]
+JOIN [dbo].[EquipmentModel]        em ON e.[model_ID]            = em.[Equipment_model_ID]
+JOIN [dbo].[SamplingPoints]        sp ON ei.[Sampling_point_ID]  = sp.[Sampling_point_ID]
+WHERE sp.[Sampling_point] = 'WWTP-IN-01'
+  AND ei.[RemovedDate] IS NULL
+ORDER BY e.[identifier]
 """))
 ```
 
@@ -562,6 +561,8 @@ ORDER BY sp.[Sampling_point]
 
 **Business question:** "How much data do we have for each parameter at each location in the Saint-Charles watershed?"
 
+Location context is derived at query time via `EquipmentInstallation`.
+
 **SQL:**
 
 ```sql
@@ -569,28 +570,32 @@ SELECT
     p.[Parameter],
     sp.[Sampling_point],
     COUNT(v.[Value_ID]) AS n_measurements
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
-JOIN [dbo].[Site]           s  ON sp.[Site_ID]          = s.[Site_ID]
-JOIN [dbo].[Watershed]      w  ON s.[Watershed_ID]      = w.[Watershed_ID]
+FROM [dbo].[Value]             v
+JOIN [dbo].[Channel]           c   ON v.[Channel_ID]          = c.[Channel_ID]
+JOIN [dbo].[Parameter]         p   ON c.[Parameter_ID]         = p.[Parameter_ID]
+JOIN [dbo].[Equipment]         e   ON c.[Equipment_ID]         = e.[Equipment_ID]
+JOIN [dbo].[EquipmentInstallation] ei ON e.[Equipment_ID]      = ei.[Equipment_ID]
+JOIN [dbo].[SamplingPoints]    sp  ON ei.[Sampling_point_ID]   = sp.[Sampling_point_ID]
+JOIN [dbo].[Site]              s   ON sp.[Site_ID]             = s.[Site_ID]
+JOIN [dbo].[Watershed]         w   ON s.[Watershed_ID]         = w.[Watershed_ID]
 WHERE w.[name] = 'Riviere Saint-Charles'
 GROUP BY p.[Parameter], sp.[Sampling_point]
 ORDER BY p.[Parameter], sp.[Sampling_point];
 ```
 
-**Live result** — 6 rows expected:
+**Live result** — rows per (parameter, sampling-point) combination in the catchment:
 
 ```python exec="true" session="bq"
 print(run_bq("""
 SELECT p.[Parameter], sp.[Sampling_point], COUNT(v.[Value_ID]) AS n_measurements
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
-JOIN [dbo].[Site]           s  ON sp.[Site_ID]          = s.[Site_ID]
-JOIN [dbo].[Watershed]      w  ON s.[Watershed_ID]      = w.[Watershed_ID]
+FROM [dbo].[Value]             v
+JOIN [dbo].[Channel]           c   ON v.[Channel_ID]         = c.[Channel_ID]
+JOIN [dbo].[Parameter]         p   ON c.[Parameter_ID]        = p.[Parameter_ID]
+JOIN [dbo].[Equipment]         e   ON c.[Equipment_ID]        = e.[Equipment_ID]
+JOIN [dbo].[EquipmentInstallation] ei ON e.[Equipment_ID]     = ei.[Equipment_ID]
+JOIN [dbo].[SamplingPoints]    sp  ON ei.[Sampling_point_ID]  = sp.[Sampling_point_ID]
+JOIN [dbo].[Site]              s   ON sp.[Site_ID]            = s.[Site_ID]
+JOIN [dbo].[Watershed]         w   ON s.[Watershed_ID]        = w.[Watershed_ID]
 WHERE w.[name] = 'Riviere Saint-Charles'
 GROUP BY p.[Parameter], sp.[Sampling_point]
 ORDER BY p.[Parameter], sp.[Sampling_point]
@@ -599,31 +604,31 @@ ORDER BY p.[Parameter], sp.[Sampling_point]
 
 ---
 
-#### BQ-09 — Contacts associated with a project
+#### BQ-09 — Campaigns at a sampling point
 
-**Business question:** "Who is responsible for data collection in the CSO Event Study?"
+**Business question:** "Which campaigns have data collected at the CSO outfall?"
 
 **SQL:**
 
 ```sql
-SELECT c.[First_name], c.[Last_name], c.[Email], c.[Function]
-FROM [dbo].[Contact]           c
-JOIN [dbo].[ProjectHasContact] phc ON c.[Contact_ID]  = phc.[Contact_ID]
-JOIN [dbo].[Project]           p   ON phc.[Project_ID] = p.[Project_ID]
-WHERE p.[name] = 'CSO Event Study 2024'
-ORDER BY c.[Last_name];
+SELECT DISTINCT cam.[Campaign_name], cam.[Start_date], cam.[End_date]
+FROM [dbo].[Campaign]              cam
+JOIN [dbo].[CampaignSamplingPoints] csp ON cam.[Campaign_ID]     = csp.[Campaign_ID]
+JOIN [dbo].[SamplingPoints]         sp  ON csp.[Sampling_point_ID] = sp.[Sampling_point_ID]
+WHERE sp.[Sampling_point] = 'CSO-12-OUT'
+ORDER BY cam.[Start_date];
 ```
 
-**Live result** — 1 row expected:
+**Live result** — rows expected per campaign covering the CSO outfall:
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT c.[First_name], c.[Last_name], c.[Email], c.[Function]
-FROM [dbo].[Contact]           c
-JOIN [dbo].[ProjectHasContact] phc ON c.[Contact_ID]  = phc.[Contact_ID]
-JOIN [dbo].[Project]           p   ON phc.[Project_ID] = p.[Project_ID]
-WHERE p.[name] = 'CSO Event Study 2024'
-ORDER BY c.[Last_name]
+SELECT DISTINCT cam.[Campaign_name], cam.[Start_date], cam.[End_date]
+FROM [dbo].[Campaign]              cam
+JOIN [dbo].[CampaignSamplingPoints] csp ON cam.[Campaign_ID]      = csp.[Campaign_ID]
+JOIN [dbo].[SamplingPoints]         sp  ON csp.[Sampling_point_ID] = sp.[Sampling_point_ID]
+WHERE sp.[Sampling_point] = 'CSO-12-OUT'
+ORDER BY cam.[Start_date]
 """))
 ```
 
@@ -639,15 +644,15 @@ ORDER BY c.[Last_name]
 SELECT
     v.[Value_ID],
     p.[Parameter],
-    sp.[Sampling_point],
+    e.[identifier]  AS equipment,
     v.[Value],
     v.[Timestamp],
     c.[Comment]
-FROM [dbo].[Value] v
-JOIN [dbo].[Comments]       c  ON v.[Comment_ID]        = c.[Comment_ID]
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]       = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
+FROM [dbo].[Value]     v
+JOIN [dbo].[Comments]  c  ON v.[Comment_ID]   = c.[Comment_ID]
+JOIN [dbo].[Channel]   ch ON v.[Channel_ID]   = ch.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON ch.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON ch.[Equipment_ID] = e.[Equipment_ID]
 WHERE c.[Comment] IS NOT NULL
 ORDER BY v.[Value_ID];
 ```
@@ -656,12 +661,13 @@ ORDER BY v.[Value_ID];
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT v.[Value_ID], p.[Parameter], sp.[Sampling_point], v.[Value], v.[Timestamp], c.[Comment]
-FROM [dbo].[Value] v
-JOIN [dbo].[Comments]       c  ON v.[Comment_ID]        = c.[Comment_ID]
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]       = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
+SELECT v.[Value_ID], p.[Parameter], e.[identifier] AS equipment,
+       v.[Value], v.[Timestamp], c.[Comment]
+FROM [dbo].[Value]     v
+JOIN [dbo].[Comments]  c  ON v.[Comment_ID]    = c.[Comment_ID]
+JOIN [dbo].[Channel]   ch ON v.[Channel_ID]    = ch.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON ch.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON ch.[Equipment_ID] = e.[Equipment_ID]
 WHERE c.[Comment] IS NOT NULL
 ORDER BY v.[Value_ID]
 """))
@@ -671,23 +677,23 @@ ORDER BY v.[Value_ID]
 
 #### BQ-11 — Duplicate measurements at the same timestamp
 
-**Business question:** "Are there cases where the same sensor has two readings at the exact same timestamp? (Indicates a QA/QC duplicate or a data ingestion error.)"
+**Business question:** "Are there cases where the same Channel has two readings at the exact same timestamp? (Indicates a QA/QC duplicate or a data ingestion error.)"
 
 **SQL:**
 
 ```sql
 SELECT
-    m.[Metadata_ID],
+    v.[Channel_ID],
     p.[Parameter],
-    sp.[Sampling_point],
+    e.[identifier]  AS equipment,
     v.[Timestamp],
-    COUNT(*) AS duplicate_count
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
+    COUNT(*)        AS duplicate_count
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
 WHERE v.[Timestamp] IS NOT NULL
-GROUP BY m.[Metadata_ID], p.[Parameter], sp.[Sampling_point], v.[Timestamp]
+GROUP BY v.[Channel_ID], p.[Parameter], e.[identifier], v.[Timestamp]
 HAVING COUNT(*) > 1;
 ```
 
@@ -695,85 +701,84 @@ HAVING COUNT(*) > 1;
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT m.[Metadata_ID], p.[Parameter], sp.[Sampling_point], v.[Timestamp], COUNT(*) AS duplicate_count
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]       m  ON v.[Metadata_ID]      = m.[Metadata_ID]
-JOIN [dbo].[Parameter]      p  ON m.[Parameter_ID]      = p.[Parameter_ID]
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
+SELECT v.[Channel_ID], p.[Parameter], e.[identifier] AS equipment,
+       v.[Timestamp], COUNT(*) AS duplicate_count
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
 WHERE v.[Timestamp] IS NOT NULL
-GROUP BY m.[Metadata_ID], p.[Parameter], sp.[Sampling_point], v.[Timestamp]
+GROUP BY v.[Channel_ID], p.[Parameter], e.[identifier], v.[Timestamp]
 HAVING COUNT(*) > 1
 """))
 ```
 
 ---
 
-#### BQ-12 — MetaData completeness audit
+#### BQ-12 — Channel rows without any EquipmentInstallation record
 
-**Business question:** "Which data series are missing key contextual information? (Contact, equipment, or weather condition.)"
+**Business question:** "Which measurement channels have no deployment record linking them to a physical location?"
 
 **SQL:**
 
 ```sql
-SELECT
-    m.[Metadata_ID],
-    CASE WHEN m.[Contact_ID]   IS NULL THEN 'missing' ELSE 'ok' END AS contact,
-    CASE WHEN m.[Equipment_ID] IS NULL THEN 'missing' ELSE 'ok' END AS equipment,
-    CASE WHEN m.[Condition_ID] IS NULL THEN 'missing' ELSE 'ok' END AS weather_condition
-FROM [dbo].[MetaData] m
-WHERE m.[Contact_ID]   IS NULL
-   OR m.[Equipment_ID] IS NULL
-   OR m.[Condition_ID] IS NULL
-ORDER BY m.[Metadata_ID];
+SELECT c.[Channel_ID], p.[Parameter], e.[identifier] AS equipment
+FROM [dbo].[Channel]   c
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
+WHERE NOT EXISTS (
+    SELECT 1 FROM [dbo].[EquipmentInstallation] ei
+    WHERE ei.[Equipment_ID] = c.[Equipment_ID]
+)
+ORDER BY c.[Channel_ID];
 ```
 
-**Live result** — 5 rows expected (MetaData IDs 3, 5, 7, 8, 9):
+**Live result** — 0 rows expected (all equipment in the sample data has installation records):
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT
-    m.[Metadata_ID],
-    CASE WHEN m.[Contact_ID]   IS NULL THEN 'missing' ELSE 'ok' END AS contact,
-    CASE WHEN m.[Equipment_ID] IS NULL THEN 'missing' ELSE 'ok' END AS equipment,
-    CASE WHEN m.[Condition_ID] IS NULL THEN 'missing' ELSE 'ok' END AS weather_condition
-FROM [dbo].[MetaData] m
-WHERE m.[Contact_ID] IS NULL OR m.[Equipment_ID] IS NULL OR m.[Condition_ID] IS NULL
-ORDER BY m.[Metadata_ID]
+SELECT c.[Channel_ID], p.[Parameter], e.[identifier] AS equipment
+FROM [dbo].[Channel]   c
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
+WHERE NOT EXISTS (
+    SELECT 1 FROM [dbo].[EquipmentInstallation] ei
+    WHERE ei.[Equipment_ID] = c.[Equipment_ID]
+)
+ORDER BY c.[Channel_ID]
 """))
 ```
 
 ---
 
-#### BQ-13 — Value types per sampling point (v1.1.0)
+#### BQ-13 — Value types per equipment unit (v1.1.0)
 
-**Business question:** "What kinds of data (scalar, spectral, image, array) are collected at each location?"
+**Business question:** "What kinds of data (scalar, spectral, image, array) are collected by each instrument?"
 
 **SQL:**
 
 ```sql
 SELECT
-    sp.[Sampling_point],
+    e.[identifier]      AS equipment,
     vt.[ValueType_Name],
-    COUNT(*) AS n_metadata_entries
-FROM [dbo].[MetaData]       m
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
-JOIN [dbo].[ValueType]      vt ON m.[ValueType_ID]       = vt.[ValueType_ID]
-WHERE m.[Sampling_point_ID] IS NOT NULL
-GROUP BY sp.[Sampling_point], vt.[ValueType_Name]
-ORDER BY sp.[Sampling_point], vt.[ValueType_Name];
+    COUNT(*)            AS n_channels
+FROM [dbo].[Channel]   c
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
+JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
+GROUP BY e.[identifier], vt.[ValueType_Name]
+ORDER BY e.[identifier], vt.[ValueType_Name];
 ```
 
 **Live result** — 6 rows expected:
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT sp.[Sampling_point], vt.[ValueType_Name], COUNT(*) AS n_metadata_entries
-FROM [dbo].[MetaData]       m
-JOIN [dbo].[SamplingPoints] sp ON m.[Sampling_point_ID] = sp.[Sampling_point_ID]
-JOIN [dbo].[ValueType]      vt ON m.[ValueType_ID]       = vt.[ValueType_ID]
-WHERE m.[Sampling_point_ID] IS NOT NULL
-GROUP BY sp.[Sampling_point], vt.[ValueType_Name]
-ORDER BY sp.[Sampling_point], vt.[ValueType_Name]
+SELECT e.[identifier] AS equipment, vt.[ValueType_Name], COUNT(*) AS n_channels
+FROM [dbo].[Channel]   c
+JOIN [dbo].[Equipment] e  ON c.[Equipment_ID] = e.[Equipment_ID]
+JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
+GROUP BY e.[identifier], vt.[ValueType_Name]
+ORDER BY e.[identifier], vt.[ValueType_Name]
 """))
 ```
 
@@ -781,7 +786,7 @@ ORDER BY sp.[Sampling_point], vt.[ValueType_Name]
 
 #### BQ-14 — UV-Vis absorption spectrum at a specific timestamp (v1.1.0)
 
-**Business question:** "Give me the full absorbance spectrum recorded at WWTP-IN-01 at 10:00 on 2025-09-10."
+**Business question:** "Give me the full absorbance spectrum recorded at 14:00 on 2025-09-10."
 
 **SQL:**
 
@@ -792,9 +797,9 @@ SELECT
     vv.[Value]       AS absorbance,
     vv.[QualityCode]
 FROM [dbo].[ValueVector] vv
-JOIN [dbo].[ValueBin] vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
-WHERE vv.[Metadata_ID] = 7
-  AND vv.[Timestamp]   = '2025-09-10T14:00:00.0000000'
+JOIN [dbo].[ValueBin]    vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
+WHERE vv.[Channel_ID] = 7
+  AND vv.[Timestamp]  = '2025-09-10T14:00:00.0000000'
 ORDER BY vb.[BinIndex];
 ```
 
@@ -802,11 +807,12 @@ ORDER BY vb.[BinIndex];
 
 ```python exec="true" session="bq"
 print(run_bq("""
-SELECT vb.[BinIndex], (vb.[LowerBound] + vb.[UpperBound]) / 2.0 AS wavelength_nm, vv.[Value] AS absorbance, vv.[QualityCode]
+SELECT vb.[BinIndex], (vb.[LowerBound] + vb.[UpperBound]) / 2.0 AS wavelength_nm,
+       vv.[Value] AS absorbance, vv.[QualityCode]
 FROM [dbo].[ValueVector] vv
-JOIN [dbo].[ValueBin] vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
-WHERE vv.[Metadata_ID] = 7
-  AND vv.[Timestamp]   = '2025-09-10T14:00:00.0000000'
+JOIN [dbo].[ValueBin]    vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
+WHERE vv.[Channel_ID] = 7
+  AND vv.[Timestamp]  = '2025-09-10T14:00:00.0000000'
 ORDER BY vb.[BinIndex]
 """))
 ```
@@ -825,7 +831,7 @@ SELECT
     SUM(vv.[Value]) AS total_concentration_mg_L,
     COUNT(*)         AS n_fractions
 FROM [dbo].[ValueVector] vv
-WHERE vv.[Metadata_ID] = 9
+WHERE vv.[Channel_ID] = 9
 GROUP BY vv.[Timestamp]
 ORDER BY vv.[Timestamp];
 ```
@@ -836,7 +842,7 @@ ORDER BY vv.[Timestamp];
 print(run_bq("""
 SELECT vv.[Timestamp], SUM(vv.[Value]) AS total_concentration_mg_L, COUNT(*) AS n_fractions
 FROM [dbo].[ValueVector] vv
-WHERE vv.[Metadata_ID] = 9
+WHERE vv.[Channel_ID] = 9
 GROUP BY vv.[Timestamp]
 ORDER BY vv.[Timestamp]
 """))
@@ -853,11 +859,11 @@ These checks assert structural and domain-logic invariants the schema is designe
 | IC-01 | Referential | Every watershed has exactly one `HydrologicalCharacteristics` row | 0 rows |
 | IC-02 | Referential | Every watershed has exactly one `UrbanCharacteristics` row | 0 rows |
 | IC-03 | Domain logic | All pH values fall within the physical range 0–14 | 0 rows |
-| IC-04 | Unit consistency | The unit recorded in `MetaData` matches the default unit of the `Parameter` | 0 rows |
-| IC-05 | Cross-table | Equipment used in a `MetaData` row is registered to the same project in `ProjectHasEquipment` | 0 rows |
-| IC-06 | Polymorphic (v1.1.0) | Every `MetaData` row with `ValueType = Vector` has at least one `MetaDataAxis` row | 0 rows |
-| IC-07 | Polymorphic (v1.1.0) | Every `MetaData` row with `ValueType = Scalar` has no rows in `ValueVector`, `ValueMatrix`, or `ValueImage` | 0 rows |
-| IC-08 | Cardinality | No `Value` row references a `Metadata_ID` that does not exist | 0 rows |
+| IC-04 | Unit consistency | The unit recorded in `Channel` matches the default unit of the `Parameter` | 0 rows |
+| IC-05 | Referential | Every `Channel` row references an existing `Equipment` and `Parameter` | 0 rows |
+| IC-06 | Polymorphic (v1.1.0) | Every `Channel` row with `ValueType = Vector` has at least one `ChannelAxis` row | 0 rows |
+| IC-07 | Polymorphic (v1.1.0) | Every `Channel` row with `ValueType = Scalar` has no rows in `ValueVector`, `ValueMatrix`, or `ValueImage` | 0 rows |
+| IC-08 | Cardinality | No `Value` row references a `Channel_ID` that does not exist | 0 rows |
 
 ---
 
@@ -905,9 +911,9 @@ WHERE uc.[Watershed_ID] IS NULL
 
 ```sql
 SELECT v.[Value_ID], v.[Value]
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]  m ON v.[Metadata_ID] = m.[Metadata_ID]
-JOIN [dbo].[Parameter] p ON m.[Parameter_ID] = p.[Parameter_ID]
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
 WHERE p.[Parameter] = 'pH'
   AND (v.[Value] < 0 OR v.[Value] > 14);
 ```
@@ -915,136 +921,126 @@ WHERE p.[Parameter] = 'pH'
 ```python exec="true" session="bq"
 print(run_ic("""
 SELECT v.[Value_ID], v.[Value]
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]  m ON v.[Metadata_ID] = m.[Metadata_ID]
-JOIN [dbo].[Parameter] p ON m.[Parameter_ID] = p.[Parameter_ID]
+FROM [dbo].[Value]     v
+JOIN [dbo].[Channel]   c  ON v.[Channel_ID]   = c.[Channel_ID]
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
 WHERE p.[Parameter] = 'pH' AND (v.[Value] < 0 OR v.[Value] > 14)
 """))
 ```
 
 ---
 
-#### IC-04 — Unit mismatch between MetaData and Parameter default unit
+#### IC-04 — Unit mismatch between Channel and Parameter default unit
 
 ```sql
-SELECT v.[Value_ID], p.[Parameter], pu.[Unit] AS parameter_unit, mu.[Unit] AS metadata_unit
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]  m  ON v.[Metadata_ID]  = m.[Metadata_ID]
-JOIN [dbo].[Parameter] p  ON m.[Parameter_ID] = p.[Parameter_ID]
+SELECT c.[Channel_ID], p.[Parameter], pu.[Unit] AS parameter_unit, cu.[Unit] AS channel_unit
+FROM [dbo].[Channel]   c
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
 JOIN [dbo].[Unit]      pu ON p.[Unit_ID]       = pu.[Unit_ID]
-JOIN [dbo].[Unit]      mu ON m.[Unit_ID]       = mu.[Unit_ID]
-WHERE m.[Parameter_ID] IS NOT NULL
-  AND m.[Unit_ID]      IS NOT NULL
-  AND p.[Unit_ID]      != m.[Unit_ID];
+JOIN [dbo].[Unit]      cu ON c.[Unit_ID]       = cu.[Unit_ID]
+WHERE c.[Parameter_ID] IS NOT NULL
+  AND c.[Unit_ID]      IS NOT NULL
+  AND p.[Unit_ID]      != c.[Unit_ID];
 ```
 
 ```python exec="true" session="bq"
 print(run_ic("""
-SELECT v.[Value_ID], p.[Parameter], pu.[Unit] AS parameter_unit, mu.[Unit] AS metadata_unit
-FROM [dbo].[Value] v
-JOIN [dbo].[MetaData]  m  ON v.[Metadata_ID]  = m.[Metadata_ID]
-JOIN [dbo].[Parameter] p  ON m.[Parameter_ID] = p.[Parameter_ID]
+SELECT c.[Channel_ID], p.[Parameter], pu.[Unit] AS parameter_unit, cu.[Unit] AS channel_unit
+FROM [dbo].[Channel]   c
+JOIN [dbo].[Parameter] p  ON c.[Parameter_ID] = p.[Parameter_ID]
 JOIN [dbo].[Unit]      pu ON p.[Unit_ID]       = pu.[Unit_ID]
-JOIN [dbo].[Unit]      mu ON m.[Unit_ID]       = mu.[Unit_ID]
-WHERE m.[Parameter_ID] IS NOT NULL AND m.[Unit_ID] IS NOT NULL AND p.[Unit_ID] != m.[Unit_ID]
+JOIN [dbo].[Unit]      cu ON c.[Unit_ID]       = cu.[Unit_ID]
+WHERE c.[Parameter_ID] IS NOT NULL AND c.[Unit_ID] IS NOT NULL AND p.[Unit_ID] != c.[Unit_ID]
 """))
 ```
 
 ---
 
-#### IC-05 — Equipment in MetaData not registered to the project
+#### IC-05 — Channel rows with missing Equipment or Parameter
 
 ```sql
-SELECT m.[Metadata_ID], e.[identifier]
-FROM [dbo].[MetaData]  m
-JOIN [dbo].[Equipment] e ON m.[Equipment_ID] = e.[Equipment_ID]
-LEFT JOIN [dbo].[ProjectHasEquipment] phe
-    ON e.[Equipment_ID] = phe.[Equipment_ID]
-   AND m.[Project_ID]   = phe.[Project_ID]
-WHERE m.[Equipment_ID]   IS NOT NULL
-  AND m.[Project_ID]     IS NOT NULL
-  AND phe.[Equipment_ID] IS NULL;
+SELECT c.[Channel_ID]
+FROM [dbo].[Channel] c
+WHERE c.[Equipment_ID]  IS NULL
+   OR c.[Parameter_ID]  IS NULL;
 ```
 
 ```python exec="true" session="bq"
 print(run_ic("""
-SELECT m.[Metadata_ID], e.[identifier]
-FROM [dbo].[MetaData]  m
-JOIN [dbo].[Equipment] e ON m.[Equipment_ID] = e.[Equipment_ID]
-LEFT JOIN [dbo].[ProjectHasEquipment] phe
-    ON e.[Equipment_ID] = phe.[Equipment_ID] AND m.[Project_ID] = phe.[Project_ID]
-WHERE m.[Equipment_ID] IS NOT NULL AND m.[Project_ID] IS NOT NULL AND phe.[Equipment_ID] IS NULL
+SELECT c.[Channel_ID]
+FROM [dbo].[Channel] c
+WHERE c.[Equipment_ID] IS NULL OR c.[Parameter_ID] IS NULL
 """))
 ```
 
 ---
 
-#### IC-06 — Vector MetaData without a MetaDataAxis (v1.1.0)
+#### IC-06 — Vector Channel without a ChannelAxis (v1.1.0)
 
 ```sql
-SELECT m.[Metadata_ID]
-FROM [dbo].[MetaData]  m
-JOIN [dbo].[ValueType] vt ON m.[ValueType_ID] = vt.[ValueType_ID]
+SELECT c.[Channel_ID]
+FROM [dbo].[Channel]   c
+JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
 WHERE vt.[ValueType_Name] = 'Vector'
   AND NOT EXISTS (
-      SELECT 1 FROM [dbo].[MetaDataAxis] mda
-      WHERE mda.[Metadata_ID] = m.[Metadata_ID]
+      SELECT 1 FROM [dbo].[ChannelAxis] ca
+      WHERE ca.[Channel_ID] = c.[Channel_ID]
   );
 ```
 
 ```python exec="true" session="bq"
 print(run_ic("""
-SELECT m.[Metadata_ID]
-FROM [dbo].[MetaData]  m
-JOIN [dbo].[ValueType] vt ON m.[ValueType_ID] = vt.[ValueType_ID]
+SELECT c.[Channel_ID]
+FROM [dbo].[Channel]   c
+JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
 WHERE vt.[ValueType_Name] = 'Vector'
   AND NOT EXISTS (
-      SELECT 1 FROM [dbo].[MetaDataAxis] mda
-      WHERE mda.[Metadata_ID] = m.[Metadata_ID]
+      SELECT 1 FROM [dbo].[ChannelAxis] ca
+      WHERE ca.[Channel_ID] = c.[Channel_ID]
   )
 """))
 ```
 
 ---
 
-#### IC-07 — Scalar MetaData with data in polymorphic tables (v1.1.0)
+#### IC-07 — Scalar Channel with data in polymorphic tables (v1.1.0)
 
 ```sql
-SELECT m.[Metadata_ID], 'ValueVector' AS violation_table
-FROM [dbo].[MetaData] m
-JOIN [dbo].[ValueType] vt ON m.[ValueType_ID] = vt.[ValueType_ID]
+SELECT c.[Channel_ID], 'ValueVector' AS violation_table
+FROM [dbo].[Channel] c
+JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
 WHERE vt.[ValueType_Name] = 'Scalar'
-  AND EXISTS (SELECT 1 FROM [dbo].[ValueVector] vv WHERE vv.[Metadata_ID] = m.[Metadata_ID])
+  AND EXISTS (SELECT 1 FROM [dbo].[ValueVector] vv WHERE vv.[Channel_ID] = c.[Channel_ID])
 UNION ALL
-SELECT m.[Metadata_ID], 'ValueMatrix'
-FROM [dbo].[MetaData] m
-JOIN [dbo].[ValueType] vt ON m.[ValueType_ID] = vt.[ValueType_ID]
+SELECT c.[Channel_ID], 'ValueMatrix'
+FROM [dbo].[Channel] c
+JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
 WHERE vt.[ValueType_Name] = 'Scalar'
-  AND EXISTS (SELECT 1 FROM [dbo].[ValueMatrix] vm WHERE vm.[Metadata_ID] = m.[Metadata_ID])
+  AND EXISTS (SELECT 1 FROM [dbo].[ValueMatrix] vm WHERE vm.[Channel_ID] = c.[Channel_ID])
 UNION ALL
-SELECT m.[Metadata_ID], 'ValueImage'
-FROM [dbo].[MetaData] m
-JOIN [dbo].[ValueType] vt ON m.[ValueType_ID] = vt.[ValueType_ID]
+SELECT c.[Channel_ID], 'ValueImage'
+FROM [dbo].[Channel] c
+JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
 WHERE vt.[ValueType_Name] = 'Scalar'
-  AND EXISTS (SELECT 1 FROM [dbo].[ValueImage] vi WHERE vi.[Metadata_ID] = m.[Metadata_ID]);
+  AND EXISTS (SELECT 1 FROM [dbo].[ValueImage] vi WHERE vi.[Channel_ID] = c.[Channel_ID]);
 ```
 
 ```python exec="true" session="bq"
 print(run_ic("""
-SELECT m.[Metadata_ID], 'ValueVector' AS violation_table
-FROM [dbo].[MetaData] m JOIN [dbo].[ValueType] vt ON m.[ValueType_ID] = vt.[ValueType_ID]
+SELECT c.[Channel_ID], 'ValueVector' AS violation_table
+FROM [dbo].[Channel] c JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
 WHERE vt.[ValueType_Name] = 'Scalar'
-  AND EXISTS (SELECT 1 FROM [dbo].[ValueVector] vv WHERE vv.[Metadata_ID] = m.[Metadata_ID])
+  AND EXISTS (SELECT 1 FROM [dbo].[ValueVector] vv WHERE vv.[Channel_ID] = c.[Channel_ID])
 UNION ALL
-SELECT m.[Metadata_ID], 'ValueMatrix'
-FROM [dbo].[MetaData] m JOIN [dbo].[ValueType] vt ON m.[ValueType_ID] = vt.[ValueType_ID]
+SELECT c.[Channel_ID], 'ValueMatrix'
+FROM [dbo].[Channel] c JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
 WHERE vt.[ValueType_Name] = 'Scalar'
-  AND EXISTS (SELECT 1 FROM [dbo].[ValueMatrix] vm WHERE vm.[Metadata_ID] = m.[Metadata_ID])
+  AND EXISTS (SELECT 1 FROM [dbo].[ValueMatrix] vm WHERE vm.[Channel_ID] = c.[Channel_ID])
 UNION ALL
-SELECT m.[Metadata_ID], 'ValueImage'
-FROM [dbo].[MetaData] m JOIN [dbo].[ValueType] vt ON m.[ValueType_ID] = vt.[ValueType_ID]
+SELECT c.[Channel_ID], 'ValueImage'
+FROM [dbo].[Channel] c JOIN [dbo].[ValueType] vt ON c.[ValueType_ID] = vt.[ValueType_ID]
 WHERE vt.[ValueType_Name] = 'Scalar'
-  AND EXISTS (SELECT 1 FROM [dbo].[ValueImage] vi WHERE vi.[Metadata_ID] = m.[Metadata_ID])
+  AND EXISTS (SELECT 1 FROM [dbo].[ValueImage] vi WHERE vi.[Channel_ID] = c.[Channel_ID])
 """))
 ```
 
@@ -1054,17 +1050,17 @@ WHERE vt.[ValueType_Name] = 'Scalar'
 
 ```sql
 SELECT v.[Value_ID]
-FROM [dbo].[Value] v
-LEFT JOIN [dbo].[MetaData] m ON v.[Metadata_ID] = m.[Metadata_ID]
-WHERE v.[Metadata_ID] IS NOT NULL
-  AND m.[Metadata_ID] IS NULL;
+FROM [dbo].[Value]   v
+LEFT JOIN [dbo].[Channel] c ON v.[Channel_ID] = c.[Channel_ID]
+WHERE v.[Channel_ID] IS NOT NULL
+  AND c.[Channel_ID] IS NULL;
 ```
 
 ```python exec="true" session="bq"
 print(run_ic("""
 SELECT v.[Value_ID]
-FROM [dbo].[Value] v
-LEFT JOIN [dbo].[MetaData] m ON v.[Metadata_ID] = m.[Metadata_ID]
-WHERE v.[Metadata_ID] IS NOT NULL AND m.[Metadata_ID] IS NULL
+FROM [dbo].[Value]   v
+LEFT JOIN [dbo].[Channel] c ON v.[Channel_ID] = c.[Channel_ID]
+WHERE v.[Channel_ID] IS NOT NULL AND c.[Channel_ID] IS NULL
 """))
 ```

@@ -3,18 +3,18 @@
 ## What annotations are and why they exist
 
 Annotations are human-authored interval records attached to a measurement channel
-(`MetaData` entry). They capture expert knowledge that cannot be inferred from raw
+(`Channel` row). They capture expert knowledge that cannot be inferred from raw
 values alone — a sensor was being cleaned, an anomaly was investigated, a storm event
 affected a reading, etc.
 
-Each annotation spans a `[StartTime, EndTime]` window on a single time series.
+Each annotation spans a `[StartTime, EndTime]` window on a single channel.
 `EndTime = NULL` means either a point-in-time note or an **ongoing** situation (no
 resolved end yet). Multiple annotations may overlap on the same channel and time range.
 
 Annotations are distinct from:
 
 | Concept | Table | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `EquipmentEvent` | `dbo.EquipmentEvent` | Structured lifecycle events (calibration, maintenance, deployment) |
 | `DataLineage` / `ProcessingStep` | Phase 3 tables | Automated audit trail of algorithmic transformations |
 | `Annotation` | `dbo.Annotation` | Free-form human commentary on any interval |
@@ -32,7 +32,7 @@ event record.
 Seeded at migration time. Never changes in normal operation.
 
 | ID | Name | Color | Meaning |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | Fault | `#FF4444` | Sensor or process fault |
 | 2 | Maintenance | `#FFA500` | Sensor under maintenance |
 | 3 | Calibration Period | `#FFD700` | Data during calibration — may be invalid |
@@ -46,9 +46,9 @@ Seeded at migration time. Never changes in normal operation.
 
 ### `Annotation` — fact table
 
-```
+```text
 Annotation_ID     — surrogate PK (IDENTITY)
-Metadata_ID       — the time series being annotated (FK → MetaData)
+Channel_ID        — the channel being annotated (FK → Channel)
 AnnotationType_ID — what kind of annotation (FK → AnnotationType)
 StartTime         — start of annotated range (DATETIME2, NOT NULL)
 EndTime           — end of annotated range (DATETIME2, NULL = point or ongoing)
@@ -62,7 +62,8 @@ ModifiedAt        — server-set UTC last-edit time (NULL until first edit)
 ```
 
 Indexes:
-- `IX_Annotation_MetaData_Time` on `(Metadata_ID, StartTime, EndTime)` — optimises interval overlap queries
+
+- `IX_Annotation_Channel_Time` on `(Channel_ID, StartTime, EndTime)` — optimises interval overlap queries
 - `IX_Annotation_Author` on `(AuthorPerson_ID, CreatedAt)` — optimises "my annotations" and dashboard feeds
 
 ---
@@ -71,7 +72,7 @@ Indexes:
 
 An annotation `[A.StartTime, A.EndTime]` overlaps a query window `[from, to]` when:
 
-```
+```text
 A.StartTime <= to  AND  (A.EndTime IS NULL  OR  A.EndTime >= from)
 ```
 
@@ -79,7 +80,7 @@ This is the standard Allen's interval overlap test. Point annotations (`EndTime 
 are treated as ongoing from `StartTime` forward, so they match any query window that
 starts at or after `StartTime`.
 
-```
+```text
 Query window:       [────────────────]
                     from            to
 
@@ -101,23 +102,24 @@ Non-overlapping:
 
 All annotation endpoints are under `/api/v1`.
 
-### List annotations for a time series
+### List annotations for a channel
 
-```
-GET /timeseries/{metadata_id}/annotations?from=<ISO8601>&to=<ISO8601>[&type=<name|id>]
+```http
+GET /timeseries/{channel_id}/annotations?from=<ISO8601>&to=<ISO8601>[&type=<name|id>]
 ```
 
 Returns all annotations overlapping `[from, to]` for the given channel.
 
 **Example response:**
+
 ```json
 {
-  "metadata_id": 42,
+  "channel_id": 42,
   "query_range": {"from": "2025-02-01T00:00:00", "to": "2025-02-28T23:59:59"},
   "annotations": [
     {
       "annotation_id": 7,
-      "metadata_id": 42,
+      "channel_id": 42,
       "type": {"id": 2, "name": "Maintenance", "description": "...", "color": "#FFA500"},
       "start_time": "2025-02-10T08:00:00",
       "end_time": "2025-02-10T11:30:00",
@@ -134,10 +136,10 @@ Returns all annotations overlapping `[from, to]` for the given channel.
 }
 ```
 
-### Create annotation on a time series
+### Create annotation on a channel
 
-```
-POST /timeseries/{metadata_id}/annotations
+```http
+POST /timeseries/{channel_id}/annotations
 ```
 
 ```json
@@ -156,21 +158,21 @@ POST /timeseries/{metadata_id}/annotations
 
 ### Get recent annotations (dashboard feed)
 
-```
+```http
 GET /annotations/recent?limit=20[&type=<name|id>]
 ```
 
 Returns the most recently created annotations across all channels.
 
-### Get annotations by type across all series
+### Get annotations by type across all channels
 
-```
+```http
 GET /annotations/by-type/{type_name}?from=<ISO8601>&to=<ISO8601>
 ```
 
 ### Update an annotation
 
-```
+```http
 PUT /annotations/{annotation_id}
 ```
 
@@ -178,7 +180,7 @@ Partial update — only fields provided in the body are changed.
 
 ### Delete an annotation
 
-```
+```http
 DELETE /annotations/{annotation_id}
 ```
 
@@ -186,7 +188,7 @@ Hard delete. Returns `204 No Content`.
 
 ### List annotation types
 
-```
+```http
 GET /annotation-types
 ```
 
@@ -195,8 +197,6 @@ Returns the full `AnnotationType` lookup table (for UI dropdowns).
 ---
 
 ## Adding a new annotation type
-
-Annotation types are controlled-vocabulary rows in `AnnotationType`. To add one:
 
 ```sql
 INSERT INTO [dbo].[AnnotationType] ([AnnotationType_ID], [AnnotationTypeName], [Description], [Color])
@@ -229,8 +229,8 @@ maintaining a traceable link.
 
 - **Annotation threading**: A `ParentAnnotation_ID` self-FK would allow replies/follow-ups
   on a single annotation, creating discussion threads.
-- **Multi-series annotations**: A junction table `AnnotationCoversMetaData(Annotation_ID,
-  Metadata_ID)` would allow one annotation to span multiple channels simultaneously (e.g.,
+- **Multi-channel annotations**: A junction table `AnnotationCoversChannel(Annotation_ID,
+  Channel_ID)` would allow one annotation to span multiple channels simultaneously (e.g.,
   a storm event affecting an entire site). Currently, one annotation per channel is required.
 - **Authentication**: `AuthorPerson_ID` is supplied by the client today. In a future
   authenticated API, this would be set from the JWT claim automatically.

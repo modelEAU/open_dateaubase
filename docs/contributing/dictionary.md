@@ -53,10 +53,17 @@ YAML is the source of truth for table and view structure. `dictionary.json` is o
     uv run pytest
     ```
 
-5. Generate a migration script:
+5. Generate a migration script (diff the current tables dir against itself at the previous
+   snapshot, or provide old/new dirs explicitly):
 
     ```bash
-    uv run python tools/schema_migrate/generate_migration.py --table TableName
+    uv run python -m tools.schema_migrate \
+        --from-dir schema_dictionary/tables \
+        --from-version <old_version> \
+        --to-dir schema_dictionary/tables \
+        --to-version <new_version> \
+        --platform mssql \
+        --output-dir migrations/
     ```
 
 !!! warning
@@ -97,7 +104,13 @@ YAML is the source of truth for table and view structure. `dictionary.json` is o
 3. Generate the migration script:
 
     ```bash
-    uv run python tools/schema_migrate/generate_migration.py --table NewTable
+    uv run python -m tools.schema_migrate \
+        --from-dir schema_dictionary/tables \
+        --from-version <old_version> \
+        --to-dir schema_dictionary/tables \
+        --to-version <new_version> \
+        --platform mssql \
+        --output-dir migrations/
     ```
 
 !!! tip

@@ -10,7 +10,7 @@ This documentation is auto-generated from dictionary.json.
 
 ### Annotation
 
-Human-authored annotations on time series data. Each annotation applies to a single MetaData entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.
+Human-authored annotations on time series data. Each annotation applies to a single Channel entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.
 
 
 
@@ -19,7 +19,7 @@ Human-authored annotations on time series data. Each annotation applies to a sin
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Annotation_ID | INT **(PK)** | - | ✓ | <span id="Annotation_ID"></span>Primary key, auto-incremented | - |
-| Metadata_ID | INT | - | ✓ | <span id="Metadata_ID"></span>The time series this annotation applies to | FK → [MetaData.Metadata_ID](#MetaData) |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The time series this annotation applies to (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
 | AnnotationType_ID | INT | - | ✓ | <span id="AnnotationType_ID"></span>What kind of annotation this is | FK → [AnnotationType.AnnotationType_ID](#AnnotationType) |
 | StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>Start of the annotated time range | - |
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the annotated range. NULL = point annotation or ongoing | - |
@@ -52,7 +52,7 @@ Lookup table defining the kinds of annotations that can be applied to time serie
 
 ### Campaign
 
-A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Replaces direct use of Project for new data.
+A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Supersedes Project for all organisational grouping.
 
 
 #### Fields
@@ -66,7 +66,6 @@ A named collection of measurement activities at a site, classified by type (Expe
 | Description | NVARCHAR(2000) | - |  | <span id="Description"></span>Detailed description of the campaign objectives and scope | - |
 | StartDate | DATETIME2(7) | - |  | <span id="StartDate"></span>Date and time the campaign began (UTC) | - |
 | EndDate | DATETIME2(7) | - |  | <span id="EndDate"></span>Date and time the campaign ended (UTC); NULL if ongoing | - |
-| Project_ID | INT | - |  | <span id="Project_ID"></span>Optional backward-compatibility link to the legacy Project table | FK → [Project.Project_ID](#Project) |
 
 <span id="CampaignEquipment"></span>
 
@@ -126,6 +125,44 @@ Lookup table classifying the nature of a Campaign (Experiment, Operations, Commi
 | CampaignType_ID | INT **(PK)** | - | ✓ | <span id="CampaignType_ID"></span>Surrogate primary key | - |
 | CampaignType_Name | NVARCHAR(100) | - | ✓ | <span id="CampaignType_Name"></span>Name of the campaign type. Controlled vocabulary: Experiment, Operations, Commissioning | - |
 
+<span id="Channel"></span>
+
+### Channel
+
+Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins — it is NOT stored here. Renamed from MetaData in v2.0.0 (Phase B). Lab data moved to LabAnalysis + LabValue. In v2.1.0 (Phase C), StatusOfMetaDataID replaced by StatusChannel_ID and StatusOfEquipmentID moved to the EquipmentStatusChannel table.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Surrogate primary key (was Metadata_ID prior to v2.0.0) | - |
+| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>Physical instrument that produces this measurement stream. | FK → [Equipment.Equipment_ID](#Equipment) |
+| Parameter_ID | INT | - |  | <span id="Parameter_ID"></span>Measured analyte or parameter (e.g. TSS, pH) | FK → [Parameter.Parameter_ID](#Parameter) |
+| Unit_ID | INT | - |  | <span id="Unit_ID"></span>Measurement unit (e.g. mg/L) | FK → [Unit.Unit_ID](#Unit) |
+| DataProvenance_ID | INT | - |  | <span id="DataProvenance_ID"></span>How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5) | FK → [DataProvenance.DataProvenance_ID](#DataProvenance) |
+| ProcessingDegree | NVARCHAR(50) | - |  | <span id="ProcessingDegree"></span>Level of processing applied to this time series. Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation — if the processing degree changes, a new Channel row is created. Controlled vocabulary: Raw, Cleaned, Calibrated, Validated, Filtered, Predicted.
+ | Default: `Raw` |
+| ValueType_ID | INT | - | ✓ | <span id="ValueType_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueType.ValueType_ID](#ValueType)<br>Default: `1` |
+| StatusChannel_ID | INT | - |  | <span id="StatusChannel_ID"></span>If this Channel is a per-measurement-channel status time series, this points to the measurement Channel_ID it describes. NULL for measurement channels and device-level status channels. Introduced in v2.1.0 (Phase C) replacing the StatusOfMetaDataID column.
+ | FK → [Channel.Channel_ID](#Channel) |
+
+<span id="ChannelAxis"></span>
+
+### ChannelAxis
+
+Junction table linking a Channel measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix. Renamed from MetaDataAxis in v2.0.0 (Phase B).
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the measurement channel (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
+| AxisRole | INT **(PK)** | - | ✓ | <span id="AxisRole"></span>Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only) | - |
+| ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the binning axis for this role | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
+
 <span id="Comments"></span>
 
 ### Comments
@@ -144,8 +181,8 @@ Stores any additional textual comments, notes, or observations related to a spec
 
 ### DataLineage
 
-Junction table that records the input/output relationships between ProcessingStep rows and MetaData rows. Each row asserts that a given MetaData entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.
-Example: outlier-removal step takes MetaData 10 (raw TSS) as Input and produces MetaData 11 (cleaned TSS) as Output.
+Junction table that records the input/output relationships between ProcessingStep rows and Channel rows. Each row asserts that a given Channel entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.
+Example: outlier-removal step takes Channel 10 (raw TSS) as Input and produces Channel 11 (cleaned TSS) as Output.
 
 
 
@@ -154,9 +191,9 @@ Example: outlier-removal step takes MetaData 10 (raw TSS) as Input and produces 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | DataLineage_ID | INT **(PK)** | - | ✓ | <span id="DataLineage_ID"></span>Surrogate primary key | - |
-| ProcessingStep_ID | INT | - | ✓ | <span id="ProcessingStep_ID"></span>The processing step that consumed or produced the MetaData entry | FK → [ProcessingStep.ProcessingStep_ID](#ProcessingStep) |
-| Metadata_ID | INT | - | ✓ | <span id="Metadata_ID"></span>The MetaData entry (time series) that participates in this lineage edge | FK → [MetaData.Metadata_ID](#MetaData) |
-| Role | NVARCHAR(10) | - | ✓ | <span id="Role"></span>Whether this MetaData entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.
+| ProcessingStep_ID | INT | - | ✓ | <span id="ProcessingStep_ID"></span>The processing step that consumed or produced the Channel entry | FK → [ProcessingStep.ProcessingStep_ID](#ProcessingStep) |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel entry (time series) that participates in this lineage edge (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
+| Role | NVARCHAR(10) | - | ✓ | <span id="Role"></span>Whether this Channel entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.
  | - |
 
 <span id="DataProvenance"></span>
@@ -212,11 +249,11 @@ Records a discrete lifecycle event (calibration, maintenance, failure, etc.) tha
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign during which this event occurred (if applicable) | FK → [Campaign.Campaign_ID](#Campaign) |
 | Notes | NVARCHAR(1000) | - |  | <span id="Notes"></span>Free-text notes about the event | - |
 
-<span id="EquipmentEventMetaData"></span>
+<span id="EquipmentEventChannel"></span>
 
-### EquipmentEventMetaData
+### EquipmentEventChannel
 
-Junction table linking an equipment lifecycle event to the MetaData series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration).
+Junction table linking an equipment lifecycle event to the Channel series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration). Renamed from EquipmentEventMetaData in v2.0.0 (Phase B).
 
 
 #### Fields
@@ -224,9 +261,9 @@ Junction table linking an equipment lifecycle event to the MetaData series it in
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | EquipmentEvent_ID | INT **(PK)** | - | ✓ | <span id="EquipmentEvent_ID"></span>Equipment event this link belongs to | FK → [EquipmentEvent.EquipmentEvent_ID](#EquipmentEvent) |
-| Metadata_ID | INT **(PK)** | - | ✓ | <span id="Metadata_ID"></span>MetaData series associated with this event (sensor series or lab result series) | FK → [MetaData.Metadata_ID](#MetaData) |
-| WindowStart | DATETIME2(7) | - |  | <span id="WindowStart"></span>Start of the relevant time window within the MetaData series (e.g., when sensor was immersed in solution). NULL means use all values in the series. | - |
-| WindowEnd | DATETIME2(7) | - |  | <span id="WindowEnd"></span>End of the relevant time window. NULL means use all values in the series. | - |
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Channel series associated with this event (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
+| WindowStart | DATETIME2(7) | - |  | <span id="WindowStart"></span>Start of the relevant time window within the Channel series. NULL means use all values. | - |
+| WindowEnd | DATETIME2(7) | - |  | <span id="WindowEnd"></span>End of the relevant time window. NULL means use all values. | - |
 
 <span id="EquipmentEventType"></span>
 
@@ -307,6 +344,21 @@ Links equipment models to the relevant maintenance procedures
 | Equipment_model_ID | INT **(PK)** | - | ✓ | <span id="Equipment_model_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.Equipment_model_ID](#EquipmentModel) |
 | Procedure_ID | INT **(PK)** | - | ✓ | <span id="Procedure_ID"></span>Link to the Procedures table | FK → [Procedures.Procedure_ID](#Procedures) |
 
+<span id="EquipmentStatusChannel"></span>
+
+### EquipmentStatusChannel
+
+Maps each piece of equipment to the Channel that carries its device-level status codes. Introduced in v2.1.0 (Phase C) to replace the StatusOfEquipmentID column that was previously held directly on the Channel table. One equipment can have at most one device-level status channel.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Equipment whose device-level status is being tracked. | FK → [Equipment.Equipment_ID](#Equipment) |
+| StatusChannel_ID | INT | - | ✓ | <span id="StatusChannel_ID"></span>Channel that carries the device-level status time series. | FK → [Channel.Channel_ID](#Channel) |
+
 <span id="HydrologicalCharacteristics"></span>
 
 ### HydrologicalCharacteristics
@@ -326,11 +378,11 @@ Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, 
 | Meadow | REAL | - |  | <span id="Meadow"></span>Percentage [%] of meadow areas | - |
 | Grassland | REAL | - |  | <span id="Grassland"></span>Percentage [%] of grasslands | - |
 
-<span id="IngestionRoute"></span>
+<span id="LabAnalysis"></span>
 
-### IngestionRoute
+### LabAnalysis
 
-Routing table that maps an (Equipment, Parameter, DataProvenance, ProcessingDegree) key to the target MetaData entry. Ingestion scripts look up this table instead of hardcoding MetaDataIDs, so that when a sensor moves or a campaign changes, only a single row needs to be updated. ValidFrom/ValidTo define the temporal validity of each route; at most one route may be active for a given key at any point in time.
+One analytical run on a discrete physical sample. Groups together all LabValue rows from a single lab session. Lab data does not fit the continuous-stream Channel abstraction (it is tied to a physical sample, not an equipment stream), so it lives here rather than in Channel + Value. Added in v2.0.0 (Phase B).
 
 
 
@@ -338,17 +390,35 @@ Routing table that maps an (Equipment, Parameter, DataProvenance, ProcessingDegr
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| IngestionRoute_ID | INT **(PK)** | - | ✓ | <span id="IngestionRoute_ID"></span>Surrogate primary key | - |
-| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>Equipment that produces the data. NULL for non-sensor provenance (e.g. lab, manual). | FK → [Equipment.Equipment_ID](#Equipment) |
-| Parameter_ID | INT | - | ✓ | <span id="Parameter_ID"></span>Measured parameter (e.g. TSS, pH, DO) | FK → [Parameter.Parameter_ID](#Parameter) |
-| DataProvenance_ID | INT | - | ✓ | <span id="DataProvenance_ID"></span>How this data is produced (Sensor=1, Laboratory=2, Manual Entry=3, …) | FK → [DataProvenance.DataProvenance_ID](#DataProvenance) |
-| ProcessingDegree | NVARCHAR(50) | - | ✓ | <span id="ProcessingDegree"></span>Level of processing applied before storage. Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated.
- | Default: `Raw` |
-| ValidFrom | DATETIME2(7) | - | ✓ | <span id="ValidFrom"></span>Start of the interval during which this route is active (inclusive) | - |
-| ValidTo | DATETIME2(7) | - |  | <span id="ValidTo"></span>End of the interval. NULL means the route is still active. | - |
-| CreatedAt | DATETIME2(7) | - | ✓ | <span id="CreatedAt"></span>Timestamp when this routing rule was created | Default: `CURRENT_TIMESTAMP` |
-| Metadata_ID | INT | - | ✓ | <span id="Metadata_ID"></span>Target MetaData entry where data will be stored | FK → [MetaData.Metadata_ID](#MetaData) |
-| Notes | NVARCHAR(500) | - |  | <span id="Notes"></span>Free-text notes about why this route was created or changed | - |
+| LabAnalysis_ID | INT **(PK)** | - | ✓ | <span id="LabAnalysis_ID"></span>Surrogate primary key | - |
+| Sample_ID | INT | - | ✓ | <span id="Sample_ID"></span>The physical sample that was analysed | FK → [Sample.Sample_ID](#Sample) |
+| Laboratory_ID | INT | - |  | <span id="Laboratory_ID"></span>Laboratory where the analysis was performed | FK → [Laboratory.Laboratory_ID](#Laboratory) |
+| AnalystPerson_ID | INT | - |  | <span id="AnalystPerson_ID"></span>Person who performed the analysis | FK → [Person.Person_ID](#Person) |
+| Procedure_ID | INT | - |  | <span id="Procedure_ID"></span>Standard operating procedure used for this analysis | FK → [Procedures.Procedure_ID](#Procedures) |
+| AnalyzedAt | DATETIME2(7) | - | ✓ | <span id="AnalyzedAt"></span>UTC datetime when the analysis was performed | Default: `SYSUTCDATETIME()` |
+| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this analysis was part of, if any | FK → [Campaign.Campaign_ID](#Campaign) |
+| Notes | NVARCHAR(500) | - |  | <span id="Notes"></span>Free-text notes about this analysis run | - |
+
+<span id="LabValue"></span>
+
+### LabValue
+
+A single measured value from a lab analysis, for a specific parameter and unit. Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate). Added in v2.0.0 (Phase B).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| LabValue_ID | INT **(PK)** | - | ✓ | <span id="LabValue_ID"></span>Surrogate primary key | - |
+| LabAnalysis_ID | INT | - | ✓ | <span id="LabAnalysis_ID"></span>The analysis run this value belongs to | FK → [LabAnalysis.LabAnalysis_ID](#LabAnalysis) |
+| Parameter_ID | INT | - | ✓ | <span id="Parameter_ID"></span>Measured analyte (e.g. TSS, COD) | FK → [Parameter.Parameter_ID](#Parameter) |
+| Unit_ID | INT | - | ✓ | <span id="Unit_ID"></span>Unit of the measured value (e.g. mg/L) | FK → [Unit.Unit_ID](#Unit) |
+| Value | FLOAT | - | ✓ | <span id="Value"></span>Numerical result of the measurement | - |
+| Replicate | INT | - | ✓ | <span id="Replicate"></span>Replicate number (1 = primary measurement, 2+ = duplicates) | Default: `1` |
+| QualityCode | INT | - |  | <span id="QualityCode"></span>Optional quality flag code | - |
+| Comment_ID | INT | - |  | <span id="Comment_ID"></span>Optional free-text comment reference | FK → [Comments.Comment_ID](#Comments) |
 
 <span id="Laboratory"></span>
 
@@ -365,55 +435,6 @@ A laboratory where discrete samples are analysed. May be on-site or external.
 | Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Name of the laboratory | - |
 | Site_ID | INT | - |  | <span id="Site_ID"></span>Site where the laboratory is located, if on-site. NULL for external labs. | FK → [Site.Site_ID](#Site) |
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Additional information about the laboratory | - |
-
-<span id="MetaData"></span>
-
-### MetaData
-
-Central context aggregator linking every measurement to its full provenance (project, contact, equipment, parameter, procedure, unit, purpose, sampling point, and condition)
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Metadata_ID | INT **(PK)** | - | ✓ | <span id="Metadata_ID"></span>Surrogate primary key | - |
-| Project_ID | INT | - |  | <span id="Project_ID"></span>Links to the research or monitoring project | FK → [Project.Project_ID](#Project) |
-| Contact_ID | INT | - |  | <span id="Contact_ID"></span>Links to the person responsible for this measurement series | FK → [Person.Person_ID](#Person) |
-| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>Links to the physical instrument that produced the measurements | FK → [Equipment.Equipment_ID](#Equipment) |
-| Parameter_ID | INT | - |  | <span id="Parameter_ID"></span>Links to the measured analyte or parameter (e.g. TSS, pH) | FK → [Parameter.Parameter_ID](#Parameter) |
-| Procedure_ID | INT | - |  | <span id="Procedure_ID"></span>Links to the standard operating procedure used | FK → [Procedures.Procedure_ID](#Procedures) |
-| Unit_ID | INT | - |  | <span id="Unit_ID"></span>Links to the measurement unit (e.g. mg/L) | FK → [Unit.Unit_ID](#Unit) |
-| Purpose_ID | INT | - |  | <span id="Purpose_ID"></span>Links to the measurement purpose (online, lab, calibration, validation) | FK → [Purpose.Purpose_ID](#Purpose) |
-| Sampling_point_ID | INT | - |  | <span id="Sampling_point_ID"></span>Links to the physical sampling location | FK → [SamplingPoints.Sampling_point_ID](#SamplingPoints) |
-| Condition_ID | INT | - |  | <span id="Condition_ID"></span>Links to the prevailing weather condition at time of measurement | FK → [WeatherCondition.Condition_ID](#WeatherCondition) |
-| ValueType_ID | INT | - | ✓ | <span id="ValueType_ID"></span>Identifies the shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueType.ValueType_ID](#ValueType)<br>Default: `1` |
-| DataProvenance_ID | INT | - |  | <span id="DataProvenance_ID"></span>How this data was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source). NULL for legacy rows; backfilled by migration. | FK → [DataProvenance.DataProvenance_ID](#DataProvenance) |
-| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this measurement series belongs to. NULL for legacy rows. | FK → [Campaign.Campaign_ID](#Campaign) |
-| Sample_ID | INT | - |  | <span id="Sample_ID"></span>Discrete sample analysed to produce this measurement series. Only populated for lab data (DataProvenance_ID=2). | FK → [Sample.Sample_ID](#Sample) |
-| Laboratory_ID | INT | - |  | <span id="Laboratory_ID"></span>Laboratory where analysis was performed. Only populated for lab data (DataProvenance_ID=2). | FK → [Laboratory.Laboratory_ID](#Laboratory) |
-| AnalystPerson_ID | INT | - |  | <span id="AnalystPerson_ID"></span>Person who performed the analysis. Only populated for lab data (DataProvenance_ID=2). | FK → [Person.Person_ID](#Person) |
-| ProcessingDegree | NVARCHAR(50) | - |  | <span id="ProcessingDegree"></span>Denormalized field indicating the level of processing applied to this time series. Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation and never changed — if the processing degree changes, a new MetaData row is created. Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated. Backfilled to 'Raw' for all rows existing before v1.6.0.
- | Default: `Raw` |
-| StatusOfMetaDataID | INT | - |  | <span id="StatusOfMetaDataID"></span>If this MetaData entry is a status time series, this points  to the measurement MetaData entry it describes. NULL for  measurement entries and non-status entries.
- | FK → [MetaData.Metadata_ID](#MetaData) |
-| StatusOfEquipmentID | INT | - |  | <span id="StatusOfEquipmentID"></span>If this MetaData entry is a device-level status time series,  this points to the Equipment it describes. NULL for channel- level status and non-status entries.
- | FK → [Equipment.Equipment_ID](#Equipment) |
-
-<span id="MetaDataAxis"></span>
-
-### MetaDataAxis
-
-Junction table linking a MetaData measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Metadata_ID | INT **(PK)** | - | ✓ | <span id="Metadata_ID"></span>References the measurement series | FK → [MetaData.Metadata_ID](#MetaData) |
-| AxisRole | INT **(PK)** | - | ✓ | <span id="AxisRole"></span>Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only) | - |
-| ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the binning axis for this role | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
 
 <span id="Parameter"></span>
 
@@ -506,78 +527,6 @@ Records a single data-transformation step (outlier removal, interpolation, smoot
 | Parameters | NVARCHAR(MAX) | - |  | <span id="Parameters"></span>JSON blob of method parameters (e.g. '{"window": 5, "threshold": 3.0}') | - |
 | ExecutedAt | DATETIME2(7) | - |  | <span id="ExecutedAt"></span>UTC timestamp when this processing step was executed | - |
 | ExecutedByPerson_ID | INT | - |  | <span id="ExecutedByPerson_ID"></span>Person who ran or triggered this processing step. NULL for automated/unattended runs. | FK → [Person.Person_ID](#Person) |
-
-<span id="Project"></span>
-
-### Project
-
-Stores descriptive information about the research or monitoring project for which the data was collected
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Project_ID | INT **(PK)** | - | ✓ | <span id="Project_ID"></span>Link to the Project table | - |
-| name | NVARCHAR(100) | - |  | <span id="name"></span>Name of the project | - |
-| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the project | - |
-
-<span id="ProjectHasContact"></span>
-
-### ProjectHasContact
-
-Links projects to the personnel involved in them
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Contact_ID | INT **(PK)** | - | ✓ | <span id="Contact_ID"></span>Link to the Contact table | FK → [Person.Person_ID](#Person) |
-| Project_ID | INT **(PK)** | - | ✓ | <span id="Project_ID"></span>Link to the Project table | FK → [Project.Project_ID](#Project) |
-
-<span id="ProjectHasEquipment"></span>
-
-### ProjectHasEquipment
-
-Links projects to the specific equipment used within them
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Link to the Equipment table | FK → [Equipment.Equipment_ID](#Equipment) |
-| Project_ID | INT **(PK)** | - | ✓ | <span id="Project_ID"></span>Link to the Project table | FK → [Project.Project_ID](#Project) |
-
-<span id="ProjectHasSamplingPoints"></span>
-
-### ProjectHasSamplingPoints
-
-Links projects to the sampling points used within them
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Project_ID | INT **(PK)** | - | ✓ | <span id="Project_ID"></span>Link to the Project table | FK → [Project.Project_ID](#Project) |
-| Sampling_point_ID | INT **(PK)** | - | ✓ | <span id="Sampling_point_ID"></span>Link to the Sampling_point table | FK → [SamplingPoints.Sampling_point_ID](#SamplingPoints) |
-
-<span id="Purpose"></span>
-
-### Purpose
-
-Stores information about the aim of the measurement (e.g., on-line measurement, laboratory analysis, calibration, validation, cleaning)
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Purpose_ID | INT **(PK)** | - | ✓ | <span id="Purpose_ID"></span>A unique ID is generated automatically by MySQL | - |
-| Purpose | NVARCHAR(100) | - |  | <span id="Purpose"></span>Purpose of the data collection. For example, "Measurement", "Lab_analysis", "Calibration" and "Cleaning" | - |
-| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the purpose | - |
 
 <span id="Sample"></span>
 
@@ -731,7 +680,7 @@ Stores each measured water quality or quantity value, its time stamp, replicate 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Comment_ID | INT | - |  | <span id="Comment_ID"></span>A unique ID is generated automatically by MySQL | FK → [Comments.Comment_ID](#Comments) |
-| Metadata_ID | INT | - |  | <span id="Metadata_ID"></span>A unique ID is generated automatically by MySQL | FK → [MetaData.Metadata_ID](#MetaData) |
+| Channel_ID | INT | - |  | <span id="Channel_ID"></span>The measurement channel this value belongs to (was Metadata_ID prior to v2.0.0) | FK → [Channel.Channel_ID](#Channel) |
 | Value_ID | INT **(PK)** | - | ✓ | <span id="Value_ID"></span>A unique ID is generated automatically by MySQL | - |
 | Value | FLOAT | - |  | <span id="Value"></span>Value of collected data | - |
 | Number_of_experiment | INT | - |  | <span id="Number_of_experiment"></span>Number of replica of an experiment | - |
@@ -783,7 +732,7 @@ Stores image measurement references with metadata about the image dimensions, fo
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | ValueImage_ID | BIGINT **(PK)** | - | ✓ | <span id="ValueImage_ID"></span>Surrogate primary key | - |
-| Metadata_ID | INT | - | ✓ | <span id="Metadata_ID"></span>References the metadata context for this image | FK → [MetaData.Metadata_ID](#MetaData) |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>References the channel context for this image | FK → [Channel.Channel_ID](#Channel) |
 | Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp when the image was captured (stored in UTC by convention) | - |
 | ImageWidth | INT | - | ✓ | <span id="ImageWidth"></span>Width of the image in pixels | - |
 | ImageHeight | INT | - | ✓ | <span id="ImageHeight"></span>Height of the image in pixels | - |
@@ -806,7 +755,7 @@ Stores 2D binned measurement data as one row per (row-bin, col-bin) cell per tim
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Metadata_ID | INT **(PK)** | - | ✓ | <span id="Metadata_ID"></span>References the metadata context for this measurement | FK → [MetaData.Metadata_ID](#MetaData) |
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the channel context for this measurement | FK → [Channel.Channel_ID](#Channel) |
 | Timestamp | DATETIME2(7) **(PK)** | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the measurement (stored in UTC by convention) | - |
 | RowValueBin_ID | INT **(PK)** | - | ✓ | <span id="RowValueBin_ID"></span>References the bin on the row axis (AxisRole=0 in MetaDataAxis) | FK → [ValueBin.ValueBin_ID](#ValueBin) |
 | ColValueBin_ID | INT **(PK)** | - | ✓ | <span id="ColValueBin_ID"></span>References the bin on the column axis (AxisRole=1 in MetaDataAxis) | FK → [ValueBin.ValueBin_ID](#ValueBin) |
@@ -838,7 +787,7 @@ Stores 1D binned measurement data as one row per bin per timestamp, unifying spe
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Metadata_ID | INT **(PK)** | - | ✓ | <span id="Metadata_ID"></span>References the metadata context for this measurement | FK → [MetaData.Metadata_ID](#MetaData) |
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the channel context for this measurement | FK → [Channel.Channel_ID](#Channel) |
 | Timestamp | DATETIME2(7) **(PK)** | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the measurement (stored in UTC by convention) | - |
 | ValueBin_ID | INT **(PK)** | - | ✓ | <span id="ValueBin_ID"></span>References the bin (and through it, the axis) for this value | FK → [ValueBin.ValueBin_ID](#ValueBin) |
 | Value | FLOAT | - |  | <span id="Value"></span>Measured value at this bin | - |

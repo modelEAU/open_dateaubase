@@ -1,138 +1,194 @@
-# Sensor Status Architecture
+# Sensor Status Architecture (v2.1.0)
+
+**Phase C** replaced the v1.8.0 self-referential `StatusOfMetaDataID` and
+`StatusOfEquipmentID` columns with a cleaner structure:
+
+- **Per-channel status**: `Channel.StatusChannel_ID` (nullable FK → Channel) — a
+  measurement Channel optionally points to the Channel that carries its status codes.
+- **Device-level status**: `EquipmentStatusChannel` table — maps one Equipment row to
+  its device-level status Channel.
+
+---
 
 ## Overview
 
-This document describes the per-channel sensor status tracking feature for open_datEAUbase. Status is stored as a time series in `dbo.Value` using state-change encoding (only transitions are recorded).
+Status is stored as a time series in `dbo.Value` using **state-change encoding** — only
+transitions are recorded, not heartbeats.
 
-## Design Principles
+1. **Status is per-channel (per Channel row)**, not per-equipment.
+2. **Device-level status is also supported** via `EquipmentStatusChannel`.
+3. **Status values go in `dbo.Value`** — no separate value table.
+4. **A lookup table (`SensorStatusCode`)** defines the meaning of each code.
+5. **State-change encoding**: only write a row when status changes.
 
-1. **Status is per-channel (per MetaData entry)**, not per-equipment
-2. **Device-level status is also supported** (per Equipment)
-3. **Status values go in `dbo.Value`** — no new value table
-4. **State-change encoding**: only write a row when status changes
-5. **A lookup table (`SensorStatusCode`)** defines the meaning of each code
-6. **Two self-referential nullable FKs on MetaData**: `StatusOfMetaDataID` and `StatusOfEquipmentID`, with a CHECK that at most one is non-NULL
+---
 
-## The Status Convention
+## Schema
 
-Status is stored as a special type of time series:
+### Channel.StatusChannel_ID
 
-1. Create a MetaData entry with:
-   - `Variable = 'Sensor Status'` (for channel status) or `'Device Status'` (for device status)
-   - `Unit = 'Status Code'`
-   - `StatusOfMetaDataID` pointing to the measurement MetaData (for channel status)
-   - `StatusOfEquipmentID` pointing to the Equipment (for device status)
+A nullable `Channel_ID` FK on the `Channel` table itself. When non-NULL, this Channel
+*is* a status time series describing the measurement Channel identified by
+`StatusChannel_ID`.
 
-2. Insert status transitions into `dbo.Value`:
-   - `Value` column contains the `StatusCodeID` (integer 0-10)
-   - Only insert when the status actually changes (state-change encoding)
-
-### Example: Setting up a pH channel with status
-
-```sql
--- 1. Create the status MetaData entry
-INSERT INTO dbo.MetaData (
-    Parameter_ID, Unit_ID, Sampling_point_ID, Equipment_ID,
-    StatusOfMetaDataID, ProcessingDegree, ValueType_ID
-)
-SELECT p.Parameter_ID, u.Unit_ID, md.Sampling_point_ID, md.Equipment_ID,
-       md.Metadata_ID, 'Raw', 1
-FROM dbo.MetaData md
-JOIN dbo.Parameter p ON p.Parameter = 'Sensor Status'
-JOIN dbo.Unit u ON u.Unit = 'Status Code'
-WHERE md.Metadata_ID = 42;  -- pH measurement MetaData
-
--- 2. Set the initial status to Operational
-INSERT INTO dbo.Value (MetaDataID, tstamp, Value, QualityCode)
-VALUES (1001, '2025-01-01', 1, 1);  -- 1 = Operational
-
--- 3. Later, when sensor goes fouled
-INSERT INTO dbo.Value (MetaDataID, tstamp, Value, QualityCode)
-VALUES (1001, '2025-02-15', 10, 1);  -- 10 = Fouled
+```text
+Channel (measurement): Channel_ID=42, Equipment_ID=7, Parameter_ID=3, StatusChannel_ID=NULL
+Channel (status):      Channel_ID=43, Equipment_ID=7, Parameter_ID=<status param>, StatusChannel_ID=42
 ```
 
-## SensorStatusCode Reference
+Channel 43 carries status codes for Channel 42. Values written to `dbo.Value` with
+`Channel_ID=43` are status transitions for the pH/TSS/etc. measurement on Channel 42.
 
-| StatusCodeID | StatusName   | Description                                    | IsOperational | Severity |
-|--------------|--------------|------------------------------------------------|---------------|----------|
-| 0            | Unknown      | Status not reported or not available           | false         | 1        |
-| 1            | Operational  | Sensor channel is functioning normally         | true          | 0        |
-| 2            | Warning      | Sensor is operational but a warning exists     | true          | 1        |
-| 3            | Fault        | Sensor has faulted, data is unreliable         | false         | 2        |
-| 4            | Maintenance  | Sensor is undergoing maintenance               | false         | 1        |
-| 5            | Calibrating  | Sensor channel is being calibrated             | false         | 1        |
-| 6            | Starting Up  | Sensor is in startup/warmup phase              | false         | 1        |
-| 7            | Shutting Down| Sensor is shutting down                        | false         | 1        |
-| 8            | Offline      | Sensor is powered off or disconnected          | false         | 0        |
-| 9            | Degraded     | Sensor is operational but accuracy reduced     | true          | 1        |
-| 10           | Fouled       | Sensor probe is fouled, readings biased        | true          | 2        |
+### EquipmentStatusChannel
 
-### Severity Levels
+Maps an Equipment row to its device-level status Channel (one-to-one).
 
-- **0 = Normal**: No action needed
-- **1 = Warning**: Monitor, may need attention
-- **2 = Fault**: Data may be unreliable, investigation needed
-- **3 = Critical**: Immediate action required
+| Column | Type | Notes |
+| --- | --- | --- |
+| `Equipment_ID` | INT PK FK→Equipment | Equipment whose device-level status is tracked |
+| `StatusChannel_ID` | INT FK→Channel | Channel carrying device-level status codes |
 
-### IsOperational Flag
+### SensorStatusCode
 
-When `IsOperational = false`, data collected during this status should be considered untrustworthy. The API supports filtering with `operational_only=true` to exclude such values.
+| StatusCodeID | StatusName | IsOperational | Severity |
+| --- | --- | --- | --- |
+| 0 | Unknown | false | 1 |
+| 1 | Operational | true | 0 |
+| 2 | Warning | true | 1 |
+| 3 | Fault | false | 2 |
+| 4 | Maintenance | false | 1 |
+| 5 | Calibrating | false | 1 |
+| 6 | Starting Up | false | 1 |
+| 7 | Shutting Down | false | 1 |
+| 8 | Offline | false | 0 |
+| 9 | Degraded | true | 1 |
+| 10 | Fouled | true | 2 |
+
+**Severity levels:** 0=normal, 1=warning, 2=fault, 3=critical.
+
+**IsOperational:** When `false`, data collected during this status is considered
+untrustworthy. The API supports filtering with `operational_only=true`.
+
+---
+
+## Setting Up a Channel with Per-Channel Status
+
+### Step 1: Create the status Channel
+
+```sql
+-- Assumes the measurement Channel already exists (Channel_ID = 42)
+INSERT INTO [dbo].[Channel]
+    ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID],
+     [ProcessingDegree], [ValueType_ID], [StatusChannel_ID])
+SELECT
+    [Equipment_ID],
+    @status_param_id,   -- Parameter for 'Sensor Status'
+    @status_unit_id,    -- Unit for 'Status Code'
+    [DataProvenance_ID],
+    'Raw',
+    1,
+    42                  -- points back to the measurement Channel
+FROM [dbo].[Channel]
+WHERE [Channel_ID] = 42;
+
+SET @status_channel_id = SCOPE_IDENTITY();
+```
+
+### Step 2: Insert status transitions into dbo.Value
+
+```sql
+-- Initial status: Operational
+INSERT INTO [dbo].[Value] ([Channel_ID], [Timestamp], [Value])
+VALUES (@status_channel_id, '2025-01-01T00:00:00', 1);  -- 1 = Operational
+
+-- Later, sensor goes fouled:
+INSERT INTO [dbo].[Value] ([Channel_ID], [Timestamp], [Value])
+VALUES (@status_channel_id, '2025-02-15T09:00:00', 10); -- 10 = Fouled
+```
+
+---
+
+## Views
+
+### dbo.vw_ChannelStatus
+
+Joins per-channel status records with their measurement channels.
+
+```sql
+SELECT * FROM [dbo].[vw_ChannelStatus]
+WHERE EquipmentID = 5;
+```
+
+Columns: `StatusChannelID`, `MeasurementChannelID`, `EquipmentID`, `EquipmentName`,
+`MeasurementParameter`, `Timestamp`, `StatusCodeID`, `StatusName`, `IsOperational`, `Severity`.
+
+The view selects all Channel rows where `StatusChannel_ID IS NOT NULL`, joining back to
+the measurement Channel via `StatusChannel_ID`.
+
+### dbo.vw_DeviceStatus
+
+Joins device-level status records via `EquipmentStatusChannel`.
+
+```sql
+SELECT * FROM [dbo].[vw_DeviceStatus]
+WHERE EquipmentID = 5;
+```
+
+Columns: `StatusChannelID`, `EquipmentID`, `EquipmentName`, `Timestamp`, `StatusCodeID`,
+`StatusName`, `IsOperational`, `Severity`.
+
+---
 
 ## Query Patterns
 
-### Query 1: Current Status for a Channel
+### Current status for a channel
 
 ```sql
--- What is the current status of the TSS channel?
 SELECT TOP 1
-    sc.StatusCodeID,
-    sc.StatusName,
-    sc.IsOperational,
-    sc.Severity,
-    v.tstamp AS StatusSince
-FROM dbo.MetaData statusMD
-JOIN dbo.Value v ON v.MetaDataID = statusMD.Metadata_ID
-JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(v.Value AS INT)
-WHERE statusMD.StatusOfMetaDataID = @MeasurementMetaDataID
-ORDER BY v.tstamp DESC;
+    sc.[StatusCodeID],
+    sc.[StatusName],
+    sc.[IsOperational],
+    sc.[Severity],
+    v.[Timestamp] AS StatusSince
+FROM [dbo].[Channel]               statusC
+JOIN [dbo].[Value]                 v  ON v.[Channel_ID]    = statusC.[Channel_ID]
+LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
+WHERE statusC.[StatusChannel_ID] = @MeasurementChannelID
+ORDER BY v.[Timestamp] DESC;
 ```
 
-### Query 2: Status at a Point in Time
+### Status at a point in time
 
 ```sql
--- What was the pH status on Feb 16 at noon?
 SELECT TOP 1
-    sc.StatusCodeID,
-    sc.StatusName,
-    sc.IsOperational,
-    sc.Severity,
-    v.tstamp AS StatusSince
-FROM dbo.MetaData statusMD
-JOIN dbo.Value v ON v.MetaDataID = statusMD.Metadata_ID
-JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(v.Value AS INT)
-WHERE statusMD.StatusOfMetaDataID = @MeasurementMetaDataID
-  AND v.tstamp <= @Timestamp
-ORDER BY v.tstamp DESC;
+    sc.[StatusCodeID], sc.[StatusName], sc.[IsOperational], sc.[Severity],
+    v.[Timestamp] AS StatusSince
+FROM [dbo].[Channel]               statusC
+JOIN [dbo].[Value]                 v  ON v.[Channel_ID]    = statusC.[Channel_ID]
+LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
+WHERE statusC.[StatusChannel_ID] = @MeasurementChannelID
+  AND v.[Timestamp] <= @QueryTimestamp
+ORDER BY v.[Timestamp] DESC;
 ```
 
-### Query 3: Status Band (for UI Rendering)
+### Status band (for UI rendering)
 
 ```sql
--- Get status intervals for rendering as colored bands
 WITH StatusTransitions AS (
-    SELECT TOP 1 v.tstamp AS TransitionTime, CAST(v.Value AS INT) AS StatusCodeID
-    FROM dbo.MetaData statusMD
-    JOIN dbo.Value v ON v.MetaDataID = statusMD.Metadata_ID
-    WHERE statusMD.StatusOfMetaDataID = @MeasurementMetaDataID AND v.tstamp <= @T1
-    ORDER BY v.tstamp DESC
+    SELECT TOP 1 v.[Timestamp] AS TransitionTime, CAST(v.[Value] AS INT) AS StatusCodeID
+    FROM [dbo].[Channel]   statusC
+    JOIN [dbo].[Value]     v ON v.[Channel_ID] = statusC.[Channel_ID]
+    WHERE statusC.[StatusChannel_ID] = @MeasurementChannelID
+      AND v.[Timestamp] <= @T1
+    ORDER BY v.[Timestamp] DESC
 
     UNION ALL
 
-    SELECT v.tstamp AS TransitionTime, CAST(v.Value AS INT) AS StatusCodeID
-    FROM dbo.MetaData statusMD
-    JOIN dbo.Value v ON v.MetaDataID = statusMD.Metadata_ID
-    WHERE statusMD.StatusOfMetaDataID = @MeasurementMetaDataID
-      AND v.tstamp > @T1 AND v.tstamp <= @T2
+    SELECT v.[Timestamp], CAST(v.[Value] AS INT)
+    FROM [dbo].[Channel]   statusC
+    JOIN [dbo].[Value]     v ON v.[Channel_ID] = statusC.[Channel_ID]
+    WHERE statusC.[StatusChannel_ID] = @MeasurementChannelID
+      AND v.[Timestamp] > @T1 AND v.[Timestamp] <= @T2
 ),
 StatusIntervals AS (
     SELECT
@@ -143,13 +199,17 @@ StatusIntervals AS (
 )
 SELECT
     CASE WHEN si.IntervalStart < @T1 THEN @T1 ELSE si.IntervalStart END AS from_time,
-    CASE WHEN si.IntervalEnd IS NULL THEN @T2 WHEN si.IntervalEnd > @T2 THEN @T2 ELSE si.IntervalEnd END AS to_time,
-    sc.StatusCodeID, sc.StatusName, sc.IsOperational, sc.Severity
+    CASE WHEN si.IntervalEnd IS NULL THEN @T2
+         WHEN si.IntervalEnd > @T2   THEN @T2
+         ELSE si.IntervalEnd END                                          AS to_time,
+    sc.[StatusCodeID], sc.[StatusName], sc.[IsOperational], sc.[Severity]
 FROM StatusIntervals si
-JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = si.StatusCodeID
+LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = si.StatusCodeID
 WHERE si.IntervalEnd IS NULL OR si.IntervalEnd > @T1
 ORDER BY si.IntervalStart;
 ```
+
+---
 
 ## API Endpoints
 
@@ -157,29 +217,16 @@ ORDER BY si.IntervalStart;
 
 List all sensor status codes for UI dropdowns and legends.
 
-**Response:**
-```json
-{
-  "status_codes": [
-    {
-      "id": 0,
-      "name": "Unknown",
-      "description": "Status not reported or not available",
-      "is_operational": false,
-      "severity": 1
-    }
-  ]
-}
-```
-
 ### GET /api/v1/equipment/{equipment_id}/status
 
 Get the full health picture of a sensor: device-level status plus all per-channel statuses.
 
 **Query parameters:**
+
 - `at`: Point in time to query (ISO 8601). Default: now.
 
 **Response:**
+
 ```json
 {
   "equipment_id": 5,
@@ -194,9 +241,8 @@ Get the full health picture of a sensor: device-level status plus all per-channe
   },
   "channel_statuses": [
     {
-      "measurement_metadata_id": 42,
+      "measurement_channel_id": 42,
       "variable": "TSS",
-      "location": "Primary Effluent",
       "status_code": 1,
       "status_name": "Operational",
       "is_operational": true,
@@ -211,25 +257,21 @@ Get the full health picture of a sensor: device-level status plus all per-channe
 
 ### GET /api/v1/equipment/{equipment_id}/status/history
 
-Get status transitions over a time range for the whole sensor.
+Get status transitions over a time range.
 
-**Query parameters:**
-- `from`: Start of range (ISO 8601)
-- `to`: End of range (ISO 8601)
-- `channel`: Filter to a specific variable name (e.g., "TSS")
+**Query parameters:** `from`, `to` (ISO 8601), `channel` (filter to a variable name).
 
-### GET /api/v1/timeseries/{metadata_id}/status
+### GET /api/v1/timeseries/{channel_id}/status
 
 Get the status band for a specific measurement channel over a time range.
 
-**Query parameters:**
-- `from`: Start of range (ISO 8601)
-- `to`: End of range (ISO 8601)
+**Query parameters:** `from`, `to` (ISO 8601).
 
 **Response:**
+
 ```json
 {
-  "metadata_id": 43,
+  "channel_id": 42,
   "variable": "pH",
   "equipment_name": "SC1000_Controller",
   "query_range": {
@@ -250,82 +292,40 @@ Get the status band for a specific measurement channel over a time range.
 }
 ```
 
-### GET /api/v1/timeseries/{metadata_id} (extended)
+---
 
-The existing timeseries endpoint supports two new optional parameters:
+## State-Change Encoding
 
-- `include_status`: Include status band in response
-- `operational_only`: Filter to values where sensor was operational
+Only write a row when the status actually changes. No heartbeats needed. The status at
+any point in time is the value from the most recent `dbo.Value` row with
+`Timestamp <= query_time` for that status Channel.
 
-**Example:**
-```
-GET /api/v1/timeseries/42?from=2025-02-01&to=2025-02-28&include_status=true&operational_only=true
-```
+**Ingestion pipeline pattern:**
+
+1. Track the last known status value.
+2. On each data point, check if the status has changed.
+3. Only insert a new `dbo.Value` row if different from the last known value.
+
+---
 
 ## Integration with Annotations
 
 Status and annotations are complementary:
 
-- **Status** = machine-reported state (what the sensor says about itself)
+- **Status** = machine-reported state (what the sensor reports about itself)
 - **Annotations** = human-authored commentary (what operators observed)
 
-A Fault annotation might be created by a human to explain a machine-reported Fault status. This provides context that the sensor cannot provide (e.g., "sensor was fouled due to biofilm growth").
+A `Fault` annotation might be created by a human to explain a machine-reported `Fault`
+status, adding context the sensor cannot provide (e.g., "fouling due to biofilm growth").
 
-## State-Change Encoding
-
-The system uses **state-change encoding**, not heartbeats. This means:
-
-1. Only write a row to `dbo.Value` when the status actually changes
-2. The status at any point in time is the value from the most recent row <= that timestamp
-3. No "still operational" heartbeats are needed
-
-### Implications for Ingestion Scripts
-
-When writing an ingestion pipeline for sensor status:
-
-1. Track the last known status value
-2. On each data point, check if the status has changed
-3. Only insert into `dbo.Value` if the status is different from the last known value
-4. This keeps the `dbo.Value` table small and queryable
-
-## Views
-
-Two convenience views are provided:
-
-### dbo.vw_ChannelStatus
-
-Joins status records with their measurement channels:
-
-```sql
-SELECT * FROM dbo.vw_ChannelStatus
-WHERE EquipmentID = 5
-```
-
-### dbo.vw_DeviceStatus
-
-Joins device-level status records:
-
-```sql
-SELECT * FROM dbo.vw_DeviceStatus
-WHERE EquipmentID = 5
-```
+---
 
 ## Adding New Status Codes
 
-To add a new status code, insert a row into `dbo.SensorStatusCode`:
-
 ```sql
-INSERT INTO dbo.SensorStatusCode (StatusCodeID, StatusName, Description, IsOperational, Severity)
-VALUES (11, 'Deicing', 'Sensor covered in ice', false, 2);
+INSERT INTO [dbo].[SensorStatusCode]
+    ([StatusCodeID], [StatusName], [Description], [IsOperational], [Severity])
+VALUES (11, 'Deicing', 'Sensor covered in ice', 0, 2);
 ```
 
-No migration is needed for adding status codes as they are seed data in a lookup table.
-
-## Future Enhancements
-
-Possible future enhancements (not implemented in this phase):
-
-- **ParentStatusID**: Threading annotations to show relationships between statuses
-- **Multi-series annotations**: Junction table for annotations that span multiple MetaData entries
-- **Status prediction**: ML-based prediction of when next status change will occur
-- **Alert rules**: Configurable alerts when status enters certain states
+No schema migration needed — status codes are seed data in a lookup table.

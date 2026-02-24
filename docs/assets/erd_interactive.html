@@ -313,7 +313,7 @@
     {
       "id": "Annotation",
       "label": "Annotation",
-      "description": "Human-authored annotations on time series data. Each annotation applies to a single MetaData entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.\n",
+      "description": "Human-authored annotations on time series data. Each annotation applies to a single Channel entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.\n",
       "fields": [
         {
           "name": "Annotation_ID",
@@ -325,13 +325,13 @@
           "description": "Primary key, auto-incremented"
         },
         {
-          "name": "Metadata_ID",
+          "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "The time series this annotation applies to"
+          "fk_target": "Channel.Channel_ID",
+          "description": "The time series this annotation applies to (was Metadata_ID prior to v2.0.0)"
         },
         {
           "name": "AnnotationType_ID",
@@ -471,7 +471,7 @@
     {
       "id": "Campaign",
       "label": "Campaign",
-      "description": "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Replaces direct use of Project for new data.",
+      "description": "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Supersedes Project for all organisational grouping.",
       "fields": [
         {
           "name": "Campaign_ID",
@@ -535,15 +535,6 @@
           "is_required": false,
           "fk_target": null,
           "description": "Date and time the campaign ended (UTC); NULL if ongoing"
-        },
-        {
-          "name": "Project_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Project.Project_ID",
-          "description": "Optional backward-compatibility link to the legacy Project table"
         }
       ]
     },
@@ -666,6 +657,119 @@
       ]
     },
     {
+      "id": "Channel",
+      "label": "Channel",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins \u2014 it is NOT stored here. Renamed from MetaData in v2.0.0 (Phase B). Lab data moved to LabAnalysis + LabValue. In v2.1.0 (Phase C), StatusOfMetaDataID replaced by StatusChannel_ID and StatusOfEquipmentID moved to the EquipmentStatusChannel table.\n",
+      "fields": [
+        {
+          "name": "Channel_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key (was Metadata_ID prior to v2.0.0)"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Physical instrument that produces this measurement stream."
+        },
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Parameter.Parameter_ID",
+          "description": "Measured analyte or parameter (e.g. TSS, pH)"
+        },
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Unit.Unit_ID",
+          "description": "Measurement unit (e.g. mg/L)"
+        },
+        {
+          "name": "DataProvenance_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "DataProvenance.DataProvenance_ID",
+          "description": "How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5)"
+        },
+        {
+          "name": "ProcessingDegree",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Level of processing applied to this time series. Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation \u2014 if the processing degree changes, a new Channel row is created. Controlled vocabulary: Raw, Cleaned, Calibrated, Validated, Filtered, Predicted.\n"
+        },
+        {
+          "name": "ValueType_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueType.ValueType_ID",
+          "description": "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
+        },
+        {
+          "name": "StatusChannel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Channel.Channel_ID",
+          "description": "If this Channel is a per-measurement-channel status time series, this points to the measurement Channel_ID it describes. NULL for measurement channels and device-level status channels. Introduced in v2.1.0 (Phase C) replacing the StatusOfMetaDataID column.\n"
+        }
+      ]
+    },
+    {
+      "id": "ChannelAxis",
+      "label": "ChannelAxis",
+      "description": "Junction table linking a Channel measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix. Renamed from MetaDataAxis in v2.0.0 (Phase B).",
+      "fields": [
+        {
+          "name": "Channel_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Channel.Channel_ID",
+          "description": "References the measurement channel (was Metadata_ID prior to v2.0.0)"
+        },
+        {
+          "name": "AxisRole",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only)"
+        },
+        {
+          "name": "ValueBinningAxis_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueBinningAxis.ValueBinningAxis_ID",
+          "description": "References the binning axis for this role"
+        }
+      ]
+    },
+    {
       "id": "Comments",
       "label": "Comments",
       "description": "Stores any additional textual comments, notes, or observations related to a specific measured value",
@@ -693,7 +797,7 @@
     {
       "id": "DataLineage",
       "label": "DataLineage",
-      "description": "Junction table that records the input/output relationships between ProcessingStep rows and MetaData rows. Each row asserts that a given MetaData entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.\nExample: outlier-removal step takes MetaData 10 (raw TSS) as Input and produces MetaData 11 (cleaned TSS) as Output.\n",
+      "description": "Junction table that records the input/output relationships between ProcessingStep rows and Channel rows. Each row asserts that a given Channel entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.\nExample: outlier-removal step takes Channel 10 (raw TSS) as Input and produces Channel 11 (cleaned TSS) as Output.\n",
       "fields": [
         {
           "name": "DataLineage_ID",
@@ -711,16 +815,16 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "ProcessingStep.ProcessingStep_ID",
-          "description": "The processing step that consumed or produced the MetaData entry"
+          "description": "The processing step that consumed or produced the Channel entry"
         },
         {
-          "name": "Metadata_ID",
+          "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "The MetaData entry (time series) that participates in this lineage edge"
+          "fk_target": "Channel.Channel_ID",
+          "description": "The Channel entry (time series) that participates in this lineage edge (was Metadata_ID prior to v2.0.0)"
         },
         {
           "name": "Role",
@@ -729,7 +833,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Whether this MetaData entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.\n"
+          "description": "Whether this Channel entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.\n"
         }
       ]
     },
@@ -908,9 +1012,9 @@
       ]
     },
     {
-      "id": "EquipmentEventMetaData",
-      "label": "EquipmentEventMetaData",
-      "description": "Junction table linking an equipment lifecycle event to the MetaData series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration).",
+      "id": "EquipmentEventChannel",
+      "label": "EquipmentEventChannel",
+      "description": "Junction table linking an equipment lifecycle event to the Channel series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration). Renamed from EquipmentEventMetaData in v2.0.0 (Phase B).",
       "fields": [
         {
           "name": "EquipmentEvent_ID",
@@ -922,13 +1026,13 @@
           "description": "Equipment event this link belongs to"
         },
         {
-          "name": "Metadata_ID",
+          "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "MetaData series associated with this event (sensor series or lab result series)"
+          "fk_target": "Channel.Channel_ID",
+          "description": "Channel series associated with this event (was Metadata_ID prior to v2.0.0)"
         },
         {
           "name": "WindowStart",
@@ -937,7 +1041,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Start of the relevant time window within the MetaData series (e.g., when sensor was immersed in solution). NULL means use all values in the series."
+          "description": "Start of the relevant time window within the Channel series. NULL means use all values."
         },
         {
           "name": "WindowEnd",
@@ -946,7 +1050,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "End of the relevant time window. NULL means use all values in the series."
+          "description": "End of the relevant time window. NULL means use all values."
         }
       ]
     },
@@ -1157,6 +1261,31 @@
       ]
     },
     {
+      "id": "EquipmentStatusChannel",
+      "label": "EquipmentStatusChannel",
+      "description": "Maps each piece of equipment to the Channel that carries its device-level status codes. Introduced in v2.1.0 (Phase C) to replace the StatusOfEquipmentID column that was previously held directly on the Channel table. One equipment can have at most one device-level status channel.\n",
+      "fields": [
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Equipment whose device-level status is being tracked."
+        },
+        {
+          "name": "StatusChannel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Channel.Channel_ID",
+          "description": "Channel that carries the device-level status time series."
+        }
+      ]
+    },
+    {
       "id": "HydrologicalCharacteristics",
       "label": "HydrologicalCharacteristics",
       "description": "Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, grassland) within the watershed",
@@ -1227,12 +1356,12 @@
       ]
     },
     {
-      "id": "IngestionRoute",
-      "label": "IngestionRoute",
-      "description": "Routing table that maps an (Equipment, Parameter, DataProvenance, ProcessingDegree) key to the target MetaData entry. Ingestion scripts look up this table instead of hardcoding MetaDataIDs, so that when a sensor moves or a campaign changes, only a single row needs to be updated. ValidFrom/ValidTo define the temporal validity of each route; at most one route may be active for a given key at any point in time.\n",
+      "id": "LabAnalysis",
+      "label": "LabAnalysis",
+      "description": "One analytical run on a discrete physical sample. Groups together all LabValue rows from a single lab session. Lab data does not fit the continuous-stream Channel abstraction (it is tied to a physical sample, not an equipment stream), so it lives here rather than in Channel + Value. Added in v2.0.0 (Phase B).\n",
       "fields": [
         {
-          "name": "IngestionRoute_ID",
+          "name": "LabAnalysis_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -1241,76 +1370,58 @@
           "description": "Surrogate primary key"
         },
         {
-          "name": "Equipment_ID",
+          "name": "Sample_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Sample.Sample_ID",
+          "description": "The physical sample that was analysed"
+        },
+        {
+          "name": "Laboratory_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "Equipment that produces the data. NULL for non-sensor provenance (e.g. lab, manual)."
+          "fk_target": "Laboratory.Laboratory_ID",
+          "description": "Laboratory where the analysis was performed"
         },
         {
-          "name": "Parameter_ID",
+          "name": "AnalystPerson_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": true,
-          "fk_target": "Parameter.Parameter_ID",
-          "description": "Measured parameter (e.g. TSS, pH, DO)"
-        },
-        {
-          "name": "DataProvenance_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "DataProvenance.DataProvenance_ID",
-          "description": "How this data is produced (Sensor=1, Laboratory=2, Manual Entry=3, \u2026)"
-        },
-        {
-          "name": "ProcessingDegree",
-          "sql_type": "NVARCHAR(50)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Level of processing applied before storage. Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated.\n"
-        },
-        {
-          "name": "ValidFrom",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Start of the interval during which this route is active (inclusive)"
-        },
-        {
-          "name": "ValidTo",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
           "is_required": false,
-          "fk_target": null,
-          "description": "End of the interval. NULL means the route is still active."
+          "fk_target": "Person.Person_ID",
+          "description": "Person who performed the analysis"
         },
         {
-          "name": "CreatedAt",
+          "name": "Procedure_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Procedures.Procedure_ID",
+          "description": "Standard operating procedure used for this analysis"
+        },
+        {
+          "name": "AnalyzedAt",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Timestamp when this routing rule was created"
+          "description": "UTC datetime when the analysis was performed"
         },
         {
-          "name": "Metadata_ID",
+          "name": "Campaign_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": true,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "Target MetaData entry where data will be stored"
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign this analysis was part of, if any"
         },
         {
           "name": "Notes",
@@ -1319,7 +1430,86 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Free-text notes about why this route was created or changed"
+          "description": "Free-text notes about this analysis run"
+        }
+      ]
+    },
+    {
+      "id": "LabValue",
+      "label": "LabValue",
+      "description": "A single measured value from a lab analysis, for a specific parameter and unit. Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate). Added in v2.0.0 (Phase B).\n",
+      "fields": [
+        {
+          "name": "LabValue_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "LabAnalysis_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "LabAnalysis.LabAnalysis_ID",
+          "description": "The analysis run this value belongs to"
+        },
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Parameter.Parameter_ID",
+          "description": "Measured analyte (e.g. TSS, COD)"
+        },
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Unit.Unit_ID",
+          "description": "Unit of the measured value (e.g. mg/L)"
+        },
+        {
+          "name": "Value",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Numerical result of the measurement"
+        },
+        {
+          "name": "Replicate",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Replicate number (1 = primary measurement, 2+ = duplicates)"
+        },
+        {
+          "name": "QualityCode",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Optional quality flag code"
+        },
+        {
+          "name": "Comment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Comments.Comment_ID",
+          "description": "Optional free-text comment reference"
         }
       ]
     },
@@ -1363,218 +1553,6 @@
           "is_required": false,
           "fk_target": null,
           "description": "Additional information about the laboratory"
-        }
-      ]
-    },
-    {
-      "id": "MetaData",
-      "label": "MetaData",
-      "description": "Central context aggregator linking every measurement to its full provenance (project, contact, equipment, parameter, procedure, unit, purpose, sampling point, and condition)",
-      "fields": [
-        {
-          "name": "Metadata_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Project_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Project.Project_ID",
-          "description": "Links to the research or monitoring project"
-        },
-        {
-          "name": "Contact_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Person.Person_ID",
-          "description": "Links to the person responsible for this measurement series"
-        },
-        {
-          "name": "Equipment_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "Links to the physical instrument that produced the measurements"
-        },
-        {
-          "name": "Parameter_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Parameter.Parameter_ID",
-          "description": "Links to the measured analyte or parameter (e.g. TSS, pH)"
-        },
-        {
-          "name": "Procedure_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Procedures.Procedure_ID",
-          "description": "Links to the standard operating procedure used"
-        },
-        {
-          "name": "Unit_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Unit.Unit_ID",
-          "description": "Links to the measurement unit (e.g. mg/L)"
-        },
-        {
-          "name": "Purpose_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Purpose.Purpose_ID",
-          "description": "Links to the measurement purpose (online, lab, calibration, validation)"
-        },
-        {
-          "name": "Sampling_point_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "SamplingPoints.Sampling_point_ID",
-          "description": "Links to the physical sampling location"
-        },
-        {
-          "name": "Condition_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "WeatherCondition.Condition_ID",
-          "description": "Links to the prevailing weather condition at time of measurement"
-        },
-        {
-          "name": "ValueType_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "ValueType.ValueType_ID",
-          "description": "Identifies the shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
-        },
-        {
-          "name": "DataProvenance_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "DataProvenance.DataProvenance_ID",
-          "description": "How this data was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source). NULL for legacy rows; backfilled by migration."
-        },
-        {
-          "name": "Campaign_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Campaign.Campaign_ID",
-          "description": "Campaign this measurement series belongs to. NULL for legacy rows."
-        },
-        {
-          "name": "Sample_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Sample.Sample_ID",
-          "description": "Discrete sample analysed to produce this measurement series. Only populated for lab data (DataProvenance_ID=2)."
-        },
-        {
-          "name": "Laboratory_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Laboratory.Laboratory_ID",
-          "description": "Laboratory where analysis was performed. Only populated for lab data (DataProvenance_ID=2)."
-        },
-        {
-          "name": "AnalystPerson_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Person.Person_ID",
-          "description": "Person who performed the analysis. Only populated for lab data (DataProvenance_ID=2)."
-        },
-        {
-          "name": "ProcessingDegree",
-          "sql_type": "NVARCHAR(50)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Denormalized field indicating the level of processing applied to this time series. Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation and never changed \u2014 if the processing degree changes, a new MetaData row is created. Controlled vocabulary: Raw, Cleaned, Validated, Interpolated, Aggregated. Backfilled to 'Raw' for all rows existing before v1.6.0.\n"
-        },
-        {
-          "name": "StatusOfMetaDataID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "If this MetaData entry is a status time series, this points  to the measurement MetaData entry it describes. NULL for  measurement entries and non-status entries.\n"
-        },
-        {
-          "name": "StatusOfEquipmentID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "If this MetaData entry is a device-level status time series,  this points to the Equipment it describes. NULL for channel- level status and non-status entries.\n"
-        }
-      ]
-    },
-    {
-      "id": "MetaDataAxis",
-      "label": "MetaDataAxis",
-      "description": "Junction table linking a MetaData measurement series to its binning axis or axes. AxisRole=0 is the single axis for a Vector, or the row axis for a Matrix; AxisRole=1 is the column axis for a Matrix",
-      "fields": [
-        {
-          "name": "Metadata_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "References the measurement series"
-        },
-        {
-          "name": "AxisRole",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only)"
-        },
-        {
-          "name": "ValueBinningAxis_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "ValueBinningAxis.ValueBinningAxis_ID",
-          "description": "References the binning axis for this role"
         }
       ]
     },
@@ -1880,149 +1858,6 @@
           "is_required": false,
           "fk_target": "Person.Person_ID",
           "description": "Person who ran or triggered this processing step. NULL for automated/unattended runs."
-        }
-      ]
-    },
-    {
-      "id": "Project",
-      "label": "Project",
-      "description": "Stores descriptive information about the research or monitoring project for which the data was collected",
-      "fields": [
-        {
-          "name": "Project_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Link to the Project table"
-        },
-        {
-          "name": "name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Name of the project"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Description of the project"
-        }
-      ]
-    },
-    {
-      "id": "ProjectHasContact",
-      "label": "ProjectHasContact",
-      "description": "Links projects to the personnel involved in them",
-      "fields": [
-        {
-          "name": "Contact_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Person.Person_ID",
-          "description": "Link to the Contact table"
-        },
-        {
-          "name": "Project_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Project.Project_ID",
-          "description": "Link to the Project table"
-        }
-      ]
-    },
-    {
-      "id": "ProjectHasEquipment",
-      "label": "ProjectHasEquipment",
-      "description": "Links projects to the specific equipment used within them",
-      "fields": [
-        {
-          "name": "Equipment_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "Link to the Equipment table"
-        },
-        {
-          "name": "Project_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Project.Project_ID",
-          "description": "Link to the Project table"
-        }
-      ]
-    },
-    {
-      "id": "ProjectHasSamplingPoints",
-      "label": "ProjectHasSamplingPoints",
-      "description": "Links projects to the sampling points used within them",
-      "fields": [
-        {
-          "name": "Project_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Project.Project_ID",
-          "description": "Link to the Project table"
-        },
-        {
-          "name": "Sampling_point_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "SamplingPoints.Sampling_point_ID",
-          "description": "Link to the Sampling_point table"
-        }
-      ]
-    },
-    {
-      "id": "Purpose",
-      "label": "Purpose",
-      "description": "Stores information about the aim of the measurement (e.g., on-line measurement, laboratory analysis, calibration, validation, cleaning)",
-      "fields": [
-        {
-          "name": "Purpose_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "A unique ID is generated automatically by MySQL"
-        },
-        {
-          "name": "Purpose",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Purpose of the data collection. For example, \"Measurement\", \"Lab_analysis\", \"Calibration\" and \"Cleaning\""
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Description of the purpose"
         }
       ]
     },
@@ -2576,13 +2411,13 @@
           "description": "A unique ID is generated automatically by MySQL"
         },
         {
-          "name": "Metadata_ID",
+          "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "A unique ID is generated automatically by MySQL"
+          "fk_target": "Channel.Channel_ID",
+          "description": "The measurement channel this value belongs to (was Metadata_ID prior to v2.0.0)"
         },
         {
           "name": "Value_ID",
@@ -2741,13 +2576,13 @@
           "description": "Surrogate primary key"
         },
         {
-          "name": "Metadata_ID",
+          "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "References the metadata context for this image"
+          "fk_target": "Channel.Channel_ID",
+          "description": "References the channel context for this image"
         },
         {
           "name": "Timestamp",
@@ -2847,13 +2682,13 @@
       "description": "Stores 2D binned measurement data as one row per (row-bin, col-bin) cell per timestamp, supporting joint distributions such as particle size-velocity",
       "fields": [
         {
-          "name": "Metadata_ID",
+          "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "References the metadata context for this measurement"
+          "fk_target": "Channel.Channel_ID",
+          "description": "References the channel context for this measurement"
         },
         {
           "name": "Timestamp",
@@ -2933,13 +2768,13 @@
       "description": "Stores 1D binned measurement data as one row per bin per timestamp, unifying spectra, particle size distributions, and any other 1D distribution over a physical axis",
       "fields": [
         {
-          "name": "Metadata_ID",
+          "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "MetaData.Metadata_ID",
-          "description": "References the metadata context for this measurement"
+          "fk_target": "Channel.Channel_ID",
+          "description": "References the channel context for this measurement"
         },
         {
           "name": "Timestamp",
@@ -3079,30 +2914,30 @@
     {
       "id": "vw_ChannelStatus",
       "label": "vw_ChannelStatus",
-      "description": "Join view for per-channel sensor status queries",
-      "view_definition": "SELECT\n    statusMD.[Metadata_ID] AS StatusMetaDataID,\n    statusMD.[StatusOfMetaDataID] AS MeasurementMetaDataID,\n    measMD.[Equipment_ID] AS EquipmentID,\n    e.[identifier] AS EquipmentName,\n    p.[Parameter] AS MeasurementParameter,\n    sp.[Sampling_point] AS LocationName,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT) AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[MetaData] statusMD ON statusMD.[Metadata_ID] = v.[Metadata_ID]\nJOIN [dbo].[MetaData] measMD ON measMD.[Metadata_ID] = statusMD.[StatusOfMetaDataID]\nJOIN [dbo].[Parameter] p ON p.[Parameter_ID] = measMD.[Parameter_ID]\nJOIN [dbo].[SamplingPoints] sp ON sp.[Sampling_point_ID] = measMD.[Sampling_point_ID]\nJOIN [dbo].[Equipment] e ON e.[Equipment_ID] = measMD.[Equipment_ID]\nLEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)\nWHERE statusMD.[StatusOfMetaDataID] IS NOT NULL",
+      "description": "Join view for per-channel sensor status queries. Updated in v2.1.0 (Phase C) to use Channel.StatusChannel_ID instead of the legacy StatusOfMetaDataID column.",
+      "view_definition": "SELECT\n    statusC.[Channel_ID]          AS StatusChannelID,\n    statusC.[StatusChannel_ID]    AS MeasurementChannelID,\n    measC.[Equipment_ID]          AS EquipmentID,\n    e.[identifier]                AS EquipmentName,\n    p.[Parameter]                 AS MeasurementParameter,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT)        AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]\nJOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]\nJOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]\nJOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]\nLEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)\nWHERE statusC.[StatusChannel_ID] IS NOT NULL\n",
       "columns": [
         {
-          "name": "StatusMetaDataID",
-          "sql_type": "unknown",
+          "name": "StatusChannelID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "MetaDataID of the status time series"
+          "description": "Channel_ID of the status time series"
         },
         {
-          "name": "MeasurementMetaDataID",
-          "sql_type": "unknown",
+          "name": "MeasurementChannelID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "MetaDataID of the measurement channel this status describes"
+          "description": "Channel_ID of the measurement channel this status describes"
         },
         {
           "name": "EquipmentID",
-          "sql_type": "unknown",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3111,16 +2946,16 @@
         },
         {
           "name": "EquipmentName",
-          "sql_type": "unknown",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Name of the equipment"
+          "description": "Name/identifier of the equipment"
         },
         {
           "name": "MeasurementParameter",
-          "sql_type": "unknown",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3128,17 +2963,8 @@
           "description": "Name of the measured parameter (TSS, pH, etc.)"
         },
         {
-          "name": "LocationName",
-          "sql_type": "unknown",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Name of the sampling location"
-        },
-        {
           "name": "Timestamp",
-          "sql_type": "unknown",
+          "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3147,7 +2973,7 @@
         },
         {
           "name": "StatusCodeID",
-          "sql_type": "unknown",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3156,7 +2982,7 @@
         },
         {
           "name": "StatusName",
-          "sql_type": "unknown",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3165,7 +2991,7 @@
         },
         {
           "name": "IsOperational",
-          "sql_type": "unknown",
+          "sql_type": "BIT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3174,7 +3000,7 @@
         },
         {
           "name": "Severity",
-          "sql_type": "unknown",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3186,21 +3012,21 @@
     {
       "id": "vw_DeviceStatus",
       "label": "vw_DeviceStatus",
-      "description": "Join view for device-level sensor status queries",
-      "view_definition": "SELECT\n    statusMD.[Metadata_ID] AS StatusMetaDataID,\n    statusMD.[StatusOfEquipmentID] AS EquipmentID,\n    e.[identifier] AS EquipmentName,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT) AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[MetaData] statusMD ON statusMD.[Metadata_ID] = v.[Metadata_ID]\nJOIN [dbo].[Equipment] e ON e.[Equipment_ID] = statusMD.[StatusOfEquipmentID]\nLEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)\nWHERE statusMD.[StatusOfEquipmentID] IS NOT NULL",
+      "description": "Join view for device-level sensor status queries. Updated in v2.1.0 (Phase C) to join via EquipmentStatusChannel instead of the legacy StatusOfEquipmentID column on Channel.",
+      "view_definition": "SELECT\n    statusC.[Channel_ID]          AS StatusChannelID,\n    esc.[Equipment_ID]            AS EquipmentID,\n    e.[identifier]                AS EquipmentName,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT)        AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]\nJOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]\nJOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]\nLEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT)\n",
       "columns": [
         {
-          "name": "StatusMetaDataID",
-          "sql_type": "unknown",
+          "name": "StatusChannelID",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "MetaDataID of the status time series"
+          "description": "Channel_ID of the status time series"
         },
         {
           "name": "EquipmentID",
-          "sql_type": "unknown",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3209,16 +3035,16 @@
         },
         {
           "name": "EquipmentName",
-          "sql_type": "unknown",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Name of the equipment"
+          "description": "Name/identifier of the equipment"
         },
         {
           "name": "Timestamp",
-          "sql_type": "unknown",
+          "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3227,7 +3053,7 @@
         },
         {
           "name": "StatusCodeID",
-          "sql_type": "unknown",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3236,7 +3062,7 @@
         },
         {
           "name": "StatusName",
-          "sql_type": "unknown",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3245,7 +3071,7 @@
         },
         {
           "name": "IsOperational",
-          "sql_type": "unknown",
+          "sql_type": "BIT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3254,7 +3080,7 @@
         },
         {
           "name": "Severity",
-          "sql_type": "unknown",
+          "sql_type": "INT",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -3267,9 +3093,9 @@
   "relationships": [
     {
       "from_table": "Annotation",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3315,13 +3141,6 @@
       "relationship_type": null
     },
     {
-      "from_table": "Campaign",
-      "to_table": "Project",
-      "from_field": "Project_ID",
-      "to_field": "Project_ID",
-      "relationship_type": null
-    },
-    {
       "from_table": "CampaignEquipment",
       "to_table": "Campaign",
       "from_field": "Campaign_ID",
@@ -3364,6 +3183,62 @@
       "relationship_type": null
     },
     {
+      "from_table": "Channel",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "Parameter",
+      "from_field": "Parameter_ID",
+      "to_field": "Parameter_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "Unit",
+      "from_field": "Unit_ID",
+      "to_field": "Unit_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "DataProvenance",
+      "from_field": "DataProvenance_ID",
+      "to_field": "DataProvenance_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "ValueType",
+      "from_field": "ValueType_ID",
+      "to_field": "ValueType_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "Channel",
+      "from_field": "StatusChannel_ID",
+      "to_field": "Channel_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ChannelAxis",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ChannelAxis",
+      "to_table": "ValueBinningAxis",
+      "from_field": "ValueBinningAxis_ID",
+      "to_field": "ValueBinningAxis_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "DataLineage",
       "to_table": "ProcessingStep",
       "from_field": "ProcessingStep_ID",
@@ -3372,9 +3247,9 @@
     },
     {
       "from_table": "DataLineage",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3413,17 +3288,17 @@
       "relationship_type": null
     },
     {
-      "from_table": "EquipmentEventMetaData",
+      "from_table": "EquipmentEventChannel",
       "to_table": "EquipmentEvent",
       "from_field": "EquipmentEvent_ID",
       "to_field": "EquipmentEvent_ID",
       "relationship_type": null
     },
     {
-      "from_table": "EquipmentEventMetaData",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
+      "from_table": "EquipmentEventChannel",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3473,6 +3348,20 @@
       "to_table": "Procedures",
       "from_field": "Procedure_ID",
       "to_field": "Procedure_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentStatusChannel",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentStatusChannel",
+      "to_table": "Channel",
+      "from_field": "StatusChannel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3483,31 +3372,66 @@
       "relationship_type": null
     },
     {
-      "from_table": "IngestionRoute",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
+      "from_table": "LabAnalysis",
+      "to_table": "Sample",
+      "from_field": "Sample_ID",
+      "to_field": "Sample_ID",
       "relationship_type": null
     },
     {
-      "from_table": "IngestionRoute",
+      "from_table": "LabAnalysis",
+      "to_table": "Laboratory",
+      "from_field": "Laboratory_ID",
+      "to_field": "Laboratory_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabAnalysis",
+      "to_table": "Person",
+      "from_field": "AnalystPerson_ID",
+      "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabAnalysis",
+      "to_table": "Procedures",
+      "from_field": "Procedure_ID",
+      "to_field": "Procedure_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabAnalysis",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabValue",
+      "to_table": "LabAnalysis",
+      "from_field": "LabAnalysis_ID",
+      "to_field": "LabAnalysis_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabValue",
       "to_table": "Parameter",
       "from_field": "Parameter_ID",
       "to_field": "Parameter_ID",
       "relationship_type": null
     },
     {
-      "from_table": "IngestionRoute",
-      "to_table": "DataProvenance",
-      "from_field": "DataProvenance_ID",
-      "to_field": "DataProvenance_ID",
+      "from_table": "LabValue",
+      "to_table": "Unit",
+      "from_field": "Unit_ID",
+      "to_field": "Unit_ID",
       "relationship_type": null
     },
     {
-      "from_table": "IngestionRoute",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
+      "from_table": "LabValue",
+      "to_table": "Comments",
+      "from_field": "Comment_ID",
+      "to_field": "Comment_ID",
       "relationship_type": null
     },
     {
@@ -3515,139 +3439,6 @@
       "to_table": "Site",
       "from_field": "Site_ID",
       "to_field": "Site_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Project",
-      "from_field": "Project_ID",
-      "to_field": "Project_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Person",
-      "from_field": "Contact_ID",
-      "to_field": "Person_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Parameter",
-      "from_field": "Parameter_ID",
-      "to_field": "Parameter_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Procedures",
-      "from_field": "Procedure_ID",
-      "to_field": "Procedure_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Unit",
-      "from_field": "Unit_ID",
-      "to_field": "Unit_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Purpose",
-      "from_field": "Purpose_ID",
-      "to_field": "Purpose_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "SamplingPoints",
-      "from_field": "Sampling_point_ID",
-      "to_field": "Sampling_point_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "WeatherCondition",
-      "from_field": "Condition_ID",
-      "to_field": "Condition_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "ValueType",
-      "from_field": "ValueType_ID",
-      "to_field": "ValueType_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "DataProvenance",
-      "from_field": "DataProvenance_ID",
-      "to_field": "DataProvenance_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Campaign",
-      "from_field": "Campaign_ID",
-      "to_field": "Campaign_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Sample",
-      "from_field": "Sample_ID",
-      "to_field": "Sample_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Laboratory",
-      "from_field": "Laboratory_ID",
-      "to_field": "Laboratory_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Person",
-      "from_field": "AnalystPerson_ID",
-      "to_field": "Person_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "MetaData",
-      "from_field": "StatusOfMetaDataID",
-      "to_field": "Metadata_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaData",
-      "to_table": "Equipment",
-      "from_field": "StatusOfEquipmentID",
-      "to_field": "Equipment_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaDataAxis",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "MetaDataAxis",
-      "to_table": "ValueBinningAxis",
-      "from_field": "ValueBinningAxis_ID",
-      "to_field": "ValueBinningAxis_ID",
       "relationship_type": null
     },
     {
@@ -3676,48 +3467,6 @@
       "to_table": "Person",
       "from_field": "ExecutedByPerson_ID",
       "to_field": "Person_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProjectHasContact",
-      "to_table": "Person",
-      "from_field": "Contact_ID",
-      "to_field": "Person_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProjectHasContact",
-      "to_table": "Project",
-      "from_field": "Project_ID",
-      "to_field": "Project_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProjectHasEquipment",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProjectHasEquipment",
-      "to_table": "Project",
-      "from_field": "Project_ID",
-      "to_field": "Project_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProjectHasSamplingPoints",
-      "to_table": "Project",
-      "from_field": "Project_ID",
-      "to_field": "Project_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProjectHasSamplingPoints",
-      "to_table": "SamplingPoints",
-      "from_field": "Sampling_point_ID",
-      "to_field": "Sampling_point_ID",
       "relationship_type": null
     },
     {
@@ -3792,9 +3541,9 @@
     },
     {
       "from_table": "Value",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3813,16 +3562,16 @@
     },
     {
       "from_table": "ValueImage",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
       "from_table": "ValueMatrix",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3841,9 +3590,9 @@
     },
     {
       "from_table": "ValueVector",
-      "to_table": "MetaData",
-      "from_field": "Metadata_ID",
-      "to_field": "Metadata_ID",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {

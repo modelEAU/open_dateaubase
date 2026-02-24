@@ -1,5 +1,15 @@
 # Current Schema Generation — Audit
 
+!!! warning "Historical document"
+    This document describes the **pre-Phase-0 (v0.x)** state of the project — specifically
+    the original `dictionary.json`-based generation pipeline that motivated the migration to
+    YAML-per-table files.
+
+    As of Phase 0, the single source of truth is the YAML files in
+    `schema_dictionary/tables/`. The tooling is `python -m tools.schema_migrate`.
+    See [Schema Dictionary Format](schema_dictionary_format.md) and
+    [Contributing to the Schema Dictionary](../contributing/dictionary.md) for current workflows.
+
 *Produced as part of Phase 0 (Foundation — Migration Infrastructure)*
 
 ---

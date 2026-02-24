@@ -109,16 +109,16 @@ table:
 ## Naming Conventions
 
 | Element | Convention | Example |
-|---|---|---|
+| --- | --- | --- |
 | Tables | PascalCase | `EquipmentEvent` |
-| Columns | PascalCase | `MetaDataID` |
+| Columns | PascalCase with `_ID` suffix for surrogate/FK columns | `Channel_ID`, `Equipment_ID` |
 | Files | Match table name | `EquipmentEvent.yaml` |
-| PKs | `PK_{Table}` | `PK_EquipmentEvent` |
-| FKs | `FK_{Child}_{Parent}` | `FK_Value_MetaData` |
+| PKs | `PK_{Table}` | `PK_Channel` |
+| FKs | `FK_{Child}_{Parent}` | `FK_Value_Channel` |
 | Indexes | `IX_{Table}_{Cols}` | `IX_Value_tstamp` |
-| Unique | `UQ_{Table}_{Cols}` | `UQ_WavelengthBin_AxisIndex` |
+| Unique | `UQ_{Table}_{Cols}` | `UQ_Channel_SensorStream` |
 | Checks | `CK_{Table}_{Desc}` | `CK_DataLineage_Role` |
-| Defaults | `DF_{Table}_{Col}` | `DF_MetaData_ProcessingDegree` |
+| Defaults | `DF_{Table}_{Col}` | `DF_Channel_ProcessingDegree` |
 
 ---
 
@@ -132,7 +132,7 @@ table:
   schema: dbo
   description: "SI and measurement units used for reported values"
   columns:
-    - name: UnitID
+    - name: Unit_ID
       logical_type: integer
       nullable: false
       identity: true
@@ -142,80 +142,82 @@ table:
       max_length: 100
       nullable: false
       description: "Unit symbol or abbreviation (e.g. mg/L, °C)"
-  primary_key: [UnitID]
+  primary_key: [Unit_ID]
 ```
 
 ---
 
-## Example — Complex Table with Composite PK and FKs
+## Example — Table with FKs, Unique Constraint, and Self-Reference
 
 ```yaml
-# schema_dictionary/tables/MetaData.yaml
+# schema_dictionary/tables/Channel.yaml
 _format_version: "1.0"
 table:
-  name: MetaData
+  name: Channel
   schema: dbo
-  description: "Central context aggregator linking every measurement to its full provenance"
+  description: "Describes a fixed-identity measurement stream (equipment + parameter + processing degree)"
   columns:
-    - name: MetaDataID
+    - name: Channel_ID
       logical_type: integer
       nullable: false
       identity: true
-    - name: ProjectID
+      description: "Surrogate primary key"
+    - name: Equipment_ID
       logical_type: integer
-      nullable: true
-      foreign_key:
-        table: Project
-        column: ProjectID
-    - name: ContactID
-      logical_type: integer
-      nullable: true
-      foreign_key:
-        table: Contact
-        column: ContactID
-    - name: EquipmentID
-      logical_type: integer
-      nullable: true
+      nullable: false
+      description: "Instrument producing this stream"
       foreign_key:
         table: Equipment
-        column: EquipmentID
-    - name: ParameterID
+        column: Equipment_ID
+    - name: Parameter_ID
       logical_type: integer
-      nullable: true
+      nullable: false
+      description: "Measured quantity"
       foreign_key:
         table: Parameter
-        column: ParameterID
-    - name: ProcedureID
+        column: Parameter_ID
+    - name: Unit_ID
       logical_type: integer
       nullable: true
-      foreign_key:
-        table: Procedures
-        column: ProcedureID
-    - name: UnitID
-      logical_type: integer
-      nullable: true
+      description: "Unit of the stored values (NULL for image channels)"
       foreign_key:
         table: Unit
-        column: UnitID
-    - name: PurposeID
+        column: Unit_ID
+    - name: DataProvenance_ID
+      logical_type: integer
+      nullable: false
+      description: "How data was produced (Sensor, Lab, Manual, …)"
+      foreign_key:
+        table: DataProvenance
+        column: DataProvenance_ID
+    - name: ProcessingDegree
+      logical_type: string
+      max_length: 50
+      nullable: true
+      description: "Raw, Cleaned, Calibrated, Validated, Filtered, or Predicted"
+    - name: ValueType_ID
+      logical_type: integer
+      nullable: false
+      description: "Discriminator: 1=Scalar 2=Vector 3=Matrix 4=Image"
+      foreign_key:
+        table: ValueType
+        column: ValueType_ID
+    - name: StatusChannel_ID
       logical_type: integer
       nullable: true
+      description: "Points to another Channel whose values are status codes for this stream"
       foreign_key:
-        table: Purpose
-        column: PurposeID
-    - name: SamplingPointID
-      logical_type: integer
-      nullable: true
-      foreign_key:
-        table: SamplingPoints
-        column: SamplingPointID
-    - name: ConditionID
-      logical_type: integer
-      nullable: true
-      foreign_key:
-        table: WeatherCondition
-        column: ConditionID
-  primary_key: [MetaDataID]
+        table: Channel
+        column: Channel_ID
+  primary_key: [Channel_ID]
+  unique_constraints:
+    - name: UQ_Channel_SensorStream
+      columns: [Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree]
+  indexes:
+    - name: IX_Channel_Equipment
+      columns: [Equipment_ID]
+    - name: IX_Channel_Parameter
+      columns: [Parameter_ID]
 ```
 
 ---

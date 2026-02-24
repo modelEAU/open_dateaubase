@@ -1,224 +1,174 @@
-# Ingestion Routing
+# Self-Configuring Ingestion (v1.9.0+)
 
-**Schema version introduced:** 1.5.0
-**Phase:** 2d
+**Schema version introduced:** 1.9.0
+**Phase:** A
+
+> **Note — IngestionRoute removed.** Prior to v1.9.0, a separate `IngestionRoute` table
+> was required before any data could flow. That table has been dropped. The current model
+> is self-configuring: the first write for a new sensor stream creates the Channel row
+> automatically. No pre-configuration required.
+
+---
 
 ## Overview
 
-The `IngestionRoute` table decouples ingestion scripts from hardcoded
-`MetaDataID` values.  Instead of an ingestion script knowing "I write
-TSS data to `Metadata_ID = 42`", it identifies itself by what it
-_is_—equipment, parameter, provenance, and processing degree—and the
-database resolves the target.
+A **Channel** is the invariant descriptor for a measurement stream: it captures
+*what equipment is measuring what parameter*, at what processing degree, and in what unit.
+Context that changes over time (physical location, campaign) is stored separately in
+`EquipmentInstallation` and `CampaignEquipment` and derived at query time — it is never
+baked into the Channel row itself.
+
+Because the Channel identity is the combination
+`(Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree)` — and that combination
+is enforced by a `UNIQUE` constraint — ingestion can use a simple find-or-create pattern:
 
 ```
 Ingestion script
      │  "I am Equipment 7, measuring Parameter 3 (TSS),
      │   Sensor provenance, Raw processing"
      ▼
-  dbo.IngestionRoute
-     │  resolves → Metadata_ID = 42
+  find or create Channel row via UNIQUE key
+     │  Channel_ID = 42 (created on first write; reused on all subsequent writes)
      ▼
   dbo.Value  (scalar) / dbo.ValueVector / dbo.ValueMatrix / …
 ```
 
-When a sensor moves or a campaign rolls over, only **one row** in
-`IngestionRoute` needs to be updated—no script changes required.
+There is no routing table to pre-configure and no `RouteNotFound` errors. The same
+`Channel_ID` is reused for every timestamp from that stream, regardless of where the
+sensor is physically installed.
 
 ---
 
-## Table: dbo.IngestionRoute
+## The UNIQUE Constraint
 
-| Column | Type | Nullable | Description |
-|---|---|---|---|
-| `IngestionRoute_ID` | INT IDENTITY | No | Surrogate PK |
-| `Equipment_ID` | INT | **Yes** | Equipment producing the data. NULL for lab/manual provenance. |
-| `Parameter_ID` | INT | No | Measured parameter (FK → Parameter) |
-| `DataProvenance_ID` | INT | No | How data is produced (FK → DataProvenance) |
-| `ProcessingDegree` | NVARCHAR(50) | No | Level of processing. Default `'Raw'`. |
-| `ValidFrom` | DATETIME2(7) | No | Inclusive start of route validity |
-| `ValidTo` | DATETIME2(7) | **Yes** | Exclusive end. NULL = still active |
-| `CreatedAt` | DATETIME2(7) | No | Auto-filled with UTC timestamp |
-| `Metadata_ID` | INT | No | Target MetaData entry (FK → MetaData) |
-| `Notes` | NVARCHAR(500) | Yes | Free-text description |
+```sql
+-- On dbo.Channel
+CONSTRAINT [UQ_Channel_SensorStream]
+UNIQUE ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree])
+-- Filtered: WHERE Equipment_ID IS NOT NULL
+```
 
-### ProcessingDegree controlled vocabulary
+This constraint guarantees at most one Channel row per sensor stream. The find-or-create
+logic simply does:
+
+```sql
+-- Find or create: if no row exists yet, insert; then select the Channel_ID
+IF NOT EXISTS (
+    SELECT 1 FROM [dbo].[Channel]
+    WHERE [Equipment_ID]      = @Equipment_ID
+      AND [Parameter_ID]      = @Parameter_ID
+      AND [DataProvenance_ID] = @DataProvenance_ID
+      AND [ProcessingDegree]  = @ProcessingDegree
+)
+INSERT INTO [dbo].[Channel]
+    ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID],
+     [ProcessingDegree], [ValueType_ID])
+VALUES (@Equipment_ID, @Parameter_ID, @Unit_ID, @DataProvenance_ID,
+        @ProcessingDegree, @ValueType_ID);
+
+SELECT [Channel_ID] FROM [dbo].[Channel]
+WHERE [Equipment_ID]      = @Equipment_ID
+  AND [Parameter_ID]      = @Parameter_ID
+  AND [DataProvenance_ID] = @DataProvenance_ID
+  AND [ProcessingDegree]  = @ProcessingDegree;
+```
+
+This is implemented in `api/v1/repositories/ingestion_repository.py` as
+`find_or_create_sensor_metadata()`.
+
+---
+
+## API: Ingesting Sensor Data
+
+### POST /api/v1/ingest/sensor
+
+```json
+{
+  "equipment_id": 7,
+  "parameter_id": 3,
+  "unit_id": 2,
+  "data_provenance_id": 1,
+  "processing_degree": "Raw",
+  "timestamps": ["2025-09-10T10:00:00Z", "2025-09-10T10:15:00Z"],
+  "values": [185.0, 192.3]
+}
+```
+
+Response includes `channel_id` (the Channel row that was found or created).
+
+### POST /api/v1/ingest/processed
+
+For derived/processed time series (output of a processing step). Supply
+`source_channel_id` and a new `processing_degree`. The endpoint clones the identity
+fields from the source Channel and creates a new Channel row for the processed output.
+
+### POST /api/v1/ingest/lab
+
+Lab data does not use the Channel model. See [Lab Data](lab_data.md).
+
+---
+
+## Equipment Moves
+
+When a sensor moves from location A to location B, **the Channel row does not change**.
+The Channel captures the equipment-parameter relationship, which is invariant.
+What changes is the `EquipmentInstallation` record:
+
+1. Close the old `EquipmentInstallation` row by setting `RemovedDate = D`.
+2. Insert a new `EquipmentInstallation` row with `InstalledDate = D` and the new
+   `Sampling_point_ID`.
+
+Data written after the move is queried via the same `Channel_ID`. At query time, location
+is derived by joining `EquipmentInstallation` on the timestamp. See
+[Equipment Move Checklist](../operations/equipment_move_checklist.md) for the step-by-step.
+
+---
+
+## Deriving Context at Query Time
+
+Because location and campaign are not stored on Channel, they are derived from join tables:
+
+```sql
+-- Where was Channel 42 at timestamp T?
+SELECT
+    sp.[Sampling_point],
+    sp.[Sampling_location],
+    ei.[InstalledDate],
+    ei.[RemovedDate]
+FROM [dbo].[Channel] c
+JOIN [dbo].[EquipmentInstallation] ei
+    ON  ei.[Equipment_ID] = c.[Equipment_ID]
+    AND ei.[InstalledDate] <= @T
+    AND (ei.[RemovedDate] IS NULL OR ei.[RemovedDate] > @T)
+JOIN [dbo].[SamplingPoints] sp ON sp.[Sampling_point_ID] = ei.[Sampling_point_ID]
+WHERE c.[Channel_ID] = 42;
+
+-- Which campaign was active for Channel 42 at timestamp T?
+SELECT
+    camp.[Campaign_ID],
+    camp.[Name] AS CampaignName
+FROM [dbo].[Channel] c
+JOIN [dbo].[CampaignEquipment] ce
+    ON ce.[Equipment_ID] = c.[Equipment_ID]
+JOIN [dbo].[Campaign] camp
+    ON  camp.[Campaign_ID] = ce.[Campaign_ID]
+    AND camp.[StartDate] <= @T
+    AND (camp.[EndDate] IS NULL OR camp.[EndDate] > @T)
+WHERE c.[Channel_ID] = 42;
+```
+
+---
+
+## ProcessingDegree Vocabulary
 
 | Value | Meaning |
 |---|---|
 | `Raw` | Data as received from the instrument (default) |
 | `Cleaned` | Outliers or artefacts removed |
+| `Calibrated` | Calibration applied |
 | `Validated` | Human-reviewed and accepted |
-| `Interpolated` | Gaps filled by interpolation |
-| `Aggregated` | Time-averaged or otherwise aggregated |
-
----
-
-## Route Resolution
-
-A route is **active** at timestamp `T` if:
-
-```
-ValidFrom <= T  AND  (ValidTo IS NULL  OR  ValidTo > T)
-```
-
-At most **one** active route should exist for any
-`(Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree, T)`
-combination. The resolution query raises an error if zero or more than
-one routes match.
-
-### SQL
-
-```sql
--- Parameters: @Equipment_ID, @Parameter_ID, @DataProvenance_ID,
---             @ProcessingDegree, @Timestamp
-SELECT [Metadata_ID]
-FROM   [dbo].[IngestionRoute]
-WHERE  [Equipment_ID]      = @Equipment_ID
-  AND  [Parameter_ID]      = @Parameter_ID
-  AND  [DataProvenance_ID] = @DataProvenance_ID
-  AND  [ProcessingDegree]  = @ProcessingDegree
-  AND  [ValidFrom]        <= @Timestamp
-  AND  ([ValidTo] IS NULL OR [ValidTo] > @Timestamp);
-```
-
-### Python helper (from `tests/integration/test_phase2d.py`)
-
-```python
-def resolve_route(conn, equipment_id, parameter_id, data_provenance_id,
-                  processing_degree, timestamp) -> int:
-    cursor = conn.cursor()
-    cursor.execute(RESOLVE_ROUTE_SQL,
-                   equipment_id, parameter_id, data_provenance_id,
-                   processing_degree, timestamp, timestamp)
-    rows = cursor.fetchall()
-    if len(rows) == 0:
-        raise LookupError("No active IngestionRoute for …")
-    if len(rows) > 1:
-        raise ValueError("Ambiguous IngestionRoute: …")
-    return rows[0][0]
-```
-
----
-
-## How to Add a New Route
-
-### Scenario: new sensor deployed
-
-1. Create (or confirm) an `Equipment` record for the new sensor.
-2. Confirm the `Parameter` record for the measured analyte exists.
-3. Insert the route:
-
-```sql
-INSERT INTO [dbo].[IngestionRoute]
-    ([Equipment_ID], [Parameter_ID], [DataProvenance_ID],
-     [ProcessingDegree], [ValidFrom], [ValidTo], [Metadata_ID], [Notes])
-VALUES
-    (7,    -- Equipment_ID of new sensor
-     3,    -- Parameter_ID (TSS)
-     1,    -- DataProvenance_ID (Sensor)
-     'Raw',
-     '2025-07-01T00:00:00',   -- first data timestamp
-     NULL,                     -- still active
-     42,   -- Metadata_ID that will store the data
-     'TSS sensor installed at Primary Effluent for 2025-H2 ops');
-```
-
----
-
-## How to Handle an Equipment Move
-
-When a sensor moves from location A to location B on date `D`:
-
-1. **Close the old route** by setting `ValidTo = D`:
-
-```sql
-UPDATE [dbo].[IngestionRoute]
-SET    [ValidTo] = '2025-09-15T00:00:00',
-       [Notes]   = 'Sensor moved to Secondary Effluent 2025-09-15'
-WHERE  [Equipment_ID]     = 7
-  AND  [Parameter_ID]     = 3
-  AND  [DataProvenance_ID]= 1
-  AND  [ProcessingDegree] = 'Raw'
-  AND  [ValidTo]          IS NULL;
-```
-
-2. **Create the new MetaData entry** for the new location (if one doesn't
-   already exist for Equipment 7 at location B).
-
-3. **Open a new route** starting from `D`:
-
-```sql
-INSERT INTO [dbo].[IngestionRoute]
-    ([Equipment_ID], [Parameter_ID], [DataProvenance_ID],
-     [ProcessingDegree], [ValidFrom], [ValidTo], [Metadata_ID], [Notes])
-VALUES
-    (7, 3, 1, 'Raw',
-     '2025-09-15T00:00:00', NULL,
-     87,   -- Metadata_ID for TSS at Secondary Effluent
-     'Sensor moved from Primary to Secondary Effluent');
-```
-
-4. Update `EquipmentInstallation` to record the physical move (see
-   [Sensor Lifecycle](sensor_lifecycle.md)).
-
-5. Verify: run the resolution query for a timestamp just before and just
-   after `D` to confirm the correct `Metadata_ID` is returned.
-
----
-
-## Campaign Transitions
-
-When a new campaign starts and data should flow to a different
-`MetaData` entry (e.g. a campaign-scoped series instead of the
-operations series):
-
-1. Close the current route at the campaign start date.
-2. Create a new `MetaData` entry linked to the new `Campaign_ID`.
-3. Open a new route pointing to the new `MetaData_ID`.
-4. When the campaign ends, close the campaign route and (optionally)
-   reopen the operations route.
-
----
-
-## Troubleshooting: "My data isn't being ingested"
-
-1. **Check that a route exists:**
-
-```sql
-SELECT *
-FROM   [dbo].[IngestionRoute]
-WHERE  [Equipment_ID]     = <your equipment id>
-  AND  [Parameter_ID]     = <your parameter id>
-  AND  [DataProvenance_ID]= <provenance id>
-  AND  [ProcessingDegree] = 'Raw'
-ORDER BY [ValidFrom] DESC;
-```
-
-2. **Check temporal validity:** Is today's timestamp within
-   `[ValidFrom, ValidTo)`?
-
-3. **Check for ambiguity:** Does more than one row match the active
-   window? If so, set `ValidTo` on all but the intended route.
-
-4. **Check the target MetaData:** Does `Metadata_ID` point to a real
-   row in `dbo.MetaData`?
-
----
-
-## Backfill Script
-
-`migrations/data/backfill_ingestion_routes.sql` creates an
-`IngestionRoute` entry for every existing `MetaData` row that has an
-`Equipment_ID` and `Parameter_ID`. The script is idempotent—safe to
-run multiple times.
-
-```bash
-# Apply backfill (adjust connection string as needed)
-sqlcmd -S 127.0.0.1,14330 -U SA -P 'StrongPwd123!' \
-       -d <database> \
-       -i migrations/data/backfill_ingestion_routes.sql
-```
+| `Filtered` | Smoothed or frequency-filtered |
+| `Predicted` | Computed/predicted by a model |
 
 ---
 
@@ -226,10 +176,10 @@ sqlcmd -S 127.0.0.1,14330 -U SA -P 'StrongPwd123!' \
 
 ```
 Equipment ──┐
-            ├──► IngestionRoute ──► MetaData ──► Value / ValueVector / …
+            ├──► Channel  ──► Value / ValueVector / ValueMatrix / ValueImage
 Parameter ──┤
 DataProv  ──┘
 
-EquipmentInstallation  (where was Equipment physically? complementary)
-Campaign               (which campaign owns this MetaData?)
+EquipmentInstallation  (where was Equipment physically at time T?)
+CampaignEquipment      (which campaign was Equipment part of at time T?)
 ```

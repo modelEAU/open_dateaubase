@@ -1,4 +1,16 @@
-# datEAUbase Schema Documentation.
+# datEAUbase Schema Documentation
+
+!!! warning "Historical document (v0.x)"
+    This document describes the **original v0.x schema** (pre-migration) and is retained
+    for historical reference only. It no longer reflects the current data model.
+
+    For the current v2.1.0 schema reference, see:
+
+    - **[Tables reference](tables.md)** — all current tables with columns and FKs
+    - **[Views](views.md)** — `vw_ChannelStatus`, `vw_DeviceStatus`, and others
+    - **[ERD](erd.md)** — entity-relationship diagram
+
+---
 
 ## 1. Overview
 
