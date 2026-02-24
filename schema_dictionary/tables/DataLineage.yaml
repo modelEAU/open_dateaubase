@@ -4,13 +4,13 @@ table:
   schema: dbo
   description: >
     Junction table that records the input/output relationships between
-    ProcessingStep rows and MetaData rows. Each row asserts that a given
-    MetaData entry was either an Input to, or an Output of, a given
+    ProcessingStep rows and Channel rows. Each row asserts that a given
+    Channel entry was either an Input to, or an Output of, a given
     ProcessingStep. Together these rows form a directed acyclic graph (DAG)
     of data transformations.
 
-    Example: outlier-removal step takes MetaData 10 (raw TSS) as Input
-    and produces MetaData 11 (cleaned TSS) as Output.
+    Example: outlier-removal step takes Channel 10 (raw TSS) as Input
+    and produces Channel 11 (cleaned TSS) as Output.
 
   columns:
     - name: DataLineage_ID
@@ -22,34 +22,34 @@ table:
     - name: ProcessingStep_ID
       logical_type: integer
       nullable: false
-      description: "The processing step that consumed or produced the MetaData entry"
+      description: "The processing step that consumed or produced the Channel entry"
       foreign_key:
         table: ProcessingStep
         column: ProcessingStep_ID
 
-    - name: Metadata_ID
+    - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "The MetaData entry (time series) that participates in this lineage edge"
+      description: "The Channel entry (time series) that participates in this lineage edge (was Metadata_ID prior to v2.0.0)"
       foreign_key:
-        table: MetaData
-        column: Metadata_ID
+        table: Channel
+        column: Channel_ID
 
     - name: Role
       logical_type: string
       max_length: 10
       nullable: false
       description: >
-        Whether this MetaData entry was an Input (consumed by the step) or
+        Whether this Channel entry was an Input (consumed by the step) or
         an Output (produced by the step). CHECK constraint enforces 'Input'
         or 'Output'.
 
   primary_key: [DataLineage_ID]
 
   indexes:
-    - name: IX_DataLineage_Metadata
-      columns: [Metadata_ID]
-      description: "Supports backward lineage queries: given a MetaData_ID, find all steps it participated in"
+    - name: IX_DataLineage_Channel
+      columns: [Channel_ID]
+      description: "Supports backward lineage queries: given a Channel_ID, find all steps it participated in"
 
     - name: IX_DataLineage_Step_Role
       columns: [ProcessingStep_ID, Role]

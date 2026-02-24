@@ -9,13 +9,13 @@ table:
       nullable: false
       identity: true
       description: "Surrogate primary key"
-    - name: Metadata_ID
+    - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "References the metadata context for this image"
+      description: "References the channel context for this image"
       foreign_key:
-        table: MetaData
-        column: Metadata_ID
+        table: Channel
+        column: Channel_ID
     - name: Timestamp
       logical_type: timestamp
       precision: 7
@@ -64,8 +64,8 @@ table:
       description: "Quality flag for this image"
   primary_key: [ValueImage_ID]
   unique_constraints:
-    - name: UQ_ValueImage_MetaTimestamp
-      columns: [Metadata_ID, Timestamp]
+    - name: UQ_ValueImage_ChannelTimestamp
+      columns: [Channel_ID, Timestamp]
   indexes:
-    - name: IX_ValueImage_MetaTimestamp
-      columns: [Metadata_ID, Timestamp]
+    - name: IX_ValueImage_ChannelTimestamp
+      columns: [Channel_ID, Timestamp]

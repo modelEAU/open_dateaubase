@@ -2,48 +2,54 @@ _format_version: "1.0"
 view:
   name: vw_ChannelStatus
   schema: dbo
-  description: "Join view for per-channel sensor status queries"
+  description: "Join view for per-channel sensor status queries. Updated in v2.1.0 (Phase C) to use Channel.StatusChannel_ID instead of the legacy StatusOfMetaDataID column."
   columns:
-    - name: StatusMetaDataID
-      description: "MetaDataID of the status time series"
-    - name: MeasurementMetaDataID
-      description: "MetaDataID of the measurement channel this status describes"
+    - name: StatusChannelID
+      sql_data_type: INT
+      description: "Channel_ID of the status time series"
+    - name: MeasurementChannelID
+      sql_data_type: INT
+      description: "Channel_ID of the measurement channel this status describes"
     - name: EquipmentID
+      sql_data_type: INT
       description: "Equipment ID of the sensor"
     - name: EquipmentName
-      description: "Name of the equipment"
+      sql_data_type: NVARCHAR(100)
+      description: "Name/identifier of the equipment"
     - name: MeasurementParameter
+      sql_data_type: NVARCHAR(100)
       description: "Name of the measured parameter (TSS, pH, etc.)"
-    - name: LocationName
-      description: "Name of the sampling location"
     - name: Timestamp
+      sql_data_type: DATETIME2(7)
       description: "Timestamp of the status transition"
     - name: StatusCodeID
+      sql_data_type: INT
       description: "Status code from SensorStatusCode"
     - name: StatusName
+      sql_data_type: NVARCHAR(100)
       description: "Human-readable status name"
     - name: IsOperational
+      sql_data_type: BIT
       description: "Whether data is trustworthy in this status"
     - name: Severity
+      sql_data_type: INT
       description: "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
   view_definition: |
     SELECT
-        statusMD.[Metadata_ID] AS StatusMetaDataID,
-        statusMD.[StatusOfMetaDataID] AS MeasurementMetaDataID,
-        measMD.[Equipment_ID] AS EquipmentID,
-        e.[identifier] AS EquipmentName,
-        p.[Parameter] AS MeasurementParameter,
-        sp.[Sampling_point] AS LocationName,
+        statusC.[Channel_ID]          AS StatusChannelID,
+        statusC.[StatusChannel_ID]    AS MeasurementChannelID,
+        measC.[Equipment_ID]          AS EquipmentID,
+        e.[identifier]                AS EquipmentName,
+        p.[Parameter]                 AS MeasurementParameter,
         v.[Timestamp],
-        CAST(v.[Value] AS INT) AS StatusCodeID,
+        CAST(v.[Value] AS INT)        AS StatusCodeID,
         sc.[StatusName],
         sc.[IsOperational],
         sc.[Severity]
     FROM [dbo].[Value] v
-    JOIN [dbo].[MetaData] statusMD ON statusMD.[Metadata_ID] = v.[Metadata_ID]
-    JOIN [dbo].[MetaData] measMD ON measMD.[Metadata_ID] = statusMD.[StatusOfMetaDataID]
-    JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = measMD.[Parameter_ID]
-    JOIN [dbo].[SamplingPoints] sp ON sp.[Sampling_point_ID] = measMD.[Sampling_point_ID]
-    JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = measMD.[Equipment_ID]
-    LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
-    WHERE statusMD.[StatusOfMetaDataID] IS NOT NULL
+    JOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]
+    JOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]
+    JOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]
+    JOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]
+    LEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)
+    WHERE statusC.[StatusChannel_ID] IS NOT NULL

@@ -4,7 +4,7 @@ table:
   schema: dbo
   description: >
     Human-authored annotations on time series data. Each annotation
-    applies to a single MetaData entry (one measurement channel) over
+    applies to a single Channel entry (one measurement channel) over
     a time range. Multiple annotations can overlap on the same range.
     EndTime=NULL means either a point annotation or an ongoing situation.
   columns:
@@ -13,13 +13,13 @@ table:
       nullable: false
       identity: true
       description: "Primary key, auto-incremented"
-    - name: Metadata_ID
+    - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "The time series this annotation applies to"
+      description: "The time series this annotation applies to (was Metadata_ID prior to v2.0.0)"
       foreign_key:
-        table: MetaData
-        column: Metadata_ID
+        table: Channel
+        column: Channel_ID
     - name: AnnotationType_ID
       logical_type: integer
       nullable: false
@@ -81,8 +81,8 @@ table:
       description: "When this annotation was last modified"
   primary_key: [Annotation_ID]
   indexes:
-    - name: IX_Annotation_MetaData_Time
-      columns: [Metadata_ID, StartTime, EndTime]
+    - name: IX_Annotation_Channel_Time
+      columns: [Channel_ID, StartTime, EndTime]
       unique: false
       description: "Optimizes interval overlap queries"
     - name: IX_Annotation_Author

@@ -4,13 +4,13 @@ table:
   schema: dbo
   description: "Stores 1D binned measurement data as one row per bin per timestamp, unifying spectra, particle size distributions, and any other 1D distribution over a physical axis"
   columns:
-    - name: Metadata_ID
+    - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "References the metadata context for this measurement"
+      description: "References the channel context for this measurement"
       foreign_key:
-        table: MetaData
-        column: Metadata_ID
+        table: Channel
+        column: Channel_ID
     - name: Timestamp
       logical_type: timestamp
       precision: 7
@@ -31,4 +31,4 @@ table:
       logical_type: integer
       nullable: true
       description: "Quality flag for this measurement"
-  primary_key: [Metadata_ID, Timestamp, ValueBin_ID]
+  primary_key: [Channel_ID, Timestamp, ValueBin_ID]

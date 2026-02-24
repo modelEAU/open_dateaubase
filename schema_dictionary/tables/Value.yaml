@@ -12,13 +12,13 @@ table:
       foreign_key:
         table: Comments
         column: Comment_ID
-    - name: Metadata_ID
+    - name: Channel_ID
       logical_type: integer
       nullable: true
-      description: "A unique ID is generated automatically by MySQL"
+      description: "The measurement channel this value belongs to (was Metadata_ID prior to v2.0.0)"
       foreign_key:
-        table: MetaData
-        column: Metadata_ID
+        table: Channel
+        column: Channel_ID
     - name: Value_ID
       logical_type: integer
       nullable: false

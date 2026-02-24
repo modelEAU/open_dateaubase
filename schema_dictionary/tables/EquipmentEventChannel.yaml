@@ -1,0 +1,33 @@
+_format_version: "1.0"
+table:
+  name: EquipmentEventChannel
+  schema: dbo
+  description: "Junction table linking an equipment lifecycle event to the Channel series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration). Renamed from EquipmentEventMetaData in v2.0.0 (Phase B)."
+
+  columns:
+    - name: EquipmentEvent_ID
+      logical_type: integer
+      nullable: false
+      description: "Equipment event this link belongs to"
+      foreign_key:
+        table: EquipmentEvent
+        column: EquipmentEvent_ID
+    - name: Channel_ID
+      logical_type: integer
+      nullable: false
+      description: "Channel series associated with this event (was Metadata_ID prior to v2.0.0)"
+      foreign_key:
+        table: Channel
+        column: Channel_ID
+    - name: WindowStart
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "Start of the relevant time window within the Channel series. NULL means use all values."
+    - name: WindowEnd
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "End of the relevant time window. NULL means use all values."
+
+  primary_key: [EquipmentEvent_ID, Channel_ID]

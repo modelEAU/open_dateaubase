@@ -1,0 +1,71 @@
+_format_version: "1.0"
+table:
+  name: LabAnalysis
+  schema: dbo
+  description: >
+    One analytical run on a discrete physical sample. Groups together all LabValue rows
+    from a single lab session. Lab data does not fit the continuous-stream Channel abstraction
+    (it is tied to a physical sample, not an equipment stream), so it lives here rather than
+    in Channel + Value. Added in v2.0.0 (Phase B).
+
+  columns:
+    - name: LabAnalysis_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Sample_ID
+      logical_type: integer
+      nullable: false
+      description: "The physical sample that was analysed"
+      foreign_key:
+        table: Sample
+        column: Sample_ID
+
+    - name: Laboratory_ID
+      logical_type: integer
+      nullable: true
+      description: "Laboratory where the analysis was performed"
+      foreign_key:
+        table: Laboratory
+        column: Laboratory_ID
+
+    - name: AnalystPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who performed the analysis"
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+    - name: Procedure_ID
+      logical_type: integer
+      nullable: true
+      description: "Standard operating procedure used for this analysis"
+      foreign_key:
+        table: Procedures
+        column: Procedure_ID
+
+    - name: AnalyzedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: SYSUTCDATETIME()
+      description: "UTC datetime when the analysis was performed"
+
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign this analysis was part of, if any"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+
+    - name: Notes
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Free-text notes about this analysis run"
+
+  primary_key: [LabAnalysis_ID]

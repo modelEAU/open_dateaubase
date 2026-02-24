@@ -1,0 +1,65 @@
+_format_version: "1.0"
+table:
+  name: LabValue
+  schema: dbo
+  description: >
+    A single measured value from a lab analysis, for a specific parameter and unit.
+    Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate).
+    Added in v2.0.0 (Phase B).
+
+  columns:
+    - name: LabValue_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: LabAnalysis_ID
+      logical_type: integer
+      nullable: false
+      description: "The analysis run this value belongs to"
+      foreign_key:
+        table: LabAnalysis
+        column: LabAnalysis_ID
+
+    - name: Parameter_ID
+      logical_type: integer
+      nullable: false
+      description: "Measured analyte (e.g. TSS, COD)"
+      foreign_key:
+        table: Parameter
+        column: Parameter_ID
+
+    - name: Unit_ID
+      logical_type: integer
+      nullable: false
+      description: "Unit of the measured value (e.g. mg/L)"
+      foreign_key:
+        table: Unit
+        column: Unit_ID
+
+    - name: Value
+      logical_type: float64
+      nullable: false
+      description: "Numerical result of the measurement"
+
+    - name: Replicate
+      logical_type: integer
+      nullable: false
+      default: 1
+      description: "Replicate number (1 = primary measurement, 2+ = duplicates)"
+
+    - name: QualityCode
+      logical_type: integer
+      nullable: true
+      description: "Optional quality flag code"
+
+    - name: Comment_ID
+      logical_type: integer
+      nullable: true
+      description: "Optional free-text comment reference"
+      foreign_key:
+        table: Comments
+        column: Comment_ID
+
+  primary_key: [LabValue_ID]

@@ -2,36 +2,44 @@ _format_version: "1.0"
 view:
   name: vw_DeviceStatus
   schema: dbo
-  description: "Join view for device-level sensor status queries"
+  description: "Join view for device-level sensor status queries. Updated in v2.1.0 (Phase C) to join via EquipmentStatusChannel instead of the legacy StatusOfEquipmentID column on Channel."
   columns:
-    - name: StatusMetaDataID
-      description: "MetaDataID of the status time series"
+    - name: StatusChannelID
+      sql_data_type: INT
+      description: "Channel_ID of the status time series"
     - name: EquipmentID
+      sql_data_type: INT
       description: "Equipment ID this status describes"
     - name: EquipmentName
-      description: "Name of the equipment"
+      sql_data_type: NVARCHAR(100)
+      description: "Name/identifier of the equipment"
     - name: Timestamp
+      sql_data_type: DATETIME2(7)
       description: "Timestamp of the status transition"
     - name: StatusCodeID
+      sql_data_type: INT
       description: "Status code from SensorStatusCode"
     - name: StatusName
+      sql_data_type: NVARCHAR(100)
       description: "Human-readable status name"
     - name: IsOperational
+      sql_data_type: BIT
       description: "Whether data is trustworthy in this status"
     - name: Severity
+      sql_data_type: INT
       description: "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
   view_definition: |
     SELECT
-        statusMD.[Metadata_ID] AS StatusMetaDataID,
-        statusMD.[StatusOfEquipmentID] AS EquipmentID,
-        e.[identifier] AS EquipmentName,
+        statusC.[Channel_ID]          AS StatusChannelID,
+        esc.[Equipment_ID]            AS EquipmentID,
+        e.[identifier]                AS EquipmentName,
         v.[Timestamp],
-        CAST(v.[Value] AS INT) AS StatusCodeID,
+        CAST(v.[Value] AS INT)        AS StatusCodeID,
         sc.[StatusName],
         sc.[IsOperational],
         sc.[Severity]
     FROM [dbo].[Value] v
-    JOIN [dbo].[MetaData] statusMD ON statusMD.[Metadata_ID] = v.[Metadata_ID]
-    JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = statusMD.[StatusOfEquipmentID]
-    LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
-    WHERE statusMD.[StatusOfEquipmentID] IS NOT NULL
+    JOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]
+    JOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
+    JOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]
+    LEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT)
