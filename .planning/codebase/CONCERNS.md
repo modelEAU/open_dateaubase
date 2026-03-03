@@ -4,23 +4,18 @@
 
 ## Tech Debt
 
-**Schema drift in core lineage library:**
-- Issue: `src/open_dateaubase/lineage.py` references `[dbo].[DataLineage]` and `[Role]` column; v2.1.0 renamed these to `ProcessingLineage` and `RoleInProcessingStep`
-- Also: `src/open_dateaubase/meteaudata_bridge.py:56` references `c.[ProcessingDegree]` as a string column, but v2.1.0 changed it to `ProcessingDegree_ID` (integer FK)
-- Why: Core library was not updated when Phase C migration landed
-- Impact: `GET /lineage/{id}/forward|backward` endpoints will fail against v2.1.0 schema
-- Fix approach: Update SQL in `lineage.py` and `meteaudata_bridge.py` to use v2.1.0 column/table names
+**~~Schema drift in core lineage library~~ [FIXED 2026-03-03]:**
+- ~~Issue: `src/open_dateaubase/lineage.py` references `[dbo].[DataLineage]` and `[Role]` column; v2.1.0 renamed these to `ProcessingLineage` and `RoleInProcessingStep`~~
+- ~~Also: `src/open_dateaubase/meteaudata_bridge.py:56` references `c.[ProcessingDegree]` as a string column, but v2.1.0 changed it to `ProcessingDegree_ID` (integer FK)~~
+- Fixed in commits `a71793c` (lineage.py) and `2b5e8e4` (meteaudata_bridge.py): all SQL updated to v2.1.0 table/column names; `ProcessingDegree` now resolved via JOIN to `ProcessingDegree` lookup table
 
-**Migration SQL and seed data out of sync with v2.1.0 spec:**
-- Issue: `migrations/v1.0.0_to_v2.1.0_mssql.sql` contains v1-era column names and missing tables; `sql/seed_v2.1.0.sql` references removed columns (`Unit_ID`, `ProcessingDegree` as string, `StartDate`/`EndDate`)
-- Specific issues documented in `PLAN.md` and `ISSUES.md`
-- Impact: Migration will fail or produce incorrect schema; seed data inserts will fail
-- Fix approach: Rewrite migration SQL per `PLAN.md` spec; regenerate seed data
+**~~Migration SQL and seed data out of sync with v2.1.0 spec~~ [FIXED 2026-03-03]:**
+- ~~Issue: `migrations/v1.0.0_to_v2.1.0_mssql.sql` contains v1-era column names and missing tables; `sql/seed_v2.1.0.sql` references removed columns (`Unit_ID`, `ProcessingDegree` as string, `StartDate`/`EndDate`)~~
+- Fixed in commits `9fe903b` (migration SQL) and `b517a93` (seed SQL): all PascalCase column renames applied; `SamplingPoints`→`SamplingPoint` rename added as STEP 11; lookup table columns and FK constraints corrected; `AnalyzedAt`→`AnalysisDateTime` in LabAnalysis
 
-**Schema version mismatch in config:**
-- Issue: `api/config.py:34` — `schema_version: str = "1.6.0"` but current schema is v2.1.0
-- Impact: `/health` endpoint reports wrong schema version to clients
-- Fix approach: Update hardcoded version string in `api/config.py`
+**~~Schema version mismatch in config~~ [FIXED 2026-03-03]:**
+- ~~Issue: `api/config.py:34` — `schema_version: str = "1.6.0"` but current schema is v2.1.0~~
+- Fixed in commit `22d38c3`: updated to `"2.1.0"`
 
 **Dynamic SQL construction via f-strings:**
 - Issue: WHERE clauses in paginated list queries built with f-string interpolation
@@ -81,6 +76,7 @@
 - Common failures: Silent wrong-column errors or SQL exceptions at runtime after schema migration
 - Safe modification: Always run integration tests (`pytest -m db`) after schema changes
 - Test coverage: Integration tests in `tests/integration/` but not specifically for lineage SQL names
+- Note [2026-03-03]: SQL updated to v2.1.0 names (commits `a71793c`, `2b5e8e4`); fragility concern remains for future schema changes
 
 **`api/v1/repositories/annotation_repository.py` (400+ lines):**
 - Why fragile: Complex dynamic SQL construction with multiple UPDATE paths; large file
@@ -126,8 +122,8 @@
 
 **Lineage SQL correctness:**
 - What's not tested: That `src/open_dateaubase/lineage.py` SQL matches v2.1.0 schema
-- Risk: Lineage endpoints silently broken after schema migration (known drift issue)
-- Priority: High (correlated with the schema drift concern above)
+- Risk: Lineage endpoints silently broken after schema migration
+- Priority: Medium (SQL has been updated to v2.1.0 names as of 2026-03-03; known drift is resolved)
 - Difficulty to test: Requires integration DB; run `pytest -m db` targeting lineage endpoint
 
 **`find_or_create_sensor_metadata()` idempotency:**
