@@ -10,7 +10,7 @@ def find_or_create_sensor_metadata(
     *,
     equipment_id: int,
     parameter_id: int,
-    unit_id: int,
+    unit_id: int | None = None,
     data_provenance_id: int,
     processing_degree_id: int,
     value_type_id: int = 1,
@@ -34,12 +34,12 @@ def find_or_create_sensor_metadata(
               AND [ProcessingDegree_ID] = ?
         )
         INSERT INTO [dbo].[Channel]
-            ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID],
+            ([Equipment_ID], [Parameter_ID], [DataProvenance_ID],
              [ProcessingDegree_ID], [ValueType_ID])
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         """,
         equipment_id, parameter_id, data_provenance_id, processing_degree_id,
-        equipment_id, parameter_id, unit_id, data_provenance_id, processing_degree_id, value_type_id,
+        equipment_id, parameter_id, data_provenance_id, processing_degree_id, value_type_id,
     )
     conn.commit()
     cursor.execute(
@@ -71,7 +71,7 @@ def find_or_create_derived_metadata(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ValueType_ID]
+        SELECT [Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ValueType_ID]
         FROM [dbo].[Channel]
         WHERE [Channel_ID] = ?
         """,
@@ -83,12 +83,12 @@ def find_or_create_derived_metadata(
             status_code=404,
             detail=f"Source channel {source_channel_id} not found.",
         )
-    equipment_id, parameter_id, unit_id, data_provenance_id, value_type_id = row
+    equipment_id, parameter_id, data_provenance_id, value_type_id = row
     return find_or_create_sensor_metadata(
         conn,
         equipment_id=equipment_id,
         parameter_id=parameter_id,
-        unit_id=unit_id,
+        unit_id=None,
         data_provenance_id=data_provenance_id,
         processing_degree_id=processing_degree_id,
         value_type_id=value_type_id or 1,
@@ -132,7 +132,7 @@ def insert_lab_value(
     *,
     lab_analysis_id: int,
     parameter_id: int,
-    unit_id: int,
+    unit_id: int | None = None,
     value: float,
     replicate: int = 1,
     quality_code: int | None = None,
@@ -142,13 +142,12 @@ def insert_lab_value(
     cursor.execute(
         """
         INSERT INTO [dbo].[LabValue]
-            ([LabAnalysis_ID], [Parameter_ID], [Unit_ID], [Value], [Replicate], [QualityCode_ID])
+            ([LabAnalysis_ID], [Parameter_ID], [LabResult], [Replicate], [QualityCode_ID])
         OUTPUT INSERTED.[LabValue_ID]
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         """,
         lab_analysis_id,
         parameter_id,
-        unit_id,
         value,
         replicate,
         quality_code,
