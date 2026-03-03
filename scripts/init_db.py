@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Initialize the open_dateaubase schema and seed data.
 
-Applies all migrations and seed files in version order, using
-SchemaVersion to skip steps that are already applied.  Safe to run
-against a fresh container (schema does not exist yet) or a partially
-initialised one.
+Applies the v1.0.0 baseline and the consolidated v1.0.0→v2.1.0 migration,
+then seeds test data.  Safe to re-run: skips steps already recorded in
+SchemaVersion.
 
 Usage
 -----
@@ -86,31 +85,16 @@ def _run_sql_file(path: Path, conn) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Ordered list of (schema_version, migration_file, seed_file)
+# Migration steps — (label, migration_file, seed_file | None)
+# SchemaVersion is created by the v2.1.0 migration, so we check for it
+# after applying that step.
 # ---------------------------------------------------------------------------
 
-_STEPS: list[tuple[str, Path | None, Path | None]] = [
-    (
-        "1.0.0",
-        ROOT / "migrations" / "v1.0.0_create_mssql.sql",
-        ROOT / "sql" / "seed_v1.0.0.sql",
-    ),
-    (
-        "1.0.1",
-        ROOT / "migrations" / "v1.0.0_to_v1.0.1_mssql.sql",
-        ROOT / "sql" / "seed_v1.0.1.sql",
-    ),
-    (
-        "1.0.2",
-        ROOT / "migrations" / "v1.0.1_to_v1.0.2_mssql.sql",
-        ROOT / "sql" / "seed_v1.0.2.sql",
-    ),
-    (
-        "1.1.0",
-        ROOT / "migrations" / "v1.0.2_to_v1.1.0_mssql.sql",
-        ROOT / "sql" / "seed_v1.1.0.sql",
-    ),
-]
+_BASELINE = ROOT / "migrations" / "v1.0.0_create_mssql.sql"
+_MIGRATION = ROOT / "migrations" / "v1.0.0_to_v2.1.0_mssql.sql"
+_SEED = ROOT / "sql" / "seed_v2.1.0.sql"
+
+TARGET_VERSION = "2.1.0"
 
 
 # ---------------------------------------------------------------------------
@@ -132,65 +116,85 @@ def main() -> None:
     master_conn.autocommit = True
     cursor = master_conn.cursor()
     cursor.execute(
-        "IF DB_ID(N'open_dateaubase') IS NULL CREATE DATABASE [open_dateaubase];"
+        f"IF DB_ID(N'{_DB}') IS NULL CREATE DATABASE [{_DB}];"
     )
     master_conn.close()
     print(f"Database '{_DB}' is ready.")
 
     # ------------------------------------------------------------------
-    # 2. Connect to open_dateaubase
+    # 2. Connect to the application database
     # ------------------------------------------------------------------
     conn = _connect(_APP_DSN)
+    cursor = conn.cursor()
 
     # ------------------------------------------------------------------
-    # 3. Find which versions are already applied
+    # 3. Check current schema version
     # ------------------------------------------------------------------
-    cursor = conn.cursor()
     applied: set[str] = set()
     try:
         cursor.execute("SELECT [Version] FROM [dbo].[SchemaVersion]")
         applied = {row[0] for row in cursor.fetchall()}
         print(f"Already applied: {sorted(applied)}")
     except Exception:
-        # SchemaVersion table doesn't exist yet — that's fine
         print("SchemaVersion table not found; applying from scratch.")
     conn.commit()
 
-    # ------------------------------------------------------------------
-    # 4. Apply each step that is not yet recorded
-    # ------------------------------------------------------------------
-    for version, migration, seed in _STEPS:
-        if version in applied:
-            print(f"  skip  v{version} (already applied)")
-            continue
+    if TARGET_VERSION in applied:
+        print(f"Schema is already at v{TARGET_VERSION}. Nothing to do.")
+    else:
+        # ------------------------------------------------------------------
+        # 4a. Apply v1.0.0 baseline if SchemaVersion not yet present
+        #     (means we're starting from an empty DB)
+        # ------------------------------------------------------------------
+        if not applied:
+            print(f"  apply baseline v1.0.0…")
+            if _BASELINE.exists():
+                _run_sql_file(_BASELINE, conn)
+                print(f"  baseline done.")
+            else:
+                print(f"  ERROR: baseline file not found: {_BASELINE}", file=sys.stderr)
+                sys.exit(1)
 
-        print(f"  apply v{version}…")
-        if migration and migration.exists():
-            _run_sql_file(migration, conn)
-        elif migration:
-            print(f"    WARNING: migration file not found: {migration}")
+        # ------------------------------------------------------------------
+        # 4b. Apply the consolidated v1.0.0 → v2.1.0 migration
+        # ------------------------------------------------------------------
+        print(f"  apply migration v1.0.0 → v{TARGET_VERSION}…")
+        if _MIGRATION.exists():
+            _run_sql_file(_MIGRATION, conn)
+            print(f"  migration done.")
+        else:
+            print(f"  ERROR: migration file not found: {_MIGRATION}", file=sys.stderr)
+            sys.exit(1)
 
-        if seed and seed.exists():
-            _run_sql_file(seed, conn)
-        elif seed:
-            print(f"    WARNING: seed file not found: {seed}")
-
-        print(f"  v{version} done.")
+        # ------------------------------------------------------------------
+        # 4c. Apply seed data
+        # ------------------------------------------------------------------
+        print(f"  apply seed data…")
+        if _SEED.exists():
+            _run_sql_file(_SEED, conn)
+            print(f"  seed done.")
+        else:
+            print(f"  WARNING: seed file not found: {_SEED}")
 
     # ------------------------------------------------------------------
     # 5. Report final state
     # ------------------------------------------------------------------
     cursor = conn.cursor()
-    cursor.execute("SELECT [Version] FROM [dbo].[SchemaVersion] ORDER BY [AppliedAt]")
-    versions = [r[0] for r in cursor.fetchall()]
-    cursor.execute("SELECT COUNT(*) FROM [dbo].[MetaData]")
-    n_meta = cursor.fetchone()[0]
+    cursor.execute("SELECT [Version], [AppliedAt], [Description] FROM [dbo].[SchemaVersion] ORDER BY [AppliedAt]")
+    versions = [(r[0], r[1], r[2]) for r in cursor.fetchall()]
+
+    cursor.execute("SELECT COUNT(*) FROM [dbo].[Channel]")
+    n_channel = cursor.fetchone()[0]
+
     cursor.execute("SELECT COUNT(*) FROM [dbo].[Value]")
     n_val = cursor.fetchone()[0]
+
     conn.close()
 
-    print(f"\nSchema versions applied: {versions}")
-    print(f"MetaData rows: {n_meta}  |  Value rows: {n_val}")
+    print(f"\nSchema versions applied:")
+    for v, applied_at, desc in versions:
+        print(f"  {v}  ({applied_at})  {desc}")
+    print(f"\nChannel rows: {n_channel}  |  Value rows: {n_val}")
     print("Database initialised successfully.")
 
 
