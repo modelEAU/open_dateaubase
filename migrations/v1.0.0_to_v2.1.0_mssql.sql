@@ -380,9 +380,14 @@ EXEC sp_rename 'dbo.SamplingPoints.Sampling_point', 'SamplingPoint', 'COLUMN';
 GO
 EXEC sp_rename 'dbo.SamplingPoints.Sampling_location', 'SamplingLocation', 'COLUMN';
 GO
-EXEC sp_rename 'dbo.SamplingPoints.Latitude_GPS', 'LatitudeGPS', 'COLUMN';
+EXEC sp_rename 'dbo.SamplingPoints.Latitude_GPS', 'LatitudeWGS84', 'COLUMN';
 GO
-EXEC sp_rename 'dbo.SamplingPoints.Longitude_GPS', 'LongitudeGPS', 'COLUMN';
+EXEC sp_rename 'dbo.SamplingPoints.Longitude_GPS', 'LongitudeWGS84', 'COLUMN';
+GO
+-- Change GPS columns from NVARCHAR(100) to FLOAT (note: table still named SamplingPoints at this point)
+ALTER TABLE [dbo].[SamplingPoints] ALTER COLUMN [LatitudeWGS84] FLOAT;
+GO
+ALTER TABLE [dbo].[SamplingPoints] ALTER COLUMN [LongitudeWGS84] FLOAT;
 GO
 
 -- Rename the table itself

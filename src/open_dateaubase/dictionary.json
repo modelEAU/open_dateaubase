@@ -735,11 +735,11 @@
       }
     },
     {
-      "Part_ID": "LatitudeGPS",
-      "Label": "Latitude GPS",
-      "Description": "GPS coordinates. For example: 47\u00b054\u203225.103\" ",
+      "Part_ID": "LatitudeWGS84",
+      "Label": "Latitude WGS84",
+      "Description": "WGS84 latitude in decimal degrees. For example: 45.9070",
       "Part_type": "property",
-      "SQL_data_type": "nvarchar(100)",
+      "SQL_data_type": "float",
       "Is_required": false,
       "Default_value": null,
       "Value_set_part_ID": null,
@@ -771,11 +771,11 @@
       }
     },
     {
-      "Part_ID": "LongitudeGPS",
-      "Label": "Longitude GPS",
-      "Description": "GPS coordinates. For example: $73^{\\circ}47^{\\prime}00.024^{\\prime\\prime}$",
+      "Part_ID": "LongitudeWGS84",
+      "Label": "Longitude WGS84",
+      "Description": "WGS84 longitude in decimal degrees. For example: -73.7833",
       "Part_type": "property",
-      "SQL_data_type": "nvarchar(100)",
+      "SQL_data_type": "float",
       "Is_required": false,
       "Default_value": null,
       "Value_set_part_ID": null,

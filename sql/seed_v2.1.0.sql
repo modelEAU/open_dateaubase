@@ -147,13 +147,13 @@ VALUES (N'modelEAU Water Quality Lab', 1, N'In-house water quality analysis labo
 -- ============================================================
 
 -- Sampling points (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeGPS], [LongitudeGPS], [Description])
+INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeWGS84], [LongitudeWGS84], [Description])
 VALUES (1, N'WWTP-IN-01', N'Inlet channel after screening', N'46.8310', N'-71.2080', N'Primary sampling point at plant inlet');  -- ID 1
 
-INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeGPS], [LongitudeGPS], [Description])
+INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeWGS84], [LongitudeWGS84], [Description])
 VALUES (1, N'WWTP-OUT-01', N'Final effluent discharge', N'46.8315', N'-71.2075', N'Effluent sampling point after disinfection');  -- ID 2
 
-INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeGPS], [LongitudeGPS], [Description])
+INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeWGS84], [LongitudeWGS84], [Description])
 VALUES (2, N'CSO-12-OUT', N'Overflow pipe outlet', N'46.8200', N'-71.2250', N'CSO overflow discharge point');  -- ID 3
 
 -- Equipment model capabilities

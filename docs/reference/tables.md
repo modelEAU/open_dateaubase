@@ -94,7 +94,7 @@ Junction table: sampling locations actively monitored during a campaign.
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Campaign_ID | INT **(PK)** | - | ✓ | <span id="Campaign_ID"></span>Campaign using this sampling location | FK → [Campaign.Campaign_ID](#Campaign) |
-| Sampling_point_ID | INT **(PK)** | - | ✓ | <span id="Sampling_point_ID"></span>Sampling location used by the campaign | FK → [SamplingPoints.Sampling_point_ID](#SamplingPoints) |
+| SamplingPoint_ID | INT **(PK)** | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location used by the campaign | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
 | Role | NVARCHAR(100) | - |  | <span id="Role"></span>Role of this location in the campaign (e.g., 'Inlet', 'Reference') | - |
 
 <span id="CampaignType"></span>
@@ -209,12 +209,12 @@ Stores information about a specific, physical piece of equipment (e.g., serial n
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Link to the Equipment table | - |
-| model_ID | INT | - |  | <span id="model_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.Equipment_model_ID](#EquipmentModel) |
-| identifier | NVARCHAR(100) | - |  | <span id="identifier"></span>Identification name of the equipments | - |
-| Serial_number | NVARCHAR(100) | - |  | <span id="Serial_number"></span>Serial number of the equipment | - |
+| EquipmentModel_ID | INT | - |  | <span id="EquipmentModel_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.EquipmentModel_ID](#EquipmentModel) |
+| Identifier | NVARCHAR(100) | - |  | <span id="Identifier"></span>Identification name of the equipments | - |
+| SerialNumber | NVARCHAR(100) | - |  | <span id="SerialNumber"></span>Serial number of the equipment | - |
 | Owner | NVARCHAR(MAX) | - |  | <span id="Owner"></span>Name of the owner of the equipment | - |
-| Storage_location | NVARCHAR(100) | - |  | <span id="Storage_location"></span>Where is the procedure stored | - |
-| Purchase_date | DATE | - |  | <span id="Purchase_date"></span>Date when the equipment was bought: 'YYYY-MM-DD | - |
+| StorageLocation | NVARCHAR(100) | - |  | <span id="StorageLocation"></span>Where is the procedure stored | - |
+| PurchaseDate | DATE | - |  | <span id="PurchaseDate"></span>Date when the equipment was bought: 'YYYY-MM-DD | - |
 
 <span id="EquipmentEvent"></span>
 
@@ -263,7 +263,7 @@ Records the physical deployment history of a piece of equipment at a sampling lo
 |-------|----------|-----------|----------|-------------|-------------|
 | Installation_ID | INT **(PK)** | - | ✓ | <span id="Installation_ID"></span>Surrogate primary key | - |
 | Equipment_ID | INT | - | ✓ | <span id="Equipment_ID"></span>Equipment that was installed | FK → [Equipment.Equipment_ID](#Equipment) |
-| Sampling_point_ID | INT | - | ✓ | <span id="Sampling_point_ID"></span>Sampling location where the equipment was installed | FK → [SamplingPoints.Sampling_point_ID](#SamplingPoints) |
+| SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location where the equipment was installed | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
 | InstalledDate | DATETIME2(7) | - | ✓ | <span id="InstalledDate"></span>Date and time the equipment was installed at this location (UTC) | - |
 | RemovedDate | DATETIME2(7) | - |  | <span id="RemovedDate"></span>Date and time the equipment was removed (UTC). NULL means currently installed. | - |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign during which this installation occurred (if applicable) | FK → [Campaign.Campaign_ID](#Campaign) |
@@ -280,12 +280,12 @@ Stores detailed, non-redundant specifications for a specific sensor or instrumen
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_model_ID | INT **(PK)** | - | ✓ | <span id="Equipment_model_ID"></span>Link to the Equipment model table | - |
-| Equipment_model | NVARCHAR(100) | - |  | <span id="Equipment_model"></span>Name of the equipment model. For example: ammo::lyser | - |
+| EquipmentModel_ID | INT **(PK)** | - | ✓ | <span id="EquipmentModel_ID"></span>Link to the Equipment model table | - |
+| EquipmentModel | NVARCHAR(100) | - |  | <span id="EquipmentModel"></span>Name of the equipment model. For example: ammo::lyser | - |
 | Method | NVARCHAR(100) | - |  | <span id="Method"></span>Method behind the equipment | - |
 | Functions | NVARCHAR(MAX) | - |  | <span id="Functions"></span>Description of the functions of the equipment | - |
 | Manufacturer | NVARCHAR(100) | - |  | <span id="Manufacturer"></span>Name of the manufacturer | - |
-| Manual_location | NVARCHAR(100) | - |  | <span id="Manual_location"></span>Location where the manual is stored | - |
+| ManualLocation | NVARCHAR(100) | - |  | <span id="ManualLocation"></span>Location where the manual is stored | - |
 
 <span id="EquipmentModelHasParameter"></span>
 
@@ -298,7 +298,7 @@ Links equipment models to the parameters they can measure
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_model_ID | INT **(PK)** | - | ✓ | <span id="Equipment_model_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.Equipment_model_ID](#EquipmentModel) |
+| EquipmentModel_ID | INT **(PK)** | - | ✓ | <span id="EquipmentModel_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.EquipmentModel_ID](#EquipmentModel) |
 | Parameter_ID | INT **(PK)** | - | ✓ | <span id="Parameter_ID"></span>Link to the Parameter table | FK → [Parameter.Parameter_ID](#Parameter) |
 
 <span id="EquipmentModelHasProcedures"></span>
@@ -312,7 +312,7 @@ Links equipment models to the relevant maintenance procedures
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_model_ID | INT **(PK)** | - | ✓ | <span id="Equipment_model_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.Equipment_model_ID](#EquipmentModel) |
+| EquipmentModel_ID | INT **(PK)** | - | ✓ | <span id="EquipmentModel_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.EquipmentModel_ID](#EquipmentModel) |
 | Procedure_ID | INT **(PK)** | - | ✓ | <span id="Procedure_ID"></span>Link to the Procedures table | FK → [Procedures.Procedure_ID](#Procedures) |
 
 <span id="EquipmentStatusChannel"></span>
@@ -342,7 +342,7 @@ Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Watershed_ID | INT **(PK)** | - | ✓ | <span id="Watershed_ID"></span>Linked to the Watershed table | FK → [Watershed.Watershed_ID](#Watershed) |
-| Urban_area | REAL | - |  | <span id="Urban_area"></span>Percentage [%] of urban areas | - |
+| UrbanArea | REAL | - |  | <span id="UrbanArea"></span>Percentage [%] of urban areas | - |
 | Forest | REAL | - |  | <span id="Forest"></span>Percentage [%] of forest areas | - |
 | Wetlands | REAL | - |  | <span id="Wetlands"></span>Percentage [%] of wetlands | - |
 | Cropland | REAL | - |  | <span id="Cropland"></span>Percentage [%] of croplands | - |
@@ -417,7 +417,7 @@ Stores the different water quality or quantity parameters that are measured (e.g
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Unit_ID | INT | - |  | <span id="Unit_ID"></span>A unique ID is generated automatically by MySQL | FK → [Unit.Unit_ID](#Unit) |
+| Unit_ID | INT | - |  | <span id="Unit_ID"></span>A unique ID is generated automatically by the database | FK → [Unit.Unit_ID](#Unit) |
 | Parameter | NVARCHAR(100) | - |  | <span id="Parameter"></span>Name of the parameter | - |
 | Parameter_ID | INT **(PK)** | - | ✓ | <span id="Parameter_ID"></span>Link to the Parameter table | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the parameter | - |
@@ -434,8 +434,8 @@ Personal and professional information for people involved in projects (e.g., nam
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Person_ID | INT **(PK)** | - | ✓ | <span id="Person_ID"></span>Surrogate primary key | - |
-| Last_name | NVARCHAR(100) | - |  | <span id="Last_name"></span>Last name of the person | - |
-| First_name | NVARCHAR(255) | - |  | <span id="First_name"></span>First name of the person | - |
+| LastName | NVARCHAR(100) | - |  | <span id="LastName"></span>Last name of the person | - |
+| FirstName | NVARCHAR(255) | - |  | <span id="FirstName"></span>First name of the person | - |
 | Company | NVARCHAR(MAX) | - |  | <span id="Company"></span>Affiliated organisation or company | - |
 | Role | NVARCHAR(255) | - |  | <span id="Role"></span>Role of the person. Controlled vocabulary: MSc, Postdoc, Intern, PhD, Professor, Research Professional, Technician, Administrator, Guest | - |
 | Function | NVARCHAR(MAX) | - |  | <span id="Function"></span>Detailed description of the person's assigned duties | - |
@@ -456,10 +456,10 @@ Stores details for different measurement procedures (e.g., calibration, validati
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Procedure_ID | INT **(PK)** | - | ✓ | <span id="Procedure_ID"></span>Link to the Procedures table | - |
-| Procedure_name | NVARCHAR(100) | - |  | <span id="Procedure_name"></span>Title name of the procedure | - |
-| Procedure_type | NVARCHAR(255) | - |  | <span id="Procedure_type"></span>Type of the procedure. For example, SOP | - |
+| ProcedureName | NVARCHAR(100) | - |  | <span id="ProcedureName"></span>Title name of the procedure | - |
+| ProcedureType | NVARCHAR(255) | - |  | <span id="ProcedureType"></span>Type of the procedure. For example, SOP | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the procedure | - |
-| Procedure_location | NVARCHAR(100) | - |  | <span id="Procedure_location"></span>Where is the procedure stored | - |
+| ProcedureLocation | NVARCHAR(100) | - |  | <span id="ProcedureLocation"></span>Where is the procedure stored | - |
 
 <span id="ProcessingDegree"></span>
 
@@ -504,7 +504,7 @@ Example: outlier-removal step takes Channel 10 (raw TSS) as Input and produces C
 
 ### ProcessingStep
 
-Records a single data-transformation step (outlier removal, interpolation, smoothing, aggregation, etc.) applied to one or more time series. Each row captures what was done, when, by whom, and with what parameters. The DataLineage table links ProcessingStep rows to their input and output MetaData entries, forming the full processing provenance graph.
+Records a single data-transformation step (outlier removal, interpolation, smoothing, aggregation, etc.) applied to one or more time series. Each row captures what was done, when, by whom, and with what parameters. The ProcessingLineage table links ProcessingStep rows to their input and output Channel entries, forming the full processing provenance graph.
 
 
 
@@ -557,7 +557,7 @@ A discrete physical sample collected at a sampling location or prepared in a lab
 | Sample_ID | INT **(PK)** | - | ✓ | <span id="Sample_ID"></span>Surrogate primary key | - |
 | ParentSample_ID | INT | - |  | <span id="ParentSample_ID"></span>Parent sample this was derived from (e.g., an aliquot of a master standard). NULL for primary samples. | FK → [Sample.Sample_ID](#Sample) |
 | SampleType_ID | INT | - |  | <span id="SampleType_ID"></span>Nature of the sample (FK to SampleType lookup table) | FK → [SampleType.SampleType_ID](#SampleType) |
-| Sampling_point_ID | INT | - | ✓ | <span id="Sampling_point_ID"></span>Sampling location where the sample was collected or prepared | FK → [SamplingPoints.Sampling_point_ID](#SamplingPoints) |
+| SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location where the sample was collected or prepared | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
 | SampledByPerson_ID | INT | - |  | <span id="SampledByPerson_ID"></span>Person who collected the sample | FK → [Person.Person_ID](#Person) |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this sample belongs to | FK → [Campaign.Campaign_ID](#Campaign) |
 | SampleDateTimeStart | DATETIME2(7) | - | ✓ | <span id="SampleDateTimeStart"></span>Date and time sampling began (UTC) | - |
@@ -598,9 +598,9 @@ Controlled dictionary describing the nature of a physical sample. Referenced by 
 | Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Sample type name (e.g. 'Field', 'Blank') | - |
 | Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this sample type represents | - |
 
-<span id="SamplingPoints"></span>
+<span id="SamplingPoint"></span>
 
-### SamplingPoints
+### SamplingPoint
 
 Stores the identification, specific geographical coordinates (Latitude/Longitude/GPS), and description of a particular spot where a sample or measurement is taken
 
@@ -609,12 +609,12 @@ Stores the identification, specific geographical coordinates (Latitude/Longitude
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Sampling_point_ID | INT **(PK)** | - | ✓ | <span id="Sampling_point_ID"></span>Link to the Sampling_point table | - |
-| Site_ID | INT | - |  | <span id="Site_ID"></span>A unique ID is generated automatically by MySQL | FK → [Site.Site_ID](#Site) |
-| Sampling_point | NVARCHAR(100) | - |  | <span id="Sampling_point"></span>Where the sample was taken. For example: "Inlet", "Outlet" or "Upstream" | - |
-| Sampling_location | NVARCHAR(100) | - |  | <span id="Sampling_location"></span>Where the sample was taken. For example: "Biofiltration", "Sewer 01" or "Retention Tank" | - |
-| Latitude_GPS | NVARCHAR(100) | - |  | <span id="Latitude_GPS"></span>GPS coordinates. For example: 47°54′25.103"  | - |
-| Longitude_GPS | NVARCHAR(100) | - |  | <span id="Longitude_GPS"></span>GPS coordinates. For example: $73^{\circ}47^{\prime}00.024^{\prime\prime}$ | - |
+| SamplingPoint_ID | INT **(PK)** | - | ✓ | <span id="SamplingPoint_ID"></span>Link to the SamplingPoint table | - |
+| Site_ID | INT | - |  | <span id="Site_ID"></span>A unique ID is generated automatically by the database | FK → [Site.Site_ID](#Site) |
+| SamplingPoint | NVARCHAR(100) | - |  | <span id="SamplingPoint"></span>Where the sample was taken. For example: "Inlet", "Outlet" or "Upstream" | - |
+| SamplingLocation | NVARCHAR(100) | - |  | <span id="SamplingLocation"></span>Where the sample was taken. For example: "Biofiltration", "Sewer 01" or "Retention Tank" | - |
+| LatitudeWGS84 | FLOAT | - |  | <span id="LatitudeWGS84"></span>WGS84 latitude in decimal degrees. For example: 45.9070 | - |
+| LongitudeWGS84 | FLOAT | - |  | <span id="LongitudeWGS84"></span>WGS84 longitude in decimal degrees. For example: -73.7833 | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the sampling point | - |
 | Pictures | /* UNMAPPED TYPE */ | - |  | <span id="Pictures"></span>Picture of the site | - |
 | ValidFrom | DATETIME2(7) | - |  | <span id="ValidFrom"></span>Date from which this sampling point record is considered valid (UTC). NULL means valid from the beginning of records. | - |
@@ -668,16 +668,17 @@ Stores general site information, including address, site type, and a link to the
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Site_ID | INT **(PK)** | - | ✓ | <span id="Site_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Site_ID | INT **(PK)** | - | ✓ | <span id="Site_ID"></span>A unique ID is generated automatically by the database | - |
 | Watershed_ID | INT | - |  | <span id="Watershed_ID"></span>Linked to the Watershed table | FK → [Watershed.Watershed_ID](#Watershed) |
-| name | NVARCHAR(100) | - |  | <span id="name"></span>Name of the site | - |
-| type | NVARCHAR(255) | - |  | <span id="type"></span>For example: "WWTP", "River" or "Sewer_system" | - |
+| Name | NVARCHAR(100) | - |  | <span id="Name"></span>Name of the site | - |
+| Type | NVARCHAR(255) | - |  | <span id="Type"></span>For example: "WWTP", "River" or "Sewer_system" | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the site | - |
-| Picture | /* UNMAPPED TYPE */ | - |  | <span id="Picture"></span>Picture of the site | - |
-| Street_number | NVARCHAR(100) | - |  | <span id="Street_number"></span>Address: number of the street | - |
-| Street_name | NVARCHAR(100) | - |  | <span id="Street_name"></span>Address: name of the street | - |
+| LatitudeWGS84 | FLOAT | - |  | <span id="LatitudeWGS84"></span>Latitude of the site in WGS84 decimal degrees | - |
+| LongitudeWGS84 | FLOAT | - |  | <span id="LongitudeWGS84"></span>Longitude of the site in WGS84 decimal degrees | - |
+| StreetNumber | NVARCHAR(100) | - |  | <span id="StreetNumber"></span>Address: number of the street | - |
+| StreetName | NVARCHAR(100) | - |  | <span id="StreetName"></span>Address: name of the street | - |
 | City | NVARCHAR(255) | - |  | <span id="City"></span>Address: name of the city | - |
-| Zip_code | NVARCHAR(100) | - |  | <span id="Zip_code"></span>Address: zip code | - |
+| PostCode | NVARCHAR(100) | - |  | <span id="PostCode"></span>Address: postal code | - |
 | Province | NVARCHAR(255) | - |  | <span id="Province"></span>Address: name of the province | - |
 | Country | NVARCHAR(255) | - |  | <span id="Country"></span>Address: name of the country | - |
 
@@ -692,7 +693,7 @@ Stores the SI units of measurement (or other relevant units) corresponding to th
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Unit_ID | INT **(PK)** | - | ✓ | <span id="Unit_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Unit_ID | INT **(PK)** | - | ✓ | <span id="Unit_ID"></span>A unique ID is generated automatically by the database | - |
 | Unit | NVARCHAR(100) | - |  | <span id="Unit"></span>SI-units only | - |
 
 <span id="UrbanCharacteristics"></span>
@@ -708,7 +709,7 @@ Stores the urban land use percentages (e.g., commercial, residential, green spac
 |-------|----------|-----------|----------|-------------|-------------|
 | Watershed_ID | INT **(PK)** | - | ✓ | <span id="Watershed_ID"></span>Linked to the Watershed table | FK → [Watershed.Watershed_ID](#Watershed) |
 | Commercial | REAL | - |  | <span id="Commercial"></span>Percentage [%] of commercial areas. For example stores or bank areas | - |
-| Green_spaces | REAL | - |  | <span id="Green_spaces"></span>Percentage [%] of green spaces | - |
+| GreenSpaces | REAL | - |  | <span id="GreenSpaces"></span>Percentage [%] of green spaces | - |
 | Industrial | REAL | - |  | <span id="Industrial"></span>Percentage [%] of industrial areas. For example factories | - |
 | Institutional | REAL | - |  | <span id="Institutional"></span>Percentage [%] of institutional areas. For example schools, police stations or city hall | - |
 | Residential | REAL | - |  | <span id="Residential"></span>Percentage [%] of residential areas. For example houses or apartment buildings | - |
@@ -727,7 +728,7 @@ Stores each measured water quality or quantity value, its time stamp, replicate 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Channel_ID | INT | - |  | <span id="Channel_ID"></span>The measurement channel this value belongs to | FK → [Channel.Channel_ID](#Channel) |
-| Value_ID | INT **(PK)** | - | ✓ | <span id="Value_ID"></span>A unique ID is generated automatically by MySQL | - |
+| Value_ID | INT **(PK)** | - | ✓ | <span id="Value_ID"></span>A unique ID is generated automatically by the database | - |
 | Value | FLOAT | - |  | <span id="Value"></span>Value of collected data | - |
 | Timestamp | DATETIME2(7) | - |  | <span id="Timestamp"></span>UTC timestamp for date and time of collected data (stored in UTC by convention) | - |
 
@@ -850,11 +851,11 @@ Stores general information about the watershed area, including surface area, con
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Watershed_ID | INT **(PK)** | - | ✓ | <span id="Watershed_ID"></span>Linked to the Watershed table | - |
-| name | NVARCHAR(100) | - |  | <span id="name"></span>Name of the watershed | - |
+| Name | NVARCHAR(100) | - |  | <span id="Name"></span>Name of the watershed | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the watershed | - |
-| Surface_area | REAL | - |  | <span id="Surface_area"></span>Surface area of the watershed [ha] | - |
-| Concentration_time | INT | - |  | <span id="Concentration_time"></span>Concentration time in minutes [min] | - |
-| Impervious_surface | REAL | - |  | <span id="Impervious_surface"></span>Percentage of the impervious surface of the watershed in percentage [%] | - |
+| SurfaceArea | REAL | - |  | <span id="SurfaceArea"></span>Surface area of the watershed [ha] | - |
+| ConcentrationTime | INT | - |  | <span id="ConcentrationTime"></span>Concentration time in minutes [min] | - |
+| ImperviousSurface | REAL | - |  | <span id="ImperviousSurface"></span>Percentage of the impervious surface of the watershed in percentage [%] | - |
 
 <span id="WeatherCondition"></span>
 
@@ -867,6 +868,6 @@ Stores descriptive information about the prevailing weather conditions when the 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Condition_ID | INT **(PK)** | - | ✓ | <span id="Condition_ID"></span>A unique ID is generated automatically by MySQL | - |
-| Weather_condition | NVARCHAR(100) | - |  | <span id="Weather_condition"></span>Type of weather condition | - |
+| WeatherCondition_ID | INT **(PK)** | - | ✓ | <span id="WeatherCondition_ID"></span>A unique ID is generated automatically by the database | - |
+| WeatherCondition | NVARCHAR(100) | - |  | <span id="WeatherCondition"></span>Type of weather condition | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the condition | - |

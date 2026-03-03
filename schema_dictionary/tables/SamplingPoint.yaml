@@ -27,16 +27,14 @@ table:
       max_length: 100
       nullable: true
       description: "Where the sample was taken. For example: \"Biofiltration\", \"Sewer 01\" or \"Retention Tank\""
-    - name: LatitudeGPS
-      logical_type: string
-      max_length: 100
+    - name: LatitudeWGS84
+      logical_type: float
       nullable: true
-      description: "GPS coordinates. For example: 47°54′25.103\" "
-    - name: LongitudeGPS
-      logical_type: string
-      max_length: 100
+      description: "WGS84 latitude in decimal degrees. For example: 45.9070"
+    - name: LongitudeWGS84
+      logical_type: float
       nullable: true
-      description: 'GPS coordinates. For example: $73^{\circ}47^{\prime}00.024^{\prime\prime}$'
+      description: "WGS84 longitude in decimal degrees. For example: -73.7833"
     - name: Description
       logical_type: text
       nullable: true

@@ -67,7 +67,7 @@ def get_sampling_locations_for_site(
     cursor.execute(
         """
         SELECT sp.[SamplingPoint_ID], sp.[SamplingPoint], sp.[Description],
-               sp.[LatitudeGPS], sp.[LongitudeGPS], sp.[Site_ID], s.[Name] AS SiteName
+               sp.[LatitudeWGS84], sp.[LongitudeWGS84], sp.[Site_ID], s.[Name] AS SiteName
         FROM [dbo].[SamplingPoint] sp
         LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
         WHERE sp.[Site_ID] = ?
