@@ -1400,8 +1400,8 @@
     },
     {
       "Part_ID": "Name",
-      "Label": "Site Name",
-      "Description": "Name of the site",
+      "Label": "Name",
+      "Description": "Name of the entity (site, watershed, etc.)",
       "Part_type": "property",
       "SQL_data_type": "nvarchar(100)",
       "Is_required": false,
@@ -1410,6 +1410,11 @@
       "Sort_order": 2,
       "table_presence": {
         "site": {
+          "role": "property",
+          "required": false,
+          "order": 999
+        },
+        "watershed": {
           "role": "property",
           "required": false,
           "order": 999
@@ -1639,24 +1644,6 @@
         },
         "watershed": {
           "role": "key",
-          "required": false,
-          "order": 999
-        }
-      }
-    },
-    {
-      "Part_ID": "Name",
-      "Label": "Watershed Name",
-      "Description": "Name of the watershed",
-      "Part_type": "property",
-      "SQL_data_type": "nvarchar(100)",
-      "Is_required": false,
-      "Default_value": null,
-      "Value_set_part_ID": null,
-      "Sort_order": 2,
-      "table_presence": {
-        "watershed": {
-          "role": "property",
           "required": false,
           "order": 999
         }
