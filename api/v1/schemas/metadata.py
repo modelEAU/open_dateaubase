@@ -8,6 +8,9 @@ from pydantic import BaseModel
 class SamplingLocationOut(BaseModel):
     id: int
     name: str
+    description: str | None
+    latitude: float | None
+    longitude: float | None
     site_id: int | None
     site_name: str | None
 
@@ -15,9 +18,11 @@ class SamplingLocationOut(BaseModel):
 class SiteOut(BaseModel):
     id: int
     name: str
+    type: str | None
     description: str | None
-    latitude: float | None
-    longitude: float | None
+    city: str | None
+    province: str | None
+    country: str | None
 
 
 class MetadataOut(BaseModel):

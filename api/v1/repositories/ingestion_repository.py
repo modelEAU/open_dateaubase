@@ -12,13 +12,13 @@ def find_or_create_sensor_metadata(
     parameter_id: int,
     unit_id: int,
     data_provenance_id: int,
-    processing_degree: str,
+    processing_degree_id: int,
     value_type_id: int = 1,
 ) -> int:
     """Find or create a Channel row for a sensor stream. Returns Channel_ID.
 
     Uses the UNIQUE sensor stream constraint:
-    (Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree) WHERE Equipment_ID IS NOT NULL.
+    (Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID) WHERE both are NOT NULL.
 
     On first ingest, a new row is created automatically — no pre-configuration needed.
     Subsequent calls for the same stream return the existing Channel_ID.
@@ -31,15 +31,15 @@ def find_or_create_sensor_metadata(
             WHERE [Equipment_ID] = ?
               AND [Parameter_ID] = ?
               AND [DataProvenance_ID] = ?
-              AND [ProcessingDegree] = ?
+              AND [ProcessingDegree_ID] = ?
         )
         INSERT INTO [dbo].[Channel]
             ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID],
-             [ProcessingDegree], [ValueType_ID])
+             [ProcessingDegree_ID], [ValueType_ID])
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        equipment_id, parameter_id, data_provenance_id, processing_degree,
-        equipment_id, parameter_id, unit_id, data_provenance_id, processing_degree, value_type_id,
+        equipment_id, parameter_id, data_provenance_id, processing_degree_id,
+        equipment_id, parameter_id, unit_id, data_provenance_id, processing_degree_id, value_type_id,
     )
     conn.commit()
     cursor.execute(
@@ -48,9 +48,9 @@ def find_or_create_sensor_metadata(
         WHERE [Equipment_ID] = ?
           AND [Parameter_ID] = ?
           AND [DataProvenance_ID] = ?
-          AND [ProcessingDegree] = ?
+          AND [ProcessingDegree_ID] = ?
         """,
-        equipment_id, parameter_id, data_provenance_id, processing_degree,
+        equipment_id, parameter_id, data_provenance_id, processing_degree_id,
     )
     return cursor.fetchone()[0]
 
@@ -59,12 +59,12 @@ def find_or_create_derived_metadata(
     conn: pyodbc.Connection,
     *,
     source_channel_id: int,
-    processing_degree: str,
+    processing_degree_id: int,
 ) -> int:
     """Find or create a Channel row for a processed output stream.
 
     Clones identity fields (Equipment, Parameter, Unit, DataProvenance, ValueType)
-    from the source Channel row and applies the new ProcessingDegree.
+    from the source Channel row and applies the new ProcessingDegree_ID.
     """
     from fastapi import HTTPException
 
@@ -90,7 +90,7 @@ def find_or_create_derived_metadata(
         parameter_id=parameter_id,
         unit_id=unit_id,
         data_provenance_id=data_provenance_id,
-        processing_degree=processing_degree,
+        processing_degree_id=processing_degree_id,
         value_type_id=value_type_id or 1,
     )
 
@@ -142,7 +142,7 @@ def insert_lab_value(
     cursor.execute(
         """
         INSERT INTO [dbo].[LabValue]
-            ([LabAnalysis_ID], [Parameter_ID], [Unit_ID], [Value], [Replicate], [QualityCode])
+            ([LabAnalysis_ID], [Parameter_ID], [Unit_ID], [Value], [Replicate], [QualityCode_ID])
         OUTPUT INSERTED.[LabValue_ID]
         VALUES (?, ?, ?, ?, ?, ?)
         """,

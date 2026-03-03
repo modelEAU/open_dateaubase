@@ -17,7 +17,8 @@ class ChannelOut(BaseModel):
     equipment_identifier: str | None
     data_provenance_id: int | None
     data_provenance: str | None
-    processing_degree: str | None
+    processing_degree_id: int | None
+    processing_degree_name: str | None
     value_type_id: int | None
     value_type_name: str | None
 

@@ -37,26 +37,26 @@ def get_scalar_values(
 
     if operational_only:
         where += """
-        AND (EXISTS (
+        AND (NOT EXISTS (
             SELECT 1 FROM dbo.Channel statusC
             JOIN dbo.Value sv ON sv.Channel_ID = statusC.Channel_ID
-            WHERE statusC.StatusOfMetaDataID = v.Channel_ID
+            WHERE statusC.StatusChannel_ID = v.Channel_ID
               AND sv.Timestamp <= v.Timestamp
-        ) = 0
+        )
         OR EXISTS (
             SELECT 1 FROM dbo.Channel statusC
             JOIN dbo.Value sv ON sv.Channel_ID = statusC.Channel_ID
-            JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(sv.Value AS INT)
-            WHERE statusC.StatusOfMetaDataID = v.Channel_ID
+            JOIN dbo.QualityCode qc ON qc.QualityCode_ID = CAST(sv.Value AS INT)
+            WHERE statusC.StatusChannel_ID = v.Channel_ID
               AND sv.Timestamp <= v.Timestamp
-              AND sc.IsOperational = 1
+              AND qc.IsUsable = 1
         ))
         """
 
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT v.[Timestamp], v.[Value], v.[QualityCode]
+        SELECT v.[Timestamp], v.[Value]
         FROM [dbo].[Value] v
         {where}
         ORDER BY v.[Timestamp]
@@ -64,7 +64,7 @@ def get_scalar_values(
         *params,
     )
     return [
-        {"timestamp": row[0], "value": row[1], "quality_code": row[2]}
+        {"timestamp": row[0], "value": row[1], "quality_code": None}
         for row in cursor.fetchall()
     ]
 
@@ -222,13 +222,12 @@ def insert_scalar_values(
     for v in values:
         cursor.execute(
             """
-            INSERT INTO [dbo].[Value] ([Channel_ID], [Timestamp], [Value], [QualityCode])
-            VALUES (?, ?, ?, ?)
+            INSERT INTO [dbo].[Value] ([Channel_ID], [Timestamp], [Value])
+            VALUES (?, ?, ?)
             """,
             channel_id,
             v["timestamp"],
             v["value"],
-            v.get("quality_code"),
         )
     conn.commit()
     return len(values)

@@ -13,8 +13,8 @@ _CAMPAIGN_SELECT = """
         s.[Name]            AS SiteName,
         c.[Name],
         c.[Description],
-        c.[StartDate],
-        c.[EndDate]
+        c.[CampaignStartDateTime],
+        c.[CampaignEndDateTime]
     FROM [dbo].[Campaign] c
     LEFT JOIN [dbo].[CampaignType] ct ON ct.[CampaignType_ID] = c.[CampaignType_ID]
     LEFT JOIN [dbo].[Site]         s  ON s.[Site_ID]          = c.[Site_ID]
@@ -31,7 +31,7 @@ def _row_to_dict(row) -> dict:
         "name": row[5],
         "description": row[6],
         "start_date": row[7],
-        "end_date": row[8],
+        "end_date": row[8],  # CampaignEndDateTime
     }
 
 
@@ -93,33 +93,33 @@ def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
     )
     equipment = [{"id": r[0], "identifier": r[1], "role": r[2]} for r in cursor.fetchall()]
 
-    # Parameters
+    # Parameters (distinct parameters across channels linked via campaign equipment)
     cursor.execute(
         """
-        SELECT p.[Parameter_ID], p.[Parameter]
-        FROM [dbo].[CampaignParameter] cp
-        JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = cp.[Parameter_ID]
-        WHERE cp.[Campaign_ID] = ?
+        SELECT DISTINCT p.[Parameter_ID], p.[Parameter]
+        FROM [dbo].[Channel] ch
+        JOIN [dbo].[CampaignEquipment] ce ON ce.[Equipment_ID] = ch.[Equipment_ID]
+        JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = ch.[Parameter_ID]
+        WHERE ce.[Campaign_ID] = ?
         ORDER BY p.[Parameter_ID]
         """,
         campaign_id,
     )
     parameters = [{"id": r[0], "name": r[1]} for r in cursor.fetchall()]
 
-    # MetaData count and time range (derived via CampaignEquipment — MetaData.Campaign_ID
-    # was dropped in v1.9.0; channels are now linked to campaigns through equipment)
+    # Channel count and time range (via CampaignEquipment)
     cursor.execute(
         """
-        SELECT COUNT(DISTINCT m.[Metadata_ID]), MIN(v.[Timestamp]), MAX(v.[Timestamp])
-        FROM [dbo].[MetaData] m
-        JOIN [dbo].[CampaignEquipment] ce ON ce.[Equipment_ID] = m.[Equipment_ID]
-        LEFT JOIN [dbo].[Value] v ON v.[Metadata_ID] = m.[Metadata_ID]
+        SELECT COUNT(DISTINCT ch.[Channel_ID]), MIN(v.[Timestamp]), MAX(v.[Timestamp])
+        FROM [dbo].[Channel] ch
+        JOIN [dbo].[CampaignEquipment] ce ON ce.[Equipment_ID] = ch.[Equipment_ID]
+        LEFT JOIN [dbo].[Value] v ON v.[Channel_ID] = ch.[Channel_ID]
         WHERE ce.[Campaign_ID] = ?
         """,
         campaign_id,
     )
     row = cursor.fetchone()
-    metadata_count = row[0] if row else 0
+    channel_count = row[0] if row else 0
     time_start = row[1] if row else None
     time_end = row[2] if row else None
 
@@ -127,7 +127,7 @@ def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
         "sampling_locations": locations,
         "equipment": equipment,
         "parameters": parameters,
-        "metadata_count": metadata_count,
+        "channel_count": channel_count,
         "time_range_start": time_start,
         "time_range_end": time_end,
     }

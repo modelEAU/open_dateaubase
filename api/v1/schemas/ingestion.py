@@ -20,7 +20,7 @@ class SensorIngestRequest(BaseModel):
     parameter_id: int
     unit_id: int
     data_provenance_id: int = 1
-    processing_degree: str = "Raw"
+    processing_degree_id: int = 1
     values: list[ValueItem]
 
     @field_validator("values")
@@ -70,7 +70,7 @@ class ProcessingInfo(BaseModel):
 
 
 class ProcessedOutputSpec(BaseModel):
-    processing_degree: str
+    processing_degree_id: int
     values: list[ValueItem]
 
 

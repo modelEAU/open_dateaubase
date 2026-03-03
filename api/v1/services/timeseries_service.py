@@ -46,7 +46,7 @@ def get_timeseries(
         "unit": channel.get("unit_name"),
         "data_shape": channel.get("value_type_name") or "Scalar",
         "provenance": channel.get("data_provenance"),
-        "processing_degree": channel.get("processing_degree"),
+        "processing_degree": channel.get("processing_degree_name"),
         "campaign": None,
         "from_timestamp": min(timestamps) if timestamps else None,
         "to_timestamp": max(timestamps) if timestamps else None,
@@ -60,7 +60,7 @@ def get_timeseries_by_context(
     *,
     equipment_id: int | None,
     parameter_id: int | None,
-    processing_degree: str | None,
+    processing_degree_id: int | None,
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
@@ -69,7 +69,7 @@ def get_timeseries_by_context(
         conn,
         equipment_id=equipment_id,
         parameter_id=parameter_id,
-        processing_degree=processing_degree,
+        processing_degree_id=processing_degree_id,
         page=1,
         page_size=50,
     )
@@ -96,7 +96,7 @@ def get_full_context(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT c.[Channel_ID], c.[ProcessingDegree],
+        SELECT c.[Channel_ID], c.[ProcessingDegree_ID],
                COUNT(v.[Timestamp]) AS ValueCount
         FROM [dbo].[Channel] c
         LEFT JOIN [dbo].[Value] v
@@ -105,8 +105,8 @@ def get_full_context(
            AND (? IS NULL OR v.[Timestamp] <= ?)
         WHERE c.[Equipment_ID] = ?
           AND c.[Parameter_ID] = ?
-        GROUP BY c.[Channel_ID], c.[ProcessingDegree]
-        ORDER BY c.[ProcessingDegree], c.[Channel_ID]
+        GROUP BY c.[Channel_ID], c.[ProcessingDegree_ID]
+        ORDER BY c.[ProcessingDegree_ID], c.[Channel_ID]
         """,
         from_dt,
         from_dt,
@@ -116,7 +116,7 @@ def get_full_context(
         channel.get("parameter_id"),
     )
     processing_degrees = [
-        {"channel_id": r[0], "processing_degree": r[1], "value_count": r[2]}
+        {"channel_id": r[0], "processing_degree_id": r[1], "value_count": r[2]}
         for r in cursor.fetchall()
     ]
 

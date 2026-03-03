@@ -38,7 +38,7 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         parameter_id=data.parameter_id,
         unit_id=data.unit_id,
         data_provenance_id=data.data_provenance_id,
-        processing_degree=data.processing_degree,
+        processing_degree_id=data.processing_degree_id,
     )
 
     rows = value_repository.insert_scalar_values(
@@ -99,7 +99,7 @@ def ingest_processed(data: ProcessedIngestRequest, conn=Depends(get_db)):
     output_channel_id = ingestion_repository.find_or_create_derived_metadata(
         conn,
         source_channel_id=primary_source_id,
-        processing_degree=data.output.processing_degree,
+        processing_degree_id=data.output.processing_degree_id,
     )
 
     rows = value_repository.insert_scalar_values(

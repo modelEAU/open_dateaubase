@@ -73,7 +73,7 @@ def get_full_context(
 def get_timeseries_by_context(
     equipment_id: int | None = Query(None, description="Equipment ID"),
     parameter_id: int | None = Query(None, description="Parameter ID"),
-    processing_degree: str | None = Query(None),
+    processing_degree_id: int | None = Query(None),
     from_dt: datetime | None = Query(None, alias="from"),
     to_dt: datetime | None = Query(None, alias="to"),
     conn=Depends(get_db),
@@ -83,7 +83,7 @@ def get_timeseries_by_context(
         conn,
         equipment_id=equipment_id,
         parameter_id=parameter_id,
-        processing_degree=processing_degree,
+        processing_degree_id=processing_degree_id,
         from_dt=from_dt,
         to_dt=to_dt,
     )
