@@ -406,7 +406,7 @@
           "description": "Detailed free-text comment"
         },
         {
-          "name": "CreatedAt",
+          "name": "CreatedDateTime",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
@@ -415,7 +415,7 @@
           "description": "When this annotation was created"
         },
         {
-          "name": "ModifiedAt",
+          "name": "ModifiedDateTime",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
@@ -519,7 +519,7 @@
           "description": "Detailed description of the campaign objectives and scope"
         },
         {
-          "name": "StartDate",
+          "name": "CampaignStartDateTime",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
@@ -528,7 +528,7 @@
           "description": "Date and time the campaign began (UTC)"
         },
         {
-          "name": "EndDate",
+          "name": "CampaignEndDateTime",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
@@ -569,31 +569,6 @@
           "is_required": false,
           "fk_target": null,
           "description": "Role of this equipment in the campaign (e.g., 'Primary sensor', 'Auto-sampler')"
-        }
-      ]
-    },
-    {
-      "id": "CampaignParameter",
-      "label": "CampaignParameter",
-      "description": "Junction table: parameters (variables) measured during a campaign.",
-      "fields": [
-        {
-          "name": "Campaign_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Campaign.Campaign_ID",
-          "description": "Campaign measuring this parameter"
-        },
-        {
-          "name": "Parameter_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Parameter.Parameter_ID",
-          "description": "Parameter measured during the campaign"
         }
       ]
     },
@@ -659,7 +634,7 @@
     {
       "id": "Channel",
       "label": "Channel",
-      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins \u2014 it is NOT stored here. Lab measurements are stored in Value (scalar) or ValueVector/ValueMatrix/ValueImage. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins \u2014 it is NOT stored here. Lab measurements are stored in Value (scalar) or ValueVector/ValueMatrix/ValueImage. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
       "fields": [
         {
           "name": "Channel_ID",
@@ -689,15 +664,6 @@
           "description": "Measured analyte or parameter (e.g. TSS, pH)"
         },
         {
-          "name": "Unit_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Unit.Unit_ID",
-          "description": "Measurement unit (e.g. mg/L)"
-        },
-        {
           "name": "DataProvenance_ID",
           "sql_type": "INT",
           "is_pk": false,
@@ -707,13 +673,13 @@
           "description": "How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5)"
         },
         {
-          "name": "ProcessingDegree",
-          "sql_type": "NVARCHAR(50)",
+          "name": "ProcessingDegree_ID",
+          "sql_type": "INT",
           "is_pk": false,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": false,
-          "fk_target": null,
-          "description": "Level of processing applied to this time series. Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation \u2014 if the processing degree changes, a new Channel row is created. Controlled vocabulary: Raw, Cleaned, Calibrated, Validated, Filtered, Predicted.\n"
+          "fk_target": "ProcessingDegree.ProcessingDegree_ID",
+          "description": "Level of processing applied to this time series (FK to ProcessingDegree lookup). Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation \u2014 if the processing degree changes, a new Channel row is created. Default 1 = Raw.\n"
         },
         {
           "name": "ValueType_ID",
@@ -770,74 +736,6 @@
       ]
     },
     {
-      "id": "Comments",
-      "label": "Comments",
-      "description": "Stores any additional textual comments, notes, or observations related to a specific measured value",
-      "fields": [
-        {
-          "name": "Comment_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "A unique ID is generated automatically by MySQL"
-        },
-        {
-          "name": "Comment",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Comment on the data in the Value table"
-        }
-      ]
-    },
-    {
-      "id": "DataLineage",
-      "label": "DataLineage",
-      "description": "Junction table that records the input/output relationships between ProcessingStep rows and Channel rows. Each row asserts that a given Channel entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.\nExample: outlier-removal step takes Channel 10 (raw TSS) as Input and produces Channel 11 (cleaned TSS) as Output.\n",
-      "fields": [
-        {
-          "name": "DataLineage_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "ProcessingStep_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "ProcessingStep.ProcessingStep_ID",
-          "description": "The processing step that consumed or produced the Channel entry"
-        },
-        {
-          "name": "Channel_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Channel.Channel_ID",
-          "description": "The Channel entry (time series) that participates in this lineage edge"
-        },
-        {
-          "name": "Role",
-          "sql_type": "NVARCHAR(10)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Whether this Channel entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.\n"
-        }
-      ]
-    },
-    {
       "id": "DataProvenance",
       "label": "DataProvenance",
       "description": "Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source)",
@@ -859,6 +757,92 @@
           "is_required": true,
           "fk_target": null,
           "description": "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source"
+        }
+      ]
+    },
+    {
+      "id": "Dataset",
+      "label": "Dataset",
+      "description": "A named collection of Channels assembled for a processing or analysis purpose. Analogous to metEAUdata's Dataset concept: groups one or more Signals (Channels) that are processed together. Particularly useful for multivariate processing, where multiple input Channels produce one or more output Channels in a single ProcessingStep. Channels in a Dataset need not share a Campaign or Site.\n",
+      "fields": [
+        {
+          "name": "Dataset_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name for the dataset (e.g. 'WWTP Influent Q1-2024 Multivariate')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(2000)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Detailed description of the dataset's contents, scope, and intended use"
+        },
+        {
+          "name": "Purpose",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "The analytical or processing objective this dataset was assembled for (e.g. 'Fault detection model training', 'Compliance reporting', 'Gap-filling pipeline').\n"
+        },
+        {
+          "name": "CreatedOn",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC timestamp when this dataset was created"
+        },
+        {
+          "name": "CreatedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who created this dataset. NULL for automated pipelines."
+        }
+      ]
+    },
+    {
+      "id": "DatasetChannel",
+      "label": "DatasetChannel",
+      "description": "Junction table linking Datasets to the Channels they contain. A Dataset groups one or more Channels that are processed together. A Channel may appear in multiple Datasets (e.g. a raw TSS channel used as input in several independent analysis pipelines).\n",
+      "fields": [
+        {
+          "name": "Dataset_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Dataset.Dataset_ID",
+          "description": "The dataset this channel belongs to"
+        },
+        {
+          "name": "Channel_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Channel.Channel_ID",
+          "description": "The channel (signal) included in this dataset"
         }
       ]
     },
@@ -1002,55 +986,12 @@
         },
         {
           "name": "Notes",
-          "sql_type": "NVARCHAR(1000)",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
           "description": "Free-text notes about the event"
-        }
-      ]
-    },
-    {
-      "id": "EquipmentEventChannel",
-      "label": "EquipmentEventChannel",
-      "description": "Junction table linking an equipment lifecycle event to the Channel series it involves. WindowStart/WindowEnd optionally narrow sensor readings to the relevant time window (e.g., the 2-minute immersion window during a calibration).",
-      "fields": [
-        {
-          "name": "EquipmentEvent_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "EquipmentEvent.EquipmentEvent_ID",
-          "description": "Equipment event this link belongs to"
-        },
-        {
-          "name": "Channel_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Channel.Channel_ID",
-          "description": "Channel series associated with this event"
-        },
-        {
-          "name": "WindowStart",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Start of the relevant time window within the Channel series. NULL means use all values."
-        },
-        {
-          "name": "WindowEnd",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "End of the relevant time window. NULL means use all values."
         }
       ]
     },
@@ -1140,7 +1081,7 @@
         },
         {
           "name": "Notes",
-          "sql_type": "NVARCHAR(500)",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1406,13 +1347,13 @@
           "description": "Standard operating procedure used for this analysis"
         },
         {
-          "name": "AnalyzedAt",
+          "name": "AnalysisDateTime",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "UTC datetime when the analysis was performed"
+          "description": "UTC datetime when the analysis was performed. If it's a long analysis, record the beginning."
         },
         {
           "name": "Campaign_ID",
@@ -1425,7 +1366,7 @@
         },
         {
           "name": "Notes",
-          "sql_type": "NVARCHAR(500)",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1467,16 +1408,7 @@
           "description": "Measured analyte (e.g. TSS, COD)"
         },
         {
-          "name": "Unit_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Unit.Unit_ID",
-          "description": "Unit of the measured value (e.g. mg/L)"
-        },
-        {
-          "name": "Value",
+          "name": "LabResult",
           "sql_type": "FLOAT",
           "is_pk": false,
           "is_fk": false,
@@ -1494,21 +1426,21 @@
           "description": "Replicate number (1 = primary measurement, 2+ = duplicates)"
         },
         {
-          "name": "QualityCode",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Optional quality flag code"
-        },
-        {
-          "name": "Comment_ID",
+          "name": "QualityCode_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "Comments.Comment_ID",
+          "fk_target": "QualityCode.QualityCode_ID",
+          "description": "Optional quality flag. NULL means no quality assessment has been recorded."
+        },
+        {
+          "name": "Comment",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
           "description": "Optional free-text comment reference"
         }
       ]
@@ -1596,31 +1528,6 @@
           "is_required": false,
           "fk_target": null,
           "description": "Description of the parameter"
-        }
-      ]
-    },
-    {
-      "id": "ParameterHasProcedures",
-      "label": "ParameterHasProcedures",
-      "description": "Links parameters to the relevant measurement procedures",
-      "fields": [
-        {
-          "name": "Procedure_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Procedures.Procedure_ID",
-          "description": "Link to the Procedures table"
-        },
-        {
-          "name": "Parameter_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Parameter.Parameter_ID",
-          "description": "Link to the Parameter table"
         }
       ]
     },
@@ -1774,6 +1681,101 @@
       ]
     },
     {
+      "id": "ProcessingDegree",
+      "label": "ProcessingDegree",
+      "description": "Controlled dictionary describing the level of processing applied to a Channel's time series. A new Channel row is created each time the processing degree changes \u2014 this field is set once at row creation. The DataLineage graph is the authoritative record of how each Channel was derived; this field exists for fast filtering.\n",
+      "fields": [
+        {
+          "name": "ProcessingDegree_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Processing level name (e.g. 'Raw', 'Cleaned')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this processing level means"
+        }
+      ]
+    },
+    {
+      "id": "ProcessingLineage",
+      "label": "ProcessingLineage",
+      "description": "Junction table that records the input/output relationships between ProcessingStep rows and Channel rows. Each row asserts that a given Channel entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.\nExample: outlier-removal step takes Channel 10 (raw TSS) as Input and produces Channel 11 (cleaned TSS) as Output.\n",
+      "fields": [
+        {
+          "name": "ProcessingLineage_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "ProcessingStep_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ProcessingStep.ProcessingStep_ID",
+          "description": "The processing step that consumed or produced the Channel entry"
+        },
+        {
+          "name": "Channel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Channel.Channel_ID",
+          "description": "The Channel entry (time series) that participates in this lineage edge"
+        },
+        {
+          "name": "RoleInProcessingStep",
+          "sql_type": "NVARCHAR(10)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether this Channel entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.\n"
+        },
+        {
+          "name": "StartTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Start of the data slice that was consumed or produced by this step (UTC). NULL means the edge applies to the entire channel from the beginning.\n"
+        },
+        {
+          "name": "EndTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "End of the data slice that was consumed or produced by this step (UTC). NULL means the slice is open-ended (ongoing online processing).\n"
+        }
+      ]
+    },
+    {
       "id": "ProcessingStep",
       "label": "ProcessingStep",
       "description": "Records a single data-transformation step (outlier removal, interpolation, smoothing, aggregation, etc.) applied to one or more time series. Each row captures what was done, when, by whom, and with what parameters. The DataLineage table links ProcessingStep rows to their input and output MetaData entries, forming the full processing provenance graph.\n",
@@ -1798,7 +1800,7 @@
         },
         {
           "name": "Description",
-          "sql_type": "NVARCHAR(2000)",
+          "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
@@ -1842,7 +1844,7 @@
           "description": "JSON blob of method parameters (e.g. '{\"window\": 5, \"threshold\": 3.0}')"
         },
         {
-          "name": "ExecutedAt",
+          "name": "ExecutedDateTime",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
@@ -1858,6 +1860,58 @@
           "is_required": false,
           "fk_target": "Person.Person_ID",
           "description": "Person who ran or triggered this processing step. NULL for automated/unattended runs."
+        },
+        {
+          "name": "Dataset_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Dataset.Dataset_ID",
+          "description": "The Dataset this processing step belongs to. NULL for steps that operate on a single channel without a named analysis context. Required for multivariate steps that consume or produce multiple channels.\n"
+        }
+      ]
+    },
+    {
+      "id": "QualityCode",
+      "label": "QualityCode",
+      "description": "Controlled dictionary of quality flags for laboratory measurement results. Each LabValue row may reference one QualityCode. IsUsable indicates whether the value should be included in downstream analysis.\n",
+      "fields": [
+        {
+          "name": "QualityCode_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Short code name (e.g. 'Accepted', 'BelowLoD')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this quality code means"
+        },
+        {
+          "name": "IsUsable",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether a value carrying this code should be included in analysis. true = value is fit for use; false = value must be excluded or treated specially.\n"
         }
       ]
     },
@@ -1885,13 +1939,13 @@
           "description": "Parent sample this was derived from (e.g., an aliquot of a master standard). NULL for primary samples."
         },
         {
-          "name": "SampleCategory",
-          "sql_type": "NVARCHAR(50)",
+          "name": "SampleType_ID",
+          "sql_type": "INT",
           "is_pk": false,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": false,
-          "fk_target": null,
-          "description": "Nature of the sample. Controlled vocabulary: Field, Synthetic, Master Standard, Derived Standard, Blank"
+          "fk_target": "SampleType.SampleType_ID",
+          "description": "Nature of the sample (FK to SampleType lookup table)"
         },
         {
           "name": "Sampling_point_ID",
@@ -1939,13 +1993,13 @@
           "description": "Date and time sampling ended (UTC). NULL for instantaneous grab samples."
         },
         {
-          "name": "SampleType",
-          "sql_type": "NVARCHAR(50)",
+          "name": "SampleMethod_ID",
+          "sql_type": "INT",
           "is_pk": false,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": false,
-          "fk_target": null,
-          "description": "Method of sample collection. Controlled vocabulary: Grab, Composite24h, Composite8h, Passive, Other"
+          "fk_target": "SampleMethod.SampleMethod_ID",
+          "description": "Method of sample collection (FK to SampleMethod lookup table)"
         },
         {
           "name": "SampleEquipment_ID",
@@ -1964,6 +2018,74 @@
           "is_required": false,
           "fk_target": null,
           "description": "Additional notes about the sample"
+        }
+      ]
+    },
+    {
+      "id": "SampleMethod",
+      "label": "SampleMethod",
+      "description": "Controlled dictionary describing how a sample was collected. Referenced by Sample.SampleMethod_ID.\n",
+      "fields": [
+        {
+          "name": "SampleMethod_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Collection method name (e.g. 'Grab', 'Composite24h')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of the collection method"
+        }
+      ]
+    },
+    {
+      "id": "SampleType",
+      "label": "SampleType",
+      "description": "Controlled dictionary describing the nature of a physical sample. Referenced by Sample.SampleType_ID.\n",
+      "fields": [
+        {
+          "name": "SampleType_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Sample type name (e.g. 'Field', 'Blank')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this sample type represents"
         }
       ]
     },
@@ -2097,7 +2219,7 @@
           "description": "Schema version string (e.g. 1.0.1)"
         },
         {
-          "name": "AppliedAt",
+          "name": "AppliedDateTime",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
           "is_fk": false,
@@ -2402,15 +2524,6 @@
       "description": "Stores each measured water quality or quantity value, its time stamp, replicate identification, and the link to its specific metadata set",
       "fields": [
         {
-          "name": "Comment_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Comments.Comment_ID",
-          "description": "A unique ID is generated automatically by MySQL"
-        },
-        {
           "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": false,
@@ -2436,15 +2549,6 @@
           "is_required": false,
           "fk_target": null,
           "description": "Value of collected data"
-        },
-        {
-          "name": "Number_of_experiment",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Number of replica of an experiment"
         },
         {
           "name": "Timestamp",
@@ -3155,20 +3259,6 @@
       "relationship_type": null
     },
     {
-      "from_table": "CampaignParameter",
-      "to_table": "Campaign",
-      "from_field": "Campaign_ID",
-      "to_field": "Campaign_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "CampaignParameter",
-      "to_table": "Parameter",
-      "from_field": "Parameter_ID",
-      "to_field": "Parameter_ID",
-      "relationship_type": null
-    },
-    {
       "from_table": "CampaignSamplingLocation",
       "to_table": "Campaign",
       "from_field": "Campaign_ID",
@@ -3198,16 +3288,16 @@
     },
     {
       "from_table": "Channel",
-      "to_table": "Unit",
-      "from_field": "Unit_ID",
-      "to_field": "Unit_ID",
+      "to_table": "DataProvenance",
+      "from_field": "DataProvenance_ID",
+      "to_field": "DataProvenance_ID",
       "relationship_type": null
     },
     {
       "from_table": "Channel",
-      "to_table": "DataProvenance",
-      "from_field": "DataProvenance_ID",
-      "to_field": "DataProvenance_ID",
+      "to_table": "ProcessingDegree",
+      "from_field": "ProcessingDegree_ID",
+      "to_field": "ProcessingDegree_ID",
       "relationship_type": null
     },
     {
@@ -3239,14 +3329,21 @@
       "relationship_type": null
     },
     {
-      "from_table": "DataLineage",
-      "to_table": "ProcessingStep",
-      "from_field": "ProcessingStep_ID",
-      "to_field": "ProcessingStep_ID",
+      "from_table": "Dataset",
+      "to_table": "Person",
+      "from_field": "CreatedByPerson_ID",
+      "to_field": "Person_ID",
       "relationship_type": null
     },
     {
-      "from_table": "DataLineage",
+      "from_table": "DatasetChannel",
+      "to_table": "Dataset",
+      "from_field": "Dataset_ID",
+      "to_field": "Dataset_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "DatasetChannel",
       "to_table": "Channel",
       "from_field": "Channel_ID",
       "to_field": "Channel_ID",
@@ -3285,20 +3382,6 @@
       "to_table": "Campaign",
       "from_field": "Campaign_ID",
       "to_field": "Campaign_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentEventChannel",
-      "to_table": "EquipmentEvent",
-      "from_field": "EquipmentEvent_ID",
-      "to_field": "EquipmentEvent_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentEventChannel",
-      "to_table": "Channel",
-      "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3422,16 +3505,9 @@
     },
     {
       "from_table": "LabValue",
-      "to_table": "Unit",
-      "from_field": "Unit_ID",
-      "to_field": "Unit_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "LabValue",
-      "to_table": "Comments",
-      "from_field": "Comment_ID",
-      "to_field": "Comment_ID",
+      "to_table": "QualityCode",
+      "from_field": "QualityCode_ID",
+      "to_field": "QualityCode_ID",
       "relationship_type": null
     },
     {
@@ -3449,17 +3525,17 @@
       "relationship_type": null
     },
     {
-      "from_table": "ParameterHasProcedures",
-      "to_table": "Procedures",
-      "from_field": "Procedure_ID",
-      "to_field": "Procedure_ID",
+      "from_table": "ProcessingLineage",
+      "to_table": "ProcessingStep",
+      "from_field": "ProcessingStep_ID",
+      "to_field": "ProcessingStep_ID",
       "relationship_type": null
     },
     {
-      "from_table": "ParameterHasProcedures",
-      "to_table": "Parameter",
-      "from_field": "Parameter_ID",
-      "to_field": "Parameter_ID",
+      "from_table": "ProcessingLineage",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3470,10 +3546,24 @@
       "relationship_type": null
     },
     {
+      "from_table": "ProcessingStep",
+      "to_table": "Dataset",
+      "from_field": "Dataset_ID",
+      "to_field": "Dataset_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "Sample",
       "to_table": "Sample",
       "from_field": "ParentSample_ID",
       "to_field": "Sample_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Sample",
+      "to_table": "SampleType",
+      "from_field": "SampleType_ID",
+      "to_field": "SampleType_ID",
       "relationship_type": null
     },
     {
@@ -3495,6 +3585,13 @@
       "to_table": "Campaign",
       "from_field": "Campaign_ID",
       "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Sample",
+      "to_table": "SampleMethod",
+      "from_field": "SampleMethod_ID",
+      "to_field": "SampleMethod_ID",
       "relationship_type": null
     },
     {
@@ -3530,13 +3627,6 @@
       "to_table": "Watershed",
       "from_field": "Watershed_ID",
       "to_field": "Watershed_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "Value",
-      "to_table": "Comments",
-      "from_field": "Comment_ID",
-      "to_field": "Comment_ID",
       "relationship_type": null
     },
     {
