@@ -1,7 +1,7 @@
 """Lineage query functions for the open_dateaubase processing provenance graph.
 
 All functions accept a pyodbc connection to an open_dateaubase MSSQL instance.
-The DataLineage and ProcessingStep tables are available from schema v1.6.0 onward.
+The ProcessingLineage and ProcessingStep tables are available from schema v2.1.0 onward.
 """
 
 from __future__ import annotations
@@ -31,17 +31,17 @@ def get_lineage_forward(channel_id: int, conn) -> list[dict]:
             ps.[MethodVersion],
             ps.[ProcessingType],
             ps.[Parameters],
-            ps.[ExecutedAt],
+            ps.[ExecutedDateTime],
             ps.[ExecutedByPerson_ID],
             out_dl.[Channel_ID]  AS [OutputChannel_ID]
-        FROM [dbo].[DataLineage]   AS in_dl
+        FROM [dbo].[ProcessingLineage]   AS in_dl
         JOIN [dbo].[ProcessingStep] AS ps
             ON ps.[ProcessingStep_ID] = in_dl.[ProcessingStep_ID]
-        JOIN [dbo].[DataLineage]   AS out_dl
+        JOIN [dbo].[ProcessingLineage]   AS out_dl
             ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-           AND out_dl.[Role] = 'Output'
+           AND out_dl.[RoleInProcessingStep] = 'Output'
         WHERE in_dl.[Channel_ID] = ?
-          AND in_dl.[Role] = 'Input'
+          AND in_dl.[RoleInProcessingStep] = 'Input'
         ORDER BY ps.[ProcessingStep_ID], out_dl.[Channel_ID]
     """
     cursor = conn.cursor()
@@ -62,7 +62,7 @@ def get_lineage_forward(channel_id: int, conn) -> list[dict]:
                     "MethodVersion": row[4],
                     "ProcessingType": row[5],
                     "Parameters": row[6],
-                    "ExecutedAt": row[7],
+                    "ExecutedDateTime": row[7],
                     "ExecutedByPerson_ID": row[8],
                 },
                 "output_channel_ids": [],
@@ -94,17 +94,17 @@ def get_lineage_backward(channel_id: int, conn) -> list[dict]:
             ps.[MethodVersion],
             ps.[ProcessingType],
             ps.[Parameters],
-            ps.[ExecutedAt],
+            ps.[ExecutedDateTime],
             ps.[ExecutedByPerson_ID],
             in_dl.[Channel_ID]  AS [InputChannel_ID]
-        FROM [dbo].[DataLineage]   AS out_dl
+        FROM [dbo].[ProcessingLineage]   AS out_dl
         JOIN [dbo].[ProcessingStep] AS ps
             ON ps.[ProcessingStep_ID] = out_dl.[ProcessingStep_ID]
-        JOIN [dbo].[DataLineage]   AS in_dl
+        JOIN [dbo].[ProcessingLineage]   AS in_dl
             ON in_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-           AND in_dl.[Role] = 'Input'
+           AND in_dl.[RoleInProcessingStep] = 'Input'
         WHERE out_dl.[Channel_ID] = ?
-          AND out_dl.[Role] = 'Output'
+          AND out_dl.[RoleInProcessingStep] = 'Output'
         ORDER BY ps.[ProcessingStep_ID], in_dl.[Channel_ID]
     """
     cursor = conn.cursor()
@@ -124,7 +124,7 @@ def get_lineage_backward(channel_id: int, conn) -> list[dict]:
                     "MethodVersion": row[4],
                     "ProcessingType": row[5],
                     "Parameters": row[6],
-                    "ExecutedAt": row[7],
+                    "ExecutedDateTime": row[7],
                     "ExecutedByPerson_ID": row[8],
                 },
                 "input_channel_ids": [],
@@ -164,14 +164,14 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                 ps.[ProcessingType],
                 out_dl.[Channel_ID]       AS [ChildChannel_ID],
                 1                          AS [Depth]
-            FROM [dbo].[DataLineage]    AS out_dl
+            FROM [dbo].[ProcessingLineage]    AS out_dl
             JOIN [dbo].[ProcessingStep] AS ps
                 ON ps.[ProcessingStep_ID] = out_dl.[ProcessingStep_ID]
-            JOIN [dbo].[DataLineage]    AS in_dl
+            JOIN [dbo].[ProcessingLineage]    AS in_dl
                 ON in_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-               AND in_dl.[Role] = 'Input'
+               AND in_dl.[RoleInProcessingStep] = 'Input'
             WHERE out_dl.[Channel_ID] = ?
-              AND out_dl.[Role] = 'Output'
+              AND out_dl.[RoleInProcessingStep] = 'Output'
 
             UNION ALL
 
@@ -184,14 +184,14 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                 a.[AncestorChannel_ID],
                 a.[Depth] + 1
             FROM Ancestors a
-            JOIN [dbo].[DataLineage]    AS out_dl
+            JOIN [dbo].[ProcessingLineage]    AS out_dl
                 ON out_dl.[Channel_ID] = a.[AncestorChannel_ID]
-               AND out_dl.[Role] = 'Output'
+               AND out_dl.[RoleInProcessingStep] = 'Output'
             JOIN [dbo].[ProcessingStep] AS ps
                 ON ps.[ProcessingStep_ID] = out_dl.[ProcessingStep_ID]
-            JOIN [dbo].[DataLineage]    AS in_dl
+            JOIN [dbo].[ProcessingLineage]    AS in_dl
                 ON in_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-               AND in_dl.[Role] = 'Input'
+               AND in_dl.[RoleInProcessingStep] = 'Input'
         )
         SELECT DISTINCT [AncestorChannel_ID], [ProcessingStep_ID], [Name],
                         [ProcessingType], [ChildChannel_ID], [Depth]
@@ -209,14 +209,14 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                 ps.[ProcessingType],
                 in_dl.[Channel_ID]        AS [ParentChannel_ID],
                 1                          AS [Depth]
-            FROM [dbo].[DataLineage]    AS in_dl
+            FROM [dbo].[ProcessingLineage]    AS in_dl
             JOIN [dbo].[ProcessingStep] AS ps
                 ON ps.[ProcessingStep_ID] = in_dl.[ProcessingStep_ID]
-            JOIN [dbo].[DataLineage]    AS out_dl
+            JOIN [dbo].[ProcessingLineage]    AS out_dl
                 ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-               AND out_dl.[Role] = 'Output'
+               AND out_dl.[RoleInProcessingStep] = 'Output'
             WHERE in_dl.[Channel_ID] = ?
-              AND in_dl.[Role] = 'Input'
+              AND in_dl.[RoleInProcessingStep] = 'Input'
 
             UNION ALL
 
@@ -228,14 +228,14 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                 d.[DescendantChannel_ID],
                 d.[Depth] + 1
             FROM Descendants d
-            JOIN [dbo].[DataLineage]    AS in_dl
+            JOIN [dbo].[ProcessingLineage]    AS in_dl
                 ON in_dl.[Channel_ID] = d.[DescendantChannel_ID]
-               AND in_dl.[Role] = 'Input'
+               AND in_dl.[RoleInProcessingStep] = 'Input'
             JOIN [dbo].[ProcessingStep] AS ps
                 ON ps.[ProcessingStep_ID] = in_dl.[ProcessingStep_ID]
-            JOIN [dbo].[DataLineage]    AS out_dl
+            JOIN [dbo].[ProcessingLineage]    AS out_dl
                 ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-               AND out_dl.[Role] = 'Output'
+               AND out_dl.[RoleInProcessingStep] = 'Output'
         )
         SELECT DISTINCT [DescendantChannel_ID], [ProcessingStep_ID], [Name],
                         [ProcessingType], [ParentChannel_ID], [Depth]
@@ -305,23 +305,25 @@ def get_all_processing_degrees(
     Returns:
         List of dicts, each with keys:
           - channel_id: int
-          - processing_degree: str | None
+          - processing_degree_name: str | None
           - value_count: int (number of Value rows in the time window)
     """
     sql = """
         SELECT
             c.[Channel_ID],
-            c.[ProcessingDegree],
+            pd.[Name]             AS [ProcessingDegreeName],
             COUNT(v.[Timestamp])  AS [ValueCount]
         FROM [dbo].[Channel] c
+        LEFT JOIN [dbo].[ProcessingDegree] pd
+            ON pd.[ProcessingDegree_ID] = c.[ProcessingDegree_ID]
         JOIN [dbo].[Value]   v
             ON v.[Channel_ID] = c.[Channel_ID]
            AND v.[Timestamp] >= ?
            AND v.[Timestamp] <= ?
         WHERE c.[Equipment_ID] = ?
           AND c.[Parameter_ID] = ?
-        GROUP BY c.[Channel_ID], c.[ProcessingDegree]
-        ORDER BY c.[ProcessingDegree], c.[Channel_ID]
+        GROUP BY c.[Channel_ID], pd.[Name]
+        ORDER BY pd.[Name], c.[Channel_ID]
     """
     cursor = conn.cursor()
     cursor.execute(sql, from_dt, to_dt, equipment_id, parameter_id)
@@ -330,7 +332,7 @@ def get_all_processing_degrees(
     return [
         {
             "channel_id": row[0],
-            "processing_degree": row[1],
+            "processing_degree_name": row[1],
             "value_count": row[2],
         }
         for row in rows
