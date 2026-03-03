@@ -5,13 +5,6 @@ table:
   description: "Stores each measured water quality or quantity value, its time stamp, replicate identification, and the link to its specific metadata set"
 
   columns:
-    - name: Comment_ID
-      logical_type: integer
-      nullable: true
-      description: "A unique ID is generated automatically by MySQL"
-      foreign_key:
-        table: Comments
-        column: Comment_ID
     - name: Channel_ID
       logical_type: integer
       nullable: true
@@ -28,10 +21,6 @@ table:
       logical_type: float64
       nullable: true
       description: "Value of collected data"
-    - name: Number_of_experiment
-      logical_type: integer
-      nullable: true
-      description: "Number of replica of an experiment"
     - name: Timestamp
       logical_type: timestamp
       precision: 7

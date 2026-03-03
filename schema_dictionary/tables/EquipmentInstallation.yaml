@@ -43,7 +43,7 @@ table:
         column: Campaign_ID
     - name: Notes
       logical_type: string
-      max_length: 500
+      max_length: max
       nullable: true
       description: "Free-text notes about the installation or removal"
 

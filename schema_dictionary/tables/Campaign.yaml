@@ -34,12 +34,12 @@ table:
       max_length: 2000
       nullable: true
       description: "Detailed description of the campaign objectives and scope"
-    - name: StartDate
+    - name: CampaignStartDateTime
       logical_type: timestamp
       precision: 7
       nullable: true
       description: "Date and time the campaign began (UTC)"
-    - name: EndDate
+    - name: CampaignEndDateTime
       logical_type: timestamp
       precision: 7
       nullable: true

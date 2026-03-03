@@ -24,7 +24,7 @@ table:
 
     - name: Description
       logical_type: string
-      max_length: 2000
+      max_length: max
       nullable: true
       description: "Free-text description of what this step does and why it was applied"
 
@@ -56,7 +56,7 @@ table:
       nullable: true
       description: "JSON blob of method parameters (e.g. '{\"window\": 5, \"threshold\": 3.0}')"
 
-    - name: ExecutedAt
+    - name: ExecutedDateTime
       logical_type: timestamp
       precision: 7
       nullable: true
@@ -69,5 +69,16 @@ table:
       foreign_key:
         table: Person
         column: Person_ID
+
+    - name: Dataset_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        The Dataset this processing step belongs to. NULL for steps that operate
+        on a single channel without a named analysis context. Required for
+        multivariate steps that consume or produce multiple channels.
+      foreign_key:
+        table: Dataset
+        column: Dataset_ID
 
   primary_key: [ProcessingStep_ID]

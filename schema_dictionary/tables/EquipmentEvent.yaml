@@ -50,7 +50,7 @@ table:
         column: Campaign_ID
     - name: Notes
       logical_type: string
-      max_length: 1000
+      max_length: max
       nullable: true
       description: "Free-text notes about the event"
 

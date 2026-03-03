@@ -1,0 +1,44 @@
+_format_version: "1.0"
+table:
+  name: QualityCode
+  schema: dbo
+  description: >
+    Controlled dictionary of quality flags for laboratory measurement results.
+    Each LabValue row may reference one QualityCode. IsUsable indicates whether
+    the value should be included in downstream analysis.
+
+  columns:
+    - name: QualityCode_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Short code name (e.g. 'Accepted', 'BelowLoD')"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this quality code means"
+
+    - name: IsUsable
+      logical_type: boolean
+      nullable: false
+      default: true
+      description: >
+        Whether a value carrying this code should be included in analysis.
+        true = value is fit for use; false = value must be excluded or treated specially.
+
+  primary_key: [QualityCode_ID]
+
+  seed_data:
+    - { QualityCode_ID: 1, Name: "Accepted",   Description: "Measurement meets quality criteria and is fit for use",             IsUsable: true  }
+    - { QualityCode_ID: 2, Name: "Suspect",    Description: "Measurement may be unreliable; flagged for manual review",          IsUsable: true  }
+    - { QualityCode_ID: 3, Name: "Rejected",   Description: "Measurement is invalid and must not be used",                      IsUsable: false }
+    - { QualityCode_ID: 4, Name: "BelowLoD",   Description: "Result is below the method's limit of detection",                  IsUsable: false }
+    - { QualityCode_ID: 5, Name: "AboveLoQ",   Description: "Result exceeds the limit of quantification (instrument saturated)", IsUsable: false }
+    - { QualityCode_ID: 6, Name: "Outlier",    Description: "Statistical outlier; not automatically invalid but requires review", IsUsable: true  }

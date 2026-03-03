@@ -1,0 +1,54 @@
+_format_version: "1.0"
+table:
+  name: Dataset
+  schema: dbo
+  description: >
+    A named collection of Channels assembled for a processing or analysis purpose.
+    Analogous to metEAUdata's Dataset concept: groups one or more Signals (Channels)
+    that are processed together. Particularly useful for multivariate processing,
+    where multiple input Channels produce one or more output Channels in a single
+    ProcessingStep. Channels in a Dataset need not share a Campaign or Site.
+
+  columns:
+    - name: Dataset_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable name for the dataset (e.g. 'WWTP Influent Q1-2024 Multivariate')"
+
+    - name: Description
+      logical_type: string
+      max_length: 2000
+      nullable: true
+      description: "Detailed description of the dataset's contents, scope, and intended use"
+
+    - name: Purpose
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: >
+        The analytical or processing objective this dataset was assembled for
+        (e.g. 'Fault detection model training', 'Compliance reporting', 'Gap-filling pipeline').
+
+    - name: CreatedOn
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: CURRENT_TIMESTAMP
+      description: "UTC timestamp when this dataset was created"
+
+    - name: CreatedByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who created this dataset. NULL for automated pipelines."
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+  primary_key: [Dataset_ID]

@@ -1,6 +1,6 @@
 _format_version: "1.0"
 table:
-  name: DataLineage
+  name: ProcessingLineage
   schema: dbo
   description: >
     Junction table that records the input/output relationships between
@@ -13,7 +13,7 @@ table:
     and produces Channel 11 (cleaned TSS) as Output.
 
   columns:
-    - name: DataLineage_ID
+    - name: ProcessingLineage_ID
       logical_type: integer
       nullable: false
       identity: true
@@ -34,8 +34,9 @@ table:
       foreign_key:
         table: Channel
         column: Channel_ID
+    
 
-    - name: Role
+    - name: RoleInProcessingStep
       logical_type: string
       max_length: 10
       nullable: false
@@ -44,13 +45,29 @@ table:
         an Output (produced by the step). CHECK constraint enforces 'Input'
         or 'Output'.
 
-  primary_key: [DataLineage_ID]
+    - name: StartTime
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: >
+        Start of the data slice that was consumed or produced by this step (UTC).
+        NULL means the edge applies to the entire channel from the beginning.
+
+    - name: EndTime
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: >
+        End of the data slice that was consumed or produced by this step (UTC).
+        NULL means the slice is open-ended (ongoing online processing).
+
+  primary_key: [ProcessingLineage_ID]
 
   indexes:
-    - name: IX_DataLineage_Channel
+    - name: IX_ProcessingLineage_Channel
       columns: [Channel_ID]
       description: "Supports backward lineage queries: given a Channel_ID, find all steps it participated in"
 
-    - name: IX_DataLineage_Step_Role
-      columns: [ProcessingStep_ID, Role]
+    - name: IX_Lineage_Step_Role
+      columns: [ProcessingStep_ID, RoleInProcessingStep]
       description: "Supports forward/backward traversal: given a step, find its inputs or outputs efficiently"

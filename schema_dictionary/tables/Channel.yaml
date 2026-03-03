@@ -4,7 +4,7 @@ table:
   schema: dbo
   description: >
     Invariant descriptor for a measurement stream (sensor channel).
-    Each row identifies a unique (Equipment, Parameter, Unit, DataProvenance, ProcessingDegree)
+    Each row identifies a unique (Equipment, Parameter, DataProvenance, ProcessingDegree)
     combination. Context that varies over time (location, campaign) is derived at
     query time via EquipmentInstallation and CampaignEquipment joins — it is NOT stored here.
     Lab measurements are stored in Value (scalar) or ValueVector/ValueMatrix/ValueImage.
@@ -33,14 +33,6 @@ table:
         table: Parameter
         column: Parameter_ID
 
-    - name: Unit_ID
-      logical_type: integer
-      nullable: true
-      description: "Measurement unit (e.g. mg/L)"
-      foreign_key:
-        table: Unit
-        column: Unit_ID
-
     - name: DataProvenance_ID
       logical_type: integer
       nullable: true
@@ -49,17 +41,18 @@ table:
         table: DataProvenance
         column: DataProvenance_ID
 
-    - name: ProcessingDegree
-      logical_type: string
-      max_length: 50
+    - name: ProcessingDegree_ID
+      logical_type: integer
       nullable: true
-      default: "Raw"
+      default: 1
       description: >
-        Level of processing applied to this time series.
+        Level of processing applied to this time series (FK to ProcessingDegree lookup).
         Ground truth is the DataLineage graph; this field exists for fast filtering.
         Set once at row creation — if the processing degree changes, a new Channel row is created.
-        Controlled vocabulary: Raw, Cleaned, Calibrated, Validated, Filtered, Predicted.
-      value_set: processing_degree_set
+        Default 1 = Raw.
+      foreign_key:
+        table: ProcessingDegree
+        column: ProcessingDegree_ID
 
     - name: ValueType_ID
       logical_type: integer
@@ -83,7 +76,7 @@ table:
 
   indexes:
     - name: UQ_Channel_SensorStream
-      columns: [Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree]
+      columns: [Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID]
       unique: true
       description: >
         Guarantees at most one Channel row per sensor stream.

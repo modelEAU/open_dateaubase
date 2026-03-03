@@ -68,13 +68,13 @@ table:
       max_length: max
       nullable: true
       description: "Detailed free-text comment"
-    - name: CreatedAt
+    - name: CreatedDateTime
       logical_type: timestamp
       precision: 7
       nullable: false
       default: CURRENT_TIMESTAMP
       description: "When this annotation was created"
-    - name: ModifiedAt
+    - name: ModifiedDateTime
       logical_type: timestamp
       precision: 7
       nullable: true
@@ -86,6 +86,6 @@ table:
       unique: false
       description: "Optimizes interval overlap queries"
     - name: IX_Annotation_Author
-      columns: [AuthorPerson_ID, CreatedAt]
+      columns: [AuthorPerson_ID, CreatedDateTime]
       unique: false
       description: "Optimizes 'my annotations' and 'recent annotations' queries"

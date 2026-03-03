@@ -47,12 +47,12 @@ table:
         table: Procedures
         column: Procedure_ID
 
-    - name: AnalyzedAt
+    - name: AnalysisDateTime
       logical_type: timestamp
       precision: 7
       nullable: false
       default: SYSUTCDATETIME()
-      description: "UTC datetime when the analysis was performed"
+      description: "UTC datetime when the analysis was performed. If it's a long analysis, record the beginning."
 
     - name: Campaign_ID
       logical_type: integer
@@ -64,7 +64,7 @@ table:
 
     - name: Notes
       logical_type: string
-      max_length: 500
+      max_length: max
       nullable: true
       description: "Free-text notes about this analysis run"
 

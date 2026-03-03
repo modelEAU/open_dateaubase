@@ -17,12 +17,13 @@ table:
       foreign_key:
         table: Sample
         column: Sample_ID
-    - name: SampleCategory
-      logical_type: string
-      max_length: 50
+    - name: SampleType_ID
+      logical_type: integer
       nullable: true
-      description: "Nature of the sample. Controlled vocabulary: Field, Synthetic, Master Standard, Derived Standard, Blank"
-      value_set: sample_category_set
+      description: "Nature of the sample (FK to SampleType lookup table)"
+      foreign_key:
+        table: SampleType
+        column: SampleType_ID
     - name: Sampling_point_ID
       logical_type: integer
       nullable: false
@@ -54,12 +55,13 @@ table:
       precision: 7
       nullable: true
       description: "Date and time sampling ended (UTC). NULL for instantaneous grab samples."
-    - name: SampleType
-      logical_type: string
-      max_length: 50
+    - name: SampleMethod_ID
+      logical_type: integer
       nullable: true
-      description: "Method of sample collection. Controlled vocabulary: Grab, Composite24h, Composite8h, Passive, Other"
-      value_set: sample_type_set
+      description: "Method of sample collection (FK to SampleMethod lookup table)"
+      foreign_key:
+        table: SampleMethod
+        column: SampleMethod_ID
     - name: SampleEquipment_ID
       logical_type: integer
       nullable: true

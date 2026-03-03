@@ -14,7 +14,7 @@ table:
       max_length: 20
       nullable: false
       description: "Schema version string (e.g. 1.0.1)"
-    - name: AppliedAt
+    - name: AppliedDateTime
       logical_type: timestamp
       precision: 7
       nullable: false
