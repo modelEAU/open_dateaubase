@@ -4,7 +4,7 @@
 --
 -- Timestamps are UTC throughout.
 -- Preserves the same Equipment_ID, Parameter_ID, Unit_ID, and
--- SamplingPoints IDs as the archived v1.0.0 seed so that test
+-- SamplingPoint IDs as the archived v1.0.0 seed so that test
 -- expectations remain stable.
 -- ============================================================
 
@@ -26,49 +26,49 @@ INSERT INTO [dbo].[Unit] ([Unit]) VALUES (N'm/s');        -- ID 8: metres per se
 INSERT INTO [dbo].[Unit] ([Unit]) VALUES (N'Status Code'); -- ID 9: integer status codes
 
 -- Watersheds (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[Watershed] ([name], [Description], [Surface_area], [Concentration_time], [Impervious_surface])
+INSERT INTO [dbo].[Watershed] ([Name], [Description], [SurfaceArea], [ConcentrationTime], [ImperviousSurface])
 VALUES (N'Riviere Saint-Charles', N'Urban catchment in Quebec City', 550.0, 180, 35.5);  -- ID 1
 
-INSERT INTO [dbo].[Watershed] ([name], [Description], [Surface_area], [Concentration_time], [Impervious_surface])
+INSERT INTO [dbo].[Watershed] ([Name], [Description], [SurfaceArea], [ConcentrationTime], [ImperviousSurface])
 VALUES (N'Riviere Montmorency', N'Rural reference watershed north of Quebec City', 1150.0, 420, 8.2);  -- ID 2
 
 -- Weather conditions
-INSERT INTO [dbo].[WeatherCondition] ([Weather_condition], [Description]) VALUES (N'Dry', N'No precipitation in the last 48 hours');    -- ID 1
-INSERT INTO [dbo].[WeatherCondition] ([Weather_condition], [Description]) VALUES (N'Rain', N'Active rainfall event');                   -- ID 2
-INSERT INTO [dbo].[WeatherCondition] ([Weather_condition], [Description]) VALUES (N'Snowmelt', N'Spring snowmelt conditions');           -- ID 3
+INSERT INTO [dbo].[WeatherCondition] ([WeatherCondition], [Description]) VALUES (N'Dry', N'No precipitation in the last 48 hours');    -- ID 1
+INSERT INTO [dbo].[WeatherCondition] ([WeatherCondition], [Description]) VALUES (N'Rain', N'Active rainfall event');                   -- ID 2
+INSERT INTO [dbo].[WeatherCondition] ([WeatherCondition], [Description]) VALUES (N'Snowmelt', N'Spring snowmelt conditions');           -- ID 3
 
 -- Equipment models (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[EquipmentModel] ([Equipment_model], [Method], [Functions], [Manufacturer], [Manual_location])
+INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation])
 VALUES (N'ISCO 6712', N'Automatic sampling', N'Portable autosampler for wastewater and stormwater', N'Teledyne ISCO', N'/manuals/isco_6712.pdf');  -- ID 1
 
-INSERT INTO [dbo].[EquipmentModel] ([Equipment_model], [Method], [Functions], [Manufacturer], [Manual_location])
+INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation])
 VALUES (N'YSI ProDSS', N'Multi-parameter probe', N'pH, temperature, conductivity, dissolved oxygen', N'YSI/Xylem', N'/manuals/ysi_prodss.pdf');  -- ID 2
 
-INSERT INTO [dbo].[EquipmentModel] ([Equipment_model], [Method], [Functions], [Manufacturer], [Manual_location])
+INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation])
 VALUES (N'Hach 2100Q', N'Nephelometric', N'Portable turbidity meter', N'Hach', N'/manuals/hach_2100q.pdf');  -- ID 3
 
 -- Procedures (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[Procedures] ([Procedure_name], [Procedure_type], [Description], [Procedure_location])
+INSERT INTO [dbo].[Procedures] ([ProcedureName], [ProcedureType], [Description], [ProcedureLocation])
 VALUES (N'Grab sampling', N'Sampling', N'Manual grab sample collected at water surface', N'/procedures/grab_sampling.pdf');  -- ID 1
 
-INSERT INTO [dbo].[Procedures] ([Procedure_name], [Procedure_type], [Description], [Procedure_location])
+INSERT INTO [dbo].[Procedures] ([ProcedureName], [ProcedureType], [Description], [ProcedureLocation])
 VALUES (N'24h composite', N'Sampling', N'Time-weighted 24-hour composite sample via autosampler', N'/procedures/composite_24h.pdf');  -- ID 2
 
-INSERT INTO [dbo].[Procedures] ([Procedure_name], [Procedure_type], [Description], [Procedure_location])
+INSERT INTO [dbo].[Procedures] ([ProcedureName], [ProcedureType], [Description], [ProcedureLocation])
 VALUES (N'Online continuous', N'Measurement', N'Continuous in-situ measurement with data logging', N'/procedures/online_continuous.pdf');  -- ID 3
 
 -- Hydrological characteristics (one row per watershed; IDs match Watershed IDs)
-INSERT INTO [dbo].[HydrologicalCharacteristics] ([Urban_area], [Forest], [Wetlands], [Cropland], [Meadow], [Grassland])
+INSERT INTO [dbo].[HydrologicalCharacteristics] ([UrbanArea], [Forest], [Wetlands], [Cropland], [Meadow], [Grassland])
 VALUES (35.5, 25.0, 5.0, 10.0, 12.5, 12.0);  -- Watershed 1 (urban)
 
-INSERT INTO [dbo].[HydrologicalCharacteristics] ([Urban_area], [Forest], [Wetlands], [Cropland], [Meadow], [Grassland])
+INSERT INTO [dbo].[HydrologicalCharacteristics] ([UrbanArea], [Forest], [Wetlands], [Cropland], [Meadow], [Grassland])
 VALUES (8.2, 55.0, 12.0, 15.0, 5.0, 4.8);    -- Watershed 2 (rural)
 
 -- Urban characteristics
-INSERT INTO [dbo].[UrbanCharacteristics] ([Commercial], [Green_spaces], [Industrial], [Institutional], [Residential], [Agricultural], [Recreational])
+INSERT INTO [dbo].[UrbanCharacteristics] ([Commercial], [GreenSpaces], [Industrial], [Institutional], [Residential], [Agricultural], [Recreational])
 VALUES (15.0, 8.0, 12.0, 5.0, 45.0, 5.0, 10.0);   -- Watershed 1
 
-INSERT INTO [dbo].[UrbanCharacteristics] ([Commercial], [Green_spaces], [Industrial], [Institutional], [Residential], [Agricultural], [Recreational])
+INSERT INTO [dbo].[UrbanCharacteristics] ([Commercial], [GreenSpaces], [Industrial], [Institutional], [Residential], [Agricultural], [Recreational])
 VALUES (2.0, 3.0, 1.0, 1.0, 60.0, 28.0, 5.0);      -- Watershed 2
 
 -- ============================================================
@@ -104,27 +104,27 @@ INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [LowerBound], [
 -- ============================================================
 
 -- Sites (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[Site] ([Watershed_ID], [name], [type], [Description], [Street_number], [Street_name], [City], [Province], [Country])
-VALUES (1, N'WWTP Est Inlet', N'Wastewater treatment plant', N'Main inlet of the eastern WWTP', N'500', N'Boulevard des Capucins', N'Quebec', N'Quebec', N'Canada');  -- ID 1
+INSERT INTO [dbo].[Site] ([Watershed_ID], [Name], [Type], [Description], [LatitudeWGS84], [LongitudeWGS84], [StreetNumber], [StreetName], [City], [Province], [Country])
+VALUES (1, N'WWTP Est Inlet', N'Wastewater treatment plant', N'Main inlet of the eastern WWTP', 46.8312, -71.2077, N'500', N'Boulevard des Capucins', N'Quebec', N'Quebec', N'Canada');  -- ID 1
 
-INSERT INTO [dbo].[Site] ([Watershed_ID], [name], [type], [Description], [Street_number], [Street_name], [City], [Province], [Country])
-VALUES (1, N'CSO Outfall 12', N'Combined sewer overflow', N'CSO outfall discharging to Riviere Saint-Charles', N'120', N'Rue du Pont', N'Quebec', N'Quebec', N'Canada');  -- ID 2
+INSERT INTO [dbo].[Site] ([Watershed_ID], [Name], [Type], [Description], [LatitudeWGS84], [LongitudeWGS84], [StreetNumber], [StreetName], [City], [Province], [Country])
+VALUES (1, N'CSO Outfall 12', N'Combined sewer overflow', N'CSO outfall discharging to Riviere Saint-Charles', 46.8200, -71.2250, N'120', N'Rue du Pont', N'Quebec', N'Quebec', N'Canada');  -- ID 2
 
 -- Person (adapted from Contact in v1.0.0 seed; IDs preserved)
-INSERT INTO [dbo].[Person] ([Last_name], [First_name], [Company], [Role], [Function], [Email], [Phone], [Linkedin], [Website])
+INSERT INTO [dbo].[Person] ([LastName], [FirstName], [Company], [Role], [Function], [Email], [Phone], [Linkedin], [Website])
 VALUES (N'Tremblay', N'Marie', N'Universite Laval - modelEAU', N'Active', N'Research Associate', N'marie.tremblay@ulaval.ca', N'418-555-0101', NULL, NULL);  -- ID 1
 
-INSERT INTO [dbo].[Person] ([Last_name], [First_name], [Company], [Role], [Function], [Email], [Phone], [Linkedin], [Website])
+INSERT INTO [dbo].[Person] ([LastName], [FirstName], [Company], [Role], [Function], [Email], [Phone], [Linkedin], [Website])
 VALUES (N'Gagnon', N'Pierre', N'Universite Laval - modelEAU', N'Active', N'PhD Student', N'pierre.gagnon@ulaval.ca', N'418-555-0102', NULL, NULL);  -- ID 2
 
 -- Equipment (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[Equipment] ([model_ID], [identifier], [Serial_number], [Owner], [Storage_location], [Purchase_date])
+INSERT INTO [dbo].[Equipment] ([EquipmentModel_ID], [Identifier], [SerialNumber], [Owner], [StorageLocation], [PurchaseDate])
 VALUES (1, N'ISCO-001', N'SN-6712-2021-001', N'modelEAU Lab', N'PLT-2900 Storage', '2021-03-15');  -- ID 1
 
-INSERT INTO [dbo].[Equipment] ([model_ID], [identifier], [Serial_number], [Owner], [Storage_location], [Purchase_date])
+INSERT INTO [dbo].[Equipment] ([EquipmentModel_ID], [Identifier], [SerialNumber], [Owner], [StorageLocation], [PurchaseDate])
 VALUES (2, N'YSI-001', N'SN-PRODSS-2022-045', N'modelEAU Lab', N'PLT-2900 Storage', '2022-06-01');  -- ID 2
 
-INSERT INTO [dbo].[Equipment] ([model_ID], [identifier], [Serial_number], [Owner], [Storage_location], [Purchase_date])
+INSERT INTO [dbo].[Equipment] ([EquipmentModel_ID], [Identifier], [SerialNumber], [Owner], [StorageLocation], [PurchaseDate])
 VALUES (3, N'HACH-001', N'SN-2100Q-2020-112', N'modelEAU Lab', N'PLT-2900 Storage', '2020-09-20');  -- ID 3
 
 -- Parameters (IDs 1-5 match v1.0.0 seed; 6-7 are new status parameters)
@@ -143,29 +143,29 @@ INSERT INTO [dbo].[Laboratory] ([Name], [Site_ID], [Description])
 VALUES (N'modelEAU Water Quality Lab', 1, N'In-house water quality analysis laboratory at Universite Laval');  -- ID 1
 
 -- ============================================================
--- TIER 3: SamplingPoints, junctions, Campaign
+-- TIER 3: SamplingPoint, junctions, Campaign
 -- ============================================================
 
 -- Sampling points (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[SamplingPoints] ([Site_ID], [Sampling_point], [Sampling_location], [Latitude_GPS], [Longitude_GPS], [Description])
+INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeGPS], [LongitudeGPS], [Description])
 VALUES (1, N'WWTP-IN-01', N'Inlet channel after screening', N'46.8310', N'-71.2080', N'Primary sampling point at plant inlet');  -- ID 1
 
-INSERT INTO [dbo].[SamplingPoints] ([Site_ID], [Sampling_point], [Sampling_location], [Latitude_GPS], [Longitude_GPS], [Description])
+INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeGPS], [LongitudeGPS], [Description])
 VALUES (1, N'WWTP-OUT-01', N'Final effluent discharge', N'46.8315', N'-71.2075', N'Effluent sampling point after disinfection');  -- ID 2
 
-INSERT INTO [dbo].[SamplingPoints] ([Site_ID], [Sampling_point], [Sampling_location], [Latitude_GPS], [Longitude_GPS], [Description])
+INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [SamplingLocation], [LatitudeGPS], [LongitudeGPS], [Description])
 VALUES (2, N'CSO-12-OUT', N'Overflow pipe outlet', N'46.8200', N'-71.2250', N'CSO overflow discharge point');  -- ID 3
 
 -- Equipment model capabilities
-INSERT INTO [dbo].[EquipmentModelHasParameter] ([Equipment_model_ID], [Parameter_ID]) VALUES (1, 1);  -- ISCO → TSS
-INSERT INTO [dbo].[EquipmentModelHasParameter] ([Equipment_model_ID], [Parameter_ID]) VALUES (1, 2);  -- ISCO → COD
-INSERT INTO [dbo].[EquipmentModelHasParameter] ([Equipment_model_ID], [Parameter_ID]) VALUES (2, 3);  -- YSI → pH
-INSERT INTO [dbo].[EquipmentModelHasParameter] ([Equipment_model_ID], [Parameter_ID]) VALUES (2, 4);  -- YSI → Temperature
-INSERT INTO [dbo].[EquipmentModelHasParameter] ([Equipment_model_ID], [Parameter_ID]) VALUES (2, 5);  -- YSI → Conductivity
+INSERT INTO [dbo].[EquipmentModelHasParameter] ([EquipmentModel_ID], [Parameter_ID]) VALUES (1, 1);  -- ISCO → TSS
+INSERT INTO [dbo].[EquipmentModelHasParameter] ([EquipmentModel_ID], [Parameter_ID]) VALUES (1, 2);  -- ISCO → COD
+INSERT INTO [dbo].[EquipmentModelHasParameter] ([EquipmentModel_ID], [Parameter_ID]) VALUES (2, 3);  -- YSI → pH
+INSERT INTO [dbo].[EquipmentModelHasParameter] ([EquipmentModel_ID], [Parameter_ID]) VALUES (2, 4);  -- YSI → Temperature
+INSERT INTO [dbo].[EquipmentModelHasParameter] ([EquipmentModel_ID], [Parameter_ID]) VALUES (2, 5);  -- YSI → Conductivity
 
-INSERT INTO [dbo].[EquipmentModelHasProcedures] ([Equipment_model_ID], [Procedure_ID]) VALUES (1, 2);  -- ISCO → 24h composite
-INSERT INTO [dbo].[EquipmentModelHasProcedures] ([Equipment_model_ID], [Procedure_ID]) VALUES (2, 3);  -- YSI → Online continuous
-INSERT INTO [dbo].[EquipmentModelHasProcedures] ([Equipment_model_ID], [Procedure_ID]) VALUES (3, 1);  -- Hach → Grab sampling
+INSERT INTO [dbo].[EquipmentModelHasProcedures] ([EquipmentModel_ID], [Procedure_ID]) VALUES (1, 2);  -- ISCO → 24h composite
+INSERT INTO [dbo].[EquipmentModelHasProcedures] ([EquipmentModel_ID], [Procedure_ID]) VALUES (2, 3);  -- YSI → Online continuous
+INSERT INTO [dbo].[EquipmentModelHasProcedures] ([EquipmentModel_ID], [Procedure_ID]) VALUES (3, 1);  -- Hach → Grab sampling
 
 -- Campaigns (replace Project from v1.0.0 seed)
 INSERT INTO [dbo].[Campaign] ([CampaignType_ID], [Site_ID], [Name], [Description], [CampaignStartDateTime])
@@ -179,23 +179,23 @@ VALUES (1, 2, N'CSO Event Study 2024', N'Combined sewer overflow characterizatio
 -- ============================================================
 
 -- Sample (morning grab from WWTP inlet)
-INSERT INTO [dbo].[Sample] ([Sampling_point_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart], [SampleDateTimeEnd], [SampleType_ID], [SampleMethod_ID], [Description])
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart], [SampleDateTimeEnd], [SampleType_ID], [SampleMethod_ID], [Description])
 VALUES (1, 1, 1, '2025-09-10T13:00:00', '2025-09-10T13:15:00', 1, 1, N'Morning grab sample at WWTP inlet');  -- ID 1
 
 -- Campaign membership
 INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role]) VALUES (1, 1, N'Primary autosampler');
 INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role]) VALUES (1, 2, N'Online probe');
 INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role]) VALUES (2, 1, N'Event-triggered sampler');
-INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [Sampling_point_ID], [Role]) VALUES (1, 1, N'Primary inlet');
-INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [Sampling_point_ID], [Role]) VALUES (1, 2, N'Effluent control');
-INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [Sampling_point_ID], [Role]) VALUES (2, 3, N'CSO discharge');
+INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [SamplingPoint_ID], [Role]) VALUES (1, 1, N'Primary inlet');
+INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [SamplingPoint_ID], [Role]) VALUES (1, 2, N'Effluent control');
+INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [SamplingPoint_ID], [Role]) VALUES (2, 3, N'CSO discharge');
 
 -- Equipment event: calibration of ISCO-001
 INSERT INTO [dbo].[EquipmentEvent] ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart], [EventDateTimeEnd], [PerformedByPerson_ID], [Campaign_ID], [Notes])
 VALUES (1, 1, '2024-01-10T09:00:00', '2024-01-10T11:00:00', 1, 1, N'Pre-deployment calibration using TSS standard solutions');  -- ID 1
 
 -- Equipment installation: ISCO-001 at WWTP inlet
-INSERT INTO [dbo].[EquipmentInstallation] ([Equipment_ID], [Sampling_point_ID], [InstalledDate], [Campaign_ID], [Notes])
+INSERT INTO [dbo].[EquipmentInstallation] ([Equipment_ID], [SamplingPoint_ID], [InstalledDate], [Campaign_ID], [Notes])
 VALUES (1, 1, '2024-01-11T08:00:00', 1, N'Installed for routine inlet monitoring campaign');  -- ID 1
 
 -- ============================================================
@@ -360,7 +360,7 @@ INSERT INTO [dbo].[ValueMatrix] ([Channel_ID], [Timestamp], [RowValueBin_ID], [C
 -- ============================================================
 
 -- LabAnalysis (analysis of Sample 1 in the modelEAU lab)
-INSERT INTO [dbo].[LabAnalysis] ([Sample_ID], [Laboratory_ID], [AnalystPerson_ID], [Procedure_ID], [AnalyzedAt], [Campaign_ID], [Notes])
+INSERT INTO [dbo].[LabAnalysis] ([Sample_ID], [Laboratory_ID], [AnalystPerson_ID], [Procedure_ID], [AnalysisDateTime], [Campaign_ID], [Notes])
 VALUES (1, 1, 1, 1, '2025-09-10T20:00:00', 1, N'Duplicate TSS analysis on morning grab');  -- ID 1
 
 -- LabValue (TSS replicates from LabAnalysis 1)
