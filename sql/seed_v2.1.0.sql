@@ -57,12 +57,6 @@ VALUES (N'24h composite', N'Sampling', N'Time-weighted 24-hour composite sample 
 INSERT INTO [dbo].[Procedures] ([Procedure_name], [Procedure_type], [Description], [Procedure_location])
 VALUES (N'Online continuous', N'Measurement', N'Continuous in-situ measurement with data logging', N'/procedures/online_continuous.pdf');  -- ID 3
 
--- QA/QC comments (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[Comments] ([Comment]) VALUES (N'Sample collected under normal conditions');          -- ID 1
-INSERT INTO [dbo].[Comments] ([Comment]) VALUES (N'High turbidity observed - possible equipment drift');  -- ID 2
-INSERT INTO [dbo].[Comments] ([Comment]) VALUES (N'Duplicate sample collected for QA/QC');               -- ID 3
-INSERT INTO [dbo].[Comments] ([Comment]) VALUES (NULL);                                                  -- ID 4
-
 -- Hydrological characteristics (one row per watershed; IDs match Watershed IDs)
 INSERT INTO [dbo].[HydrologicalCharacteristics] ([Urban_area], [Forest], [Wetlands], [Cropland], [Meadow], [Grassland])
 VALUES (35.5, 25.0, 5.0, 10.0, 12.5, 12.0);  -- Watershed 1 (urban)
@@ -173,16 +167,11 @@ INSERT INTO [dbo].[EquipmentModelHasProcedures] ([Equipment_model_ID], [Procedur
 INSERT INTO [dbo].[EquipmentModelHasProcedures] ([Equipment_model_ID], [Procedure_ID]) VALUES (2, 3);  -- YSI → Online continuous
 INSERT INTO [dbo].[EquipmentModelHasProcedures] ([Equipment_model_ID], [Procedure_ID]) VALUES (3, 1);  -- Hach → Grab sampling
 
-INSERT INTO [dbo].[ParameterHasProcedures] ([Procedure_ID], [Parameter_ID]) VALUES (1, 1);  -- Grab → TSS
-INSERT INTO [dbo].[ParameterHasProcedures] ([Procedure_ID], [Parameter_ID]) VALUES (2, 2);  -- 24h composite → COD
-INSERT INTO [dbo].[ParameterHasProcedures] ([Procedure_ID], [Parameter_ID]) VALUES (3, 3);  -- Online → pH
-INSERT INTO [dbo].[ParameterHasProcedures] ([Procedure_ID], [Parameter_ID]) VALUES (3, 4);  -- Online → Temperature
-
 -- Campaigns (replace Project from v1.0.0 seed)
-INSERT INTO [dbo].[Campaign] ([CampaignType_ID], [Site_ID], [Name], [Description], [StartDate])
+INSERT INTO [dbo].[Campaign] ([CampaignType_ID], [Site_ID], [Name], [Description], [CampaignStartDateTime])
 VALUES (2, 1, N'WWTP Inlet Monitoring 2024', N'Routine monitoring of wastewater treatment plant influent quality', '2024-01-01T00:00:00');  -- ID 1
 
-INSERT INTO [dbo].[Campaign] ([CampaignType_ID], [Site_ID], [Name], [Description], [StartDate], [EndDate])
+INSERT INTO [dbo].[Campaign] ([CampaignType_ID], [Site_ID], [Name], [Description], [CampaignStartDateTime], [CampaignEndDateTime])
 VALUES (1, 2, N'CSO Event Study 2024', N'Combined sewer overflow characterization during rain events', '2024-01-01T00:00:00', '2024-12-31T23:59:59');  -- ID 2
 
 -- ============================================================
@@ -190,17 +179,13 @@ VALUES (1, 2, N'CSO Event Study 2024', N'Combined sewer overflow characterizatio
 -- ============================================================
 
 -- Sample (morning grab from WWTP inlet)
-INSERT INTO [dbo].[Sample] ([Sampling_point_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart], [SampleDateTimeEnd], [SampleType], [Description])
-VALUES (1, 1, 1, '2025-09-10T13:00:00', '2025-09-10T13:15:00', N'Grab', N'Morning grab sample at WWTP inlet');  -- ID 1
+INSERT INTO [dbo].[Sample] ([Sampling_point_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart], [SampleDateTimeEnd], [SampleType_ID], [SampleMethod_ID], [Description])
+VALUES (1, 1, 1, '2025-09-10T13:00:00', '2025-09-10T13:15:00', 1, 1, N'Morning grab sample at WWTP inlet');  -- ID 1
 
 -- Campaign membership
 INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role]) VALUES (1, 1, N'Primary autosampler');
 INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role]) VALUES (1, 2, N'Online probe');
 INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role]) VALUES (2, 1, N'Event-triggered sampler');
-INSERT INTO [dbo].[CampaignParameter] ([Campaign_ID], [Parameter_ID]) VALUES (1, 1);   -- Monitoring: TSS
-INSERT INTO [dbo].[CampaignParameter] ([Campaign_ID], [Parameter_ID]) VALUES (1, 2);   -- Monitoring: COD
-INSERT INTO [dbo].[CampaignParameter] ([Campaign_ID], [Parameter_ID]) VALUES (1, 3);   -- Monitoring: pH
-INSERT INTO [dbo].[CampaignParameter] ([Campaign_ID], [Parameter_ID]) VALUES (2, 1);   -- CSO Study: TSS
 INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [Sampling_point_ID], [Role]) VALUES (1, 1, N'Primary inlet');
 INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [Sampling_point_ID], [Role]) VALUES (1, 2, N'Effluent control');
 INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [Sampling_point_ID], [Role]) VALUES (2, 3, N'CSO discharge');
@@ -227,50 +212,50 @@ VALUES (1, 1, '2024-01-11T08:00:00', 1, N'Installed for routine inlet monitoring
 -- ============================================================
 
 -- Channel 1:  ISCO-001 TSS (sensor, raw, scalar) — covers MetaData rows 1 and 4
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (1, 1, 1, 1, N'Raw', 1);  -- ID 1
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (1, 1, 1, 1, 1);  -- ID 1
 
 -- Channel 2: ISCO-001 COD (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (1, 2, 1, 1, N'Raw', 1);  -- ID 2
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (1, 2, 1, 1, 1);  -- ID 2
 
 -- Channel 3: YSI-001 pH (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (2, 3, 3, 1, N'Raw', 1);  -- ID 3
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (2, 3, 1, 1, 1);  -- ID 3
 
 -- Channel 4: YSI-001 Temperature (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (2, 4, 4, 1, N'Raw', 1);  -- ID 4
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (2, 4, 1, 1, 1);  -- ID 4
 
 -- Channel 5: effluent TSS — no equipment, manual entry (covers MetaData row 5)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (NULL, 1, 1, 3, N'Raw', 1);  -- ID 5
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (NULL, 1, 3, 1, 1);  -- ID 5
 
 -- Channel 6: UV-Vis absorbance vector (no equipment-parameter pair in this demo)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (NULL, NULL, NULL, 1, N'Raw', 2);  -- ID 6
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (NULL, NULL, 1, 1, 2);  -- ID 6
 
 -- Channel 7: camera image at CSO outfall
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (NULL, NULL, NULL, 1, N'Raw', 4);  -- ID 7
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (NULL, NULL, 1, 1, 4);  -- ID 7
 
 -- Channel 8: particle size distribution (vector, mg/L)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (NULL, NULL, 1, 1, N'Raw', 2);  -- ID 8
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (NULL, NULL, 1, 1, 2);  -- ID 8
 
 -- Channel 9: particle size-velocity joint distribution (matrix)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (NULL, NULL, NULL, 1, N'Raw', 3);  -- ID 9
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (NULL, NULL, 1, 1, 3);  -- ID 9
 
 -- Channel 10: device-level status stream for ISCO-001
 -- StatusChannel_ID is NULL — this channel is referenced by EquipmentStatusChannel, not by another Channel
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID])
-VALUES (NULL, 7, 9, 1, N'Raw', 1);  -- ID 10
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (NULL, 7, 1, 1, 1);  -- ID 10
 
 -- Channel 11: per-channel status stream monitoring Channel 1 (ISCO TSS)
 -- StatusChannel_ID=1 means "this channel stores status values for Channel 1"
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID], [ProcessingDegree], [ValueType_ID], [StatusChannel_ID])
-VALUES (NULL, 6, 9, 1, N'Raw', 1, 1);  -- ID 11
+INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [StatusChannel_ID])
+VALUES (NULL, 6, 1, 1, 1, 1);  -- ID 11
 
 -- ChannelAxis: link vector/matrix channels to their binning axes
 INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (6, 0, 1);  -- UV-Vis: wavelength axis
@@ -296,43 +281,43 @@ INSERT INTO [dbo].[EquipmentStatusChannel] ([Equipment_ID], [StatusChannel_ID]) 
 -- ============================================================
 
 -- ISCO TSS at WWTP inlet (Channel_ID=1)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (1,    1, 185.0, 1, '2024-01-15T13:00:00');  -- ID 1
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 1, 210.5, 2, '2024-01-15T19:00:00');  -- ID 2
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (1,    1, 192.3, 3, '2024-01-16T13:00:00');  -- ID 3
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (1, 185.0, '2024-01-15T13:00:00');  -- ID 1
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (1, 210.5, '2024-01-15T19:00:00');  -- ID 2
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (1, 192.3, '2024-01-16T13:00:00');  -- ID 3
 
 -- ISCO COD 24h composite (Channel_ID=2)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 2, 450.0, 1, '2024-01-15T05:00:00');  -- ID 4
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 2, 520.8, 2, '2024-01-16T05:00:00');  -- ID 5
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (2, 450.0, '2024-01-15T05:00:00');  -- ID 4
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (2, 520.8, '2024-01-16T05:00:00');  -- ID 5
 
 -- YSI pH online continuous (Channel_ID=3)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 3, 7.2, 1, '2024-01-15T05:00:00');    -- ID 6
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 3, 7.1, 2, '2024-01-15T09:00:00');    -- ID 7
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 3, 6.9, 3, '2024-01-15T13:00:00');    -- ID 8
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (2,    3, 7.8, 4, '2024-01-15T17:00:00');    -- ID 9 (drift flag)
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (3, 7.2, '2024-01-15T05:00:00');    -- ID 6
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (3, 7.1, '2024-01-15T09:00:00');    -- ID 7
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (3, 6.9, '2024-01-15T13:00:00');    -- ID 8
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (3, 7.8, '2024-01-15T17:00:00');    -- ID 9
 
 -- ISCO TSS at CSO outfall (Channel_ID=1 — same channel as WWTP inlet; location tracked via EquipmentInstallation)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 1, 350.0, 1, '2024-03-20T12:00:00');  -- ID 10
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 1, 580.2, 2, '2024-03-20T14:00:00');  -- ID 11
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (3,    1, 345.0, 3, '2024-03-20T14:00:00');  -- ID 12 (QA/QC duplicate)
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (1, 350.0, '2024-03-20T12:00:00');  -- ID 10
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (1, 580.2, '2024-03-20T14:00:00');  -- ID 11
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (1, 345.0, '2024-03-20T14:00:00');  -- ID 12
 
 -- Effluent TSS manual entry (Channel_ID=5)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 5, 12.5, 1, '2024-01-15T13:00:00');  -- ID 13
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 5, 15.0, 2, '2024-01-16T13:00:00');  -- ID 14
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (5, 12.5, '2024-01-15T13:00:00');  -- ID 13
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (5, 15.0, '2024-01-16T13:00:00');  -- ID 14
 
 -- YSI Temperature online (Channel_ID=4)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 4, 12.3, 1, '2024-01-15T05:00:00');  -- ID 15
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 4, 12.1, 2, '2024-01-15T09:00:00');  -- ID 16
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 4, 11.8, 3, '2024-01-15T13:00:00');  -- ID 17
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (4, 12.3, '2024-01-15T05:00:00');  -- ID 15
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (4, 12.1, '2024-01-15T09:00:00');  -- ID 16
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (4, 11.8, '2024-01-15T13:00:00');  -- ID 17
 
 -- NULL timestamp edge case (Channel_ID=1)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (4, 1, 200.0, NULL, NULL);  -- ID 18
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (1, 200.0, NULL);  -- ID 18
 
 -- Device status values: ISCO-001 operational (Channel_ID=10, code 1=Operational)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 10, 1.0, 1, '2024-01-11T08:00:00');  -- ID 19 (deployed, operational)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 10, 4.0, 2, '2024-01-10T09:00:00');  -- ID 20 (in calibration = code 4=Maintenance)
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (10, 1.0, '2024-01-11T08:00:00');  -- ID 19 (deployed, operational)
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (10, 4.0, '2024-01-10T09:00:00');  -- ID 20 (in calibration = code 4=Maintenance)
 
 -- Per-channel status for Channel 1 (Channel_ID=11, code 1=Operational)
-INSERT INTO [dbo].[Value] ([Comment_ID], [Channel_ID], [Value], [Number_of_experiment], [Timestamp]) VALUES (NULL, 11, 1.0, 1, '2024-01-11T08:00:00');  -- ID 21
+INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp]) VALUES (11, 1.0, '2024-01-11T08:00:00');  -- ID 21
 
 -- ValueVector: UV-Vis spectrum (Channel_ID=6)
 INSERT INTO [dbo].[ValueVector] ([Channel_ID], [Timestamp], [ValueBin_ID], [Value], [QualityCode]) VALUES (6, '2025-09-10T14:00:00', 1, 2.85, NULL);
@@ -379,14 +364,10 @@ INSERT INTO [dbo].[LabAnalysis] ([Sample_ID], [Laboratory_ID], [AnalystPerson_ID
 VALUES (1, 1, 1, 1, '2025-09-10T20:00:00', 1, N'Duplicate TSS analysis on morning grab');  -- ID 1
 
 -- LabValue (TSS replicates from LabAnalysis 1)
-INSERT INTO [dbo].[LabValue] ([LabAnalysis_ID], [Parameter_ID], [Unit_ID], [Value], [Replicate], [QualityCode])
-VALUES (1, 1, 1, 178.4, 1, NULL);  -- Replicate 1: 178.4 mg/L TSS
-INSERT INTO [dbo].[LabValue] ([LabAnalysis_ID], [Parameter_ID], [Unit_ID], [Value], [Replicate], [QualityCode])
-VALUES (1, 1, 1, 181.2, 2, NULL);  -- Replicate 2: 181.2 mg/L TSS
-
--- EquipmentEventChannel: link calibration event to ISCO TSS channel
-INSERT INTO [dbo].[EquipmentEventChannel] ([EquipmentEvent_ID], [Channel_ID], [WindowStart], [WindowEnd])
-VALUES (1, 1, '2024-01-10T09:00:00', '2024-01-10T11:00:00');  -- Calibration of ISCO-001 affects Channel 1
+INSERT INTO [dbo].[LabValue] ([LabAnalysis_ID], [Parameter_ID], [LabResult], [Replicate])
+VALUES (1, 1, 178.4, 1);  -- Replicate 1: 178.4 mg/L TSS
+INSERT INTO [dbo].[LabValue] ([LabAnalysis_ID], [Parameter_ID], [LabResult], [Replicate])
+VALUES (1, 1, 181.2, 2);  -- Replicate 2: 181.2 mg/L TSS
 
 -- Annotation: calibration period on ISCO TSS channel
 INSERT INTO [dbo].[Annotation] ([Channel_ID], [AnnotationType_ID], [StartTime], [EndTime], [AuthorPerson_ID], [Campaign_ID], [EquipmentEvent_ID], [Title], [Comment])

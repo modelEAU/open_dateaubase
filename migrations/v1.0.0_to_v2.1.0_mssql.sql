@@ -155,6 +155,69 @@ VALUES
     (10, N'Fouled',       N'Sensor probe is fouled, readings likely biased',           1, 2);
 GO
 
+CREATE TABLE [dbo].[ProcessingDegree] (
+    [ProcessingDegree_ID]   INT IDENTITY(1,1) NOT NULL,
+    [ProcessingDegree_Name] NVARCHAR(50)  NOT NULL,
+    CONSTRAINT [PK_ProcessingDegree] PRIMARY KEY ([ProcessingDegree_ID])
+);
+GO
+SET IDENTITY_INSERT [dbo].[ProcessingDegree] ON;
+INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [ProcessingDegree_Name]) VALUES (1, N'Raw');
+INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [ProcessingDegree_Name]) VALUES (2, N'Cleaned');
+INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [ProcessingDegree_Name]) VALUES (3, N'Calibrated');
+INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [ProcessingDegree_Name]) VALUES (4, N'Validated');
+INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [ProcessingDegree_Name]) VALUES (5, N'Filtered');
+INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [ProcessingDegree_Name]) VALUES (6, N'Predicted');
+SET IDENTITY_INSERT [dbo].[ProcessingDegree] OFF;
+GO
+
+CREATE TABLE [dbo].[QualityCode] (
+    [QualityCode_ID]   INT IDENTITY(1,1) NOT NULL,
+    [QualityCode_Name] NVARCHAR(50)  NOT NULL,
+    [IsUsable]         BIT          NOT NULL DEFAULT 1,
+    CONSTRAINT [PK_QualityCode] PRIMARY KEY ([QualityCode_ID])
+);
+GO
+SET IDENTITY_INSERT [dbo].[QualityCode] ON;
+INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [QualityCode_Name], [IsUsable]) VALUES (1, N'Accepted',    1);
+INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [QualityCode_Name], [IsUsable]) VALUES (2, N'Suspect',     1);
+INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [QualityCode_Name], [IsUsable]) VALUES (3, N'Rejected',    0);
+INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [QualityCode_Name], [IsUsable]) VALUES (4, N'BelowLoD',    0);
+INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [QualityCode_Name], [IsUsable]) VALUES (5, N'AboveLoQ',    0);
+INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [QualityCode_Name], [IsUsable]) VALUES (6, N'Outlier',     1);
+SET IDENTITY_INSERT [dbo].[QualityCode] OFF;
+GO
+
+CREATE TABLE [dbo].[SampleType] (
+    [SampleType_ID]   INT IDENTITY(1,1) NOT NULL,
+    [SampleType_Name] NVARCHAR(100) NOT NULL,
+    CONSTRAINT [PK_SampleType] PRIMARY KEY ([SampleType_ID])
+);
+GO
+SET IDENTITY_INSERT [dbo].[SampleType] ON;
+INSERT INTO [dbo].[SampleType] ([SampleType_ID], [SampleType_Name]) VALUES (1, N'Field');
+INSERT INTO [dbo].[SampleType] ([SampleType_ID], [SampleType_Name]) VALUES (2, N'Synthetic');
+INSERT INTO [dbo].[SampleType] ([SampleType_ID], [SampleType_Name]) VALUES (3, N'Master Standard');
+INSERT INTO [dbo].[SampleType] ([SampleType_ID], [SampleType_Name]) VALUES (4, N'Derived Standard');
+INSERT INTO [dbo].[SampleType] ([SampleType_ID], [SampleType_Name]) VALUES (5, N'Blank');
+SET IDENTITY_INSERT [dbo].[SampleType] OFF;
+GO
+
+CREATE TABLE [dbo].[SampleMethod] (
+    [SampleMethod_ID]   INT IDENTITY(1,1) NOT NULL,
+    [SampleMethod_Name] NVARCHAR(100) NOT NULL,
+    CONSTRAINT [PK_SampleMethod] PRIMARY KEY ([SampleMethod_ID])
+);
+GO
+SET IDENTITY_INSERT [dbo].[SampleMethod] ON;
+INSERT INTO [dbo].[SampleMethod] ([SampleMethod_ID], [SampleMethod_Name]) VALUES (1, N'Grab');
+INSERT INTO [dbo].[SampleMethod] ([SampleMethod_ID], [SampleMethod_Name]) VALUES (2, N'Composite24h');
+INSERT INTO [dbo].[SampleMethod] ([SampleMethod_ID], [SampleMethod_Name]) VALUES (3, N'Composite8h');
+INSERT INTO [dbo].[SampleMethod] ([SampleMethod_ID], [SampleMethod_Name]) VALUES (4, N'Passive');
+INSERT INTO [dbo].[SampleMethod] ([SampleMethod_ID], [SampleMethod_Name]) VALUES (5, N'Other');
+SET IDENTITY_INSERT [dbo].[SampleMethod] OFF;
+GO
+
 -- ============================================================
 -- STEP 3: Rename Contact → Person
 -- ============================================================
@@ -210,6 +273,14 @@ GO
 EXEC sp_rename 'dbo.Value.Timestamp_new', 'Timestamp', 'COLUMN';
 GO
 
+-- Drop obsolete Value columns and the Comments table (FK already dropped above)
+ALTER TABLE [dbo].[Value] DROP COLUMN [Comment_ID];
+ALTER TABLE [dbo].[Value] DROP COLUMN [Number_of_experiment];
+GO
+
+DROP TABLE [dbo].[Comments];
+GO
+
 -- ============================================================
 -- STEP 5: Drop all FKs that will be invalid after renames/drops
 -- ============================================================
@@ -225,6 +296,11 @@ ALTER TABLE [dbo].[MetaData] DROP CONSTRAINT [FK_MetaData_Procedures];
 ALTER TABLE [dbo].[MetaData] DROP CONSTRAINT [FK_MetaData_Unit];
 GO
 
+-- FKs on ParameterHasProcedures junction table
+ALTER TABLE [dbo].[ParameterHasProcedures] DROP CONSTRAINT [FK_ParameterHasProcedures_Parameter];
+ALTER TABLE [dbo].[ParameterHasProcedures] DROP CONSTRAINT [FK_ParameterHasProcedures_Procedures];
+GO
+
 -- FKs on Project junction tables
 ALTER TABLE [dbo].[ProjectHasContact]      DROP CONSTRAINT [FK_ProjectHasContact_Project];
 ALTER TABLE [dbo].[ProjectHasEquipment]    DROP CONSTRAINT [FK_ProjectHasEquipment_Equipment];
@@ -237,6 +313,7 @@ GO
 -- STEP 6: Drop obsolete tables (junctions first, then parents)
 -- ============================================================
 
+DROP TABLE [dbo].[ParameterHasProcedures];
 DROP TABLE [dbo].[ProjectHasContact];
 DROP TABLE [dbo].[ProjectHasEquipment];
 DROP TABLE [dbo].[ProjectHasSamplingPoints];
@@ -275,10 +352,10 @@ GO
 -- STEP 9: Add new columns to Channel
 -- ============================================================
 
-ALTER TABLE [dbo].[Channel] ADD [DataProvenance_ID] INT NULL;
-ALTER TABLE [dbo].[Channel] ADD [ProcessingDegree]  NVARCHAR(50) NOT NULL DEFAULT 'Raw';
-ALTER TABLE [dbo].[Channel] ADD [ValueType_ID]      INT NOT NULL DEFAULT 1;
-ALTER TABLE [dbo].[Channel] ADD [StatusChannel_ID]  INT NULL;
+ALTER TABLE [dbo].[Channel] ADD [DataProvenance_ID]  INT NULL;
+ALTER TABLE [dbo].[Channel] ADD [ProcessingDegree_ID] INT NOT NULL DEFAULT 1;
+ALTER TABLE [dbo].[Channel] ADD [ValueType_ID]        INT NOT NULL DEFAULT 1;
+ALTER TABLE [dbo].[Channel] ADD [StatusChannel_ID]    INT NULL;
 GO
 
 -- ============================================================
@@ -288,9 +365,8 @@ GO
 EXEC sp_rename 'dbo.Value.Metadata_ID', 'Channel_ID', 'COLUMN';
 GO
 
--- Re-add Value FKs (dropped in step 4) with new column name
-ALTER TABLE [dbo].[Value] ADD CONSTRAINT [FK_Value_Comments] FOREIGN KEY ([Comment_ID]) REFERENCES [dbo].[Comments] ([Comment_ID]);
-ALTER TABLE [dbo].[Value] ADD CONSTRAINT [FK_Value_Channel]  FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel]  ([Channel_ID]);
+-- Re-add Value FK with new column name
+ALTER TABLE [dbo].[Value] ADD CONSTRAINT [FK_Value_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
 GO
 
 -- ============================================================
@@ -332,10 +408,10 @@ CREATE TABLE [dbo].[Campaign] (
     [Campaign_ID]     INT IDENTITY(1,1) NOT NULL,
     [CampaignType_ID] INT NOT NULL,
     [Site_ID]         INT NOT NULL,
-    [Name]            NVARCHAR(200) NOT NULL,
-    [Description]     NVARCHAR(2000),
-    [StartDate]       DATETIME2(7),
-    [EndDate]         DATETIME2(7),
+    [Name]                  NVARCHAR(200) NOT NULL,
+    [Description]           NVARCHAR(2000),
+    [CampaignStartDateTime] DATETIME2(7),
+    [CampaignEndDateTime]   DATETIME2(7),
     CONSTRAINT [PK_Campaign] PRIMARY KEY ([Campaign_ID])
 );
 GO
@@ -356,8 +432,9 @@ CREATE TABLE [dbo].[ProcessingStep] (
     [MethodName]         NVARCHAR(200),
     [MethodVersion]      NVARCHAR(100),
     [ProcessingType]     NVARCHAR(100),
-    [Parameters]         NVARCHAR(MAX),
-    [ExecutedAt]         DATETIME2(7),
+    [Parameters]          NVARCHAR(MAX),
+    [ExecutedDateTime]    DATETIME2(7),
+    [Dataset_ID]          INT,
     [ExecutedByPerson_ID] INT,
     CONSTRAINT [PK_ProcessingStep] PRIMARY KEY ([ProcessingStep_ID])
 );
@@ -366,13 +443,13 @@ GO
 CREATE TABLE [dbo].[Sample] (
     [Sample_ID]            INT IDENTITY(1,1) NOT NULL,
     [ParentSample_ID]      INT,
-    [SampleCategory]       NVARCHAR(50),
+    [SampleType_ID]        INT,
     [Sampling_point_ID]    INT NOT NULL,
     [SampledByPerson_ID]   INT,
     [Campaign_ID]          INT,
     [SampleDateTimeStart]  DATETIME2(7) NOT NULL,
     [SampleDateTimeEnd]    DATETIME2(7),
-    [SampleType]           NVARCHAR(50),
+    [SampleMethod_ID]      INT,
     [SampleEquipment_ID]   INT,
     [Description]          NVARCHAR(500),
     CONSTRAINT [PK_Sample] PRIMARY KEY ([Sample_ID])
@@ -396,11 +473,10 @@ CREATE TABLE [dbo].[LabValue] (
     [LabValue_ID]    INT IDENTITY(1,1) NOT NULL,
     [LabAnalysis_ID] INT NOT NULL,
     [Parameter_ID]   INT NOT NULL,
-    [Unit_ID]        INT NOT NULL,
-    [Value]          FLOAT NOT NULL,
+    [LabResult]      FLOAT NOT NULL,
     [Replicate]      INT NOT NULL DEFAULT 1,
-    [QualityCode]    INT,
-    [Comment_ID]     INT,
+    [QualityCode_ID] INT,
+    [Comment]        NVARCHAR(MAX),
     CONSTRAINT [PK_LabValue] PRIMARY KEY ([LabValue_ID])
 );
 GO
@@ -430,6 +506,24 @@ CREATE TABLE [dbo].[EquipmentInstallation] (
 );
 GO
 
+CREATE TABLE [dbo].[Dataset] (
+    [Dataset_ID]           INT IDENTITY(1,1) NOT NULL,
+    [Name]                 NVARCHAR(200) NOT NULL,
+    [Description]          NVARCHAR(2000),
+    [Purpose]              NVARCHAR(500),
+    [CreatedOn]            DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
+    [CreatedByPerson_ID]   INT,
+    CONSTRAINT [PK_Dataset] PRIMARY KEY ([Dataset_ID])
+);
+GO
+
+CREATE TABLE [dbo].[DatasetChannel] (
+    [Dataset_ID]  INT NOT NULL,
+    [Channel_ID]  INT NOT NULL,
+    CONSTRAINT [PK_DatasetChannel] PRIMARY KEY ([Dataset_ID], [Channel_ID])
+);
+GO
+
 -- ============================================================
 -- STEP 13: Create new tables — Tier B (depend on Channel)
 -- ============================================================
@@ -443,21 +537,15 @@ CREATE TABLE [dbo].[ChannelAxis] (
 );
 GO
 
-CREATE TABLE [dbo].[EquipmentEventChannel] (
-    [EquipmentEvent_ID] INT NOT NULL,
-    [Channel_ID]        INT NOT NULL,
-    [WindowStart]       DATETIME2(7),
-    [WindowEnd]         DATETIME2(7),
-    CONSTRAINT [PK_EquipmentEventChannel] PRIMARY KEY ([EquipmentEvent_ID], [Channel_ID])
-);
-GO
-
-CREATE TABLE [dbo].[DataLineage] (
-    [DataLineage_ID]    INT IDENTITY(1,1) NOT NULL,
-    [ProcessingStep_ID] INT NOT NULL,
-    [Channel_ID]        INT NOT NULL,
-    [Role]              NVARCHAR(10) NOT NULL,
-    CONSTRAINT [PK_DataLineage] PRIMARY KEY ([DataLineage_ID])
+CREATE TABLE [dbo].[ProcessingLineage] (
+    [ProcessingLineage_ID] INT IDENTITY(1,1) NOT NULL,
+    [ProcessingStep_ID]    INT NOT NULL,
+    [Channel_ID]           INT NOT NULL,
+    [RoleInProcessingStep] NVARCHAR(10) NOT NULL,
+    [StartTime]            DATETIME2(7),
+    [EndTime]              DATETIME2(7),
+    CONSTRAINT [PK_ProcessingLineage] PRIMARY KEY ([ProcessingLineage_ID]),
+    CONSTRAINT [CK_ProcessingLineage_Role] CHECK ([RoleInProcessingStep] IN (N'Input', N'Output'))
 );
 GO
 
@@ -536,13 +624,6 @@ CREATE TABLE [dbo].[CampaignEquipment] (
 );
 GO
 
-CREATE TABLE [dbo].[CampaignParameter] (
-    [Campaign_ID]  INT NOT NULL,
-    [Parameter_ID] INT NOT NULL,
-    CONSTRAINT [PK_CampaignParameter] PRIMARY KEY ([Campaign_ID], [Parameter_ID])
-);
-GO
-
 CREATE TABLE [dbo].[CampaignSamplingLocation] (
     [Campaign_ID]       INT NOT NULL,
     [Sampling_point_ID] INT NOT NULL,
@@ -556,12 +637,12 @@ GO
 -- ============================================================
 
 -- Channel (formerly MetaData) — new FKs
-ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_Equipment]     FOREIGN KEY ([Equipment_ID])    REFERENCES [dbo].[Equipment]    ([Equipment_ID]);
-ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_Parameter]     FOREIGN KEY ([Parameter_ID])    REFERENCES [dbo].[Parameter]    ([Parameter_ID]);
-ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_Unit]          FOREIGN KEY ([Unit_ID])         REFERENCES [dbo].[Unit]         ([Unit_ID]);
-ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_DataProvenance] FOREIGN KEY ([DataProvenance_ID]) REFERENCES [dbo].[DataProvenance] ([DataProvenance_ID]);
-ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_ValueType]     FOREIGN KEY ([ValueType_ID])    REFERENCES [dbo].[ValueType]    ([ValueType_ID]);
-ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_Channel]       FOREIGN KEY ([StatusChannel_ID]) REFERENCES [dbo].[Channel]     ([Channel_ID]);
+ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_Equipment]         FOREIGN KEY ([Equipment_ID])       REFERENCES [dbo].[Equipment]       ([Equipment_ID]);
+ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_Parameter]         FOREIGN KEY ([Parameter_ID])       REFERENCES [dbo].[Parameter]       ([Parameter_ID]);
+ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_DataProvenance]    FOREIGN KEY ([DataProvenance_ID])  REFERENCES [dbo].[DataProvenance]  ([DataProvenance_ID]);
+ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_ProcessingDegree]  FOREIGN KEY ([ProcessingDegree_ID]) REFERENCES [dbo].[ProcessingDegree] ([ProcessingDegree_ID]);
+ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_ValueType]         FOREIGN KEY ([ValueType_ID])       REFERENCES [dbo].[ValueType]       ([ValueType_ID]);
+ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_Channel]           FOREIGN KEY ([StatusChannel_ID])   REFERENCES [dbo].[Channel]         ([Channel_ID]);
 GO
 
 -- ChannelAxis
@@ -579,50 +660,47 @@ ALTER TABLE [dbo].[Campaign] ADD CONSTRAINT [FK_Campaign_CampaignType] FOREIGN K
 ALTER TABLE [dbo].[Campaign] ADD CONSTRAINT [FK_Campaign_Site]         FOREIGN KEY ([Site_ID])         REFERENCES [dbo].[Site]         ([Site_ID]);
 GO
 
--- CampaignEquipment / CampaignParameter / CampaignSamplingLocation
-ALTER TABLE [dbo].[CampaignEquipment]      ADD CONSTRAINT [FK_CampaignEquipment_Campaign]        FOREIGN KEY ([Campaign_ID])       REFERENCES [dbo].[Campaign]       ([Campaign_ID]);
-ALTER TABLE [dbo].[CampaignEquipment]      ADD CONSTRAINT [FK_CampaignEquipment_Equipment]       FOREIGN KEY ([Equipment_ID])      REFERENCES [dbo].[Equipment]      ([Equipment_ID]);
-ALTER TABLE [dbo].[CampaignParameter]      ADD CONSTRAINT [FK_CampaignParameter_Campaign]        FOREIGN KEY ([Campaign_ID])       REFERENCES [dbo].[Campaign]       ([Campaign_ID]);
-ALTER TABLE [dbo].[CampaignParameter]      ADD CONSTRAINT [FK_CampaignParameter_Parameter]       FOREIGN KEY ([Parameter_ID])      REFERENCES [dbo].[Parameter]      ([Parameter_ID]);
-ALTER TABLE [dbo].[CampaignSamplingLocation] ADD CONSTRAINT [FK_CampaignSamplingLocation_Campaign] FOREIGN KEY ([Campaign_ID])     REFERENCES [dbo].[Campaign]       ([Campaign_ID]);
+-- CampaignEquipment / CampaignSamplingLocation
+ALTER TABLE [dbo].[CampaignEquipment]        ADD CONSTRAINT [FK_CampaignEquipment_Campaign]              FOREIGN KEY ([Campaign_ID])       REFERENCES [dbo].[Campaign]       ([Campaign_ID]);
+ALTER TABLE [dbo].[CampaignEquipment]        ADD CONSTRAINT [FK_CampaignEquipment_Equipment]             FOREIGN KEY ([Equipment_ID])      REFERENCES [dbo].[Equipment]      ([Equipment_ID]);
+ALTER TABLE [dbo].[CampaignSamplingLocation] ADD CONSTRAINT [FK_CampaignSamplingLocation_Campaign]       FOREIGN KEY ([Campaign_ID])       REFERENCES [dbo].[Campaign]       ([Campaign_ID]);
 ALTER TABLE [dbo].[CampaignSamplingLocation] ADD CONSTRAINT [FK_CampaignSamplingLocation_SamplingPoints] FOREIGN KEY ([Sampling_point_ID]) REFERENCES [dbo].[SamplingPoints] ([Sampling_point_ID]);
 GO
 
--- DataLineage
-ALTER TABLE [dbo].[DataLineage] ADD CONSTRAINT [FK_DataLineage_ProcessingStep] FOREIGN KEY ([ProcessingStep_ID]) REFERENCES [dbo].[ProcessingStep] ([ProcessingStep_ID]);
-ALTER TABLE [dbo].[DataLineage] ADD CONSTRAINT [FK_DataLineage_Channel]        FOREIGN KEY ([Channel_ID])        REFERENCES [dbo].[Channel]        ([Channel_ID]);
+-- ProcessingLineage
+ALTER TABLE [dbo].[ProcessingLineage] ADD CONSTRAINT [FK_ProcessingLineage_ProcessingStep] FOREIGN KEY ([ProcessingStep_ID]) REFERENCES [dbo].[ProcessingStep] ([ProcessingStep_ID]);
+ALTER TABLE [dbo].[ProcessingLineage] ADD CONSTRAINT [FK_ProcessingLineage_Channel]        FOREIGN KEY ([Channel_ID])        REFERENCES [dbo].[Channel]        ([Channel_ID]);
 GO
 
--- EquipmentEvent / EquipmentEventChannel / EquipmentInstallation / EquipmentStatusChannel
-ALTER TABLE [dbo].[EquipmentEvent]        ADD CONSTRAINT [FK_EquipmentEvent_Equipment]        FOREIGN KEY ([Equipment_ID])          REFERENCES [dbo].[Equipment]        ([Equipment_ID]);
-ALTER TABLE [dbo].[EquipmentEvent]        ADD CONSTRAINT [FK_EquipmentEvent_EquipmentEventType] FOREIGN KEY ([EquipmentEventType_ID]) REFERENCES [dbo].[EquipmentEventType] ([EquipmentEventType_ID]);
-ALTER TABLE [dbo].[EquipmentEvent]        ADD CONSTRAINT [FK_EquipmentEvent_Person]           FOREIGN KEY ([PerformedByPerson_ID])  REFERENCES [dbo].[Person]           ([Person_ID]);
-ALTER TABLE [dbo].[EquipmentEvent]        ADD CONSTRAINT [FK_EquipmentEvent_Campaign]         FOREIGN KEY ([Campaign_ID])           REFERENCES [dbo].[Campaign]         ([Campaign_ID]);
-ALTER TABLE [dbo].[EquipmentEventChannel] ADD CONSTRAINT [FK_EquipmentEventChannel_EquipmentEvent] FOREIGN KEY ([EquipmentEvent_ID]) REFERENCES [dbo].[EquipmentEvent]  ([EquipmentEvent_ID]);
-ALTER TABLE [dbo].[EquipmentEventChannel] ADD CONSTRAINT [FK_EquipmentEventChannel_Channel]  FOREIGN KEY ([Channel_ID])            REFERENCES [dbo].[Channel]          ([Channel_ID]);
-ALTER TABLE [dbo].[EquipmentInstallation] ADD CONSTRAINT [FK_EquipmentInstallation_Equipment]     FOREIGN KEY ([Equipment_ID])      REFERENCES [dbo].[Equipment]      ([Equipment_ID]);
-ALTER TABLE [dbo].[EquipmentInstallation] ADD CONSTRAINT [FK_EquipmentInstallation_SamplingPoints] FOREIGN KEY ([Sampling_point_ID]) REFERENCES [dbo].[SamplingPoints] ([Sampling_point_ID]);
-ALTER TABLE [dbo].[EquipmentInstallation] ADD CONSTRAINT [FK_EquipmentInstallation_Campaign]  FOREIGN KEY ([Campaign_ID])           REFERENCES [dbo].[Campaign]         ([Campaign_ID]);
-ALTER TABLE [dbo].[EquipmentStatusChannel] ADD CONSTRAINT [FK_EquipmentStatusChannel_Equipment] FOREIGN KEY ([Equipment_ID])       REFERENCES [dbo].[Equipment]        ([Equipment_ID]);
-ALTER TABLE [dbo].[EquipmentStatusChannel] ADD CONSTRAINT [FK_EquipmentStatusChannel_Channel]   FOREIGN KEY ([StatusChannel_ID])   REFERENCES [dbo].[Channel]          ([Channel_ID]);
+-- EquipmentEvent / EquipmentInstallation / EquipmentStatusChannel
+ALTER TABLE [dbo].[EquipmentEvent]         ADD CONSTRAINT [FK_EquipmentEvent_Equipment]           FOREIGN KEY ([Equipment_ID])          REFERENCES [dbo].[Equipment]        ([Equipment_ID]);
+ALTER TABLE [dbo].[EquipmentEvent]         ADD CONSTRAINT [FK_EquipmentEvent_EquipmentEventType]  FOREIGN KEY ([EquipmentEventType_ID]) REFERENCES [dbo].[EquipmentEventType] ([EquipmentEventType_ID]);
+ALTER TABLE [dbo].[EquipmentEvent]         ADD CONSTRAINT [FK_EquipmentEvent_Person]              FOREIGN KEY ([PerformedByPerson_ID])  REFERENCES [dbo].[Person]           ([Person_ID]);
+ALTER TABLE [dbo].[EquipmentEvent]         ADD CONSTRAINT [FK_EquipmentEvent_Campaign]            FOREIGN KEY ([Campaign_ID])           REFERENCES [dbo].[Campaign]         ([Campaign_ID]);
+ALTER TABLE [dbo].[EquipmentInstallation]  ADD CONSTRAINT [FK_EquipmentInstallation_Equipment]    FOREIGN KEY ([Equipment_ID])          REFERENCES [dbo].[Equipment]        ([Equipment_ID]);
+ALTER TABLE [dbo].[EquipmentInstallation]  ADD CONSTRAINT [FK_EquipmentInstallation_SamplingPoints] FOREIGN KEY ([Sampling_point_ID])  REFERENCES [dbo].[SamplingPoints]   ([Sampling_point_ID]);
+ALTER TABLE [dbo].[EquipmentInstallation]  ADD CONSTRAINT [FK_EquipmentInstallation_Campaign]     FOREIGN KEY ([Campaign_ID])           REFERENCES [dbo].[Campaign]         ([Campaign_ID]);
+ALTER TABLE [dbo].[EquipmentStatusChannel] ADD CONSTRAINT [FK_EquipmentStatusChannel_Equipment]   FOREIGN KEY ([Equipment_ID])          REFERENCES [dbo].[Equipment]        ([Equipment_ID]);
+ALTER TABLE [dbo].[EquipmentStatusChannel] ADD CONSTRAINT [FK_EquipmentStatusChannel_Channel]     FOREIGN KEY ([StatusChannel_ID])      REFERENCES [dbo].[Channel]          ([Channel_ID]);
 GO
 
 -- Lab tables
 ALTER TABLE [dbo].[Laboratory]  ADD CONSTRAINT [FK_Laboratory_Site]          FOREIGN KEY ([Site_ID])          REFERENCES [dbo].[Site]       ([Site_ID]);
-ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_Sample]            FOREIGN KEY ([ParentSample_ID])  REFERENCES [dbo].[Sample]     ([Sample_ID]);
-ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_SamplingPoints]    FOREIGN KEY ([Sampling_point_ID]) REFERENCES [dbo].[SamplingPoints] ([Sampling_point_ID]);
-ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_Person]            FOREIGN KEY ([SampledByPerson_ID]) REFERENCES [dbo].[Person]   ([Person_ID]);
-ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_Campaign]          FOREIGN KEY ([Campaign_ID])      REFERENCES [dbo].[Campaign]   ([Campaign_ID]);
-ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_Equipment]         FOREIGN KEY ([SampleEquipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
+ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_Sample]          FOREIGN KEY ([ParentSample_ID])    REFERENCES [dbo].[Sample]         ([Sample_ID]);
+ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_SampleType]      FOREIGN KEY ([SampleType_ID])      REFERENCES [dbo].[SampleType]     ([SampleType_ID]);
+ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_SamplingPoints]  FOREIGN KEY ([Sampling_point_ID])  REFERENCES [dbo].[SamplingPoints] ([Sampling_point_ID]);
+ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_Person]          FOREIGN KEY ([SampledByPerson_ID]) REFERENCES [dbo].[Person]         ([Person_ID]);
+ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_Campaign]        FOREIGN KEY ([Campaign_ID])        REFERENCES [dbo].[Campaign]       ([Campaign_ID]);
+ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_SampleMethod]    FOREIGN KEY ([SampleMethod_ID])    REFERENCES [dbo].[SampleMethod]   ([SampleMethod_ID]);
+ALTER TABLE [dbo].[Sample]      ADD CONSTRAINT [FK_Sample_Equipment]       FOREIGN KEY ([SampleEquipment_ID]) REFERENCES [dbo].[Equipment]      ([Equipment_ID]);
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_Sample]       FOREIGN KEY ([Sample_ID])        REFERENCES [dbo].[Sample]     ([Sample_ID]);
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_Laboratory]   FOREIGN KEY ([Laboratory_ID])    REFERENCES [dbo].[Laboratory] ([Laboratory_ID]);
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_Person]       FOREIGN KEY ([AnalystPerson_ID]) REFERENCES [dbo].[Person]     ([Person_ID]);
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_Procedures]   FOREIGN KEY ([Procedure_ID])     REFERENCES [dbo].[Procedures] ([Procedure_ID]);
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_Campaign]     FOREIGN KEY ([Campaign_ID])      REFERENCES [dbo].[Campaign]   ([Campaign_ID]);
-ALTER TABLE [dbo].[LabValue]    ADD CONSTRAINT [FK_LabValue_LabAnalysis]     FOREIGN KEY ([LabAnalysis_ID])   REFERENCES [dbo].[LabAnalysis] ([LabAnalysis_ID]);
-ALTER TABLE [dbo].[LabValue]    ADD CONSTRAINT [FK_LabValue_Parameter]       FOREIGN KEY ([Parameter_ID])     REFERENCES [dbo].[Parameter]  ([Parameter_ID]);
-ALTER TABLE [dbo].[LabValue]    ADD CONSTRAINT [FK_LabValue_Unit]            FOREIGN KEY ([Unit_ID])          REFERENCES [dbo].[Unit]       ([Unit_ID]);
-ALTER TABLE [dbo].[LabValue]    ADD CONSTRAINT [FK_LabValue_Comments]        FOREIGN KEY ([Comment_ID])       REFERENCES [dbo].[Comments]   ([Comment_ID]);
+ALTER TABLE [dbo].[LabValue]    ADD CONSTRAINT [FK_LabValue_LabAnalysis]  FOREIGN KEY ([LabAnalysis_ID]) REFERENCES [dbo].[LabAnalysis]  ([LabAnalysis_ID]);
+ALTER TABLE [dbo].[LabValue]    ADD CONSTRAINT [FK_LabValue_Parameter]    FOREIGN KEY ([Parameter_ID])   REFERENCES [dbo].[Parameter]    ([Parameter_ID]);
+ALTER TABLE [dbo].[LabValue]    ADD CONSTRAINT [FK_LabValue_QualityCode]  FOREIGN KEY ([QualityCode_ID]) REFERENCES [dbo].[QualityCode]  ([QualityCode_ID]);
 GO
 
 -- Annotation
@@ -633,8 +711,12 @@ ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Campaign]       FOR
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_EquipmentEvent] FOREIGN KEY ([EquipmentEvent_ID]) REFERENCES [dbo].[EquipmentEvent] ([EquipmentEvent_ID]);
 GO
 
--- ProcessingStep
-ALTER TABLE [dbo].[ProcessingStep] ADD CONSTRAINT [FK_ProcessingStep_Person] FOREIGN KEY ([ExecutedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
+-- ProcessingStep / Dataset / DatasetChannel
+ALTER TABLE [dbo].[ProcessingStep]  ADD CONSTRAINT [FK_ProcessingStep_Person]        FOREIGN KEY ([ExecutedByPerson_ID]) REFERENCES [dbo].[Person]   ([Person_ID]);
+ALTER TABLE [dbo].[ProcessingStep]  ADD CONSTRAINT [FK_ProcessingStep_Dataset]       FOREIGN KEY ([Dataset_ID])          REFERENCES [dbo].[Dataset]  ([Dataset_ID]);
+ALTER TABLE [dbo].[Dataset]         ADD CONSTRAINT [FK_Dataset_Person]               FOREIGN KEY ([CreatedByPerson_ID])  REFERENCES [dbo].[Person]   ([Person_ID]);
+ALTER TABLE [dbo].[DatasetChannel]  ADD CONSTRAINT [FK_DatasetChannel_Dataset]       FOREIGN KEY ([Dataset_ID])          REFERENCES [dbo].[Dataset]  ([Dataset_ID]);
+ALTER TABLE [dbo].[DatasetChannel]  ADD CONSTRAINT [FK_DatasetChannel_Channel]       FOREIGN KEY ([Channel_ID])          REFERENCES [dbo].[Channel]  ([Channel_ID]);
 GO
 
 -- SamplingPoints new FK (Campaign)
@@ -655,13 +737,14 @@ GO
 -- ============================================================
 
 CREATE UNIQUE INDEX [UQ_Channel_SensorStream]
-    ON [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree]);
+    ON [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID])
+    WHERE [Equipment_ID] IS NOT NULL AND [Parameter_ID] IS NOT NULL;
 GO
 
-CREATE INDEX [IX_Annotation_Channel_Time] ON [dbo].[Annotation] ([Channel_ID], [StartTime], [EndTime]);
-CREATE INDEX [IX_Annotation_Author]       ON [dbo].[Annotation] ([AuthorPerson_ID], [CreatedAt]);
-CREATE INDEX [IX_DataLineage_Channel]     ON [dbo].[DataLineage] ([Channel_ID]);
-CREATE INDEX [IX_DataLineage_Step_Role]   ON [dbo].[DataLineage] ([ProcessingStep_ID], [Role]);
+CREATE INDEX [IX_Annotation_Channel_Time]       ON [dbo].[Annotation]       ([Channel_ID], [StartTime], [EndTime]);
+CREATE INDEX [IX_Annotation_Author]             ON [dbo].[Annotation]       ([AuthorPerson_ID], [CreatedAt]);
+CREATE INDEX [IX_ProcessingLineage_Channel]     ON [dbo].[ProcessingLineage] ([Channel_ID]);
+CREATE INDEX [IX_Lineage_Step_Role]             ON [dbo].[ProcessingLineage] ([ProcessingStep_ID], [RoleInProcessingStep]);
 CREATE INDEX [IX_EquipmentEvent_Equipment_Start]         ON [dbo].[EquipmentEvent] ([Equipment_ID], [EventDateTimeStart]);
 CREATE INDEX [IX_EquipmentInstallation_Equipment]        ON [dbo].[EquipmentInstallation] ([Equipment_ID], [InstalledDate]);
 CREATE INDEX [IX_EquipmentInstallation_SamplingPoint]   ON [dbo].[EquipmentInstallation] ([Sampling_point_ID], [InstalledDate]);
