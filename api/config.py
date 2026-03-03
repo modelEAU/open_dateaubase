@@ -31,7 +31,7 @@ class Settings:
         "ingestion routes, and processing lineage."
     )
     api_version: str = "1.0.0"
-    schema_version: str = "1.6.0"
+    schema_version: str = "2.1.0"
 
 
 settings = Settings()
