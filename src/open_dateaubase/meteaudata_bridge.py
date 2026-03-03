@@ -6,7 +6,7 @@ Provides two public functions:
   so that metEAUdata can reconstruct a DataProvenance object without manual
   channel_id strings.
 
-* ``record_processing`` — persist a ProcessingStep + DataLineage rows after
+* ``record_processing`` — persist a ProcessingStep + ProcessingLineage rows after
   metEAUdata has applied a transformation, closing the full provenance loop.
 
 Both functions accept a plain pyodbc connection and are transport-agnostic:
@@ -49,16 +49,17 @@ def load_signal_context(channel_id: int, conn) -> dict:
             u.[Unit]               AS [UnitName],
             -- Equipment
             e.[Equipment_ID],
-            e.[identifier]         AS [EquipmentName],
+            e.[Identifier]         AS [EquipmentName],
             -- DataProvenance
             dp.[DataProvenance_Name] AS [DataProvenanceName],
             -- ProcessingDegree
-            c.[ProcessingDegree]
+            pd.[Name]              AS [ProcessingDegreeName]
         FROM [dbo].[Channel] c
-        LEFT JOIN [dbo].[Parameter]      p    ON p.[Parameter_ID]       = c.[Parameter_ID]
-        LEFT JOIN [dbo].[Unit]           u    ON u.[Unit_ID]            = c.[Unit_ID]
-        LEFT JOIN [dbo].[Equipment]      e    ON e.[Equipment_ID]       = c.[Equipment_ID]
-        LEFT JOIN [dbo].[DataProvenance] dp   ON dp.[DataProvenance_ID] = c.[DataProvenance_ID]
+        LEFT JOIN [dbo].[Parameter]       p   ON p.[Parameter_ID]          = c.[Parameter_ID]
+        LEFT JOIN [dbo].[Unit]            u   ON u.[Unit_ID]               = c.[Unit_ID]
+        LEFT JOIN [dbo].[Equipment]       e   ON e.[Equipment_ID]          = c.[Equipment_ID]
+        LEFT JOIN [dbo].[DataProvenance]  dp  ON dp.[DataProvenance_ID]    = c.[DataProvenance_ID]
+        LEFT JOIN [dbo].[ProcessingDegree] pd ON pd.[ProcessingDegree_ID]  = c.[ProcessingDegree_ID]
         WHERE c.[Channel_ID] = ?
     """
     cursor = conn.cursor()
@@ -74,7 +75,7 @@ def load_signal_context(channel_id: int, conn) -> dict:
         unit_id, unit_name,
         equip_id, equip_name,
         data_provenance_name,
-        processing_degree,
+        processing_degree_name,
     ) = row
 
     return {
@@ -83,7 +84,7 @@ def load_signal_context(channel_id: int, conn) -> dict:
         "unit": unit_name,
         "equipment": {"id": equip_id, "name": equip_name} if equip_id else None,
         "data_provenance": data_provenance_name,
-        "processing_degree": processing_degree,
+        "processing_degree_name": processing_degree_name,
     }
 
 
@@ -98,10 +99,10 @@ def record_processing(
     output_metadata_id: int,
     conn,
 ) -> int:
-    """Insert a ProcessingStep row and its DataLineage edges.
+    """Insert a ProcessingStep row and its ProcessingLineage edges.
 
     Idempotent: if a ProcessingStep with the same MethodName, ProcessingType,
-    Parameters (JSON-serialised), ExecutedAt, and the same set of source and
+    Parameters (JSON-serialised), ExecutedDateTime, and the same set of source and
     output channel IDs already exists, the function returns its ID without
     inserting duplicates.
 
@@ -128,14 +129,14 @@ def record_processing(
     check_sql = """
         SELECT DISTINCT ps.[ProcessingStep_ID]
         FROM [dbo].[ProcessingStep] ps
-        JOIN [dbo].[DataLineage] out_dl
+        JOIN [dbo].[ProcessingLineage] out_dl
             ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-           AND out_dl.[Role] = 'Output'
+           AND out_dl.[RoleInProcessingStep] = 'Output'
            AND out_dl.[Channel_ID] = ?
         WHERE ps.[MethodName]       = ?
           AND ps.[ProcessingType]   = ?
           AND ISNULL(ps.[Parameters], '')   = ISNULL(?, '')
-          AND ISNULL(CONVERT(NVARCHAR(30), ps.[ExecutedAt], 126), '')
+          AND ISNULL(CONVERT(NVARCHAR(30), ps.[ExecutedDateTime], 126), '')
             = ISNULL(CONVERT(NVARCHAR(30), CAST(? AS DATETIME2(7)), 126), '')
     """
     cursor = conn.cursor()
@@ -157,7 +158,7 @@ def record_processing(
     insert_step_sql = """
         INSERT INTO [dbo].[ProcessingStep]
             ([Name], [MethodName], [MethodVersion], [ProcessingType],
-             [Parameters], [ExecutedAt], [ExecutedByPerson_ID])
+             [Parameters], [ExecutedDateTime], [ExecutedByPerson_ID])
         OUTPUT INSERTED.[ProcessingStep_ID]
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """
@@ -175,21 +176,21 @@ def record_processing(
     step_id: int = cursor.fetchone()[0]
 
     # ----------------------------------------------------------------
-    # Insert DataLineage rows — Inputs
+    # Insert ProcessingLineage rows — Inputs
     # ----------------------------------------------------------------
     for src_id in source_metadata_ids:
         cursor.execute(
-            "INSERT INTO [dbo].[DataLineage] ([ProcessingStep_ID], [Channel_ID], [Role]) "
+            "INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID], [Channel_ID], [RoleInProcessingStep]) "
             "VALUES (?, ?, 'Input')",
             step_id,
             src_id,
         )
 
     # ----------------------------------------------------------------
-    # Insert DataLineage row — Output
+    # Insert ProcessingLineage row — Output
     # ----------------------------------------------------------------
     cursor.execute(
-        "INSERT INTO [dbo].[DataLineage] ([ProcessingStep_ID], [Channel_ID], [Role]) "
+        "INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID], [Channel_ID], [RoleInProcessingStep]) "
         "VALUES (?, ?, 'Output')",
         step_id,
         output_metadata_id,
