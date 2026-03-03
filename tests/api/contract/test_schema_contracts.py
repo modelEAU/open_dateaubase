@@ -115,12 +115,12 @@ class TestHealth:
 # Sites
 # ---------------------------------------------------------------------------
 
-REQUIRED_SITE_FIELDS = {"id", "name", "description", "type", "city", "province", "country"}
+REQUIRED_SITE_FIELDS = {"id", "name", "description", "type", "lat_wgs84", "long_wgs84", "city", "province", "country"}
 
 
 class TestSitesContract:
     def _mock_site(self):
-        return {"id": 1, "name": "WRRF", "description": "Main plant", "type": None, "city": None, "province": None, "country": None}
+        return {"id": 1, "name": "WRRF", "description": "Main plant", "type": None, "lat_wgs84": None, "long_wgs84": None, "city": None, "province": None, "country": None}
 
     def test_list_sites_returns_list(self, patched_client):
         c, conn, cursor = patched_client
@@ -161,7 +161,6 @@ class TestSitesContract:
 
 REQUIRED_CHANNEL_FIELDS = {
     "channel_id", "parameter_id", "parameter_name",
-    "unit_id", "unit_name",
     "equipment_id", "equipment_identifier",
     "data_provenance_id", "data_provenance",
     "processing_degree_id", "processing_degree_name",

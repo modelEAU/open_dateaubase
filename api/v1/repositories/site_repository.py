@@ -9,7 +9,8 @@ def get_all_sites(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT s.[Site_ID], s.[name], s.[type], s.[Description],
+        SELECT s.[Site_ID], s.[Name], s.[Type], s.[Description],
+               s.[LatitudeWGS84], s.[LongitudeWGS84],
                s.[City], s.[Province], s.[Country]
         FROM [dbo].[Site] s
         ORDER BY s.[Site_ID]
@@ -21,9 +22,11 @@ def get_all_sites(conn: pyodbc.Connection) -> list[dict]:
             "name": row[1],
             "type": row[2],
             "description": row[3],
-            "city": row[4],
-            "province": row[5],
-            "country": row[6],
+            "lat_wgs84": row[4],
+            "long_wgs84": row[5],
+            "city": row[6],
+            "province": row[7],
+            "country": row[8],
         }
         for row in cursor.fetchall()
     ]
@@ -33,7 +36,8 @@ def get_site_by_id(conn: pyodbc.Connection, site_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT s.[Site_ID], s.[name], s.[type], s.[Description],
+        SELECT s.[Site_ID], s.[Name], s.[Type], s.[Description],
+               s.[LatitudeWGS84], s.[LongitudeWGS84],
                s.[City], s.[Province], s.[Country]
         FROM [dbo].[Site] s
         WHERE s.[Site_ID] = ?
@@ -48,9 +52,11 @@ def get_site_by_id(conn: pyodbc.Connection, site_id: int) -> dict | None:
         "name": row[1],
         "type": row[2],
         "description": row[3],
-        "city": row[4],
-        "province": row[5],
-        "country": row[6],
+        "lat_wgs84": row[4],
+        "long_wgs84": row[5],
+        "city": row[6],
+        "province": row[7],
+        "country": row[8],
     }
 
 
@@ -60,12 +66,12 @@ def get_sampling_locations_for_site(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT sp.[Sampling_point_ID], sp.[Sampling_point], sp.[Description],
-               sp.[Latitude_GPS], sp.[Longitude_GPS], sp.[Site_ID], s.[name] AS SiteName
-        FROM [dbo].[SamplingPoints] sp
+        SELECT sp.[SamplingPoint_ID], sp.[SamplingPoint], sp.[Description],
+               sp.[LatitudeGPS], sp.[LongitudeGPS], sp.[Site_ID], s.[Name] AS SiteName
+        FROM [dbo].[SamplingPoint] sp
         LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
         WHERE sp.[Site_ID] = ?
-        ORDER BY sp.[Sampling_point_ID]
+        ORDER BY sp.[SamplingPoint_ID]
         """,
         site_id,
     )

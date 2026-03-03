@@ -9,19 +9,16 @@ _CHANNEL_SELECT = """
         m.[Channel_ID],
         m.[Parameter_ID],
         p.[Parameter]                AS ParameterName,
-        m.[Unit_ID],
-        u.[Unit]                     AS UnitName,
         m.[Equipment_ID],
-        e.[identifier]               AS EquipmentIdentifier,
+        e.[Identifier]               AS EquipmentIdentifier,
         m.[DataProvenance_ID],
         dp.[DataProvenance_Name]     AS DataProvenanceName,
         m.[ProcessingDegree_ID],
-        pd.[ProcessingDegree_Name]   AS ProcessingDegreeName,
+        pd.[Name]                    AS ProcessingDegreeName,
         m.[ValueType_ID],
         vt.[ValueType_Name]
     FROM [dbo].[Channel] m
     LEFT JOIN [dbo].[Parameter]       p   ON p.[Parameter_ID]        = m.[Parameter_ID]
-    LEFT JOIN [dbo].[Unit]            u   ON u.[Unit_ID]             = m.[Unit_ID]
     LEFT JOIN [dbo].[Equipment]       e   ON e.[Equipment_ID]        = m.[Equipment_ID]
     LEFT JOIN [dbo].[DataProvenance]  dp  ON dp.[DataProvenance_ID]  = m.[DataProvenance_ID]
     LEFT JOIN [dbo].[ProcessingDegree] pd ON pd.[ProcessingDegree_ID] = m.[ProcessingDegree_ID]
@@ -34,16 +31,14 @@ def _row_to_dict(row) -> dict:
         "channel_id": row[0],
         "parameter_id": row[1],
         "parameter_name": row[2],
-        "unit_id": row[3],
-        "unit_name": row[4],
-        "equipment_id": row[5],
-        "equipment_identifier": row[6],
-        "data_provenance_id": row[7],
-        "data_provenance": row[8],
-        "processing_degree_id": row[9],
-        "processing_degree_name": row[10],
-        "value_type_id": row[11],
-        "value_type_name": row[12],
+        "equipment_id": row[3],
+        "equipment_identifier": row[4],
+        "data_provenance_id": row[5],
+        "data_provenance": row[6],
+        "processing_degree_id": row[7],
+        "processing_degree_name": row[8],
+        "value_type_id": row[9],
+        "value_type_name": row[10],
     }
 
 

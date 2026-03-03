@@ -20,6 +20,8 @@ class SiteOut(BaseModel):
     name: str
     type: str | None
     description: str | None
+    lat_wgs84: float | None
+    long_wgs84: float | None
     city: str | None
     province: str | None
     country: str | None

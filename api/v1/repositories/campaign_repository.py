@@ -70,11 +70,11 @@ def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
     # Sampling locations
     cursor.execute(
         """
-        SELECT sp.[Sampling_point_ID], sp.[Name], csl.[Role]
+        SELECT sp.[SamplingPoint_ID], sp.[SamplingPoint], csl.[Role]
         FROM [dbo].[CampaignSamplingLocation] csl
-        JOIN [dbo].[SamplingPoints] sp ON sp.[Sampling_point_ID] = csl.[Sampling_point_ID]
+        JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = csl.[SamplingPoint_ID]
         WHERE csl.[Campaign_ID] = ?
-        ORDER BY sp.[Sampling_point_ID]
+        ORDER BY sp.[SamplingPoint_ID]
         """,
         campaign_id,
     )
@@ -83,7 +83,7 @@ def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
     # Equipment
     cursor.execute(
         """
-        SELECT e.[Equipment_ID], e.[identifier], ce.[Role]
+        SELECT e.[Equipment_ID], e.[Identifier], ce.[Role]
         FROM [dbo].[CampaignEquipment] ce
         JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ce.[Equipment_ID]
         WHERE ce.[Campaign_ID] = ?

@@ -12,14 +12,14 @@ _METADATA_SELECT = """
         m.[Unit_ID],
         u.[Unit]                 AS UnitName,
         m.[Equipment_ID],
-        e.[identifier]           AS EquipmentIdentifier,
+        e.[Identifier]           AS EquipmentIdentifier,
         m.[DataProvenance_ID],
         dp.[DataProvenance_Name] AS DataProvenanceName,
         m.[ProcessingDegree],
         m.[Laboratory_ID],
         lab.[Name]               AS LaboratoryName,
         m.[AnalystPerson_ID],
-        CONCAT(an.[First_name], ' ', an.[Last_name]) AS AnalystName,
+        CONCAT(an.[FirstName], ' ', an.[LastName]) AS AnalystName,
         m.[ValueType_ID],
         vt.[ValueType_Name]
     FROM [dbo].[MetaData] m

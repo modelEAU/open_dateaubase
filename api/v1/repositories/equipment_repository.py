@@ -11,11 +11,11 @@ def list_equipment(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT e.[Equipment_ID], e.[identifier], e.[Serial_number],
-               e.[model_ID], em.[Equipment_model], em.[Manufacturer],
-               e.[Owner], e.[Purchase_date]
+        SELECT e.[Equipment_ID], e.[Identifier], e.[SerialNumber],
+               e.[EquipmentModel_ID], em.[EquipmentModel], em.[Manufacturer],
+               e.[Owner], e.[PurchaseDate]
         FROM [dbo].[Equipment] e
-        LEFT JOIN [dbo].[EquipmentModel] em ON em.[Equipment_model_ID] = e.[model_ID]
+        LEFT JOIN [dbo].[EquipmentModel] em ON em.[EquipmentModel_ID] = e.[EquipmentModel_ID]
         ORDER BY e.[Equipment_ID]
         """
     )
@@ -38,11 +38,11 @@ def get_equipment_by_id(conn: pyodbc.Connection, equipment_id: int) -> dict | No
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT e.[Equipment_ID], e.[identifier], e.[Serial_number],
-               e.[model_ID], em.[Equipment_model], em.[Manufacturer],
-               e.[Owner], e.[Purchase_date]
+        SELECT e.[Equipment_ID], e.[Identifier], e.[SerialNumber],
+               e.[EquipmentModel_ID], em.[EquipmentModel], em.[Manufacturer],
+               e.[Owner], e.[PurchaseDate]
         FROM [dbo].[Equipment] e
-        LEFT JOIN [dbo].[EquipmentModel] em ON em.[Equipment_model_ID] = e.[model_ID]
+        LEFT JOIN [dbo].[EquipmentModel] em ON em.[EquipmentModel_ID] = e.[EquipmentModel_ID]
         WHERE e.[Equipment_ID] = ?
         """,
         equipment_id,
@@ -84,7 +84,7 @@ def get_equipment_events(
                eet.[EventType_Name],
                ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
                ee.[PerformedByPerson_ID],
-               CONCAT(per.[First_name], ' ', per.[Last_name]) AS PersonName,
+               CONCAT(per.[FirstName], ' ', per.[LastName]) AS PersonName,
                ee.[Campaign_ID], c.[Name] AS CampaignName,
                ee.[Notes]
         FROM [dbo].[EquipmentEvent] ee
@@ -132,13 +132,13 @@ def get_equipment_installations(
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT ei.[EquipmentInstallation_ID], ei.[Sampling_point_ID],
-               sp.[Name] AS LocationName,
+        SELECT ei.[EquipmentInstallation_ID], ei.[SamplingPoint_ID],
+               sp.[SamplingPoint] AS LocationName,
                ei.[InstalledDate], ei.[RemovedDate],
                ei.[Campaign_ID], c.[Name] AS CampaignName,
                ei.[Notes]
         FROM [dbo].[EquipmentInstallation] ei
-        LEFT JOIN [dbo].[SamplingPoints] sp ON sp.[Sampling_point_ID] = ei.[Sampling_point_ID]
+        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = ei.[SamplingPoint_ID]
         LEFT JOIN [dbo].[Campaign]        c  ON c.[Campaign_ID]        = ei.[Campaign_ID]
         {where}
         ORDER BY ei.[InstalledDate]

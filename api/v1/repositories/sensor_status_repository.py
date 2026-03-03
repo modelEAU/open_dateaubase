@@ -335,7 +335,7 @@ class SensorStatusRepository:
         """Get equipment name by ID."""
         cursor = self.conn.cursor()
         cursor.execute(
-            "SELECT identifier FROM dbo.Equipment WHERE Equipment_ID = ?",
+            "SELECT [Identifier] FROM dbo.Equipment WHERE Equipment_ID = ?",
             equipment_id,
         )
         row = cursor.fetchone()

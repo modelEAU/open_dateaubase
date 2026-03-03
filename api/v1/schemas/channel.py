@@ -11,8 +11,6 @@ class ChannelOut(BaseModel):
     channel_id: int
     parameter_id: int | None
     parameter_name: str | None
-    unit_id: int | None
-    unit_name: str | None
     equipment_id: int | None
     equipment_identifier: str | None
     data_provenance_id: int | None

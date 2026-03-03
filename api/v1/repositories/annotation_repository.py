@@ -92,8 +92,8 @@ def _row_to_annotation(row) -> dict:
         "campaign_id": row[11],
         "campaign_name": row[12],
         "equipment_event_id": row[13],
-        "created_at": row[14],
-        "modified_at": row[15],
+        "created_datetime": row[14],
+        "modified_datetime": row[15],
     }
 
 
@@ -109,12 +109,12 @@ _ANNOTATION_SELECT = """
         a.[Title],
         a.[Comment],
         a.[AuthorPerson_ID],
-        CONCAT(p.[First_name], ' ', p.[Last_name]) AS AuthorName,
+        CONCAT(p.[FirstName], ' ', p.[LastName]) AS AuthorName,
         a.[Campaign_ID],
         c.[Name]                AS CampaignName,
         a.[EquipmentEvent_ID],
-        a.[CreatedAt],
-        a.[ModifiedAt]
+        a.[CreatedDateTime],
+        a.[ModifiedDateTime]
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationType] at
         ON at.[AnnotationType_ID] = a.[AnnotationType_ID]
@@ -178,12 +178,12 @@ def get_annotations_by_type(
         a.[Title],
         a.[Comment],
         a.[AuthorPerson_ID],
-        CONCAT(p.[First_name], ' ', p.[Last_name]) AS AuthorName,
+        CONCAT(p.[FirstName], ' ', p.[LastName]) AS AuthorName,
         a.[Campaign_ID],
         c.[Name]                  AS CampaignName,
         a.[EquipmentEvent_ID],
-        a.[CreatedAt],
-        a.[ModifiedAt],
+        a.[CreatedDateTime],
+        a.[ModifiedDateTime],
         NULL                      AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
@@ -234,12 +234,12 @@ def get_recent_annotations(
         a.[Title],
         a.[Comment],
         a.[AuthorPerson_ID],
-        CONCAT(p.[First_name], ' ', p.[Last_name]) AS AuthorName,
+        CONCAT(p.[FirstName], ' ', p.[LastName]) AS AuthorName,
         a.[Campaign_ID],
         c.[Name]                  AS CampaignName,
         a.[EquipmentEvent_ID],
-        a.[CreatedAt],
-        a.[ModifiedAt],
+        a.[CreatedDateTime],
+        a.[ModifiedDateTime],
         NULL                      AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
@@ -258,7 +258,7 @@ def get_recent_annotations(
     if annotation_type_id is not None:
         select_with_context += " WHERE a.[AnnotationType_ID] = ?"
         params.append(annotation_type_id)
-    select_with_context += " ORDER BY a.[CreatedAt] DESC"
+    select_with_context += " ORDER BY a.[CreatedDateTime] DESC"
 
     cursor = conn.cursor()
     cursor.execute(select_with_context, *params)
@@ -310,7 +310,7 @@ def create_annotation(
             [AuthorPerson_ID], [Campaign_ID], [EquipmentEvent_ID],
             [Title], [Comment]
         )
-        OUTPUT INSERTED.[Annotation_ID], INSERTED.[CreatedAt]
+        OUTPUT INSERTED.[Annotation_ID], INSERTED.[CreatedDateTime]
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         channel_id, annotation_type_id, start_time, end_time,
@@ -319,7 +319,7 @@ def create_annotation(
     )
     row = cursor.fetchone()
     conn.commit()
-    return {"annotation_id": row[0], "created_at": row[1]}
+    return {"annotation_id": row[0], "created_datetime": row[1]}
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +336,7 @@ def update_annotation(
     title: str | None,
     comment: str | None,
 ) -> dict | None:
-    set_parts = ["[ModifiedAt] = SYSUTCDATETIME()"]
+    set_parts = ["[ModifiedDateTime] = SYSUTCDATETIME()"]
     params: list = []
 
     if annotation_type_id is not None:
