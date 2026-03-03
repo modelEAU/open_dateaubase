@@ -10,12 +10,12 @@ table:
       nullable: false
       identity: true
       description: "Surrogate primary key"
-    - name: Last_name
+    - name: LastName
       logical_type: string
       max_length: 100
       nullable: true
       description: "Last name of the person"
-    - name: First_name
+    - name: FirstName
       logical_type: string
       max_length: 255
       nullable: true

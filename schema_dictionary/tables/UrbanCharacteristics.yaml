@@ -17,7 +17,7 @@ table:
       logical_type: float32
       nullable: true
       description: "Percentage [%] of commercial areas. For example stores or bank areas"
-    - name: Green_spaces
+    - name: GreenSpaces
       logical_type: float32
       nullable: true
       description: "Percentage [%] of green spaces"

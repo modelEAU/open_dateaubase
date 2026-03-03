@@ -6,8 +6,8 @@ table:
     Records a single data-transformation step (outlier removal, interpolation,
     smoothing, aggregation, etc.) applied to one or more time series.
     Each row captures what was done, when, by whom, and with what parameters.
-    The DataLineage table links ProcessingStep rows to their input and output
-    MetaData entries, forming the full processing provenance graph.
+    The ProcessingLineage table links ProcessingStep rows to their input and output
+    Channel entries, forming the full processing provenance graph.
 
   columns:
     - name: ProcessingStep_ID

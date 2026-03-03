@@ -10,7 +10,7 @@ table:
       nullable: false
       identity: true
       description: "Linked to the Watershed table"
-    - name: name
+    - name: Name
       logical_type: string
       max_length: 100
       nullable: true
@@ -19,15 +19,15 @@ table:
       logical_type: text
       nullable: true
       description: "Description of the watershed"
-    - name: Surface_area
+    - name: SurfaceArea
       logical_type: float32
       nullable: true
       description: "Surface area of the watershed [ha]"
-    - name: Concentration_time
+    - name: ConcentrationTime
       logical_type: integer
       nullable: true
       description: "Concentration time in minutes [min]"
-    - name: Impervious_surface
+    - name: ImperviousSurface
       logical_type: float32
       nullable: true
       description: "Percentage of the impervious surface of the watershed in percentage [%]"

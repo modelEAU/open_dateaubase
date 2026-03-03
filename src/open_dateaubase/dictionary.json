@@ -345,7 +345,7 @@
       }
     },
     {
-      "Part_ID": "Concentration_time",
+      "Part_ID": "ConcentrationTime",
       "Label": "Concentration Time",
       "Description": "Concentration time in minutes [min]",
       "Part_type": "property",
@@ -363,8 +363,8 @@
       }
     },
     {
-      "Part_ID": "Condition_ID",
-      "Label": "Condition ID",
+      "Part_ID": "WeatherCondition_ID",
+      "Label": "Weather Condition ID",
       "Description": "A unique ID is generated automatically by MySQL",
       "Part_type": "key",
       "SQL_data_type": "int",
@@ -483,8 +483,8 @@
       }
     },
     {
-      "Part_ID": "Equipment_identifier",
-      "Label": "Equipment IDentifier",
+      "Part_ID": "Identifier",
+      "Label": "Equipment Identifier",
       "Description": "Identification name of the equipments",
       "Part_type": "property",
       "SQL_data_type": "nvarchar(100)",
@@ -501,7 +501,7 @@
       }
     },
     {
-      "Part_ID": "Equipment_model",
+      "Part_ID": "EquipmentModel",
       "Label": "Equipment Model",
       "Description": "Name of the equipment model. For example: ammo::lyser",
       "Part_type": "property",
@@ -519,7 +519,7 @@
       }
     },
     {
-      "Part_ID": "Equipment_model_ID",
+      "Part_ID": "EquipmentModel_ID",
       "Label": "Equipment Model ID",
       "Description": "Link to the Equipment model table",
       "Part_type": "key",
@@ -555,7 +555,7 @@
       }
     },
     {
-      "Part_ID": "First_name",
+      "Part_ID": "FirstName",
       "Label": "First Name",
       "Description": "First name of the contact",
       "Part_type": "property",
@@ -645,7 +645,7 @@
       }
     },
     {
-      "Part_ID": "Green_spaces",
+      "Part_ID": "GreenSpaces",
       "Label": "Green Spaces",
       "Description": "Percentage [%] of green spaces",
       "Part_type": "property",
@@ -663,7 +663,7 @@
       }
     },
     {
-      "Part_ID": "Impervious_surface",
+      "Part_ID": "ImperviousSurface",
       "Label": "Impervious Surface",
       "Description": "Percentage of the impervious surface of the watershed in percentage [%]",
       "Part_type": "property",
@@ -717,7 +717,7 @@
       }
     },
     {
-      "Part_ID": "Last_name",
+      "Part_ID": "LastName",
       "Label": "Last Name",
       "Description": "Last name of the contact",
       "Part_type": "property",
@@ -735,7 +735,7 @@
       }
     },
     {
-      "Part_ID": "Latitude_GPS",
+      "Part_ID": "LatitudeGPS",
       "Label": "Latitude GPS",
       "Description": "GPS coordinates. For example: 47\u00b054\u203225.103\" ",
       "Part_type": "property",
@@ -745,7 +745,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 5,
       "table_presence": {
-        "sampling_points": {
+        "sampling_point": {
           "role": "property",
           "required": false,
           "order": 999
@@ -771,7 +771,7 @@
       }
     },
     {
-      "Part_ID": "Longitude_GPS",
+      "Part_ID": "LongitudeGPS",
       "Label": "Longitude GPS",
       "Description": "GPS coordinates. For example: $73^{\\circ}47^{\\prime}00.024^{\\prime\\prime}$",
       "Part_type": "property",
@@ -781,7 +781,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 6,
       "table_presence": {
-        "sampling_points": {
+        "sampling_point": {
           "role": "property",
           "required": false,
           "order": 999
@@ -789,7 +789,7 @@
       }
     },
     {
-      "Part_ID": "Manual_location",
+      "Part_ID": "ManualLocation",
       "Label": "Manual Location",
       "Description": "Location where the manual is stored",
       "Part_type": "property",
@@ -1063,7 +1063,7 @@
       }
     },
     {
-      "Part_ID": "Procedure_location",
+      "Part_ID": "ProcedureLocation",
       "Label": "Procedure Location",
       "Description": "Where is the procedure stored",
       "Part_type": "property",
@@ -1081,7 +1081,7 @@
       }
     },
     {
-      "Part_ID": "Procedure_name",
+      "Part_ID": "ProcedureName",
       "Label": "Procedure Name",
       "Description": "Title name of the procedure",
       "Part_type": "property",
@@ -1099,7 +1099,7 @@
       }
     },
     {
-      "Part_ID": "Procedure_type",
+      "Part_ID": "ProcedureType",
       "Label": "Procedure Type",
       "Description": "Type of the procedure. For example, SOP",
       "Part_type": "property",
@@ -1195,7 +1195,7 @@
       }
     },
     {
-      "Part_ID": "Purchase_date",
+      "Part_ID": "PurchaseDate",
       "Label": "Purchase Date",
       "Description": "Date when the equipment was bought: 'YYYY-MM-DD",
       "Part_type": "property",
@@ -1291,7 +1291,7 @@
       }
     },
     {
-      "Part_ID": "Sampling_location",
+      "Part_ID": "SamplingLocation",
       "Label": "Sampling Location",
       "Description": "Where the sample was taken. For example: \"Biofiltration\", \"Sewer 01\" or \"Retention Tank\"",
       "Part_type": "property",
@@ -1301,7 +1301,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 3,
       "table_presence": {
-        "sampling_points": {
+        "sampling_point": {
           "role": "property",
           "required": false,
           "order": 999
@@ -1309,7 +1309,7 @@
       }
     },
     {
-      "Part_ID": "Sampling_point",
+      "Part_ID": "SamplingPoint",
       "Label": "Sampling Point",
       "Description": "Where the sample was taken. For example: \"Inlet\", \"Outlet\" or \"Upstream\"",
       "Part_type": "property",
@@ -1319,7 +1319,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 2,
       "table_presence": {
-        "sampling_points": {
+        "sampling_point": {
           "role": "property",
           "required": false,
           "order": 999
@@ -1327,9 +1327,9 @@
       }
     },
     {
-      "Part_ID": "Sampling_point_ID",
+      "Part_ID": "SamplingPoint_ID",
       "Label": "Sampling Point ID",
-      "Description": "Link to the Sampling_point table",
+      "Description": "Link to the SamplingPoint table",
       "Part_type": "key",
       "SQL_data_type": "int",
       "Is_required": false,
@@ -1349,7 +1349,7 @@
           "order": 999,
           "relationship_type": "many-to-many"
         },
-        "sampling_points": {
+        "sampling_point": {
           "role": "key",
           "required": false,
           "order": 999
@@ -1357,7 +1357,7 @@
       }
     },
     {
-      "Part_ID": "Serial_number",
+      "Part_ID": "SerialNumber",
       "Label": "Serial Number",
       "Description": "Serial number of the equipment",
       "Part_type": "property",
@@ -1399,7 +1399,7 @@
       }
     },
     {
-      "Part_ID": "Site_name",
+      "Part_ID": "Name",
       "Label": "Site Name",
       "Description": "Name of the site",
       "Part_type": "property",
@@ -1417,7 +1417,7 @@
       }
     },
     {
-      "Part_ID": "Site_type",
+      "Part_ID": "Type",
       "Label": "Site Type",
       "Description": "For example: \"WWTP\", \"River\" or \"Sewer_system\"",
       "Part_type": "property",
@@ -1453,7 +1453,7 @@
       }
     },
     {
-      "Part_ID": "Storage_location",
+      "Part_ID": "StorageLocation",
       "Label": "Storage Location",
       "Description": "Where is the procedure stored",
       "Part_type": "property",
@@ -1471,7 +1471,7 @@
       }
     },
     {
-      "Part_ID": "Surface_area",
+      "Part_ID": "SurfaceArea",
       "Label": "Surface Area",
       "Description": "Surface area of the watershed [ha]",
       "Part_type": "property",
@@ -1555,7 +1555,7 @@
       }
     },
     {
-      "Part_ID": "Urban_area",
+      "Part_ID": "UrbanArea",
       "Label": "Urban Area",
       "Description": "Percentage [%] of urban areas",
       "Part_type": "property",
@@ -1645,7 +1645,7 @@
       }
     },
     {
-      "Part_ID": "Watershed_name",
+      "Part_ID": "Name",
       "Label": "Watershed Name",
       "Description": "Name of the watershed",
       "Part_type": "property",
@@ -1663,7 +1663,7 @@
       }
     },
     {
-      "Part_ID": "Weather_condition",
+      "Part_ID": "WeatherCondition",
       "Label": "Weather Condition",
       "Description": "Type of weather condition",
       "Part_type": "property",
@@ -1861,7 +1861,7 @@
       }
     },
     {
-      "Part_ID": "site_Street_name",
+      "Part_ID": "StreetName",
       "Label": "Site Street Name",
       "Description": "Address: name of the street",
       "Part_type": "property",
@@ -1879,7 +1879,7 @@
       }
     },
     {
-      "Part_ID": "site_Street_number",
+      "Part_ID": "StreetNumber",
       "Label": "Site Street Number",
       "Description": "Address: number of the street",
       "Part_type": "property",
@@ -1897,9 +1897,9 @@
       }
     },
     {
-      "Part_ID": "site_Zip_code",
-      "Label": "Site Zip Code",
-      "Description": "Address: zip code",
+      "Part_ID": "PostCode",
+      "Label": "Site Post Code",
+      "Description": "Address: postal code",
       "Part_type": "property",
       "SQL_data_type": "nvarchar(100)",
       "Is_required": false,

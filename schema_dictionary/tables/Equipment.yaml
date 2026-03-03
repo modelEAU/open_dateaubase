@@ -10,19 +10,19 @@ table:
       nullable: false
       identity: true
       description: "Link to the Equipment table"
-    - name: model_ID
+    - name: EquipmentModel_ID
       logical_type: integer
       nullable: true
       description: "Link to the Equipment model table"
       foreign_key:
         table: EquipmentModel
-        column: Equipment_model_ID
-    - name: identifier
+        column: EquipmentModel_ID
+    - name: Identifier
       logical_type: string
       max_length: 100
       nullable: true
       description: "Identification name of the equipments"
-    - name: Serial_number
+    - name: SerialNumber
       logical_type: string
       max_length: 100
       nullable: true
@@ -31,12 +31,12 @@ table:
       logical_type: text
       nullable: true
       description: "Name of the owner of the equipment"
-    - name: Storage_location
+    - name: StorageLocation
       logical_type: string
       max_length: 100
       nullable: true
       description: "Where is the procedure stored"
-    - name: Purchase_date
+    - name: PurchaseDate
       logical_type: date
       nullable: true
       description: "Date when the equipment was bought: 'YYYY-MM-DD"

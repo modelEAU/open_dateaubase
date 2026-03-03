@@ -24,13 +24,13 @@ table:
       foreign_key:
         table: SampleType
         column: SampleType_ID
-    - name: Sampling_point_ID
+    - name: SamplingPoint_ID
       logical_type: integer
       nullable: false
       description: "Sampling location where the sample was collected or prepared"
       foreign_key:
-        table: SamplingPoints
-        column: Sampling_point_ID
+        table: SamplingPoint
+        column: SamplingPoint_ID
     - name: SampledByPerson_ID
       logical_type: integer
       nullable: true

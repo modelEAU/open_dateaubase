@@ -13,7 +13,7 @@ table:
       foreign_key:
         table: Watershed
         column: Watershed_ID
-    - name: Urban_area
+    - name: UrbanArea
       logical_type: float32
       nullable: true
       description: "Percentage [%] of urban areas"

@@ -10,12 +10,12 @@ table:
       nullable: false
       identity: true
       description: "Link to the Procedures table"
-    - name: Procedure_name
+    - name: ProcedureName
       logical_type: string
       max_length: 100
       nullable: true
       description: "Title name of the procedure"
-    - name: Procedure_type
+    - name: ProcedureType
       logical_type: string
       max_length: 255
       nullable: true
@@ -24,7 +24,7 @@ table:
       logical_type: text
       nullable: true
       description: "Description of the procedure"
-    - name: Procedure_location
+    - name: ProcedureLocation
       logical_type: string
       max_length: 100
       nullable: true

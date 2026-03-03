@@ -9,7 +9,7 @@ table:
       logical_type: integer
       nullable: false
       identity: true
-      description: "A unique ID is generated automatically by MySQL"
+      description: "A unique ID is generated automatically by the database"
     - name: Watershed_ID
       logical_type: integer
       nullable: true
@@ -17,12 +17,12 @@ table:
       foreign_key:
         table: Watershed
         column: Watershed_ID
-    - name: name
+    - name: Name
       logical_type: string
       max_length: 100
       nullable: true
       description: "Name of the site"
-    - name: type
+    - name: Type
       logical_type: string
       max_length: 255
       nullable: true
@@ -31,16 +31,20 @@ table:
       logical_type: text
       nullable: true
       description: "Description of the site"
-    - name: Picture
-      logical_type: # TODO: unmapped SQL type: image(2147483647)
+    - name: LatitudeWGS84
+      logical_type: float
       nullable: true
-      description: "Picture of the site"
-    - name: Street_number
+      description: "Latitude of the site in WGS84 decimal degrees"
+    - name: LongitudeWGS84
+      logical_type: float
+      nullable: true
+      description: "Longitude of the site in WGS84 decimal degrees"
+    - name: StreetNumber
       logical_type: string
       max_length: 100
       nullable: true
       description: "Address: number of the street"
-    - name: Street_name
+    - name: StreetName
       logical_type: string
       max_length: 100
       nullable: true
@@ -50,11 +54,11 @@ table:
       max_length: 255
       nullable: true
       description: "Address: name of the city"
-    - name: Zip_code
+    - name: PostCode
       logical_type: string
       max_length: 100
       nullable: true
-      description: "Address: zip code"
+      description: "Address: postal code"
     - name: Province
       logical_type: string
       max_length: 255
