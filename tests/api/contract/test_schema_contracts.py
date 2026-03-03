@@ -115,12 +115,12 @@ class TestHealth:
 # Sites
 # ---------------------------------------------------------------------------
 
-REQUIRED_SITE_FIELDS = {"id", "name", "description", "latitude", "longitude"}
+REQUIRED_SITE_FIELDS = {"id", "name", "description", "type", "city", "province", "country"}
 
 
 class TestSitesContract:
     def _mock_site(self):
-        return {"id": 1, "name": "WRRF", "description": "Main plant", "latitude": 45.5, "longitude": -73.6}
+        return {"id": 1, "name": "WRRF", "description": "Main plant", "type": None, "city": None, "province": None, "country": None}
 
     def test_list_sites_returns_list(self, patched_client):
         c, conn, cursor = patched_client
@@ -147,7 +147,7 @@ class TestSitesContract:
 
     def test_sampling_locations_returns_list(self, patched_client):
         c, conn, cursor = patched_client
-        mock_loc = {"id": 1, "name": "Primary Effluent", "description": None, "site_id": 1, "site_name": "WRRF"}
+        mock_loc = {"id": 1, "name": "Primary Effluent", "description": None, "latitude": None, "longitude": None, "site_id": 1, "site_name": "WRRF"}
         with patch("api.v1.repositories.site_repository.get_site_by_id", return_value=self._mock_site()), \
              patch("api.v1.repositories.site_repository.get_sampling_locations_for_site", return_value=[mock_loc]):
             r = c.get("/api/v1/sites/1/sampling-locations")
@@ -163,7 +163,8 @@ REQUIRED_CHANNEL_FIELDS = {
     "channel_id", "parameter_id", "parameter_name",
     "unit_id", "unit_name",
     "equipment_id", "equipment_identifier",
-    "data_provenance_id", "data_provenance", "processing_degree",
+    "data_provenance_id", "data_provenance",
+    "processing_degree_id", "processing_degree_name",
     "value_type_id", "value_type_name",
 }
 
@@ -171,7 +172,7 @@ REQUIRED_PAGINATED_FIELDS = {"items", "total", "page", "page_size", "has_next"}
 
 
 def _mock_channel():
-    return {f: None for f in REQUIRED_CHANNEL_FIELDS} | {"channel_id": 1, "processing_degree": "Raw"}
+    return {f: None for f in REQUIRED_CHANNEL_FIELDS} | {"channel_id": 1, "processing_degree_id": 1, "processing_degree_name": "Raw"}
 
 
 class TestChannelsContract:
@@ -213,7 +214,7 @@ class TestChannelsContract:
     def test_pagination_query_params_accepted(self, patched_client):
         c, conn, cursor = patched_client
         with patch("api.v1.repositories.channel_repository.list_channels", return_value=([], 0)):
-            r = c.get("/api/v1/channels?page=2&page_size=10&processing_degree=Raw")
+            r = c.get("/api/v1/channels?page=2&page_size=10&processing_degree_id=1")
         assert r.status_code == 200
 
 
@@ -478,7 +479,7 @@ class TestIngestionRequestValidation:
             "source_channel_ids": [],
             "processing": {"method_name": "outlier_removal", "processing_type": "Cleaning"},
             "output": {
-                "processing_degree": "Cleaned",
+                "processing_degree_id": 2,
                 "values": [{"timestamp": "2025-01-01T00:00:00", "value": 24.5}],
             },
         }

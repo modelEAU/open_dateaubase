@@ -72,42 +72,38 @@ class TestSensorStatusCodeSchema:
         assert seed_data[10]["Severity"] == 2
 
 
-class TestMetadataStatusColumns:
-    """Tests for MetaData.yaml status link columns."""
+class TestChannelStatusColumns:
+    """Tests for Channel.yaml and EquipmentStatusChannel.yaml status link columns (v2.1.0+)."""
 
-    def test_metadata_has_status_of_metadata_id(self, tables_dir):
-        """MetaData should have StatusOfMetaDataID column."""
+    def test_channel_has_status_channel_id(self, tables_dir):
+        """Channel should have StatusChannel_ID column (replaces StatusOfMetaDataID)."""
         schema = load_schema(tables_dir)
-        tbl = schema["MetaData"]["table"]
+        tbl = schema["Channel"]["table"]
         col_names = [c["name"] for c in tbl["columns"]]
 
-        assert "StatusOfMetaDataID" in col_names
+        assert "StatusChannel_ID" in col_names
 
-    def test_metadata_has_status_of_equipment_id(self, tables_dir):
-        """MetaData should have StatusOfEquipmentID column."""
+    def test_channel_status_channel_id_is_nullable(self, tables_dir):
+        """Channel.StatusChannel_ID must be nullable (not all channels are status streams)."""
         schema = load_schema(tables_dir)
-        tbl = schema["MetaData"]["table"]
-        col_names = [c["name"] for c in tbl["columns"]]
-
-        assert "StatusOfEquipmentID" in col_names
-
-    def test_metadata_status_columns_are_nullable(self, tables_dir):
-        """Status link columns should be nullable."""
-        schema = load_schema(tables_dir)
-        tbl = schema["MetaData"]["table"]
+        tbl = schema["Channel"]["table"]
         cols = {c["name"]: c for c in tbl["columns"]}
 
-        assert cols["StatusOfMetaDataID"].get("nullable", True) is True
-        assert cols["StatusOfEquipmentID"].get("nullable", True) is True
+        assert cols["StatusChannel_ID"].get("nullable", True) is True
 
-    def test_metadata_has_check_constraint(self, tables_dir):
-        """MetaData should have CK_MetaData_StatusTarget check constraint."""
+    def test_equipment_status_channel_table_exists(self, tables_dir):
+        """EquipmentStatusChannel table should exist (replaces StatusOfEquipmentID on Channel)."""
         schema = load_schema(tables_dir)
-        tbl = schema["MetaData"]["table"]
-        check_constraints = tbl.get("check_constraints", [])
+        assert "EquipmentStatusChannel" in schema
 
-        constraint_names = [c["name"] for c in check_constraints]
-        assert "CK_MetaData_StatusTarget" in constraint_names
+    def test_equipment_status_channel_has_correct_columns(self, tables_dir):
+        """EquipmentStatusChannel should have Equipment_ID and StatusChannel_ID columns."""
+        schema = load_schema(tables_dir)
+        tbl = schema["EquipmentStatusChannel"]["table"]
+        col_names = [c["name"] for c in tbl["columns"]]
+
+        assert "Equipment_ID" in col_names
+        assert "StatusChannel_ID" in col_names
 
 
 class TestStatusViews:
