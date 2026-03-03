@@ -200,8 +200,8 @@
       "Sort_order": null
     },
     {
-      "Part_ID": "sampling_points",
-      "Label": "Sampling Points",
+      "Part_ID": "sampling_point",
+      "Label": "SamplingPoint",
       "Description": "Stores the identification, specific geographical coordinates (Latitude/Longitude/GPS), and description of a particular spot where a sample or measurement is taken",
       "Part_type": "table",
       "Sort_order": null
@@ -1019,7 +1019,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 8,
       "table_presence": {
-        "sampling_points": {
+        "sampling_point": {
           "role": "property",
           "required": false,
           "order": 999
@@ -1385,16 +1385,16 @@
       "Value_set_part_ID": null,
       "Sort_order": 1,
       "table_presence": {
-        "sampling_points": {
-          "role": "property",
-          "required": false,
-          "order": 999,
-          "relationship_type": "one-to-many"
-        },
         "site": {
           "role": "key",
           "required": false,
           "order": 999
+        },
+        "sampling_point": {
+          "role": "property",
+          "required": false,
+          "order": 999,
+          "relationship_type": "one-to-many"
         }
       }
     },
@@ -1786,7 +1786,7 @@
       "Value_set_part_ID": null,
       "Sort_order": 7,
       "table_presence": {
-        "sampling_points": {
+        "sampling_point": {
           "role": "property",
           "required": false,
           "order": 999
