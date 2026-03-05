@@ -98,3 +98,69 @@ class IngestResponse(BaseModel):
 class LabIngestResponse(BaseModel):
     lab_analysis_id: int
     rows_written: int
+
+
+class SampleCreateRequest(BaseModel):
+    """Request to create a new sample."""
+
+    sampling_point_id: int
+    sampled_by_person_id: int | None = None
+    campaign_id: int | None = None
+    sample_datetime_start: datetime
+    sample_datetime_end: datetime | None = None
+    description: str | None = None
+
+
+class SampleCreateResponse(BaseModel):
+    """Response after creating a sample."""
+
+    sample_id: int
+
+
+class VectorObservation(BaseModel):
+    timestamp: datetime
+    bin_values: list[float | None]  # length must equal axis.number_of_bins
+    quality_code: int | None = None
+
+
+class VectorSensorIngestRequest(BaseModel):
+    equipment_id: int
+    parameter_id: int
+    unit_id: int
+    binning_axis_id: int
+    data_provenance_id: int = 1
+    processing_degree_id: int = 1
+    observations: list[VectorObservation]
+
+    @field_validator("observations")
+    @classmethod
+    def obs_not_empty(cls, v):
+        if not v:
+            raise ValueError("observations must not be empty")
+        return v
+
+
+class MatrixObservation(BaseModel):
+    timestamp: datetime
+    matrix: list[
+        list[float | None]
+    ]  # [row][col], ragged rows allowed (padded with None)
+    quality_code: int | None = None
+
+
+class MatrixSensorIngestRequest(BaseModel):
+    equipment_id: int
+    parameter_id: int
+    unit_id: int
+    row_axis_id: int
+    col_axis_id: int
+    data_provenance_id: int = 1
+    processing_degree_id: int = 1
+    observations: list[MatrixObservation]
+
+    @field_validator("observations")
+    @classmethod
+    def obs_not_empty(cls, v):
+        if not v:
+            raise ValueError("observations must not be empty")
+        return v

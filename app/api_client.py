@@ -707,6 +707,26 @@ def ingest_sensor(data: dict) -> dict:
     return r.json()
 
 
+def ingest_sensor_vector(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/ingest/sensor-vector", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def ingest_sensor_matrix(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/ingest/sensor-matrix", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 def ingest_lab(data: dict) -> dict:
     try:
         with _get_client() as client:

@@ -16,8 +16,10 @@ from ..schemas.ingestion import (
     IngestResponse,
     LabIngestRequest,
     LabIngestResponse,
+    MatrixSensorIngestRequest,
     ProcessedIngestRequest,
     SensorIngestRequest,
+    VectorSensorIngestRequest,
 )
 from ..services import lineage_service
 
@@ -207,3 +209,58 @@ def ingest_processed(data: ProcessedIngestRequest, conn=Depends(get_db)):
         rows_written=rows,
         processing_step_id=step_id,
     )
+
+
+@router.post("/sensor-vector", response_model=IngestResponse, status_code=201)
+def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
+    """Ingest vector sensor data (spectral or distribution measurements).
+
+    Each observation contains a timestamp and an array of bin values.
+    Channel is resolved/created with value_type_id=2 (Vector).
+    """
+    channel_id = ingestion_repository.find_or_create_sensor_metadata(
+        conn,
+        equipment_id=data.equipment_id,
+        parameter_id=data.parameter_id,
+        unit_id=data.unit_id,
+        data_provenance_id=data.data_provenance_id,
+        processing_degree_id=data.processing_degree_id,
+        value_type_id=2,
+    )
+    ingestion_repository.upsert_channel_axis(
+        conn, channel_id, axis_role=0, binning_axis_id=data.binning_axis_id
+    )
+    observations = [o.model_dump() for o in data.observations]
+    rows = value_repository.insert_vector_values(
+        conn, channel_id, data.binning_axis_id, observations
+    )
+    return IngestResponse(channel_id=channel_id, rows_written=rows)
+
+
+@router.post("/sensor-matrix", response_model=IngestResponse, status_code=201)
+def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
+    """Ingest matrix sensor data (2D distribution measurements).
+
+    Each observation contains a timestamp and a 2D matrix of values.
+    Channel is resolved/created with value_type_id=3 (Matrix).
+    """
+    channel_id = ingestion_repository.find_or_create_sensor_metadata(
+        conn,
+        equipment_id=data.equipment_id,
+        parameter_id=data.parameter_id,
+        unit_id=data.unit_id,
+        data_provenance_id=data.data_provenance_id,
+        processing_degree_id=data.processing_degree_id,
+        value_type_id=3,
+    )
+    ingestion_repository.upsert_channel_axis(
+        conn, channel_id, axis_role=0, binning_axis_id=data.row_axis_id
+    )
+    ingestion_repository.upsert_channel_axis(
+        conn, channel_id, axis_role=1, binning_axis_id=data.col_axis_id
+    )
+    observations = [o.model_dump() for o in data.observations]
+    rows = value_repository.insert_matrix_values(
+        conn, channel_id, data.row_axis_id, data.col_axis_id, observations
+    )
+    return IngestResponse(channel_id=channel_id, rows_written=rows)
