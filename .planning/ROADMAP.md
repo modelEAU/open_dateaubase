@@ -6,7 +6,7 @@ Goal: A fully functional Streamlit app that lets graduate students manage and im
 
 ---
 
-### Phase 01: App Foundation *(In progress — 1/3 plans complete)*
+### Phase 01: App Foundation *(In progress — 2/3 plans complete)*
 
 Research: No | Dependencies: None
 
