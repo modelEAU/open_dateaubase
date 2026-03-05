@@ -347,3 +347,45 @@ def insert_matrix_values(
 
     conn.commit()
     return total_rows
+
+
+def insert_image_value(
+    conn: pyodbc.Connection,
+    *,
+    channel_id: int,
+    timestamp: datetime,
+    image_width: int,
+    image_height: int,
+    number_of_channels: int,
+    image_format: str,
+    file_size_bytes: int,
+    storage_path: str,
+    quality_code: int | None,
+    thumbnail: bytes | None = None,
+) -> int:
+    """Insert a row into dbo.ValueImage. Returns the new ValueImage_ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[ValueImage]
+            ([Channel_ID], [Timestamp], [ImageWidth], [ImageHeight], [NumberOfChannels],
+             [ImageFormat], [FileSizeBytes], [StorageBackend], [StoragePath],
+             [Thumbnail], [QualityCode])
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'FileSystem', ?, ?, ?)
+        """,
+        channel_id,
+        timestamp,
+        image_width,
+        image_height,
+        number_of_channels,
+        image_format,
+        file_size_bytes,
+        storage_path,
+        thumbnail,
+        quality_code,
+    )
+    conn.commit()
+    # Get the last inserted identity
+    cursor.execute("SELECT @@IDENTITY")
+    row = cursor.fetchone()
+    return int(row[0]) if row else 0

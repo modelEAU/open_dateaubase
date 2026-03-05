@@ -697,6 +697,39 @@ def list_data_provenance_lookup() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def ingest_sensor_image(
+    equipment_id: int,
+    parameter_id: int,
+    unit_id: int,
+    timestamp: str,
+    image_bytes: bytes,
+    filename: str,
+    quality_code: int | None = None,
+    data_provenance_id: int = 1,
+    processing_degree_id: int = 1,
+) -> dict:
+    """Upload an image file with metadata to POST /ingest/sensor-image."""
+    try:
+        with _get_client() as client:
+            r = client.post(
+                "/ingest/sensor-image",
+                data={
+                    "equipment_id": equipment_id,
+                    "parameter_id": parameter_id,
+                    "unit_id": unit_id,
+                    "timestamp": timestamp,
+                    "quality_code": quality_code,
+                    "data_provenance_id": data_provenance_id,
+                    "processing_degree_id": processing_degree_id,
+                },
+                files={"image": (filename, image_bytes)},
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 def ingest_sensor(data: dict) -> dict:
     try:
         with _get_client() as client:

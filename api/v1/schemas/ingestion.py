@@ -100,6 +100,12 @@ class LabIngestResponse(BaseModel):
     rows_written: int
 
 
+class ImageIngestResponse(BaseModel):
+    channel_id: int
+    value_image_id: int
+    storage_path: str
+
+
 class SampleCreateRequest(BaseModel):
     """Request to create a new sample."""
 

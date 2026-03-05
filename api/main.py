@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
 
 from .config import settings
 from .v1.router import router as v1_router
+
+# Create upload directory on startup
+Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title=settings.api_title,

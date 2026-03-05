@@ -33,5 +33,7 @@ class Settings:
     api_version: str = "1.0.0"
     schema_version: str = "2.1.0"
 
+    upload_dir: str = "./uploads/images"
+
 
 settings = Settings()

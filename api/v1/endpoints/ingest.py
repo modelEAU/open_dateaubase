@@ -1,18 +1,27 @@
 """Data ingestion endpoints.
 
-Three paths:
+Four paths:
   POST /ingest/sensor    — raw sensor data, channel resolved/created via stream identity
+  POST /ingest/sensor-vector — vector sensor data (spectral/distribution)
+  POST /ingest/sensor-matrix — matrix sensor data (2D distribution)
+  POST /ingest/sensor-image — image sensor data with file upload
   POST /ingest/lab       — lab analysis data (LabAnalysis + LabValue tables)
   POST /ingest/processed — processed data with lineage tracking
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import io
+from datetime import datetime
+from pathlib import Path
 
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+
+from api.config import settings
 from api.database import get_db
 from ..repositories import ingestion_repository, lookup_repository, value_repository
 from ..schemas.ingestion import (
+    ImageIngestResponse,
     IngestResponse,
     LabIngestRequest,
     LabIngestResponse,
@@ -24,6 +33,15 @@ from ..schemas.ingestion import (
     VectorSensorIngestRequest,
 )
 from ..services import lineage_service
+
+# Try to import Pillow, but make it optional
+try:
+    from PIL import Image as PILImage
+
+    PILLOW_AVAILABLE = True
+except ImportError:
+    PILImage = None
+    PILLOW_AVAILABLE = False
 
 router = APIRouter()
 
@@ -266,6 +284,96 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
         conn, channel_id, data.row_axis_id, data.col_axis_id, observations
     )
     return IngestResponse(channel_id=channel_id, rows_written=rows)
+
+
+@router.post("/sensor-image", response_model=ImageIngestResponse, status_code=201)
+def ingest_sensor_image(
+    equipment_id: int = Form(...),
+    parameter_id: int = Form(...),
+    unit_id: int = Form(...),
+    timestamp: str = Form(...),  # ISO datetime string
+    quality_code: int | None = Form(None),
+    data_provenance_id: int = Form(1),
+    processing_degree_id: int = Form(1),
+    image: UploadFile = File(...),
+    conn=Depends(get_db),
+):
+    """Ingest an image file from a sensor.
+
+    Saves the file to disk and stores metadata in ValueImage table.
+    Creates/uses a channel with value_type_id=4 (Image).
+    """
+    # 1. Parse timestamp
+    try:
+        ts = datetime.fromisoformat(timestamp)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail="timestamp must be ISO format (YYYY-MM-DDTHH:MM:SS)"
+        ) from exc
+
+    # 2. Read image bytes
+    image_bytes = image.file.read()
+    file_ext = Path(image.filename).suffix.lower().lstrip(".") or "bin"
+
+    # 3. Get image metadata using Pillow
+    width, height, n_channels = 0, 0, 0
+    img_format = file_ext.upper()
+    thumbnail_bytes = None
+
+    if PILLOW_AVAILABLE:
+        try:
+            pil_img = PILImage.open(io.BytesIO(image_bytes))
+            width, height = pil_img.size
+            n_channels = len(pil_img.getbands())
+            img_format = pil_img.format or file_ext.upper()
+            # Generate thumbnail (100x100 max, JPEG bytes)
+            thumb = pil_img.copy()
+            thumb.thumbnail((100, 100))
+            thumb_buf = io.BytesIO()
+            thumb.convert("RGB").save(thumb_buf, format="JPEG")
+            thumbnail_bytes = thumb_buf.getvalue()
+        except Exception:
+            # Pillow failed — store without metadata
+            pass
+
+    # 4. Find/create channel (value_type_id=4 = Image)
+    channel_id = ingestion_repository.find_or_create_sensor_metadata(
+        conn,
+        equipment_id=equipment_id,
+        parameter_id=parameter_id,
+        unit_id=unit_id,
+        data_provenance_id=data_provenance_id,
+        processing_degree_id=processing_degree_id,
+        value_type_id=4,
+    )
+
+    # 5. Save file to disk
+    ts_safe = ts.isoformat().replace(":", "-")
+    rel_path = f"uploads/images/{channel_id}/{ts_safe}.{file_ext}"
+    abs_path = Path(settings.upload_dir).parent / rel_path
+    abs_path.parent.mkdir(parents=True, exist_ok=True)
+    abs_path.write_bytes(image_bytes)
+
+    # 6. Insert DB record
+    value_image_id = value_repository.insert_image_value(
+        conn,
+        channel_id=channel_id,
+        timestamp=ts,
+        image_width=width,
+        image_height=height,
+        number_of_channels=n_channels,
+        image_format=img_format,
+        file_size_bytes=len(image_bytes),
+        storage_path=rel_path,
+        quality_code=quality_code,
+        thumbnail=thumbnail_bytes,
+    )
+
+    return ImageIngestResponse(
+        channel_id=channel_id,
+        value_image_id=value_image_id,
+        storage_path=rel_path,
+    )
 
 
 @router.post("/samples", response_model=SampleCreateResponse, status_code=201)
