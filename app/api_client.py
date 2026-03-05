@@ -737,6 +737,17 @@ def ingest_lab(data: dict) -> dict:
     return r.json()
 
 
+def create_sample(data: dict) -> dict:
+    """Create a new sample and return sample_id."""
+    try:
+        with _get_client() as client:
+            r = client.post("/ingest/samples", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Value Binning Axes
 # ---------------------------------------------------------------------------

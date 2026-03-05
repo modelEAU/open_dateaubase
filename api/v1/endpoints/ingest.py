@@ -266,3 +266,18 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
         conn, channel_id, data.row_axis_id, data.col_axis_id, observations
     )
     return IngestResponse(channel_id=channel_id, rows_written=rows)
+
+
+@router.post("/samples", response_model=SampleCreateResponse, status_code=201)
+def create_sample(data: SampleCreateRequest, conn=Depends(get_db)):
+    """Create a new sample and return its ID."""
+    sample_id = ingestion_repository.insert_sample(
+        conn,
+        sampling_point_id=data.sampling_point_id,
+        sampled_by_person_id=data.sampled_by_person_id,
+        campaign_id=data.campaign_id,
+        sample_datetime_start=data.sample_datetime_start,
+        sample_datetime_end=data.sample_datetime_end,
+        description=data.description,
+    )
+    return SampleCreateResponse(sample_id=sample_id)
