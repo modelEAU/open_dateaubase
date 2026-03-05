@@ -21,6 +21,37 @@ class ChannelOut(BaseModel):
     value_type_name: str | None
 
 
+class ChannelIn(BaseModel):
+    """Channel input schema for create/update operations."""
+
+    parameter_id: int | None = None
+    equipment_id: int | None = None
+    data_provenance_id: int | None = None
+    processing_degree_id: int | None = None
+    value_type_id: int | None = None
+
+
+class EquipmentLookupOut(BaseModel):
+    """Lightweight equipment info for dropdowns."""
+
+    equipment_id: int
+    identifier: str
+
+
+class ParameterLookupOut(BaseModel):
+    """Lightweight parameter info for dropdowns."""
+
+    parameter_id: int
+    parameter_name: str
+
+
+class ProcessingDegreeLookupOut(BaseModel):
+    """Lightweight processing degree info for dropdowns."""
+
+    processing_degree_id: int
+    name: str
+
+
 class ChannelListResponse(BaseModel):
     """Paginated list of channels."""
 
