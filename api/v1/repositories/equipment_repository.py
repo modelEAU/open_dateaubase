@@ -62,6 +62,47 @@ def get_equipment_by_id(conn: pyodbc.Connection, equipment_id: int) -> dict | No
     }
 
 
+def insert_equipment(conn: pyodbc.Connection, data: dict) -> dict:
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[Equipment] ([Identifier], [SerialNumber], [EquipmentModel_ID], [Owner], [PurchaseDate])"
+        " VALUES (?, ?, ?, ?, ?)",
+        data.get("identifier"),
+        data.get("serial_number"),
+        data.get("model_id"),
+        data.get("owner"),
+        data.get("purchase_date"),
+    )
+    cursor.execute("SELECT @@IDENTITY")
+    new_id = int(cursor.fetchone()[0])
+    conn.commit()
+    return get_equipment_by_id(conn, new_id)
+
+
+def update_equipment(conn: pyodbc.Connection, equipment_id: int, data: dict) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[Equipment]"
+        " SET [Identifier]=?, [SerialNumber]=?, [EquipmentModel_ID]=?, [Owner]=?, [PurchaseDate]=?"
+        " WHERE [Equipment_ID]=?",
+        data.get("identifier"),
+        data.get("serial_number"),
+        data.get("model_id"),
+        data.get("owner"),
+        data.get("purchase_date"),
+        equipment_id,
+    )
+    conn.commit()
+    return get_equipment_by_id(conn, equipment_id)
+
+
+def delete_equipment(conn: pyodbc.Connection, equipment_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM [dbo].[Equipment] WHERE [Equipment_ID]=?", equipment_id)
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def get_equipment_events(
     conn: pyodbc.Connection,
     equipment_id: int,

@@ -42,6 +42,14 @@ class InstallationOut(BaseModel):
     notes: str | None
 
 
+class EquipmentIn(BaseModel):
+    identifier: str | None = None
+    serial_number: str | None = None
+    model_id: int | None = None
+    owner: str | None = None
+    purchase_date: str | None = None  # ISO date string, e.g. "2024-01-15"
+
+
 class EquipmentLifecycleOut(BaseModel):
     equipment: EquipmentOut
     installations: list[InstallationOut]

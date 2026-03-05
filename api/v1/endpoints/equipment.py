@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
 from ..repositories import equipment_repository
-from ..schemas.equipment import EquipmentLifecycleOut, EquipmentOut
+from ..schemas.equipment import EquipmentIn, EquipmentLifecycleOut, EquipmentOut
 
 router = APIRouter()
 
@@ -17,6 +17,25 @@ router = APIRouter()
 def list_equipment(conn=Depends(get_db)):
     """Return all equipment."""
     return equipment_repository.list_equipment(conn)
+
+
+@router.post("", response_model=EquipmentOut, status_code=201)
+def create_equipment(body: EquipmentIn, conn=Depends(get_db)):
+    return equipment_repository.insert_equipment(conn, body.model_dump())
+
+
+@router.put("/{equipment_id}", response_model=EquipmentOut)
+def update_equipment(equipment_id: int, body: EquipmentIn, conn=Depends(get_db)):
+    updated = equipment_repository.update_equipment(conn, equipment_id, body.model_dump())
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"Equipment {equipment_id} not found.")
+    return updated
+
+
+@router.delete("/{equipment_id}", status_code=204)
+def delete_equipment(equipment_id: int, conn=Depends(get_db)):
+    if not equipment_repository.delete_equipment(conn, equipment_id):
+        raise HTTPException(status_code=404, detail=f"Equipment {equipment_id} not found.")
 
 
 @router.get("/{equipment_id}", response_model=EquipmentOut)
