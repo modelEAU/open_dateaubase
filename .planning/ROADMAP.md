@@ -46,7 +46,7 @@ Deliverables:
 
 ---
 
-### Phase 04: Business Forms — Data Ingestion *(In progress — 3/9 plans)*
+### Phase 04: Business Forms — Data Ingestion *(In progress — 5/9 plans)*
 
 Research: No | Dependencies: Phase 01, Phase 02, Phase 03
 
@@ -64,15 +64,15 @@ Deliverables:
   CampaignSamplingLocation + EquipmentInstallation auto-created at campaign start time)
 - Measurement Axes page (`8_Binning_Axes.py`) — define spectral/distribution bin axes
   for vector and matrix channels (ValueBinningAxis + ValueBin)
-- ✅ Sensor ingest page (`9_Sensor_Ingest.py`) - Scalar mode complete:
+- ✅ Sensor ingest page (`9_Sensor_Ingest.py`) - Scalar, Vector, Matrix modes complete:
   - Scalar: paste/upload CSV of timestamp+value rows → POST /ingest/sensor
-  - Vector: select axis, upload spectrum CSV (timestamp + N bin columns) → POST /ingest/sensor-vector *(pending)*
-  - Matrix: select row+col axes, upload 2D CSV → POST /ingest/sensor-matrix *(pending)*
+  - Vector: select axis, upload spectrum CSV (timestamp + N bin columns) → POST /ingest/sensor-vector
+  - Matrix: select row+col axes, upload 2D CSV → POST /ingest/sensor-matrix
   - Image: upload image file with timestamp → POST /ingest/sensor-image *(pending)*
 - Lab ingest page (`10_Lab_Ingest.py`): campaign/lab/procedure dropdowns, inline sample
   creation, st.data_editor with duplicate-row shortcut → POST /ingest/lab
 - POST /ingest/samples endpoint for inline sample creation
-- Vector/Matrix ingest API: insert_vector_values, insert_matrix_values, upsert_channel_axis
+- ✅ Vector/Matrix ingest API: insert_vector_values, insert_matrix_values, upsert_channel_axis
 - Image ingest infrastructure: configurable upload directory, Pillow thumbnail generation
 
 ---
