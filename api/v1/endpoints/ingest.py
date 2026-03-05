@@ -18,6 +18,8 @@ from ..schemas.ingestion import (
     LabIngestResponse,
     MatrixSensorIngestRequest,
     ProcessedIngestRequest,
+    SampleCreateRequest,
+    SampleCreateResponse,
     SensorIngestRequest,
     VectorSensorIngestRequest,
 )
