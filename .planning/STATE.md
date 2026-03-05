@@ -3,12 +3,12 @@
 ## Current Position
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
-- **Active phase**: Phase 02 — CRUD Pages: Reference Data
-- **Plan**: 3 of 4 complete in current phase
-- **Status**: At checkpoint - awaiting human verification of form-based CRUD
-- **Last activity**: 2026-03-05 — Completed gap closure plan (8 tasks, form-based CRUD redesign)
+- **Active phase**: Phase 03 — Core Entities
+- **Plan**: 1 complete in current phase
+- **Status**: Completed 03-01 Channel Write API and Lookup Endpoints
+- **Last activity**: 2026-03-05 — Completed 03-01 (5 tasks, Channel CRUD + lookups)
 
-Progress: █████░░░░░ 60% (6/10 plans)
+Progress: ██████░░░░ 70% (7/10 plans)
 
 ## Accumulated Decisions
 
@@ -20,6 +20,8 @@ Progress: █████░░░░░ 60% (6/10 plans)
 - **Deployment target**: Docker Compose (`docker-compose up`) — one command for DB + API + App
 - **MSSQL insert ID**: Use `SELECT @@IDENTITY` after INSERT (pyodbc; OUTPUT clause not usable with cursor.fetchone() in same execute)
 - **UI Pattern - REFERENCE DATA**: Form-based CRUD (not inline editing) — table for display + dialog forms for create/edit
+- **Channel schema design**: All ChannelIn fields are optional (nullable) since Channel is a flexible linking table - this allows partial updates without requiring all FK fields
+- **Lookup endpoint placement**: Lookup endpoints placed under /channels/lookup/* to maintain consistency with existing /sites/lookup/list pattern
 
 ## Deferred Issues
 
@@ -38,13 +40,13 @@ Progress: █████░░░░░ 60% (6/10 plans)
 
 ## Session Continuity
 
-- **Last session**: 2026-03-05T17:55:02Z
-- **Stopped at**: Checkpoint for 02-04-GAP-CLOSURE.md - human verification of form-based CRUD
-- **Resume file**: None (gap closure complete, awaiting verification)
-- **Next action**: Human verification of form-based CRUD pages
+- **Last session**: 2026-03-05T18:38:11Z
+- **Stopped at**: Completed 03-01-PLAN.md - Channel Write API and Lookup Endpoints
+- **Resume file**: None
+- **Next action**: Continue with Phase 03 Plan 02 or verify work
 
 ## Brief Alignment
 
-Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend does not exist. Building a Streamlit multipage app that calls the existing API. Target users are non-IT graduate students.
+Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app under construction. Building a Streamlit multipage app that calls the existing API. Target users are non-IT graduate students.
 
-**Current Challenge**: Human verification of form-based CRUD redesign required before proceeding to Phase 03.
+**Status**: Phase 03 Plan 01 complete - Channel write API and lookup endpoints are ready. Channel forms in Streamlit frontend can now be implemented.
