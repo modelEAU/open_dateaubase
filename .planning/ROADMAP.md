@@ -35,14 +35,14 @@ Deliverables:
 
 ---
 
-### Phase 03: CRUD Pages — Core Entities
+### Phase 03: CRUD Pages — Core Entities *(In Progress — 2/2 plans)*
 Research: No | Dependencies: Phase 02
 
 CRUD pages for entities with multiple FK dropdowns (populated from API).
 
 Deliverables:
-- Channels page (list with filter, create with FK dropdowns for Equipment/Parameter/ProcessingDegree)
-- Annotations page (list, create, edit, delete)
+- ✅ Channels page (list with filter, create with FK dropdowns for Equipment/Parameter/ProcessingDegree)
+- ✅ Annotations page (list, create, edit, delete)
 
 ---
 
