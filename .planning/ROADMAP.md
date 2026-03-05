@@ -6,7 +6,8 @@ Goal: A fully functional Streamlit app that lets graduate students manage and im
 
 ---
 
-### Phase 01: App Foundation
+### Phase 01: App Foundation *(In progress — 1/3 plans complete)*
+
 Research: No | Dependencies: None
 
 Set up the `app/` directory, API client, configuration, and auth stub. This is the skeleton everything else attaches to.

@@ -3,8 +3,12 @@
 ## Current Position
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
-- **Active phase**: Phase 01 — App Foundation (planning)
-- **Status**: Planning in progress — no frontend code exists yet
+- **Active phase**: Phase 01 — App Foundation
+- **Plan**: 1 of 3 complete in current phase
+- **Status**: In progress
+- **Last activity**: 2026-03-05 — Completed 01-01-PLAN.md
+
+Progress: █░░░░░░░░░ 10% (1/10 plans)
 
 ## Accumulated Decisions
 
@@ -28,6 +32,12 @@
 - API has no authentication — Streamlit app will also be open. Acceptable for now (internal/trusted use).
 - `author_person_id` in annotation forms must be manually entered by user (no auth context yet).
 - Dynamic SQL f-strings in some repos are a SQL injection risk — do not expose filter fields as raw user input in the UI; always use pre-validated options from API dropdowns.
+
+## Session Continuity
+
+- **Last session**: 2026-03-05T14:43:10Z
+- **Stopped at**: Completed 01-01-PLAN.md
+- **Resume file**: None
 
 ## Brief Alignment
 
