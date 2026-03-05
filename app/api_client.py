@@ -274,6 +274,17 @@ def list_campaign_types() -> list[dict]:
     return r.json()
 
 
+def list_campaigns_lookup() -> list[dict]:
+    """Return campaigns list for dropdowns (id + name only)."""
+    try:
+        with _get_client() as client:
+            r = client.get("/campaigns/lookup")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Channels
 # ---------------------------------------------------------------------------
@@ -443,6 +454,82 @@ def delete_annotation(annotation_id: int) -> None:
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# Ingestion
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Lookup helpers
+# ---------------------------------------------------------------------------
+
+
+def list_units_lookup() -> list[dict]:
+    """Return units list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lookup/units")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_laboratories_lookup() -> list[dict]:
+    """Return laboratories list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lookup/laboratories")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_procedures_lookup() -> list[dict]:
+    """Return procedures list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lookup/procedures")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_samples_lookup() -> list[dict]:
+    """Return samples list for dropdowns (most recent first)."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lookup/samples")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_sampling_points_lookup() -> list[dict]:
+    """Return sampling points list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lookup/sampling-points")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_equipment_events_lookup() -> list[dict]:
+    """Return equipment events list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lookup/equipment-events")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
 
 
 # ---------------------------------------------------------------------------
