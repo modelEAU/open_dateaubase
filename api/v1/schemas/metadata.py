@@ -27,6 +27,17 @@ class SiteOut(BaseModel):
     country: str | None
 
 
+class SiteIn(BaseModel):
+    name: str
+    type: str | None = None
+    description: str | None = None
+    lat_wgs84: float | None = None
+    long_wgs84: float | None = None
+    city: str | None = None
+    province: str | None = None
+    country: str | None = None
+
+
 class MetadataOut(BaseModel):
     """Full metadata record with all resolved foreign keys."""
 

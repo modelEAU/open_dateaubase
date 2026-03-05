@@ -60,6 +60,64 @@ def get_site_by_id(conn: pyodbc.Connection, site_id: int) -> dict | None:
     }
 
 
+def insert_site(conn: pyodbc.Connection, data: dict) -> dict:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[Site]
+            ([Name], [Type], [Description], [LatitudeWGS84], [LongitudeWGS84],
+             [City], [Province], [Country])
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        data["name"],
+        data.get("type"),
+        data.get("description"),
+        data.get("lat_wgs84"),
+        data.get("long_wgs84"),
+        data.get("city"),
+        data.get("province"),
+        data.get("country"),
+    )
+    cursor.execute("SELECT @@IDENTITY")
+    new_id = int(cursor.fetchone()[0])
+    conn.commit()
+    return get_site_by_id(conn, new_id)  # type: ignore[return-value]
+
+
+def update_site(conn: pyodbc.Connection, site_id: int, data: dict) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE [dbo].[Site]
+        SET [Name]=?, [Type]=?, [Description]=?,
+            [LatitudeWGS84]=?, [LongitudeWGS84]=?,
+            [City]=?, [Province]=?, [Country]=?
+        WHERE [Site_ID]=?
+        """,
+        data["name"],
+        data.get("type"),
+        data.get("description"),
+        data.get("lat_wgs84"),
+        data.get("long_wgs84"),
+        data.get("city"),
+        data.get("province"),
+        data.get("country"),
+        site_id,
+    )
+    conn.commit()
+    return get_site_by_id(conn, site_id)
+
+
+def delete_site(conn: pyodbc.Connection, site_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM [dbo].[Site] WHERE [Site_ID]=?",
+        site_id,
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def get_sampling_locations_for_site(
     conn: pyodbc.Connection, site_id: int
 ) -> list[dict]:
