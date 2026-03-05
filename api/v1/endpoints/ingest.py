@@ -93,6 +93,12 @@ def get_equipment_events_lookup(conn=Depends(get_db)):
     return lookup_repository.get_equipment_events_lookup(conn)
 
 
+@router.get("/lookup/data-provenance")
+def get_data_provenance_lookup(conn=Depends(get_db)):
+    """Return data provenance types for dropdowns."""
+    return lookup_repository.get_data_provenance_lookup(conn)
+
+
 # ---------------------------------------------------------------------------
 # Ingest endpoints
 # ---------------------------------------------------------------------------
@@ -166,7 +172,9 @@ def ingest_processed(data: ProcessedIngestRequest, conn=Depends(get_db)):
     ProcessingStep + DataLineage.
     """
     if not data.source_channel_ids:
-        raise HTTPException(status_code=400, detail="source_channel_ids must not be empty.")
+        raise HTTPException(
+            status_code=400, detail="source_channel_ids must not be empty."
+        )
 
     primary_source_id = data.source_channel_ids[0]
 

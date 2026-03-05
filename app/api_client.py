@@ -325,6 +325,40 @@ def list_campaigns_lookup() -> list[dict]:
     return r.json()
 
 
+def list_campaign_deployments(campaign_id: int) -> list[dict]:
+    """Return all deployments for a campaign."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/campaigns/{campaign_id}/deployments")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_campaign_deployment(campaign_id: int, data: dict) -> dict:
+    """Create a deployment (equipment + sampling point) for a campaign."""
+    try:
+        with _get_client() as client:
+            r = client.post(f"/campaigns/{campaign_id}/deployments", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_campaign_deployment(campaign_id: int, data: dict) -> None:
+    """Delete a deployment for a campaign."""
+    try:
+        with _get_client() as client:
+            r = client.request(
+                "DELETE", f"/campaigns/{campaign_id}/deployments", json=data
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
 # ---------------------------------------------------------------------------
 # Channels
 # ---------------------------------------------------------------------------
@@ -647,6 +681,17 @@ def list_equipment_events_lookup() -> list[dict]:
     return r.json()
 
 
+def list_data_provenance_lookup() -> list[dict]:
+    """Return data provenance types for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lookup/data-provenance")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
@@ -670,3 +715,62 @@ def ingest_lab(data: dict) -> dict:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
+
+
+# ---------------------------------------------------------------------------
+# Value Binning Axes
+# ---------------------------------------------------------------------------
+
+
+def list_binning_axes() -> list[dict]:
+    """Return all ValueBinningAxis rows with unit names."""
+    try:
+        with _get_client() as client:
+            r = client.get("/value-binning-axes")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_binning_axis(axis_id: int) -> dict:
+    """Return a single ValueBinningAxis with its bins."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/value-binning-axes/{axis_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_binning_axes_lookup() -> list[dict]:
+    """Return lightweight list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/value-binning-axes/lookup")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_binning_axis(data: dict) -> dict:
+    """Create a new ValueBinningAxis with bins."""
+    try:
+        with _get_client() as client:
+            r = client.post("/value-binning-axes", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_binning_axis(axis_id: int) -> None:
+    """Delete a ValueBinningAxis and its bins."""
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/value-binning-axes/{axis_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)

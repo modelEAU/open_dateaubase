@@ -4,9 +4,9 @@
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
 - **Active phase**: Phase 04 — Business Forms
-- **Plan**: 2 of 9 complete in current phase
+- **Plan**: 3 of 9 complete in current phase
 - **Status**: In progress
-- **Last activity**: 2026-03-05 — Completed 04-02 (EquipmentModel + Parameter CRUD + add_new sub-form)
+- **Last activity**: 2026-03-05 — Completed 04-05 (Sensor Data Ingest page with database-driven dropdowns)
 
 Progress: █████░░░░░ 58% (11/19 plans)
 

@@ -38,9 +38,7 @@ def delete_unit(conn: pyodbc.Connection, unit_id: int) -> bool:
 
 def get_laboratories_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT Laboratory_ID, Name FROM [dbo].[Laboratory] ORDER BY Name"
-    )
+    cursor.execute("SELECT Laboratory_ID, Name FROM [dbo].[Laboratory] ORDER BY Name")
     return [{"laboratory_id": row[0], "name": row[1]} for row in cursor.fetchall()]
 
 
@@ -50,8 +48,7 @@ def get_procedures_lookup(conn: pyodbc.Connection) -> list[dict]:
         "SELECT Procedure_ID, ProcedureName FROM [dbo].[Procedures] ORDER BY ProcedureName"
     )
     return [
-        {"procedure_id": row[0], "procedure_name": row[1]}
-        for row in cursor.fetchall()
+        {"procedure_id": row[0], "procedure_name": row[1]} for row in cursor.fetchall()
     ]
 
 
@@ -67,7 +64,11 @@ def get_samples_lookup(conn: pyodbc.Connection) -> list[dict]:
         """
     )
     return [
-        {"sample_id": row[0], "label": row[1], "sample_date": str(row[2]) if row[2] else None}
+        {
+            "sample_id": row[0],
+            "label": row[1],
+            "sample_date": str(row[2]) if row[2] else None,
+        }
         for row in cursor.fetchall()
     ]
 
@@ -83,10 +84,7 @@ def get_sampling_points_lookup(conn: pyodbc.Connection) -> list[dict]:
         ORDER BY sp.SamplingPoint
         """
     )
-    return [
-        {"sampling_point_id": row[0], "label": row[1]}
-        for row in cursor.fetchall()
-    ]
+    return [{"sampling_point_id": row[0], "label": row[1]} for row in cursor.fetchall()]
 
 
 def get_equipment_events_lookup(conn: pyodbc.Connection) -> list[dict]:
@@ -104,6 +102,32 @@ def get_equipment_events_lookup(conn: pyodbc.Connection) -> list[dict]:
         """
     )
     return [
-        {"equipment_event_id": row[0], "label": row[1]}
+        {"equipment_event_id": row[0], "label": row[1]} for row in cursor.fetchall()
+    ]
+
+
+def get_data_provenance_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return all data provenance types for dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT DataProvenance_ID, DataProvenance_Name FROM [dbo].[DataProvenance] ORDER BY DataProvenance_ID"
+    )
+    return [
+        {"data_provenance_id": row[0], "data_provenance_name": row[1]}
         for row in cursor.fetchall()
     ]
+
+
+def get_data_provenance_by_id(
+    conn: pyodbc.Connection, provenance_id: int
+) -> dict | None:
+    """Return a single data provenance by ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT DataProvenance_ID, DataProvenance_Name FROM [dbo].[DataProvenance] WHERE DataProvenance_ID = ?",
+        provenance_id,
+    )
+    row = cursor.fetchone()
+    if row:
+        return {"data_provenance_id": row[0], "data_provenance_name": row[1]}
+    return None
