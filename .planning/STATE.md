@@ -3,19 +3,19 @@
 ## Current Position
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
-- **Active phase**: Phase 01 — App Foundation
-- **Plan**: 2 of 3 complete in current phase
-- **Status**: In progress
-- **Last activity**: 2026-03-05 — Completed 01-02-PLAN.md
+- **Active phase**: Phase 01 — App Foundation → **Phase complete**
+- **Plan**: 3 of 3 complete in current phase
+- **Status**: Phase complete — ready for Phase 02
+- **Last activity**: 2026-03-05 — Completed 01-03-PLAN.md
 
-Progress: ██░░░░░░░░ 20% (2/10 plans)
+Progress: ███░░░░░░░ 30% (3/10 plans)
 
 ## Accumulated Decisions
 
 - **API communication**: Streamlit app calls FastAPI over HTTP (not direct DB imports). Clean separation, testable, future-proof.
 - **Auth approach**: Session-state stub for now (`st.session_state["user"]`). Login page always succeeds. Real auth wired in later.
 - **Primary UI framework**: Streamlit multipage app (`app/pages/` directory structure)
-- **Package management**: uv with optional extras (`uv sync --extra app`)
+- **Package management**: uv with optional extras — run `uv sync --extra api --extra app --extra dev` together to avoid extras pruning each other
 - **Test strategy**: API client layer tested with pytest + httpx mocking; UI verified via human checkpoint at end of each page plan
 - **Deployment target**: Docker Compose (`docker-compose up`) — one command for DB + API + App
 
@@ -35,8 +35,8 @@ Progress: ██░░░░░░░░ 20% (2/10 plans)
 
 ## Session Continuity
 
-- **Last session**: 2026-03-05T14:51:31Z
-- **Stopped at**: Completed 01-02-PLAN.md
+- **Last session**: 2026-03-05T15:02:56Z
+- **Stopped at**: Completed 01-03-PLAN.md (Phase 01 complete)
 - **Resume file**: None
 
 ## Brief Alignment
