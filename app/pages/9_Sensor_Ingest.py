@@ -18,8 +18,9 @@ import pandas as pd
 from app.api_client import (
     APIError,
     ingest_sensor,
-    ingest_sensor_vector,
+    ingest_sensor_image,
     ingest_sensor_matrix,
+    ingest_sensor_vector,
     list_binning_axes_lookup,
     list_data_provenance_lookup,
     list_equipment_lookup,
@@ -59,7 +60,9 @@ if "matrix_parse_errors" not in st.session_state:
     st.session_state.matrix_parse_errors = []
 
 # Create tabs
-tab_scalar, tab_vector, tab_matrix = st.tabs(["Scalar", "Vector", "Matrix"])
+tab_scalar, tab_vector, tab_matrix, tab_image = st.tabs(
+    ["Scalar", "Vector", "Matrix", "Image"]
+)
 
 # =============================================================================
 # SCALAR TAB
@@ -1184,3 +1187,201 @@ with tab_matrix:
             st.session_state.matrix_last_raw_csv = ""
         except APIError as e:
             st.error(f"Ingest failed: {e.message}")
+
+
+# =============================================================================
+# IMAGE TAB
+# =============================================================================
+with tab_image:
+    st.subheader("Image / Camera Sensor Ingest")
+    st.markdown(
+        "Upload a single image captured by a sensor at a known timestamp. "
+        "The file is stored on the server and linked to an auto-created image channel."
+    )
+
+    # Load lookup data
+    try:
+        with st.spinner("Loading lookup data..."):
+            equipment_lookup = list_equipment_lookup()
+            parameters_lookup = list_parameters_lookup()
+            units_lookup = list_units_lookup()
+            provenance_lookup = list_data_provenance_lookup()
+            processing_degrees_lookup = list_processing_degrees_lookup()
+    except APIError as e:
+        st.error(f"Cannot load lookup data: {e.message}")
+        st.stop()
+
+    sensor_provenance = next(
+        (p for p in provenance_lookup if p["data_provenance_id"] == 1),
+        {"data_provenance_name": "Sensor"},
+    )
+    sensor_provenance_name = sensor_provenance["data_provenance_name"]
+
+    # Channel Identity
+    with st.container(border=True):
+        st.subheader("Channel Identity")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            equipment_options = [
+                {"id": e["equipment_id"], "label": e["identifier"]}
+                for e in equipment_lookup
+            ]
+            equipment_labels = [opt["label"] for opt in equipment_options]
+            selected_equipment_label = st.selectbox(
+                "Equipment",
+                options=equipment_labels,
+                index=None,
+                placeholder="Select equipment...",
+                key="img_equipment",
+            )
+            img_equipment_id = next(
+                (
+                    opt["id"]
+                    for opt in equipment_options
+                    if opt["label"] == selected_equipment_label
+                ),
+                None,
+            )
+
+        with col2:
+            parameter_options = [
+                {"id": p["parameter_id"], "label": p["parameter_name"]}
+                for p in parameters_lookup
+            ]
+            parameter_labels = [opt["label"] for opt in parameter_options]
+            selected_parameter_label = st.selectbox(
+                "Parameter",
+                options=parameter_labels,
+                index=None,
+                placeholder="Select parameter...",
+                key="img_parameter",
+            )
+            img_parameter_id = next(
+                (
+                    opt["id"]
+                    for opt in parameter_options
+                    if opt["label"] == selected_parameter_label
+                ),
+                None,
+            )
+
+        with col3:
+            unit_options = [
+                {"id": u["unit_id"], "label": u["unit"]} for u in units_lookup
+            ]
+            unit_labels = [opt["label"] for opt in unit_options]
+            selected_unit_label = st.selectbox(
+                "Unit",
+                options=unit_labels,
+                index=None,
+                placeholder="Select unit...",
+                key="img_unit",
+            )
+            img_unit_id = next(
+                (
+                    opt["id"]
+                    for opt in unit_options
+                    if opt["label"] == selected_unit_label
+                ),
+                None,
+            )
+
+        col4, col5 = st.columns(2)
+
+        with col4:
+            st.markdown(f"**Data Provenance:** {sensor_provenance_name}")
+            img_provenance_id = 1
+
+        with col5:
+            processing_options = [
+                {"id": d["processing_degree_id"], "label": d["name"]}
+                for d in processing_degrees_lookup
+            ]
+            processing_labels = [opt["label"] for opt in processing_options]
+            selected_processing_label = st.selectbox(
+                "Processing Degree",
+                options=processing_labels,
+                index=0,
+                key="img_processing",
+            )
+            img_processing_id = next(
+                (
+                    opt["id"]
+                    for opt in processing_options
+                    if opt["label"] == selected_processing_label
+                ),
+                None,
+            )
+
+    # Timestamp Section
+    with st.container(border=True):
+        st.subheader("Timestamp")
+        col1, col2 = st.columns(2)
+        with col1:
+            img_date = st.date_input("Measurement date", key="img_date")
+        with col2:
+            img_time = st.time_input("Measurement time", key="img_time")
+        img_timestamp = datetime.combine(img_date, img_time)
+
+    # File Upload Section
+    with st.container(border=True):
+        st.subheader("Image File")
+
+        uploaded_image = st.file_uploader(
+            "Select image file",
+            type=["jpg", "jpeg", "png", "tif", "tiff", "bmp"],
+            key="img_upload",
+        )
+
+        if uploaded_image is not None:
+            image_bytes = uploaded_image.read()
+            st.image(
+                uploaded_image,
+                caption=uploaded_image.name,
+                use_container_width=False,
+                width=300,
+            )
+            st.caption(
+                f"File: {uploaded_image.name} | Size: {len(image_bytes) / 1024:.1f} KB"
+            )
+
+            img_quality_code = st.number_input(
+                "Quality code (optional)",
+                value=None,
+                min_value=0,
+                step=1,
+                key="img_qc",
+            )
+
+            # Submit button (disabled if required fields not selected)
+            img_has_required = all([img_equipment_id, img_parameter_id, img_unit_id])
+
+            if st.button(
+                "Upload Image",
+                type="primary",
+                key="img_submit",
+                disabled=not img_has_required,
+            ):
+                try:
+                    with st.spinner("Uploading..."):
+                        result = ingest_sensor_image(
+                            equipment_id=img_equipment_id,
+                            parameter_id=img_parameter_id,
+                            unit_id=img_unit_id,
+                            timestamp=img_timestamp.isoformat(),
+                            image_bytes=image_bytes,
+                            filename=uploaded_image.name,
+                            quality_code=img_quality_code,
+                            data_provenance_id=img_provenance_id,
+                            processing_degree_id=img_processing_id,
+                        )
+                    st.success(f"✅ Image stored at **{result['storage_path']}**")
+                    st.info(
+                        f"Channel ID: {result['channel_id']} | ValueImage ID: {result['value_image_id']}"
+                    )
+                except APIError as e:
+                    st.error(f"Upload failed: {e.message}")
+        else:
+            st.info("Select an image file to upload.")
