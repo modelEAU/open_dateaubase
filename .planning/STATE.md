@@ -4,11 +4,11 @@
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
 - **Active phase**: Phase 03 — Core Entities
-- **Plan**: 1 complete in current phase
-- **Status**: Completed 03-01 Channel Write API and Lookup Endpoints
-- **Last activity**: 2026-03-05 — Completed 03-01 (5 tasks, Channel CRUD + lookups)
+- **Plan**: 2 complete in current phase
+- **Status**: Completed 03-02 Channels and Annotations CRUD Pages
+- **Last activity**: 2026-03-05 — Completed 03-02 (3 tasks, Channels and Annotations UI)
 
-Progress: ██████░░░░ 70% (7/10 plans)
+Progress: ██████░░░░ 80% (8/10 plans)
 
 ## Accumulated Decisions
 
@@ -22,6 +22,8 @@ Progress: ██████░░░░ 70% (7/10 plans)
 - **UI Pattern - REFERENCE DATA**: Form-based CRUD (not inline editing) — table for display + dialog forms for create/edit
 - **Channel schema design**: All ChannelIn fields are optional (nullable) since Channel is a flexible linking table - this allows partial updates without requiring all FK fields
 - **Lookup endpoint placement**: Lookup endpoints placed under /channels/lookup/* to maintain consistency with existing /sites/lookup/list pattern
+- **Datetime form fields**: Use combined st.date_input + st.time_input with datetime.datetime.combine() for timestamp inputs
+- **Channel dropdown labels**: Combine parameter name and equipment identifier for descriptive labels (e.g., "pH (Sensor-A1)")
 
 ## Deferred Issues
 
@@ -40,13 +42,13 @@ Progress: ██████░░░░ 70% (7/10 plans)
 
 ## Session Continuity
 
-- **Last session**: 2026-03-05T18:38:11Z
-- **Stopped at**: Completed 03-01-PLAN.md - Channel Write API and Lookup Endpoints
+- **Last session**: 2026-03-05T18:48:00Z
+- **Stopped at**: Completed 03-02-PLAN.md - Channels and Annotations CRUD Pages
 - **Resume file**: None
-- **Next action**: Continue with Phase 03 Plan 02 or verify work
+- **Next action**: Continue with Phase 03 Plan 03 or verify work
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app under construction. Building a Streamlit multipage app that calls the existing API. Target users are non-IT graduate students.
 
-**Status**: Phase 03 Plan 01 complete - Channel write API and lookup endpoints are ready. Channel forms in Streamlit frontend can now be implemented.
+**Status**: Phase 03 Plans 01-02 complete - Channel write API, lookup endpoints, and CRUD UI pages are ready. Channels and Annotations fully functional in Streamlit frontend.
