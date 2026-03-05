@@ -35,6 +35,16 @@ def get_units_lookup(conn=Depends(get_db)):
     return lookup_repository.get_units_lookup(conn)
 
 
+@router.post("/lookup/units", status_code=201)
+def create_unit(body: dict, conn=Depends(get_db)):
+    """Create a new unit."""
+    unit_name = body.get("unit", "").strip()
+    if not unit_name:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail="unit field is required")
+    return lookup_repository.insert_unit(conn, unit_name)
+
+
 @router.get("/lookup/laboratories")
 def get_laboratories_lookup(conn=Depends(get_db)):
     """Return laboratories list for dropdowns."""

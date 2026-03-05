@@ -15,6 +15,7 @@ import pandas as pd
 from app.api_client import (
     APIError,
     create_parameter,
+    create_unit,
     delete_parameter,
     list_parameters_full,
     list_units_lookup,
@@ -45,6 +46,20 @@ except APIError as e:
 
 # Prepare unit options for dropdown
 unit_options = [{"id": u["unit_id"], "label": u["unit"]} for u in units]
+
+
+def _handle_create_unit(data: dict) -> dict | None:
+    """Create a new unit inline; returns {"id": ..., "label": ...} or None on error."""
+    unit_name = (data.get("unit") or "").strip()
+    if not unit_name:
+        st.error("Unit name is required.")
+        return None
+    try:
+        result = create_unit(unit_name)
+        return {"id": result["unit_id"], "label": result["unit"]}
+    except APIError as e:
+        st.error(f"Failed to create unit: {e.message}")
+        return None
 
 
 # Handler functions
@@ -84,6 +99,11 @@ _FORM_FIELDS = [
         "type": "select",
         "required": False,
         "options": unit_options,
+        "add_new": {
+            "title": "Add New Unit",
+            "fields": [{"name": "unit", "type": "text", "required": True}],
+            "on_create": _handle_create_unit,
+        },
     },
     {"name": "description", "type": "textarea", "required": False},
 ]

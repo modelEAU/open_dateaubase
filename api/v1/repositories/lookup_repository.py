@@ -11,6 +11,15 @@ def get_units_lookup(conn: pyodbc.Connection) -> list[dict]:
     return [{"unit_id": row[0], "unit": row[1]} for row in cursor.fetchall()]
 
 
+def insert_unit(conn: pyodbc.Connection, unit: str) -> dict:
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO [dbo].[Unit] ([Unit]) VALUES (?)", unit)
+    cursor.execute("SELECT @@IDENTITY")
+    new_id = int(cursor.fetchone()[0])
+    conn.commit()
+    return {"unit_id": new_id, "unit": unit}
+
+
 def get_laboratories_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(

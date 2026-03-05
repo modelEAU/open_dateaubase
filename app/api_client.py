@@ -562,6 +562,17 @@ def list_units_lookup() -> list[dict]:
     return r.json()
 
 
+def create_unit(unit: str) -> dict:
+    """Create a new unit and return it."""
+    try:
+        with _get_client() as client:
+            r = client.post("/ingest/lookup/units", json={"unit": unit})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 def list_laboratories_lookup() -> list[dict]:
     """Return laboratories list for dropdowns."""
     try:

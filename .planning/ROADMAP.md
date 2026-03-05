@@ -46,7 +46,7 @@ Deliverables:
 
 ---
 
-### Phase 04: Business Forms — Data Ingestion *(In progress — 1/9 plans)*
+### Phase 04: Business Forms — Data Ingestion *(In progress — 2/9 plans)*
 
 Research: No | Dependencies: Phase 01, Phase 02, Phase 03
 

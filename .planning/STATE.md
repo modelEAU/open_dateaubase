@@ -4,11 +4,11 @@
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
 - **Active phase**: Phase 04 — Business Forms
-- **Plan**: 1 of 9 complete in current phase
+- **Plan**: 2 of 9 complete in current phase
 - **Status**: In progress
-- **Last activity**: 2026-03-05 — Completed 04-01 (2 tasks, Lookup API Foundation)
+- **Last activity**: 2026-03-05 — Completed 04-02 (EquipmentModel + Parameter CRUD + add_new sub-form)
 
-Progress: █████░░░░░ 53% (10/19 plans)
+Progress: █████░░░░░ 58% (11/19 plans)
 
 ## Accumulated Decisions
 
@@ -26,6 +26,8 @@ Progress: █████░░░░░ 53% (10/19 plans)
 - **lookup_repository.py**: Centralized module for all reference-data queries; all lookup functions take conn as first param, return list[dict] with snake_case keys
 - **Datetime form fields**: Use combined st.date_input + st.time_input with datetime.datetime.combine() for timestamp inputs
 - **Channel dropdown labels**: Combine parameter name and equipment identifier for descriptive labels (e.g., "pH (Sensor-A1)")
+- **add_new select pattern**: Field dicts with `"add_new": {"title", "fields", "on_create"}` trigger a sub-form inside the dialog; newly-created items pre-selected in parent form
+- **Unit creation endpoint**: POST /ingest/lookup/units (alongside GET lookup — no new router)
 
 ## Deferred Issues
 
@@ -44,13 +46,13 @@ Progress: █████░░░░░ 53% (10/19 plans)
 
 ## Session Continuity
 
-- **Last session**: 2026-03-05T21:18:16Z
-- **Stopped at**: Completed 04-01-PLAN.md - Lookup API Foundation
+- **Last session**: 2026-03-05T21:40:15Z
+- **Stopped at**: Completed 04-02-PLAN.md — EquipmentModel + Parameter CRUD + add_new sub-form
 - **Resume file**: None
-- **Next action**: Continue with 04-02 (EquipmentModel CRUD page)
+- **Next action**: Continue with 04-03
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app under construction. Building a Streamlit multipage app that calls the existing API. Target users are non-IT graduate students.
 
-**Status**: Phase 04 in progress (1/9 plans). Lookup API foundation complete — 7 GET lookup endpoints live for Unit, Laboratory, Procedures, Sample, SamplingPoint, EquipmentEvent, Campaign. All ingest form plans (04-02 through 04-09) can now build dropdowns from API.
+**Status**: Phase 04 in progress (2/9 plans). EquipmentModel + Parameter CRUD live (API + UI). form_dialog now supports `add_new` sub-form for any select field. Unit creation wired for Parameters page. Ready for 04-03.
