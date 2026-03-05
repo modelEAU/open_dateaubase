@@ -103,6 +103,27 @@ def delete_site(site_id: int) -> None:
     _raise_for_status(r)
 
 
+def patch_site(site_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.patch(f"/sites/{site_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_sites_lookup() -> list[dict]:
+    """Return lightweight site list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/sites/lookup/list")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Equipment
 # ---------------------------------------------------------------------------
@@ -157,6 +178,27 @@ def delete_equipment(equipment_id: int) -> None:
     _raise_for_status(r)
 
 
+def patch_equipment(equipment_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.patch(f"/equipment/{equipment_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_equipment_models_lookup() -> list[dict]:
+    """Return equipment models for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/equipment/models/lookup")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Campaigns
 # ---------------------------------------------------------------------------
@@ -209,6 +251,27 @@ def delete_campaign(campaign_id: int) -> None:
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
+
+
+def patch_campaign(campaign_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.patch(f"/campaigns/{campaign_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_campaign_types() -> list[dict]:
+    """Return all campaign types for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/campaigns/types")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
 
 
 # ---------------------------------------------------------------------------
