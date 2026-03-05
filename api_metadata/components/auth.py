@@ -1,81 +1,24 @@
 import streamlit as st
-from api_metadata.services.db_client import api_post, api_get, ApiError
 
-LOGIN_PAGE = "api_metadata/pages/login.py"
+LOGIN_PAGE = "pages/login.py"
 
 
 def ensure_auth_state():
     st.session_state.setdefault("authenticated", False)
     st.session_state.setdefault("token", None)
-    st.session_state.setdefault("username", None)
+    st.session_state.setdefault("username", "")
 
 
 def logout():
-    # On ne fait PAS st.session_state.clear()
-    for k in ["authenticated", "token", "username", "selected_metadata_id"]:
+    # reset propre (sans clear total)
+    for k in [
+        "authenticated",
+        "token",
+        "username",
+        "selected_metadata_id",
+        "nav_idx",
+        "nav_label",
+    ]:
         st.session_state.pop(k, None)
+
     st.switch_page(LOGIN_PAGE)
-
-
-def render_login():
-    ensure_auth_state()
-
-    # Déjà connecté
-    if st.session_state.get("authenticated") and st.session_state.get("token"):
-        st.info(f"Connecté en tant que **{st.session_state.get('username')}**")
-        if st.button("Se déconnecter"):
-            logout()
-        return
-
-    st.title("datEAUbase — Connexion")
-
-    with st.form("login_form", clear_on_submit=False):
-        username = st.text_input("Nom d’utilisateur")
-        password = st.text_input("Mot de passe", type="password")
-        submitted = st.form_submit_button("Se connecter")
-
-    if not submitted:
-        return
-
-    if not username or not password:
-        st.error("Veuillez remplir le nom d’utilisateur et le mot de passe.")
-        return
-
-    try:
-        resp = api_post(
-            "/auth/login",
-            json={"username": username, "password": password},
-            with_auth=False,
-        )
-        token = resp["access_token"]
-
-        # On set le state AVANT de tester /auth/me
-        st.session_state["authenticated"] = True
-        st.session_state["token"] = token
-        st.session_state["username"] = username
-
-        # Vérifie token valide
-        api_get("/auth/me")
-
-        st.success("Connexion réussie ✅")
-
-        # Important: naviguer vers le workspace (au lieu de rerun sur login)
-        st.switch_page("api_metadata/pages/workspace.py")
-
-    except ApiError as e:
-        msg = str(e)
-        # reset state si login échoue
-        st.session_state["authenticated"] = False
-        st.session_state["token"] = None
-        st.session_state["username"] = None
-
-        if msg.startswith("401:"):
-            st.error("Identifiants invalides ❌")
-        else:
-            st.error(f"Erreur lors de la connexion à l’API ❌ ({msg})")
-
-    except Exception as e:
-        st.session_state["authenticated"] = False
-        st.session_state["token"] = None
-        st.session_state["username"] = None
-        st.error(f"Erreur inattendue ❌ ({e})")

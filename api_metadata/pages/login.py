@@ -15,6 +15,7 @@ def main():
     st.session_state.setdefault("authenticated", False)
     st.session_state.setdefault("username", "")
     st.session_state.setdefault("token", None)
+    
 
     if st.session_state.get("authenticated") and st.session_state.get("token"):
         st.switch_page(DASHBOARD_PAGE)
@@ -30,6 +31,8 @@ def main():
     st.markdown("<div class='ui-login-wrap'>", unsafe_allow_html=True)
     st.markdown("<div class='ui-login-title'>datEAUbase – Connexion</div>", unsafe_allow_html=True)
     st.markdown("<div class='ui-login-sub'>Accès sécurisé à l’interface de métadonnées.</div>", unsafe_allow_html=True)
+    st.markdown("<script>document.body.classList.add('unauthenticated');</script>", unsafe_allow_html=True)
+
 
     username = st.text_input("Nom d’utilisateur")
     password = st.text_input("Mot de passe", type="password")
@@ -57,6 +60,10 @@ def main():
                 st.session_state["authenticated"] = True
                 st.session_state["username"] = username
                 st.session_state["token"] = token
+                st.session_state["authenticated"] = False
+st.session_state["token"] = None
+st.session_state["username"] = ""
+
 
                 # ✅ sanity check token
                 _ = api_get("/auth/me", with_auth=True)
