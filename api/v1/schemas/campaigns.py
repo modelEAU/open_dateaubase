@@ -19,6 +19,15 @@ class CampaignOut(BaseModel):
     end_date: datetime | None
 
 
+class CampaignIn(BaseModel):
+    name: str
+    campaign_type_id: int
+    site_id: int
+    description: str | None = None
+    start_date: str | None = None  # ISO datetime string e.g. "2024-06-01T00:00:00"
+    end_date: str | None = None
+
+
 class CampaignContextOut(BaseModel):
     """Full context for a campaign — locations, equipment, parameters, metadata."""
 

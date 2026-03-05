@@ -63,6 +63,51 @@ def get_campaign_by_id(conn: pyodbc.Connection, campaign_id: int) -> dict | None
     return _row_to_dict(row) if row else None
 
 
+def insert_campaign(conn: pyodbc.Connection, data: dict) -> dict:
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[Campaign]"
+        " ([Name], [CampaignType_ID], [Site_ID], [Description], [CampaignStartDateTime], [CampaignEndDateTime])"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        data.get("name"),
+        data.get("campaign_type_id"),
+        data.get("site_id"),
+        data.get("description"),
+        data.get("start_date"),
+        data.get("end_date"),
+    )
+    cursor.execute("SELECT @@IDENTITY")
+    new_id = int(cursor.fetchone()[0])
+    conn.commit()
+    return get_campaign_by_id(conn, new_id)
+
+
+def update_campaign(conn: pyodbc.Connection, campaign_id: int, data: dict) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[Campaign]"
+        " SET [Name]=?, [CampaignType_ID]=?, [Site_ID]=?, [Description]=?,"
+        " [CampaignStartDateTime]=?, [CampaignEndDateTime]=?"
+        " WHERE [Campaign_ID]=?",
+        data.get("name"),
+        data.get("campaign_type_id"),
+        data.get("site_id"),
+        data.get("description"),
+        data.get("start_date"),
+        data.get("end_date"),
+        campaign_id,
+    )
+    conn.commit()
+    return get_campaign_by_id(conn, campaign_id)
+
+
+def delete_campaign(conn: pyodbc.Connection, campaign_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM [dbo].[Campaign] WHERE [Campaign_ID]=?", campaign_id)
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
     """Aggregate full context for a campaign."""
     cursor = conn.cursor()
