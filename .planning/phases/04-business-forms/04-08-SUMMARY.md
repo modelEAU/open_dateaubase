@@ -144,6 +144,12 @@ completed: 2026-03-05
 
 - None - after implementing the missing backend API, all verification checks passed.
 
+## Post-Completion Fixes
+
+**Matrix preview showing only corner**: During human verification, discovered that the matrix preview table only showed a 3×3 corner of the data instead of the full matrix. Fixed to display all observations with all matrix cells flattened into columns.
+
+- Fix commit: `7cfb929`
+
 ## User Setup Required
 
 None - no external service configuration required.
