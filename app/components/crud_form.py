@@ -52,6 +52,9 @@ def render_form_field(
         time_val = st.time_input(
             f"{label} (time)", value=value or datetime.time(0, 0), help=help_text
         )
+        # Handle case where date_input returns None (no value selected)
+        if date_val is None:
+            return None
         return datetime.datetime.combine(date_val, time_val)
     elif field_type == "textarea":
         return st.text_area(label, value=value or "", help=help_text)
