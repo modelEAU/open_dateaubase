@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-import streamlit as st
+import datetime
 from typing import Any
+
+import streamlit as st
 
 
 def render_form_field(
@@ -16,7 +18,7 @@ def render_form_field(
 ) -> Any:
     """Render a single form field based on type.
 
-    field_type: "text" | "number" | "select" | "date" | "textarea"
+    field_type: "text" | "number" | "select" | "date" | "datetime" | "textarea"
     """
     label = f"{field_name}{' *' if required else ''}"
 
@@ -39,6 +41,18 @@ def render_form_field(
         return st.number_input(label, value=value or 0, help=help_text)
     elif field_type == "date":
         return st.date_input(label, value=value, help=help_text)
+    elif field_type == "datetime":
+        # Handle datetime fields - combine date and time inputs
+        if isinstance(value, str):
+            try:
+                value = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                value = None
+        date_val = st.date_input(f"{label} (date)", value=value, help=help_text)
+        time_val = st.time_input(
+            f"{label} (time)", value=value or datetime.time(0, 0), help=help_text
+        )
+        return datetime.datetime.combine(date_val, time_val)
     elif field_type == "textarea":
         return st.text_area(label, value=value or "", help=help_text)
     else:  # text
