@@ -11,7 +11,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.database import get_db
-from ..repositories import ingestion_repository, value_repository
+from ..repositories import ingestion_repository, lookup_repository, value_repository
 from ..schemas.ingestion import (
     IngestResponse,
     LabIngestRequest,
@@ -22,6 +22,52 @@ from ..schemas.ingestion import (
 from ..services import lineage_service
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Lookup endpoints (for form dropdowns)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/lookup/units")
+def get_units_lookup(conn=Depends(get_db)):
+    """Return units list for dropdowns."""
+    return lookup_repository.get_units_lookup(conn)
+
+
+@router.get("/lookup/laboratories")
+def get_laboratories_lookup(conn=Depends(get_db)):
+    """Return laboratories list for dropdowns."""
+    return lookup_repository.get_laboratories_lookup(conn)
+
+
+@router.get("/lookup/procedures")
+def get_procedures_lookup(conn=Depends(get_db)):
+    """Return procedures list for dropdowns."""
+    return lookup_repository.get_procedures_lookup(conn)
+
+
+@router.get("/lookup/samples")
+def get_samples_lookup(conn=Depends(get_db)):
+    """Return samples list for dropdowns (most recent first)."""
+    return lookup_repository.get_samples_lookup(conn)
+
+
+@router.get("/lookup/sampling-points")
+def get_sampling_points_lookup(conn=Depends(get_db)):
+    """Return sampling points list for dropdowns."""
+    return lookup_repository.get_sampling_points_lookup(conn)
+
+
+@router.get("/lookup/equipment-events")
+def get_equipment_events_lookup(conn=Depends(get_db)):
+    """Return equipment events list for dropdowns."""
+    return lookup_repository.get_equipment_events_lookup(conn)
+
+
+# ---------------------------------------------------------------------------
+# Ingest endpoints
+# ---------------------------------------------------------------------------
 
 
 @router.post("/sensor", response_model=IngestResponse, status_code=201)

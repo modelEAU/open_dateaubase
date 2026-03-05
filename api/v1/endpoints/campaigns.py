@@ -65,6 +65,14 @@ def patch_campaign(campaign_id: int, body: CampaignPatch, conn=Depends(get_db)):
     return updated
 
 
+@router.get("/lookup")
+def get_campaigns_lookup(conn=Depends(get_db)):
+    """Return lightweight campaigns list for dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT Campaign_ID, Name FROM [dbo].[Campaign] ORDER BY Name")
+    return [{"campaign_id": row[0], "name": row[1]} for row in cursor.fetchall()]
+
+
 @router.get("/types", response_model=list[CampaignTypeOut])
 def list_campaign_types(conn=Depends(get_db)):
     """Return all campaign types for dropdowns."""
