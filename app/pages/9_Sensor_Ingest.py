@@ -1108,15 +1108,13 @@ with tab_matrix:
                     st.text(err)
 
         if st.session_state.matrix_parsed:
-            # Show first 3 timestamps and 3x3 corner
+            # Show all observations with all matrix data flattened
             preview_data = []
-            display_rows = min(matrix_n_row_bins, 3)
-            display_cols = min(matrix_n_col_bins, 3)
 
-            for obs in st.session_state.matrix_parsed[:3]:
+            for obs in st.session_state.matrix_parsed:
                 row = {"timestamp": obs["timestamp"]}
-                for r in range(display_rows):
-                    for c in range(display_cols):
+                for r in range(matrix_n_row_bins):
+                    for c in range(matrix_n_col_bins):
                         key = f"r{r}c{c}"
                         row[key] = (
                             obs["matrix"][r][c]
@@ -1128,8 +1126,8 @@ with tab_matrix:
             preview_df = pd.DataFrame(preview_data)
             st.dataframe(preview_df, use_container_width=True)
             st.caption(
-                f"Showing first {min(len(st.session_state.matrix_parsed), 3)} observations "
-                f"and {display_rows}×{display_cols} corner of {matrix_n_row_bins}×{matrix_n_col_bins} matrix"
+                f"Showing all {len(st.session_state.matrix_parsed)} observations "
+                f"with full {matrix_n_row_bins}×{matrix_n_col_bins} matrix"
             )
 
     # Submit Section
