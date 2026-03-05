@@ -55,7 +55,7 @@ The inline data editor (st.data_editor) works well for READ and DELETE operation
 
 ## Blockers / Concerns
 
-- **Checkpoint Decision Required**: Form-based CRUD redesign is significant scope change mid-phase. Gap closure plan created at `.planning/phases/02-crud-reference/02-04-gap-PLAN.md`.
+- **Checkpoint Decision Required**: Form-based CRUD redesign is significant scope change mid-phase. Gap closure plan created at `.planning/phases/02-crud-reference/02-04-GAP-CLOSURE.md`.
 - API has no authentication — Streamlit app will also be open. Acceptable for now (internal/trusted use).
 - `author_person_id` in annotation forms must be manually entered by user (no auth context yet).
 - Dynamic SQL f-strings in some repos are a SQL injection risk — do not expose filter fields as raw user input in the UI; always use pre-validated options from API dropdowns.
@@ -64,7 +64,7 @@ The inline data editor (st.data_editor) works well for READ and DELETE operation
 
 - **Last session**: 2026-03-05T15:30:00Z
 - **Stopped at**: Checkpoint for 02-04-PLAN.md - human verification of inline CRUD, feedback received
-- **Resume file**: .planning/phases/02-crud-reference/02-04-gap-PLAN.md
+- **Resume file**: .planning/phases/02-crud-reference/02-04-GAP-CLOSURE.md
 - **Next action**: Review and approve gap closure plan for form-based CRUD redesign
 
 ## Brief Alignment
