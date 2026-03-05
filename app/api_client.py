@@ -312,6 +312,68 @@ def get_channel(channel_id: int) -> dict:
     return r.json()
 
 
+def create_channel(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/channels", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_channel(channel_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/channels/{channel_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_channel(channel_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/channels/{channel_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+def list_equipment_lookup() -> list[dict]:
+    """Return equipment list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/equipment/lookup")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_parameters_lookup() -> list[dict]:
+    """Return parameters list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/channels/lookup/parameters")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_processing_degrees_lookup() -> list[dict]:
+    """Return processing degrees list for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/channels/lookup/processing-degrees")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Timeseries
 # ---------------------------------------------------------------------------
