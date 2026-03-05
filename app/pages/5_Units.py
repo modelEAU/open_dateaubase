@@ -1,4 +1,4 @@
-"""Parameters CRUD page with form-based editing."""
+"""Units CRUD page with form-based editing."""
 
 from __future__ import annotations
 
@@ -14,11 +14,10 @@ import pandas as pd
 
 from app.api_client import (
     APIError,
-    create_parameter,
-    delete_parameter,
-    list_parameters_full,
+    create_unit,
+    delete_unit,
     list_units_lookup,
-    update_parameter,
+    update_unit,
 )
 from app.auth import get_current_user, logout, require_auth
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
@@ -32,60 +31,56 @@ with st.sidebar:
     if st.button("Sign out"):
         logout()
 
-st.title("Parameters")
+st.title("Units")
 
-# Load parameters and units for dropdown
 try:
     with st.spinner("Loading..."):
-        parameters = list_parameters_full()
         units = list_units_lookup()
 except APIError as e:
     st.error(f"Cannot load data: {e.message}")
     st.stop()
 
-# Prepare unit options for dropdown
-unit_options = [{"id": u["unit_id"], "label": u["unit"]} for u in units]
-
 
 # Handler functions
-def handle_create_parameter(data: dict) -> bool:
+def handle_create_unit(data: dict) -> bool:
+    unit_name = (data.get("unit") or "").strip()
+    if not unit_name:
+        st.error("Unit name is required.")
+        return False
     try:
-        create_parameter(data)
-        st.success("Parameter created successfully!")
+        create_unit(unit_name)
+        st.success("Unit created successfully!")
         return True
     except APIError as e:
-        st.error(f"Failed to create parameter: {e.message}")
+        st.error(f"Failed to create unit: {e.message}")
         return False
 
 
-def handle_update_parameter(param_id: int, data: dict) -> bool:
+def handle_update_unit(unit_id: int, data: dict) -> bool:
+    unit_name = (data.get("unit") or "").strip()
+    if not unit_name:
+        st.error("Unit name is required.")
+        return False
     try:
-        update_parameter(param_id, data)
-        st.success("Parameter updated successfully!")
+        update_unit(unit_id, unit_name)
+        st.success("Unit updated successfully!")
         return True
     except APIError as e:
-        st.error(f"Failed to update parameter: {e.message}")
+        st.error(f"Failed to update unit: {e.message}")
         return False
 
 
-def handle_delete_parameter(param_id: int) -> None:
+def handle_delete_unit(unit_id: int) -> None:
     try:
-        delete_parameter(param_id)
-        st.success("Parameter deleted successfully!")
+        delete_unit(unit_id)
+        st.success("Unit deleted successfully!")
         st.rerun()
     except APIError as e:
-        st.error(f"Failed to delete parameter: {e.message}")
+        st.error(f"Failed to delete unit: {e.message}")
 
 
 _FORM_FIELDS = [
-    {"name": "parameter", "type": "text", "required": True},
-    {
-        "name": "unit_id",
-        "type": "select",
-        "required": False,
-        "options": unit_options,
-    },
-    {"name": "description", "type": "textarea", "required": False},
+    {"name": "unit", "type": "text", "required": True},
 ]
 
 # Action buttons
@@ -94,17 +89,17 @@ with col1:
     if st.button("➕ New", type="primary"):
         create_form_dialog(
             fields=_FORM_FIELDS,
-            on_submit=lambda data: handle_create_parameter(data),
-            title="Create New Parameter",
+            on_submit=lambda data: handle_create_unit(data),
+            title="Create New Unit",
         )
 
 # Store selected row
-if "selected_parameter_id" not in st.session_state:
-    st.session_state.selected_parameter_id = None
+if "selected_unit_id" not in st.session_state:
+    st.session_state.selected_unit_id = None
 
 # Display table
-if parameters:
-    df = pd.DataFrame(parameters)
+if units:
+    df = pd.DataFrame(units)
     selected_indices = st.dataframe(
         df,
         use_container_width=True,
@@ -113,13 +108,13 @@ if parameters:
     )
     if selected_indices and selected_indices.get("selection", {}).get("rows"):
         row_idx = selected_indices["selection"]["rows"][0]
-        st.session_state.selected_parameter_id = df.iloc[row_idx]["parameter_id"]
-        selected_item = parameters[row_idx]
+        st.session_state.selected_unit_id = df.iloc[row_idx]["unit_id"]
+        selected_item = units[row_idx]
     else:
         selected_item = None
-        st.session_state.selected_parameter_id = None
+        st.session_state.selected_unit_id = None
 else:
-    st.info("No parameters found. Click 'New' to create one.")
+    st.info("No units found. Click 'New' to create one.")
     selected_item = None
 
 with col2:
@@ -128,13 +123,13 @@ with col2:
             edit_form_dialog(
                 item_data=selected_item,
                 fields=_FORM_FIELDS,
-                on_submit=lambda data: handle_update_parameter(
-                    selected_item["parameter_id"], data
+                on_submit=lambda data: handle_update_unit(
+                    selected_item["unit_id"], data
                 ),
-                title=f"Edit Parameter: {selected_item.get('parameter_name', '')}",
+                title=f"Edit Unit: {selected_item.get('unit', '')}",
             )
 
 with col3:
     if st.button("🗑️ Delete", disabled=selected_item is None, type="secondary"):
         if selected_item:
-            handle_delete_parameter(selected_item["parameter_id"])
+            handle_delete_unit(selected_item["unit_id"])

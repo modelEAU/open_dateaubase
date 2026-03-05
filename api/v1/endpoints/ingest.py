@@ -38,11 +38,29 @@ def get_units_lookup(conn=Depends(get_db)):
 @router.post("/lookup/units", status_code=201)
 def create_unit(body: dict, conn=Depends(get_db)):
     """Create a new unit."""
-    unit_name = body.get("unit", "").strip()
+    unit_name = (body.get("unit") or "").strip()
     if not unit_name:
-        from fastapi import HTTPException
         raise HTTPException(status_code=422, detail="unit field is required")
     return lookup_repository.insert_unit(conn, unit_name)
+
+
+@router.put("/lookup/units/{unit_id}")
+def update_unit(unit_id: int, body: dict, conn=Depends(get_db)):
+    """Update a unit."""
+    unit_name = (body.get("unit") or "").strip()
+    if not unit_name:
+        raise HTTPException(status_code=422, detail="unit field is required")
+    updated = lookup_repository.update_unit(conn, unit_id, unit_name)
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"Unit {unit_id} not found.")
+    return updated
+
+
+@router.delete("/lookup/units/{unit_id}", status_code=204)
+def delete_unit(unit_id: int, conn=Depends(get_db)):
+    """Delete a unit."""
+    if not lookup_repository.delete_unit(conn, unit_id):
+        raise HTTPException(status_code=404, detail=f"Unit {unit_id} not found.")
 
 
 @router.get("/lookup/laboratories")

@@ -573,6 +573,25 @@ def create_unit(unit: str) -> dict:
     return r.json()
 
 
+def update_unit(unit_id: int, unit: str) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/ingest/lookup/units/{unit_id}", json={"unit": unit})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_unit(unit_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/ingest/lookup/units/{unit_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
 def list_laboratories_lookup() -> list[dict]:
     """Return laboratories list for dropdowns."""
     try:

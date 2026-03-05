@@ -20,6 +20,22 @@ def insert_unit(conn: pyodbc.Connection, unit: str) -> dict:
     return {"unit_id": new_id, "unit": unit}
 
 
+def update_unit(conn: pyodbc.Connection, unit_id: int, unit: str) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute("UPDATE [dbo].[Unit] SET [Unit]=? WHERE [Unit_ID]=?", unit, unit_id)
+    conn.commit()
+    if cursor.rowcount == 0:
+        return None
+    return {"unit_id": unit_id, "unit": unit}
+
+
+def delete_unit(conn: pyodbc.Connection, unit_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM [dbo].[Unit] WHERE [Unit_ID]=?", unit_id)
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def get_laboratories_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
