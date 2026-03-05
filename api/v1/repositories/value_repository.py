@@ -231,3 +231,119 @@ def insert_scalar_values(
         )
     conn.commit()
     return len(values)
+
+
+def insert_vector_values(
+    conn: pyodbc.Connection,
+    channel_id: int,
+    binning_axis_id: int,
+    observations: list[dict],
+) -> int:
+    """Insert rows into dbo.ValueVector. Each observation has:
+      timestamp: datetime, bin_values: list[float | None], quality_code: int | None
+    bin_values[i] maps to ValueBin with BinIndex=i for the given axis.
+    """
+    cursor = conn.cursor()
+    # Fetch all ValueBin_IDs for this axis in order
+    cursor.execute(
+        """
+        SELECT ValueBin_ID, BinIndex FROM [dbo].[ValueBin]
+        WHERE ValueBinningAxis_ID = ? ORDER BY BinIndex
+        """,
+        binning_axis_id,
+    )
+    bin_map = {row[1]: row[0] for row in cursor.fetchall()}  # BinIndex → ValueBin_ID
+
+    if len(bin_map) == 0:
+        raise ValueError(f"No bins found for axis {binning_axis_id}")
+
+    total_rows = 0
+    for obs in observations:
+        timestamp = obs["timestamp"]
+        quality_code = obs.get("quality_code")
+        bin_values = obs["bin_values"]
+
+        for i, value in enumerate(bin_values):
+            bin_id = bin_map.get(i)
+            if bin_id is None:
+                continue  # skip extra values silently
+            cursor.execute(
+                """
+                INSERT INTO [dbo].[ValueVector]
+                    (Channel_ID, Timestamp, ValueBin_ID, Value, QualityCode)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                channel_id,
+                timestamp,
+                bin_id,
+                value,
+                quality_code,
+            )
+            total_rows += 1
+
+    conn.commit()
+    return total_rows
+
+
+def insert_matrix_values(
+    conn: pyodbc.Connection,
+    channel_id: int,
+    row_axis_id: int,
+    col_axis_id: int,
+    observations: list[dict],
+) -> int:
+    """Insert rows into dbo.ValueMatrix. Each observation has:
+      timestamp: datetime, matrix: list[list[float | None]], quality_code: int | None
+    matrix[r][c] maps to (row_bin at row index r, col_bin at col index c).
+    """
+    cursor = conn.cursor()
+
+    # Fetch row bins
+    cursor.execute(
+        """
+        SELECT ValueBin_ID, BinIndex FROM [dbo].[ValueBin]
+        WHERE ValueBinningAxis_ID = ? ORDER BY BinIndex
+        """,
+        row_axis_id,
+    )
+    row_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    # Fetch col bins
+    cursor.execute(
+        """
+        SELECT ValueBin_ID, BinIndex FROM [dbo].[ValueBin]
+        WHERE ValueBinningAxis_ID = ? ORDER BY BinIndex
+        """,
+        col_axis_id,
+    )
+    col_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    total_rows = 0
+    for obs in observations:
+        timestamp = obs["timestamp"]
+        quality_code = obs.get("quality_code")
+        matrix = obs["matrix"]
+
+        for r, row in enumerate(matrix):
+            for c, value in enumerate(row):
+                row_bin_id = row_map.get(r)
+                col_bin_id = col_map.get(c)
+                if row_bin_id is None or col_bin_id is None:
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO [dbo].[ValueMatrix]
+                        (Channel_ID, Timestamp, RowValueBin_ID, ColValueBin_ID, Value, QualityCode)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    channel_id,
+                    timestamp,
+                    row_bin_id,
+                    col_bin_id,
+                    value,
+                    quality_code,
+                )
+                total_rows += 1
+
+    conn.commit()
+    return total_rows

@@ -38,8 +38,15 @@ def find_or_create_sensor_metadata(
              [ProcessingDegree_ID], [ValueType_ID])
         VALUES (?, ?, ?, ?, ?)
         """,
-        equipment_id, parameter_id, data_provenance_id, processing_degree_id,
-        equipment_id, parameter_id, data_provenance_id, processing_degree_id, value_type_id,
+        equipment_id,
+        parameter_id,
+        data_provenance_id,
+        processing_degree_id,
+        equipment_id,
+        parameter_id,
+        data_provenance_id,
+        processing_degree_id,
+        value_type_id,
     )
     conn.commit()
     cursor.execute(
@@ -50,7 +57,10 @@ def find_or_create_sensor_metadata(
           AND [DataProvenance_ID] = ?
           AND [ProcessingDegree_ID] = ?
         """,
-        equipment_id, parameter_id, data_provenance_id, processing_degree_id,
+        equipment_id,
+        parameter_id,
+        data_provenance_id,
+        processing_degree_id,
     )
     return cursor.fetchone()[0]
 
@@ -151,6 +161,65 @@ def insert_lab_value(
         value,
         replicate,
         quality_code,
+    )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return new_id
+
+
+def upsert_channel_axis(
+    conn: pyodbc.Connection,
+    channel_id: int,
+    axis_role: int,
+    binning_axis_id: int,
+) -> None:
+    """Create or update a ChannelAxis row. AxisRole: 0=primary/row, 1=col."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM [dbo].[ChannelAxis]
+            WHERE [Channel_ID] = ? AND [AxisRole] = ?
+        )
+        INSERT INTO [dbo].[ChannelAxis]
+            ([Channel_ID], [AxisRole], [ValueBinningAxis_ID])
+        VALUES (?, ?, ?)
+        """,
+        channel_id,
+        axis_role,
+        channel_id,
+        axis_role,
+        binning_axis_id,
+    )
+    conn.commit()
+
+
+def insert_sample(
+    conn: pyodbc.Connection,
+    *,
+    sampling_point_id: int,
+    sampled_by_person_id: int | None,
+    campaign_id: int | None,
+    sample_datetime_start: datetime,
+    sample_datetime_end: datetime | None,
+    description: str | None,
+) -> int:
+    """Insert a Sample row. Returns Sample_ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[Sample]
+            ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID],
+             [SampleDateTimeStart], [SampleDateTimeEnd], [Description])
+        VALUES (?, ?, ?, ?, ?, ?)
+        SELECT @@IDENTITY
+        """,
+        sampling_point_id,
+        sampled_by_person_id,
+        campaign_id,
+        sample_datetime_start,
+        sample_datetime_end,
+        description,
     )
     new_id: int = cursor.fetchone()[0]
     conn.commit()
