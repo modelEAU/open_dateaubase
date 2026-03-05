@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.database import get_db
 from ..repositories import site_repository
-from ..schemas.metadata import SamplingLocationOut, SiteOut
+from ..schemas.metadata import SamplingLocationOut, SiteIn, SiteOut
 
 router = APIRouter()
 
@@ -24,6 +24,29 @@ def get_site(site_id: int, conn=Depends(get_db)):
     if site is None:
         raise HTTPException(status_code=404, detail=f"Site {site_id} not found.")
     return site
+
+
+@router.post("", response_model=SiteOut, status_code=201)
+def create_site(body: SiteIn, conn=Depends(get_db)):
+    """Create a new site."""
+    return site_repository.insert_site(conn, body.model_dump())
+
+
+@router.put("/{site_id}", response_model=SiteOut)
+def update_site(site_id: int, body: SiteIn, conn=Depends(get_db)):
+    """Update an existing site."""
+    updated = site_repository.update_site(conn, site_id, body.model_dump())
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"Site {site_id} not found.")
+    return updated
+
+
+@router.delete("/{site_id}", status_code=204)
+def delete_site(site_id: int, conn=Depends(get_db)):
+    """Delete a site by ID."""
+    deleted = site_repository.delete_site(conn, site_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Site {site_id} not found.")
 
 
 @router.get("/{site_id}/sampling-locations", response_model=list[SamplingLocationOut])
