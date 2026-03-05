@@ -4,11 +4,11 @@
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
 - **Active phase**: Phase 04 — Business Forms
-- **Plan**: 6 of 9 complete in current phase
+- **Plan**: 8 of 9 complete in current phase
 - **Status**: In progress
-- **Last activity**: 2026-03-05 — Completed 04-03 (Campaign deployments)
+- **Last activity**: 2026-03-05 — Completed 04-08 (Vector and Matrix sensor ingest tabs)
 
-Progress: ████████░░ 63% (13/19 plans)
+Progress: █████████░ 74% (15/19 plans)
 
 ## Accumulated Decisions
 
@@ -28,6 +28,8 @@ Progress: ████████░░ 63% (13/19 plans)
 - **Channel dropdown labels**: Combine parameter name and equipment identifier for descriptive labels (e.g., "pH (Sensor-A1)")
 - **add_new select pattern**: Field dicts with `"add_new": {"title", "fields", "on_create"}` trigger a sub-form inside the dialog; newly-created items pre-selected in parent form
 - **Unit creation endpoint**: POST /ingest/lookup/units (alongside GET lookup — no new router)
+- **Sensor ingest tabs**: Three tabs (Scalar/Vector/Matrix) on 9_Sensor_Ingest.py with isolated session state per tab
+- **CSV parsing helpers**: Dedicated parse functions for scalar, vector, and matrix data with header detection and validation
 
 ## Deferred Issues
 
@@ -39,20 +41,20 @@ Progress: ████████░░ 63% (13/19 plans)
 
 ## Blockers / Concerns
 
-- **Checkpoint**: Human verification required for form-based CRUX redesign
+- **Checkpoint**: Human verification required for Vector/Matrix ingest functionality
 - API has no authentication — Streamlit app will also be open. Acceptable for now (internal/trusted use).
 - `author_person_id` in annotation forms must be manually entered by user (no auth context yet).
 - Dynamic SQL f-strings in some repos are a SQL injection risk — do not expose filter fields as raw user input in the UI; always use pre-validated options from API dropdowns.
 
 ## Session Continuity
 
-- **Last session**: 2026-03-05T23:03:41Z
-- **Stopped at**: Completed 04-03-PLAN.md — Campaign deployment management
+- **Last session**: 2026-03-05T23:30:00Z
+- **Stopped at**: Completed 04-08-PLAN.md — Vector and Matrix sensor ingest tabs
 - **Resume file**: None
-- **Next action**: Continue with 04-06
+- **Next action**: Continue with 04-09
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app under construction. Building a Streamlit multipage app that calls the existing API. Target users are non-IT graduate students.
 
-**Status**: Phase 04 in progress (6/9 plans). Campaign deployment management complete with equipment-sampling point pairing and automatic EquipmentInstallation creation. Ready for 04-06.
+**Status**: Phase 04 in progress (8/9 plans). Vector and matrix sensor ingest complete with full API backend and UI tabs. Ready for 04-09 (Lab ingest page).
