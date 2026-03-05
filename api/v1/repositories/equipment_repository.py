@@ -157,6 +157,15 @@ def get_models_lookup(conn: pyodbc.Connection) -> list[dict]:
     ]
 
 
+def get_equipment_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return all equipment for dropdowns (id + identifier)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Equipment_ID], [Identifier] FROM [dbo].[Equipment] ORDER BY [Identifier]"
+    )
+    return [{"equipment_id": row[0], "identifier": row[1]} for row in cursor.fetchall()]
+
+
 def get_equipment_events(
     conn: pyodbc.Connection,
     equipment_id: int,

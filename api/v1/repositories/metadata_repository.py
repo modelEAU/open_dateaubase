@@ -107,3 +107,25 @@ def get_metadata_by_id(conn: pyodbc.Connection, metadata_id: int) -> dict | None
     cursor.execute(_METADATA_SELECT + " WHERE m.[Metadata_ID] = ?", metadata_id)
     row = cursor.fetchone()
     return _row_to_dict(row) if row else None
+
+
+def get_parameters_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return all parameters for dropdowns (id + name)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Parameter_ID], [Parameter] FROM [dbo].[Parameter] ORDER BY [Parameter]"
+    )
+    return [
+        {"parameter_id": row[0], "parameter_name": row[1]} for row in cursor.fetchall()
+    ]
+
+
+def get_processing_degrees_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return all processing degrees for dropdowns (id + name)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [ProcessingDegree_ID], [Name] FROM [dbo].[ProcessingDegree] ORDER BY [ProcessingDegree_ID]"
+    )
+    return [
+        {"processing_degree_id": row[0], "name": row[1]} for row in cursor.fetchall()
+    ]
