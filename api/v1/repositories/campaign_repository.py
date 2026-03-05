@@ -159,12 +159,9 @@ def get_campaign_types(conn: pyodbc.Connection) -> list[dict]:
     """Return all campaign types for dropdowns."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [CampaignType_ID], [CampaignType_Name], [Description] FROM [dbo].[CampaignType] ORDER BY [CampaignType_Name]"
+        "SELECT [CampaignType_ID], [CampaignType_Name] FROM [dbo].[CampaignType] ORDER BY [CampaignType_Name]"
     )
-    return [
-        {"campaign_type_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
+    return [{"campaign_type_id": row[0], "name": row[1]} for row in cursor.fetchall()]
 
 
 def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
