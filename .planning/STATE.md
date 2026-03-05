@@ -6,7 +6,7 @@
 - **Active phase**: Phase 04 — Business Forms
 - **Plan**: 9 of 9 complete in current phase
 - **Status**: Phase Complete
-- **Last activity**: 2026-03-05 — Completed 04-06 (Lab Analysis Ingest page)
+- **Last activity**: 2026-03-05 — Completed 04-09 (Image Ingest Infrastructure)
 
 Progress: ██████████ 79% (16/19 plans)
 
@@ -30,6 +30,11 @@ Progress: ██████████ 79% (16/19 plans)
 - **Unit creation endpoint**: POST /ingest/lookup/units (alongside GET lookup — no new router)
 - **Sensor ingest tabs**: Three tabs (Scalar/Vector/Matrix) on 9_Sensor_Ingest.py with isolated session state per tab
 - **CSV parsing helpers**: Dedicated parse functions for scalar, vector, and matrix data with header detection and validation
+- **Image ingest pattern**: Multipart upload to POST /ingest/sensor-image, file stored on disk, metadata+thumbnail in ValueImage
+- **File storage approach**: Store file content on disk, only path and metadata in DB (ValueImage.StoragePath, FileSizeBytes, etc.)
+- **Optional dependencies**: Pillow for image metadata extraction is optional; graceful fallback if not installed
+- [Phase 04-business-forms]: File storage on disk with metadata in DB, not BLOB storage
+- [Phase 04-business-forms]: Pillow made optional with graceful fallback for image metadata
 
 ## Deferred Issues
 
@@ -49,7 +54,7 @@ Progress: ██████████ 79% (16/19 plans)
 ## Session Continuity
 
 - **Last session**: 2026-03-05T23:30:00Z
-- **Stopped at**: Completed 04-06-PLAN.md — Lab Analysis Ingest page
+- **Stopped at**: Completed 04-09-PLAN.md — Image Ingest Infrastructure
 - **Resume file**: None
 - **Next action**: Phase 04 complete — ready for transition to Phase 05
 
@@ -57,4 +62,4 @@ Progress: ██████████ 79% (16/19 plans)
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app under construction. Building a Streamlit multipage app that calls the existing API. Target users are non-IT graduate students.
 
-**Status**: Phase 04 complete (9/9 plans). Lab analysis ingest page with inline sample creation and row duplication complete. Ready for Phase 05 transition.
+**Status**: Phase 04 complete (9/9 plans). Image ingest infrastructure complete with multipart upload endpoint, server-side file storage, Pillow thumbnail generation, and Streamlit Image tab. Ready for Phase 05 transition.

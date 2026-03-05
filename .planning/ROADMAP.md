@@ -46,7 +46,7 @@ Deliverables:
 
 ---
 
-### Phase 04: Business Forms — Data Ingestion *(In progress — 8/9 plans)*
+### Phase 04: Business Forms — Data Ingestion *(Complete — 9/9 plans)*
 
 Research: No | Dependencies: Phase 01, Phase 02, Phase 03
 
@@ -68,7 +68,7 @@ Deliverables:
   - Scalar: paste/upload CSV of timestamp+value rows → POST /ingest/sensor
   - Vector: select axis, upload spectrum CSV (timestamp + N bin columns) → POST /ingest/sensor-vector
   - Matrix: select row+col axes, upload 2D CSV → POST /ingest/sensor-matrix
-  - Image: upload image file with timestamp → POST /ingest/sensor-image *(pending)*
+  - ✅ Image: upload image file with timestamp → POST /ingest/sensor-image
 - Lab ingest page (`10_Lab_Ingest.py`): campaign/lab/procedure dropdowns, inline sample
   creation, st.data_editor with duplicate-row shortcut → POST /ingest/lab
 - POST /ingest/samples endpoint for inline sample creation
