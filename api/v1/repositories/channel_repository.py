@@ -93,3 +93,47 @@ def get_channel_by_id(conn: pyodbc.Connection, channel_id: int) -> dict | None:
     cursor.execute(_CHANNEL_SELECT + " WHERE m.[Channel_ID] = ?", channel_id)
     row = cursor.fetchone()
     return _row_to_dict(row) if row else None
+
+
+def insert_channel(conn: pyodbc.Connection, data: dict) -> dict:
+    """Insert a new channel and return the created record."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[Channel] ([Parameter_ID], [Equipment_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])"
+        " VALUES (?, ?, ?, ?, ?)",
+        data.get("parameter_id"),
+        data.get("equipment_id"),
+        data.get("data_provenance_id"),
+        data.get("processing_degree_id"),
+        data.get("value_type_id"),
+    )
+    cursor.execute("SELECT @@IDENTITY")
+    new_id = int(cursor.fetchone()[0])
+    conn.commit()
+    return get_channel_by_id(conn, new_id)
+
+
+def update_channel(conn: pyodbc.Connection, channel_id: int, data: dict) -> dict | None:
+    """Update an existing channel and return the updated record."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[Channel]"
+        " SET [Parameter_ID]=?, [Equipment_ID]=?, [DataProvenance_ID]=?, [ProcessingDegree_ID]=?, [ValueType_ID]=?"
+        " WHERE [Channel_ID]=?",
+        data.get("parameter_id"),
+        data.get("equipment_id"),
+        data.get("data_provenance_id"),
+        data.get("processing_degree_id"),
+        data.get("value_type_id"),
+        channel_id,
+    )
+    conn.commit()
+    return get_channel_by_id(conn, channel_id)
+
+
+def delete_channel(conn: pyodbc.Connection, channel_id: int) -> bool:
+    """Delete a channel by ID. Returns True if deleted, False if not found."""
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM [dbo].[Channel] WHERE [Channel_ID]=?", channel_id)
+    conn.commit()
+    return cursor.rowcount > 0
