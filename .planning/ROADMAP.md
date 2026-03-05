@@ -46,14 +46,34 @@ Deliverables:
 
 ---
 
-### Phase 04: Business Forms — Data Ingestion
-Research: No | Dependencies: Phase 01
+### Phase 04: Business Forms — Data Ingestion *(9 plans)*
 
-User-facing forms for importing data. No schema knowledge required from the user.
+Research: No | Dependencies: Phase 01, Phase 02, Phase 03
+
+User-facing forms for importing all data types. No schema knowledge required from the user.
+Covers scalar, vector (spectral), matrix (2D distribution), and image sensor data,
+as well as lab analysis results with inline sample creation.
 
 Deliverables:
-- Sensor ingest form: select equipment + parameter from dropdowns, paste/upload CSV of timestamped values
-- Lab ingest form: select sample + laboratory + procedure, enter results per parameter
+
+- Lookup API foundation: Unit, Laboratory, Procedures, Sample, SamplingPoint,
+  EquipmentEvent, Campaign lookup endpoints + api_client functions
+- EquipmentModel CRUD page (`6_Equipment_Models.py`) — register new sensor models
+- Parameter CRUD page (`7_Parameters.py`) — register new measurement parameters
+- Campaign enhancement: equipment deployment management (CampaignEquipment +
+  CampaignSamplingLocation + EquipmentInstallation auto-created at campaign start time)
+- Measurement Axes page (`8_Binning_Axes.py`) — define spectral/distribution bin axes
+  for vector and matrix channels (ValueBinningAxis + ValueBin)
+- Sensor ingest page (`9_Sensor_Ingest.py`) with four tabs:
+  - Scalar: paste/upload CSV of timestamp+value rows → POST /ingest/sensor
+  - Vector: select axis, upload spectrum CSV (timestamp + N bin columns) → POST /ingest/sensor-vector
+  - Matrix: select row+col axes, upload 2D CSV → POST /ingest/sensor-matrix
+  - Image: upload image file with timestamp → POST /ingest/sensor-image (saved to disk, path in DB)
+- Lab ingest page (`10_Lab_Ingest.py`): campaign/lab/procedure dropdowns, inline sample
+  creation, st.data_editor with duplicate-row shortcut → POST /ingest/lab
+- POST /ingest/samples endpoint for inline sample creation
+- Vector/Matrix ingest API: insert_vector_values, insert_matrix_values, upsert_channel_axis
+- Image ingest infrastructure: configurable upload directory, Pillow thumbnail generation
 
 ---
 
