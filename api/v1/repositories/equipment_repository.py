@@ -157,6 +157,87 @@ def get_models_lookup(conn: pyodbc.Connection) -> list[dict]:
     ]
 
 
+def list_equipment_models(conn: pyodbc.Connection) -> list[dict]:
+    """Return all equipment models (full rows)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [EquipmentModel_ID], [EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation]"
+        " FROM [dbo].[EquipmentModel] ORDER BY [EquipmentModel_ID]"
+    )
+    return [
+        {
+            "model_id": row[0],
+            "equipment_model": row[1],
+            "method": row[2],
+            "functions": row[3],
+            "manufacturer": row[4],
+            "manual_location": row[5],
+        }
+        for row in cursor.fetchall()
+    ]
+
+
+def get_equipment_model_by_id(conn: pyodbc.Connection, model_id: int) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [EquipmentModel_ID], [EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation]"
+        " FROM [dbo].[EquipmentModel] WHERE [EquipmentModel_ID]=?",
+        model_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "model_id": row[0],
+        "equipment_model": row[1],
+        "method": row[2],
+        "functions": row[3],
+        "manufacturer": row[4],
+        "manual_location": row[5],
+    }
+
+
+def insert_equipment_model(conn: pyodbc.Connection, data: dict) -> dict:
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation])"
+        " VALUES (?, ?, ?, ?, ?)",
+        data.get("equipment_model"),
+        data.get("method"),
+        data.get("functions"),
+        data.get("manufacturer"),
+        data.get("manual_location"),
+    )
+    cursor.execute("SELECT @@IDENTITY")
+    new_id = int(cursor.fetchone()[0])
+    conn.commit()
+    return get_equipment_model_by_id(conn, new_id)
+
+
+def update_equipment_model(conn: pyodbc.Connection, model_id: int, data: dict) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[EquipmentModel]"
+        " SET [EquipmentModel]=?, [Method]=?, [Functions]=?, [Manufacturer]=?, [ManualLocation]=?"
+        " WHERE [EquipmentModel_ID]=?",
+        data.get("equipment_model"),
+        data.get("method"),
+        data.get("functions"),
+        data.get("manufacturer"),
+        data.get("manual_location"),
+        model_id,
+    )
+    conn.commit()
+    return get_equipment_model_by_id(conn, model_id)
+
+
+def delete_equipment_model(conn: pyodbc.Connection, model_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM [dbo].[EquipmentModel] WHERE [EquipmentModel_ID]=?", model_id)
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def get_equipment_lookup(conn: pyodbc.Connection) -> list[dict]:
     """Return all equipment for dropdowns (id + identifier)."""
     cursor = conn.cursor()

@@ -18,6 +18,7 @@ from .endpoints.annotations import (
     annotation_types_router,
 )
 from .endpoints.sensor_status import router as sensor_status_router
+from .endpoints.parameters import router as parameters_router
 
 router = APIRouter()
 
@@ -37,3 +38,4 @@ router.include_router(
     annotation_types_router, prefix="/annotation-types", tags=["annotation-types"]
 )
 router.include_router(sensor_status_router, tags=["sensor-status"])
+router.include_router(parameters_router, prefix="/parameters", tags=["parameters"])

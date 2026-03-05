@@ -11,6 +11,8 @@ from ..repositories import equipment_repository
 from ..schemas.equipment import (
     EquipmentIn,
     EquipmentLifecycleOut,
+    EquipmentModelIn,
+    EquipmentModelOut,
     EquipmentOut,
     EquipmentPatch,
     EquipmentModelLookupOut,
@@ -63,10 +65,43 @@ def patch_equipment(equipment_id: int, body: EquipmentPatch, conn=Depends(get_db
     return updated
 
 
+@router.get("/models", response_model=list[EquipmentModelOut])
+def list_equipment_models(conn=Depends(get_db)):
+    """Return all equipment models."""
+    return equipment_repository.list_equipment_models(conn)
+
+
+@router.post("/models", response_model=EquipmentModelOut, status_code=201)
+def create_equipment_model(body: EquipmentModelIn, conn=Depends(get_db)):
+    return equipment_repository.insert_equipment_model(conn, body.model_dump())
+
+
 @router.get("/models/lookup", response_model=list[EquipmentModelLookupOut])
 def list_equipment_models_lookup(conn=Depends(get_db)):
     """Return equipment models for dropdowns."""
     return equipment_repository.get_models_lookup(conn)
+
+
+@router.get("/models/{model_id}", response_model=EquipmentModelOut)
+def get_equipment_model(model_id: int, conn=Depends(get_db)):
+    model = equipment_repository.get_equipment_model_by_id(conn, model_id)
+    if model is None:
+        raise HTTPException(status_code=404, detail=f"EquipmentModel {model_id} not found.")
+    return model
+
+
+@router.put("/models/{model_id}", response_model=EquipmentModelOut)
+def update_equipment_model(model_id: int, body: EquipmentModelIn, conn=Depends(get_db)):
+    updated = equipment_repository.update_equipment_model(conn, model_id, body.model_dump())
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"EquipmentModel {model_id} not found.")
+    return updated
+
+
+@router.delete("/models/{model_id}", status_code=204)
+def delete_equipment_model(model_id: int, conn=Depends(get_db)):
+    if not equipment_repository.delete_equipment_model(conn, model_id):
+        raise HTTPException(status_code=404, detail=f"EquipmentModel {model_id} not found.")
 
 
 @router.get("/lookup", response_model=list[dict])

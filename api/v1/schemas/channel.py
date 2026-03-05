@@ -45,6 +45,19 @@ class ParameterLookupOut(BaseModel):
     parameter_name: str
 
 
+class ParameterIn(BaseModel):
+    parameter: str
+    unit_id: int | None = None
+    description: str | None = None
+
+
+class ParameterOut(BaseModel):
+    parameter_id: int
+    parameter_name: str | None
+    unit_id: int | None
+    description: str | None
+
+
 class ProcessingDegreeLookupOut(BaseModel):
     """Lightweight processing degree info for dropdowns."""
 

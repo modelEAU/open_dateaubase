@@ -129,3 +129,75 @@ def get_processing_degrees_lookup(conn: pyodbc.Connection) -> list[dict]:
     return [
         {"processing_degree_id": row[0], "name": row[1]} for row in cursor.fetchall()
     ]
+
+
+def list_parameters(conn: pyodbc.Connection) -> list[dict]:
+    """Return all parameters (full rows)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Parameter_ID], [Parameter], [Unit_ID], [Description]"
+        " FROM [dbo].[Parameter] ORDER BY [Parameter_ID]"
+    )
+    return [
+        {
+            "parameter_id": row[0],
+            "parameter_name": row[1],
+            "unit_id": row[2],
+            "description": row[3],
+        }
+        for row in cursor.fetchall()
+    ]
+
+
+def get_parameter_by_id(conn: pyodbc.Connection, param_id: int) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Parameter_ID], [Parameter], [Unit_ID], [Description]"
+        " FROM [dbo].[Parameter] WHERE [Parameter_ID]=?",
+        param_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "parameter_id": row[0],
+        "parameter_name": row[1],
+        "unit_id": row[2],
+        "description": row[3],
+    }
+
+
+def insert_parameter(conn: pyodbc.Connection, data: dict) -> dict:
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[Parameter] ([Parameter], [Unit_ID], [Description]) VALUES (?, ?, ?)",
+        data.get("parameter"),
+        data.get("unit_id"),
+        data.get("description"),
+    )
+    cursor.execute("SELECT @@IDENTITY")
+    new_id = int(cursor.fetchone()[0])
+    conn.commit()
+    return get_parameter_by_id(conn, new_id)
+
+
+def update_parameter(conn: pyodbc.Connection, param_id: int, data: dict) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[Parameter]"
+        " SET [Parameter]=?, [Unit_ID]=?, [Description]=?"
+        " WHERE [Parameter_ID]=?",
+        data.get("parameter"),
+        data.get("unit_id"),
+        data.get("description"),
+        param_id,
+    )
+    conn.commit()
+    return get_parameter_by_id(conn, param_id)
+
+
+def delete_parameter(conn: pyodbc.Connection, param_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM [dbo].[Parameter] WHERE [Parameter_ID]=?", param_id)
+    conn.commit()
+    return cursor.rowcount > 0

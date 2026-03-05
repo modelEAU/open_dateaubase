@@ -68,6 +68,23 @@ class EquipmentModelLookupOut(BaseModel):
     manufacturer: str | None = None
 
 
+class EquipmentModelIn(BaseModel):
+    equipment_model: str | None = None
+    method: str | None = None
+    functions: str | None = None
+    manufacturer: str | None = None
+    manual_location: str | None = None
+
+
+class EquipmentModelOut(BaseModel):
+    model_id: int
+    equipment_model: str | None = None
+    method: str | None = None
+    functions: str | None = None
+    manufacturer: str | None = None
+    manual_location: str | None = None
+
+
 class EquipmentLifecycleOut(BaseModel):
     equipment: EquipmentOut
     installations: list[InstallationOut]

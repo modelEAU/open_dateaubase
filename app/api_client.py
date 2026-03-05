@@ -199,6 +199,46 @@ def list_equipment_models_lookup() -> list[dict]:
     return r.json()
 
 
+def list_equipment_models() -> list[dict]:
+    """Return all equipment models (full rows)."""
+    try:
+        with _get_client() as client:
+            r = client.get("/equipment/models")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_equipment_model(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/equipment/models", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_equipment_model(model_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/equipment/models/{model_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_equipment_model(model_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/equipment/models/{model_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
 # ---------------------------------------------------------------------------
 # Campaigns
 # ---------------------------------------------------------------------------
@@ -383,6 +423,51 @@ def list_processing_degrees_lookup() -> list[dict]:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
+
+
+# ---------------------------------------------------------------------------
+# Parameters
+# ---------------------------------------------------------------------------
+
+
+def list_parameters_full() -> list[dict]:
+    """Return all parameters (full rows, distinct from list_parameters_lookup)."""
+    try:
+        with _get_client() as client:
+            r = client.get("/parameters")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_parameter(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/parameters", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_parameter(param_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/parameters/{param_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_parameter(param_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/parameters/{param_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
 
 
 # ---------------------------------------------------------------------------
