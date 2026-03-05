@@ -170,3 +170,11 @@ class MatrixSensorIngestRequest(BaseModel):
         if not v:
             raise ValueError("observations must not be empty")
         return v
+
+    @field_validator("col_axis_id")
+    @classmethod
+    def axes_must_differ(cls, v: int, info) -> int:
+        row_axis_id = info.data.get("row_axis_id")
+        if row_axis_id is not None and v == row_axis_id:
+            raise ValueError("row_axis_id and col_axis_id must be different")
+        return v
