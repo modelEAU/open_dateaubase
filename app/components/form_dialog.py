@@ -2,8 +2,23 @@
 
 from __future__ import annotations
 
+import datetime
 import streamlit as st
 from typing import Callable
+
+
+def _serialize_form_data(data: dict) -> dict:
+    """Convert form data to JSON-serializable format.
+
+    Handles datetime.date -> ISO format string conversion.
+    """
+    serialized = {}
+    for key, value in data.items():
+        if isinstance(value, datetime.date):
+            serialized[key] = value.isoformat()
+        else:
+            serialized[key] = value
+    return serialized
 
 
 @st.dialog("Create New Item", width="large")
@@ -56,7 +71,8 @@ def create_form_dialog(
                 for error in errors:
                     st.error(error)
             else:
-                success = on_submit(form_data)
+                serialized_data = _serialize_form_data(form_data)
+                success = on_submit(serialized_data)
                 if success:
                     st.rerun()
     with col3:
@@ -112,9 +128,10 @@ def edit_form_dialog(
                 for error in errors:
                     st.error(error)
             else:
-                # Include ID from original item
+                # Include ID from original item and serialize dates
                 form_data["id"] = item_data.get("id")
-                success = on_submit(form_data)
+                serialized_data = _serialize_form_data(form_data)
+                success = on_submit(serialized_data)
                 if success:
                     st.rerun()
     with col3:
