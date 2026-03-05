@@ -3,12 +3,12 @@
 ## Current Position
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
-- **Active phase**: Phase 03 — Core Entities
-- **Plan**: 2 complete in current phase
-- **Status**: Completed 03-02 Channels and Annotations CRUD Pages
-- **Last activity**: 2026-03-05 — Completed 03-02 (3 tasks, Channels and Annotations UI)
+- **Active phase**: Phase 04 — Business Forms
+- **Plan**: 1 of 9 complete in current phase
+- **Status**: In progress
+- **Last activity**: 2026-03-05 — Completed 04-01 (2 tasks, Lookup API Foundation)
 
-Progress: ██████░░░░ 80% (8/10 plans)
+Progress: █████░░░░░ 53% (10/19 plans)
 
 ## Accumulated Decisions
 
@@ -22,6 +22,8 @@ Progress: ██████░░░░ 80% (8/10 plans)
 - **UI Pattern - REFERENCE DATA**: Form-based CRUD (not inline editing) — table for display + dialog forms for create/edit
 - **Channel schema design**: All ChannelIn fields are optional (nullable) since Channel is a flexible linking table - this allows partial updates without requiring all FK fields
 - **Lookup endpoint placement**: Lookup endpoints placed under /channels/lookup/* to maintain consistency with existing /sites/lookup/list pattern
+- **Ingest/campaign lookup placement**: Ingest lookup routes added inline to ingest.py (/ingest/lookup/*) and campaigns.py (/campaigns/lookup) — no separate router needed
+- **lookup_repository.py**: Centralized module for all reference-data queries; all lookup functions take conn as first param, return list[dict] with snake_case keys
 - **Datetime form fields**: Use combined st.date_input + st.time_input with datetime.datetime.combine() for timestamp inputs
 - **Channel dropdown labels**: Combine parameter name and equipment identifier for descriptive labels (e.g., "pH (Sensor-A1)")
 
@@ -42,13 +44,13 @@ Progress: ██████░░░░ 80% (8/10 plans)
 
 ## Session Continuity
 
-- **Last session**: 2026-03-05T18:48:00Z
-- **Stopped at**: Completed 03-02-PLAN.md - Channels and Annotations CRUD Pages
+- **Last session**: 2026-03-05T21:18:16Z
+- **Stopped at**: Completed 04-01-PLAN.md - Lookup API Foundation
 - **Resume file**: None
-- **Next action**: Continue with Phase 03 Plan 03 or verify work
+- **Next action**: Continue with 04-02 (EquipmentModel CRUD page)
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app under construction. Building a Streamlit multipage app that calls the existing API. Target users are non-IT graduate students.
 
-**Status**: Phase 03 Plans 01-02 complete - Channel write API, lookup endpoints, and CRUD UI pages are ready. Channels and Annotations fully functional in Streamlit frontend.
+**Status**: Phase 04 in progress (1/9 plans). Lookup API foundation complete — 7 GET lookup endpoints live for Unit, Laboratory, Procedures, Sample, SamplingPoint, EquipmentEvent, Campaign. All ingest form plans (04-02 through 04-09) can now build dropdowns from API.
