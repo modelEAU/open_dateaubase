@@ -12,6 +12,10 @@ from ..schemas.campaigns import (
     CampaignOut,
     CampaignPatch,
     CampaignTypeOut,
+    DeploymentCreateIn,
+    DeploymentCreateOut,
+    DeploymentDeleteIn,
+    DeploymentOut,
 )
 
 router = APIRouter()
@@ -100,3 +104,43 @@ def get_campaign_context(campaign_id: int, conn=Depends(get_db)):
         )
     context = campaign_repository.get_campaign_context(conn, campaign_id)
     return CampaignContextOut(campaign=campaign, **context)
+
+
+@router.get("/{campaign_id}/deployments", response_model=list[DeploymentOut])
+def list_campaign_deployments(campaign_id: int, conn=Depends(get_db)):
+    """Return all deployments (equipment + sampling point pairs) for a campaign."""
+    return campaign_repository.list_campaign_deployments(conn, campaign_id)
+
+
+@router.post(
+    "/{campaign_id}/deployments", response_model=DeploymentCreateOut, status_code=201
+)
+def create_campaign_deployment(
+    campaign_id: int, body: DeploymentCreateIn, conn=Depends(get_db)
+):
+    """Create a deployment: pair equipment with sampling point for a campaign."""
+    try:
+        installation_id = campaign_repository.create_campaign_deployment(
+            conn,
+            campaign_id=campaign_id,
+            equipment_id=body.equipment_id,
+            sampling_point_id=body.sampling_point_id,
+            role=body.role,
+            notes=body.notes,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return DeploymentCreateOut(installation_id=installation_id)
+
+
+@router.delete("/{campaign_id}/deployments", status_code=204)
+def delete_campaign_deployment(
+    campaign_id: int, body: DeploymentDeleteIn, conn=Depends(get_db)
+):
+    """Delete a deployment: remove equipment + sampling point pairing from a campaign."""
+    campaign_repository.delete_campaign_deployment(
+        conn,
+        campaign_id=campaign_id,
+        equipment_id=body.equipment_id,
+        sampling_point_id=body.sampling_point_id,
+    )

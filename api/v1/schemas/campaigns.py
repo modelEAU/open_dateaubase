@@ -57,3 +57,37 @@ class CampaignContextOut(BaseModel):
     metadata_count: int
     time_range_start: datetime | None
     time_range_end: datetime | None
+
+
+class DeploymentOut(BaseModel):
+    """A deployment pairs equipment with a sampling point for a campaign."""
+
+    equipment_id: int
+    equipment_identifier: str | None
+    sampling_point_id: int | None
+    sampling_point_name: str | None
+    role: str | None
+    installation_id: int | None
+    installed_date: datetime | None
+
+
+class DeploymentCreateIn(BaseModel):
+    """Input for creating a deployment."""
+
+    equipment_id: int
+    sampling_point_id: int
+    role: str | None = None
+    notes: str | None = None
+
+
+class DeploymentCreateOut(BaseModel):
+    """Output after creating a deployment."""
+
+    installation_id: int
+
+
+class DeploymentDeleteIn(BaseModel):
+    """Input for deleting a deployment."""
+
+    equipment_id: int
+    sampling_point_id: int
