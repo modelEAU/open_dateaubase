@@ -1,4 +1,4 @@
-"""Campaigns CRUD page."""
+"""Campaigns CRUD page with form-based editing."""
 
 from __future__ import annotations
 
@@ -10,17 +10,19 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 import streamlit as st
+import pandas as pd
 
 from app.api_client import (
     APIError,
     create_campaign,
     delete_campaign,
     list_campaigns,
-    list_sites,
-    update_campaign,
+    list_campaign_types,
+    list_sites_lookup,
+    patch_campaign,
 )
 from app.auth import get_current_user, logout, require_auth
-from app.components.crud_table import crud_data_editor
+from app.components.form_dialog import create_form_dialog, edit_form_dialog
 
 require_auth()
 
@@ -33,92 +35,159 @@ with st.sidebar:
 
 st.title("Campaigns")
 
-column_config = {
-    "campaign_id": st.column_config.NumberColumn("ID", disabled=True),
-    "name": st.column_config.TextColumn("Name", required=True),
-    "campaign_type_id": st.column_config.NumberColumn("Type ID", required=True),
-    "campaign_type_name": st.column_config.TextColumn("Type Name", disabled=True),
-    "site_id": st.column_config.NumberColumn("Site ID", required=True),
-    "site_name": st.column_config.TextColumn("Site Name", disabled=True),
-    "description": st.column_config.TextColumn("Description"),
-    "start_date": st.column_config.TextColumn("Start Date"),
-    "end_date": st.column_config.TextColumn("End Date"),
-}
-
+# Load campaigns, sites, and campaign types
 try:
-    # Load sites for filter dropdown
-    sites_response = list_sites()
-    sites = (
-        sites_response.get("items", [])
-        if isinstance(sites_response, dict)
-        else sites_response
-    )
-    site_options = ["All"] + [s["name"] for s in sites]
-    selected_site = st.selectbox("Filter by site", options=site_options, index=0)
-
-    # Determine site_id filter
-    site_id_filter = None
-    if selected_site != "All":
-        site_id_filter = next(
-            (s["id"] for s in sites if s["name"] == selected_site), None
+    with st.spinner("Loading..."):
+        campaigns_data = list_campaigns()
+        campaigns = (
+            campaigns_data.get("items", [])
+            if isinstance(campaigns_data, dict)
+            else campaigns_data
         )
-
-    with st.spinner("Loading campaigns..."):
-        response = list_campaigns()
-        all_items = (
-            response.get("items", []) if isinstance(response, dict) else response
-        )
-        # Client-side filtering by site
-        items = [
-            c
-            for c in all_items
-            if site_id_filter is None or c.get("site_id") == site_id_filter
-        ]
-
-    added, changed, deleted_ids = crud_data_editor(
-        items, column_config, id_field="campaign_id"
-    )
-
-    if added or changed or deleted_ids:
-        has_error = False
-
-        for row in added:
-            # Strip read-only fields before API call
-            writable_row = {
-                k: v
-                for k, v in row.items()
-                if k not in ("campaign_type_name", "site_name")
-            }
-            try:
-                create_campaign(writable_row)
-            except APIError as e:
-                st.error(f"Failed to create campaign: {e.message}")
-                has_error = True
-
-        for row in changed:
-            # Strip read-only fields before API call
-            writable_row = {
-                k: v
-                for k, v in row.items()
-                if k not in ("campaign_type_name", "site_name")
-            }
-            try:
-                update_campaign(int(row["campaign_id"]), writable_row)
-            except APIError as e:
-                st.error(
-                    f"Failed to update campaign {row.get('campaign_id')}: {e.message}"
-                )
-                has_error = True
-
-        for campaign_id in deleted_ids:
-            try:
-                delete_campaign(campaign_id)
-            except APIError as e:
-                st.error(f"Failed to delete campaign {campaign_id}: {e.message}")
-                has_error = True
-
-        if not has_error:
-            st.rerun()
-
+        sites = list_sites_lookup()
+        campaign_types = list_campaign_types()
 except APIError as e:
-    st.error(f"Cannot load campaigns: {e.message}")
+    st.error(f"Cannot load data: {e.message}")
+    st.stop()
+
+# Prepare dropdown options
+site_options = [{"id": s["site_id"], "label": s["name"]} for s in sites]
+type_options = [
+    {"id": t["campaign_type_id"], "label": t["name"]} for t in campaign_types
+]
+
+# Site filter for list view
+site_filter_col, _ = st.columns([2, 8])
+with site_filter_col:
+    filter_options = [{"id": None, "label": "All Sites"}] + site_options
+    selected_site_filter = st.selectbox(
+        "Filter by site",
+        options=[opt["label"] for opt in filter_options],
+        index=0,
+    )
+    site_id_filter = next(
+        (opt["id"] for opt in filter_options if opt["label"] == selected_site_filter),
+        None,
+    )
+
+# Filter campaigns
+if site_id_filter is not None:
+    filtered_campaigns = [c for c in campaigns if c.get("site_id") == site_id_filter]
+else:
+    filtered_campaigns = campaigns
+
+
+# Handler functions
+def handle_create_campaign(data: dict) -> bool:
+    try:
+        create_campaign(data)
+        st.success("Campaign created successfully!")
+        return True
+    except APIError as e:
+        st.error(f"Failed to create campaign: {e.message}")
+        return False
+
+
+def handle_patch_campaign(campaign_id: int, data: dict) -> bool:
+    try:
+        patch_campaign(campaign_id, data)
+        st.success("Campaign updated successfully!")
+        return True
+    except APIError as e:
+        st.error(f"Failed to update campaign: {e.message}")
+        return False
+
+
+def handle_delete_campaign(campaign_id: int) -> None:
+    try:
+        delete_campaign(campaign_id)
+        st.success("Campaign deleted successfully!")
+        st.rerun()
+    except APIError as e:
+        st.error(f"Failed to delete campaign: {e.message}")
+
+
+# Action buttons
+col1, col2, col3 = st.columns([1, 1, 8])
+with col1:
+    if st.button("➕ New", type="primary"):
+        create_form_dialog(
+            fields=[
+                {"name": "name", "type": "text", "required": True},
+                {
+                    "name": "campaign_type_id",
+                    "type": "select",
+                    "required": True,
+                    "options": type_options,
+                },
+                {
+                    "name": "site_id",
+                    "type": "select",
+                    "required": True,
+                    "options": site_options,
+                },
+                {"name": "description", "type": "textarea", "required": False},
+                {"name": "start_date", "type": "date", "required": False},
+                {"name": "end_date", "type": "date", "required": False},
+            ],
+            on_submit=lambda data: handle_create_campaign(data),
+            title="Create New Campaign",
+        )
+
+# Store selected row
+if "selected_campaign_id" not in st.session_state:
+    st.session_state.selected_campaign_id = None
+
+# Display table
+if filtered_campaigns:
+    df = pd.DataFrame(filtered_campaigns)
+    selected_indices = st.dataframe(
+        df,
+        use_container_width=True,
+        on_select="rerun",
+        selection_mode="single-row",
+    )
+    if selected_indices and selected_indices.get("selection", {}).get("rows"):
+        row_idx = selected_indices["selection"]["rows"][0]
+        st.session_state.selected_campaign_id = df.iloc[row_idx]["campaign_id"]
+        selected_campaign = filtered_campaigns[row_idx]
+    else:
+        selected_campaign = None
+        st.session_state.selected_campaign_id = None
+else:
+    st.info("No campaigns found. Click 'New' to create one.")
+    selected_campaign = None
+
+with col2:
+    if st.button("✏️ Edit", disabled=selected_campaign is None):
+        if selected_campaign:
+            edit_form_dialog(
+                item_data=selected_campaign,
+                fields=[
+                    {"name": "name", "type": "text", "required": True},
+                    {
+                        "name": "campaign_type_id",
+                        "type": "select",
+                        "required": True,
+                        "options": type_options,
+                    },
+                    {
+                        "name": "site_id",
+                        "type": "select",
+                        "required": True,
+                        "options": site_options,
+                    },
+                    {"name": "description", "type": "textarea", "required": False},
+                    {"name": "start_date", "type": "date", "required": False},
+                    {"name": "end_date", "type": "date", "required": False},
+                ],
+                on_submit=lambda data: handle_patch_campaign(
+                    selected_campaign["campaign_id"], data
+                ),
+                title=f"Edit Campaign: {selected_campaign.get('name', '')}",
+            )
+
+with col3:
+    if st.button("🗑️ Delete", disabled=selected_campaign is None, type="secondary"):
+        if selected_campaign:
+            handle_delete_campaign(selected_campaign["campaign_id"])
