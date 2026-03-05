@@ -4,11 +4,11 @@
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
 - **Active phase**: Phase 04 — Business Forms
-- **Plan**: 5 of 9 complete in current phase
+- **Plan**: 6 of 9 complete in current phase
 - **Status**: In progress
-- **Last activity**: 2026-03-05 — Completed 04-07 (Vector/Matrix sensor data ingest endpoints)
+- **Last activity**: 2026-03-05 — Completed 04-03 (Campaign deployments)
 
-Progress: ████████░░ 63% (12/19 plans)
+Progress: ████████░░ 63% (13/19 plans)
 
 ## Accumulated Decisions
 
@@ -47,12 +47,12 @@ Progress: ████████░░ 63% (12/19 plans)
 ## Session Continuity
 
 - **Last session**: 2026-03-05T23:03:41Z
-- **Stopped at**: Completed 04-07-PLAN.md — Vector/Matrix sensor data ingest endpoints
+- **Stopped at**: Completed 04-03-PLAN.md — Campaign deployment management
 - **Resume file**: None
-- **Next action**: Continue with 04-08
+- **Next action**: Continue with 04-06
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app under construction. Building a Streamlit multipage app that calls the existing API. Target users are non-IT graduate students.
 
-**Status**: Phase 04 in progress (5/9 plans). Vector and matrix sensor ingest endpoints complete. API supports scalar (value_type_id=1), vector (value_type_id=2), and matrix (value_type_id=3) data types. Ready for 04-08.
+**Status**: Phase 04 in progress (6/9 plans). Campaign deployment management complete with equipment-sampling point pairing and automatic EquipmentInstallation creation. Ready for 04-06.

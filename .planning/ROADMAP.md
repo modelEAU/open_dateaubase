@@ -46,7 +46,7 @@ Deliverables:
 
 ---
 
-### Phase 04: Business Forms — Data Ingestion *(In progress — 5/9 plans)*
+### Phase 04: Business Forms — Data Ingestion *(In progress — 6/9 plans)*
 
 Research: No | Dependencies: Phase 01, Phase 02, Phase 03
 
@@ -60,7 +60,7 @@ Deliverables:
   EquipmentEvent, Campaign lookup endpoints + api_client functions
 - EquipmentModel CRUD page (`6_Equipment_Models.py`) — register new sensor models
 - Parameter CRUD page (`7_Parameters.py`) — register new measurement parameters
-- Campaign enhancement: equipment deployment management (CampaignEquipment +
+- ✅ Campaign enhancement: equipment deployment management (CampaignEquipment +
   CampaignSamplingLocation + EquipmentInstallation auto-created at campaign start time)
 - Measurement Axes page (`8_Binning_Axes.py`) — define spectral/distribution bin axes
   for vector and matrix channels (ValueBinningAxis + ValueBin)
