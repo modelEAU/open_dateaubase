@@ -1,4 +1,4 @@
-"""Sensor Data Ingest page for scalar time series data."""
+"""Sensor Data Ingest page with Scalar, Vector, and Matrix tabs."""
 
 from __future__ import annotations
 
@@ -18,6 +18,9 @@ import pandas as pd
 from app.api_client import (
     APIError,
     ingest_sensor,
+    ingest_sensor_vector,
+    ingest_sensor_matrix,
+    list_binning_axes_lookup,
     list_data_provenance_lookup,
     list_equipment_lookup,
     list_parameters_lookup,
@@ -37,319 +40,1147 @@ with st.sidebar:
 
 st.title("Sensor Data Ingest")
 st.markdown(
-    "Upload or paste timestamped scalar measurements. The channel is "
+    "Upload or paste timestamped sensor measurements. The channel is "
     "created automatically if it does not yet exist."
 )
 
-# Initialize session state for parsed data
-if "parsed_rows" not in st.session_state:
-    st.session_state.parsed_rows = []
-if "parse_errors" not in st.session_state:
-    st.session_state.parse_errors = []
+# Initialize session state for parsed data (per-tab)
+if "scalar_parsed_rows" not in st.session_state:
+    st.session_state.scalar_parsed_rows = []
+if "scalar_parse_errors" not in st.session_state:
+    st.session_state.scalar_parse_errors = []
+if "vector_parsed" not in st.session_state:
+    st.session_state.vector_parsed = []
+if "vector_parse_errors" not in st.session_state:
+    st.session_state.vector_parse_errors = []
+if "matrix_parsed" not in st.session_state:
+    st.session_state.matrix_parsed = []
+if "matrix_parse_errors" not in st.session_state:
+    st.session_state.matrix_parse_errors = []
 
-# Load lookup data for dropdowns
-try:
-    with st.spinner("Loading lookup data..."):
-        equipment_lookup = list_equipment_lookup()
-        parameters_lookup = list_parameters_lookup()
-        units_lookup = list_units_lookup()
-        provenance_lookup = list_data_provenance_lookup()
-        processing_degrees_lookup = list_processing_degrees_lookup()
-except APIError as e:
-    st.error(f"Cannot load lookup data: {e.message}")
-    st.stop()
+# Create tabs
+tab_scalar, tab_vector, tab_matrix = st.tabs(["Scalar", "Vector", "Matrix"])
 
-# Get Sensor provenance name from database (ID=1 is Sensor)
-sensor_provenance = next(
-    (p for p in provenance_lookup if p["data_provenance_id"] == 1),
-    {"data_provenance_name": "Sensor"},  # fallback if not found
-)
-sensor_provenance_name = sensor_provenance["data_provenance_name"]
-
-# Channel Identification Section
-with st.container(border=True):
-    st.subheader("Channel Identity")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        equipment_options = [
-            {"id": e["equipment_id"], "label": e["identifier"]}
-            for e in equipment_lookup
-        ]
-        equipment_labels = [opt["label"] for opt in equipment_options]
-        selected_equipment_label = st.selectbox(
-            "Equipment",
-            options=equipment_labels,
-            index=None,
-            placeholder="Select equipment...",
-        )
-        equipment_id = next(
-            (
-                opt["id"]
-                for opt in equipment_options
-                if opt["label"] == selected_equipment_label
-            ),
-            None,
-        )
-
-    with col2:
-        parameter_options = [
-            {"id": p["parameter_id"], "label": p["parameter_name"]}
-            for p in parameters_lookup
-        ]
-        parameter_labels = [opt["label"] for opt in parameter_options]
-        selected_parameter_label = st.selectbox(
-            "Parameter",
-            options=parameter_labels,
-            index=None,
-            placeholder="Select parameter...",
-        )
-        parameter_id = next(
-            (
-                opt["id"]
-                for opt in parameter_options
-                if opt["label"] == selected_parameter_label
-            ),
-            None,
-        )
-
-    with col3:
-        unit_options = [{"id": u["unit_id"], "label": u["unit"]} for u in units_lookup]
-        unit_labels = [opt["label"] for opt in unit_options]
-        selected_unit_label = st.selectbox(
-            "Unit",
-            options=unit_labels,
-            index=None,
-            placeholder="Select unit...",
-        )
-        unit_id = next(
-            (opt["id"] for opt in unit_options if opt["label"] == selected_unit_label),
-            None,
-        )
-
-    col4, col5 = st.columns(2)
-
-    with col4:
-        st.markdown(f"**Data Provenance:** {sensor_provenance_name}")
-        data_provenance_id = 1
-
-    with col5:
-        processing_options = [
-            {"id": d["processing_degree_id"], "label": d["name"]}
-            for d in processing_degrees_lookup
-        ]
-        processing_labels = [opt["label"] for opt in processing_options]
-        selected_processing_label = st.selectbox(
-            "Processing Degree",
-            options=processing_labels,
-            index=0,
-            help="Auto-created if new channel",
-        )
-        processing_degree_id = next(
-            (
-                opt["id"]
-                for opt in processing_options
-                if opt["label"] == selected_processing_label
-            ),
-            None,
-        )
-
-
-# Data Input Section
-with st.container(border=True):
-    st.subheader("Data")
-
-    input_mode = st.radio(
-        "Input method",
-        ["Paste CSV", "Upload CSV file"],
-        horizontal=True,
+# =============================================================================
+# SCALAR TAB
+# =============================================================================
+with tab_scalar:
+    st.subheader("Scalar Sensor Ingest")
+    st.markdown(
+        "Upload or paste timestamped scalar measurements (one value per timestamp)."
     )
 
-    raw_csv = ""
+    # Load lookup data for dropdowns
+    try:
+        with st.spinner("Loading lookup data..."):
+            equipment_lookup = list_equipment_lookup()
+            parameters_lookup = list_parameters_lookup()
+            units_lookup = list_units_lookup()
+            provenance_lookup = list_data_provenance_lookup()
+            processing_degrees_lookup = list_processing_degrees_lookup()
+    except APIError as e:
+        st.error(f"Cannot load lookup data: {e.message}")
+        st.stop()
 
-    if input_mode == "Paste CSV":
-        raw_csv = st.text_area(
-            "Paste CSV data",
-            placeholder="""timestamp,value,quality_code
+    # Get Sensor provenance name from database (ID=1 is Sensor)
+    sensor_provenance = next(
+        (p for p in provenance_lookup if p["data_provenance_id"] == 1),
+        {"data_provenance_name": "Sensor"},
+    )
+    sensor_provenance_name = sensor_provenance["data_provenance_name"]
+
+    # Channel Identification Section
+    with st.container(border=True):
+        st.subheader("Channel Identity")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            equipment_options = [
+                {"id": e["equipment_id"], "label": e["identifier"]}
+                for e in equipment_lookup
+            ]
+            equipment_labels = [opt["label"] for opt in equipment_options]
+            selected_equipment_label = st.selectbox(
+                "Equipment",
+                options=equipment_labels,
+                index=None,
+                placeholder="Select equipment...",
+                key="scalar_equipment",
+            )
+            scalar_equipment_id = next(
+                (
+                    opt["id"]
+                    for opt in equipment_options
+                    if opt["label"] == selected_equipment_label
+                ),
+                None,
+            )
+
+        with col2:
+            parameter_options = [
+                {"id": p["parameter_id"], "label": p["parameter_name"]}
+                for p in parameters_lookup
+            ]
+            parameter_labels = [opt["label"] for opt in parameter_options]
+            selected_parameter_label = st.selectbox(
+                "Parameter",
+                options=parameter_labels,
+                index=None,
+                placeholder="Select parameter...",
+                key="scalar_parameter",
+            )
+            scalar_parameter_id = next(
+                (
+                    opt["id"]
+                    for opt in parameter_options
+                    if opt["label"] == selected_parameter_label
+                ),
+                None,
+            )
+
+        with col3:
+            unit_options = [
+                {"id": u["unit_id"], "label": u["unit"]} for u in units_lookup
+            ]
+            unit_labels = [opt["label"] for opt in unit_options]
+            selected_unit_label = st.selectbox(
+                "Unit",
+                options=unit_labels,
+                index=None,
+                placeholder="Select unit...",
+                key="scalar_unit",
+            )
+            scalar_unit_id = next(
+                (
+                    opt["id"]
+                    for opt in unit_options
+                    if opt["label"] == selected_unit_label
+                ),
+                None,
+            )
+
+        col4, col5 = st.columns(2)
+
+        with col4:
+            st.markdown(f"**Data Provenance:** {sensor_provenance_name}")
+            scalar_data_provenance_id = 1
+
+        with col5:
+            processing_options = [
+                {"id": d["processing_degree_id"], "label": d["name"]}
+                for d in processing_degrees_lookup
+            ]
+            processing_labels = [opt["label"] for opt in processing_options]
+            selected_processing_label = st.selectbox(
+                "Processing Degree",
+                options=processing_labels,
+                index=0,
+                help="Auto-created if new channel",
+                key="scalar_processing",
+            )
+            scalar_processing_degree_id = next(
+                (
+                    opt["id"]
+                    for opt in processing_options
+                    if opt["label"] == selected_processing_label
+                ),
+                None,
+            )
+
+    # Data Input Section
+    with st.container(border=True):
+        st.subheader("Data")
+
+        scalar_input_mode = st.radio(
+            "Input method",
+            ["Paste CSV", "Upload CSV file"],
+            horizontal=True,
+            key="scalar_input_mode",
+        )
+
+        scalar_raw_csv = ""
+
+        if scalar_input_mode == "Paste CSV":
+            scalar_raw_csv = st.text_area(
+                "Paste CSV data",
+                placeholder="""timestamp,value,quality_code
 2024-01-15T08:00:00,7.42,
 2024-01-15T08:15:00,7.45,
 2024-01-15T08:30:00,7.51,""",
-            height=200,
-        )
-        st.caption(
-            "ISO timestamps (YYYY-MM-DDTHH:MM:SS). quality_code column optional."
-        )
-    else:
-        uploaded_file = st.file_uploader("Choose CSV file", type=["csv"])
-        if uploaded_file is not None:
-            raw_csv = uploaded_file.read().decode("utf-8")
+                height=200,
+                key="scalar_text_area",
+            )
+            st.caption(
+                "ISO timestamps (YYYY-MM-DDTHH:MM:SS). quality_code column optional."
+            )
+        else:
+            scalar_uploaded_file = st.file_uploader(
+                "Choose CSV file", type=["csv"], key="scalar_file_uploader"
+            )
+            if scalar_uploaded_file is not None:
+                scalar_raw_csv = scalar_uploaded_file.read().decode("utf-8")
 
+    def parse_scalar_csv(csv_text: str) -> tuple[list[dict], list[dict]]:
+        """Parse scalar CSV data into valid rows and errors."""
+        valid_rows = []
+        errors = []
 
-# Parse and Preview Section
-def parse_csv_data(csv_text: str) -> tuple[list[dict], list[dict]]:
-    """Parse CSV data into valid rows and errors."""
-    valid_rows = []
-    errors = []
-
-    if not csv_text.strip():
-        return valid_rows, errors
-
-    # Strip BOM if present
-    csv_text = csv_text.lstrip("\ufeff")
-
-    try:
-        reader = csv.reader(StringIO(csv_text))
-        rows = list(reader)
-
-        if not rows:
+        if not csv_text.strip():
             return valid_rows, errors
 
-        # Detect header: if first cell looks like a header
-        start_idx = 0
-        first_cell = rows[0][0].strip().lower() if rows[0] else ""
-        if first_cell in {"timestamp", "datetime", "time", "date"}:
-            start_idx = 1
+        csv_text = csv_text.lstrip("\ufeff")
 
-        for idx, row in enumerate(rows[start_idx:], start=start_idx + 1):
-            if not row or all(cell.strip() == "" for cell in row):
-                continue
+        try:
+            reader = csv.reader(StringIO(csv_text))
+            rows = list(reader)
 
-            try:
-                # Expected columns: timestamp, value, [quality_code]
-                if len(row) < 2:
-                    errors.append(
-                        {
-                            "row": idx,
-                            "error": "Insufficient columns (need at least timestamp, value)",
-                        }
-                    )
+            if not rows:
+                return valid_rows, errors
+
+            start_idx = 0
+            first_cell = rows[0][0].strip().lower() if rows[0] else ""
+            if first_cell in {"timestamp", "datetime", "time", "date"}:
+                start_idx = 1
+
+            for idx, row in enumerate(rows[start_idx:], start=start_idx + 1):
+                if not row or all(cell.strip() == "" for cell in row):
                     continue
 
-                timestamp_str = row[0].strip()
-                value_str = row[1].strip()
-                quality_code_str = row[2].strip() if len(row) > 2 else ""
-
-                # Parse timestamp
                 try:
-                    timestamp = datetime.fromisoformat(timestamp_str)
-                except ValueError:
-                    errors.append(
-                        {
-                            "row": idx,
-                            "error": f"Invalid timestamp format: {timestamp_str}",
-                        }
-                    )
-                    continue
-
-                # Parse value
-                if value_str == "":
-                    value = None
-                else:
-                    try:
-                        value = float(value_str)
-                    except ValueError:
-                        errors.append(
-                            {"row": idx, "error": f"Invalid numeric value: {value_str}"}
-                        )
-                        continue
-
-                # Parse quality_code
-                if quality_code_str == "":
-                    quality_code = None
-                else:
-                    try:
-                        quality_code = int(quality_code_str)
-                    except ValueError:
+                    if len(row) < 2:
                         errors.append(
                             {
                                 "row": idx,
-                                "error": f"Invalid quality code: {quality_code_str}",
+                                "error": "Insufficient columns (need at least timestamp, value)",
                             }
                         )
                         continue
 
-                valid_rows.append(
-                    {
-                        "timestamp": timestamp,
-                        "value": value,
-                        "quality_code": quality_code,
-                    }
-                )
+                    timestamp_str = row[0].strip()
+                    value_str = row[1].strip()
+                    quality_code_str = row[2].strip() if len(row) > 2 else ""
 
-            except Exception as e:
-                errors.append({"row": idx, "error": str(e)})
+                    try:
+                        timestamp = datetime.fromisoformat(timestamp_str)
+                    except ValueError:
+                        errors.append(
+                            {
+                                "row": idx,
+                                "error": f"Invalid timestamp format: {timestamp_str}",
+                            }
+                        )
+                        continue
 
-    except Exception as e:
-        errors.append({"row": 0, "error": f"CSV parsing error: {str(e)}"})
+                    if value_str == "":
+                        value = None
+                    else:
+                        try:
+                            value = float(value_str)
+                        except ValueError:
+                            errors.append(
+                                {
+                                    "row": idx,
+                                    "error": f"Invalid numeric value: {value_str}",
+                                }
+                            )
+                            continue
 
-    return valid_rows, errors
+                    if quality_code_str == "":
+                        quality_code = None
+                    else:
+                        try:
+                            quality_code = int(quality_code_str)
+                        except ValueError:
+                            errors.append(
+                                {
+                                    "row": idx,
+                                    "error": f"Invalid quality code: {quality_code_str}",
+                                }
+                            )
+                            continue
 
+                    valid_rows.append(
+                        {
+                            "timestamp": timestamp,
+                            "value": value,
+                            "quality_code": quality_code,
+                        }
+                    )
 
-# Parse button or auto-parse when raw_csv changes
-if raw_csv.strip():
-    if st.button("Preview", type="secondary") or raw_csv != st.session_state.get(
-        "last_raw_csv", ""
+                except Exception as e:
+                    errors.append({"row": idx, "error": str(e)})
+
+        except Exception as e:
+            errors.append({"row": 0, "error": f"CSV parsing error: {str(e)}"})
+
+        return valid_rows, errors
+
+    # Parse button or auto-parse
+    if scalar_raw_csv.strip():
+        if st.button(
+            "Preview", type="secondary", key="scalar_preview_btn"
+        ) or scalar_raw_csv != st.session_state.get("scalar_last_raw_csv", ""):
+            valid_rows, parse_errors = parse_scalar_csv(scalar_raw_csv)
+            st.session_state.scalar_parsed_rows = valid_rows
+            st.session_state.scalar_parse_errors = parse_errors
+            st.session_state.scalar_last_raw_csv = scalar_raw_csv
+
+    # Display preview
+    if st.session_state.scalar_parsed_rows or st.session_state.scalar_parse_errors:
+        if st.session_state.scalar_parse_errors:
+            st.warning(
+                f"{len(st.session_state.scalar_parse_errors)} rows had parse errors and will be skipped."
+            )
+            with st.expander("Parse errors"):
+                for err in st.session_state.scalar_parse_errors:
+                    st.text(f"Row {err['row']}: {err['error']}")
+
+        if st.session_state.scalar_parsed_rows:
+            preview_df = pd.DataFrame(st.session_state.scalar_parsed_rows[:20])
+            st.dataframe(preview_df, use_container_width=True)
+            st.caption(
+                f"{len(st.session_state.scalar_parsed_rows)} valid rows total. Showing first 20."
+            )
+
+    # Submit Section
+    st.markdown("---")
+
+    scalar_valid_rows = st.session_state.get("scalar_parsed_rows", [])
+    scalar_has_required_fields = all(
+        [scalar_equipment_id, scalar_parameter_id, scalar_unit_id]
+    )
+    scalar_submit_disabled = (
+        len(scalar_valid_rows) == 0 or not scalar_has_required_fields
+    )
+
+    if not scalar_has_required_fields and len(scalar_valid_rows) > 0:
+        st.info("Please select Equipment, Parameter, and Unit to enable submission.")
+
+    if st.button(
+        "Submit to Database",
+        disabled=scalar_submit_disabled,
+        type="primary",
+        key="scalar_submit_btn",
     ):
-        valid_rows, parse_errors = parse_csv_data(raw_csv)
-        st.session_state.parsed_rows = valid_rows
-        st.session_state.parse_errors = parse_errors
-        st.session_state.last_raw_csv = raw_csv
+        payload = {
+            "equipment_id": scalar_equipment_id,
+            "parameter_id": scalar_parameter_id,
+            "unit_id": scalar_unit_id,
+            "data_provenance_id": scalar_data_provenance_id,
+            "processing_degree_id": scalar_processing_degree_id,
+            "values": [
+                {
+                    "timestamp": r["timestamp"].isoformat(),
+                    "value": r["value"],
+                    "quality_code": r["quality_code"],
+                }
+                for r in scalar_valid_rows
+            ],
+        }
 
-# Display preview if we have parsed data
-if st.session_state.parsed_rows or st.session_state.parse_errors:
-    if st.session_state.parse_errors:
-        st.warning(
-            f"{len(st.session_state.parse_errors)} rows had parse errors and will be skipped."
-        )
-        with st.expander("Parse errors"):
-            for err in st.session_state.parse_errors:
-                st.text(f"Row {err['row']}: {err['error']}")
-
-    if st.session_state.parsed_rows:
-        preview_df = pd.DataFrame(st.session_state.parsed_rows[:20])
-        st.dataframe(preview_df, use_container_width=True)
-        st.caption(
-            f"{len(st.session_state.parsed_rows)} valid rows total. Showing first 20."
-        )
+        try:
+            with st.spinner("Submitting..."):
+                result = ingest_sensor(payload)
+            st.success(
+                f"✅ Ingested {result['rows_written']} rows into channel **{result['channel_id']}**"
+            )
+            st.session_state.scalar_parsed_rows = []
+            st.session_state.scalar_parse_errors = []
+            st.session_state.scalar_last_raw_csv = ""
+        except APIError as e:
+            st.error(f"Ingest failed: {e.message}")
 
 
-# Submit Section
-st.markdown("---")
+# =============================================================================
+# VECTOR TAB
+# =============================================================================
+with tab_vector:
+    st.subheader("Vector / Spectral Sensor Ingest")
+    st.markdown(
+        "Each row in the CSV is one observation (one spectrum or distribution). "
+        "Columns: timestamp, then one column per bin in order of BinIndex."
+    )
 
-valid_rows = st.session_state.get("parsed_rows", [])
-has_required_fields = all([equipment_id, parameter_id, unit_id])
-submit_disabled = len(valid_rows) == 0 or not has_required_fields
-
-if not has_required_fields and len(valid_rows) > 0:
-    st.info("Please select Equipment, Parameter, and Unit to enable submission.")
-
-if st.button("Submit to Database", disabled=submit_disabled, type="primary"):
-    payload = {
-        "equipment_id": equipment_id,
-        "parameter_id": parameter_id,
-        "unit_id": unit_id,
-        "data_provenance_id": data_provenance_id,
-        "processing_degree_id": processing_degree_id,
-        "values": [
-            {
-                "timestamp": r["timestamp"].isoformat(),
-                "value": r["value"],
-                "quality_code": r["quality_code"],
-            }
-            for r in valid_rows
-        ],
-    }
-
+    # Load lookup data
     try:
-        with st.spinner("Submitting..."):
-            result = ingest_sensor(payload)
-        st.success(
-            f"✅ Ingested {result['rows_written']} rows into channel **{result['channel_id']}**"
-        )
-        # Clear parsed data after successful submission
-        st.session_state.parsed_rows = []
-        st.session_state.parse_errors = []
-        st.session_state.last_raw_csv = ""
+        with st.spinner("Loading lookup data..."):
+            equipment_lookup = list_equipment_lookup()
+            parameters_lookup = list_parameters_lookup()
+            units_lookup = list_units_lookup()
+            axes_lookup = list_binning_axes_lookup()
+            provenance_lookup = list_data_provenance_lookup()
+            processing_degrees_lookup = list_processing_degrees_lookup()
     except APIError as e:
-        st.error(f"Ingest failed: {e.message}")
+        st.error(f"Cannot load lookup data: {e.message}")
+        st.stop()
+
+    sensor_provenance = next(
+        (p for p in provenance_lookup if p["data_provenance_id"] == 1),
+        {"data_provenance_name": "Sensor"},
+    )
+    sensor_provenance_name = sensor_provenance["data_provenance_name"]
+
+    # Channel Identity
+    with st.container(border=True):
+        st.subheader("Channel Identity")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            equipment_options = [
+                {"id": e["equipment_id"], "label": e["identifier"]}
+                for e in equipment_lookup
+            ]
+            equipment_labels = [opt["label"] for opt in equipment_options]
+            selected_equipment_label = st.selectbox(
+                "Equipment",
+                options=equipment_labels,
+                index=None,
+                placeholder="Select equipment...",
+                key="vector_equipment",
+            )
+            vector_equipment_id = next(
+                (
+                    opt["id"]
+                    for opt in equipment_options
+                    if opt["label"] == selected_equipment_label
+                ),
+                None,
+            )
+
+        with col2:
+            parameter_options = [
+                {"id": p["parameter_id"], "label": p["parameter_name"]}
+                for p in parameters_lookup
+            ]
+            parameter_labels = [opt["label"] for opt in parameter_options]
+            selected_parameter_label = st.selectbox(
+                "Parameter",
+                options=parameter_labels,
+                index=None,
+                placeholder="Select parameter...",
+                key="vector_parameter",
+            )
+            vector_parameter_id = next(
+                (
+                    opt["id"]
+                    for opt in parameter_options
+                    if opt["label"] == selected_parameter_label
+                ),
+                None,
+            )
+
+        with col3:
+            unit_options = [
+                {"id": u["unit_id"], "label": u["unit"]} for u in units_lookup
+            ]
+            unit_labels = [opt["label"] for opt in unit_options]
+            selected_unit_label = st.selectbox(
+                "Unit",
+                options=unit_labels,
+                index=None,
+                placeholder="Select unit...",
+                key="vector_unit",
+            )
+            vector_unit_id = next(
+                (
+                    opt["id"]
+                    for opt in unit_options
+                    if opt["label"] == selected_unit_label
+                ),
+                None,
+            )
+
+        col4, col5, col6 = st.columns(3)
+
+        with col4:
+            st.markdown(f"**Data Provenance:** {sensor_provenance_name}")
+            vector_data_provenance_id = 1
+
+        with col5:
+            processing_options = [
+                {"id": d["processing_degree_id"], "label": d["name"]}
+                for d in processing_degrees_lookup
+            ]
+            processing_labels = [opt["label"] for opt in processing_options]
+            selected_processing_label = st.selectbox(
+                "Processing Degree",
+                options=processing_labels,
+                index=0,
+                key="vector_processing",
+            )
+            vector_processing_degree_id = next(
+                (
+                    opt["id"]
+                    for opt in processing_options
+                    if opt["label"] == selected_processing_label
+                ),
+                None,
+            )
+
+        with col6:
+            axis_options = [
+                {
+                    "id": a["value_binning_axis_id"],
+                    "label": f"{a['name']} ({a['number_of_bins']} bins)",
+                }
+                for a in axes_lookup
+            ]
+            axis_labels = [opt["label"] for opt in axis_options]
+            selected_axis_label = st.selectbox(
+                "Spectral / Distribution Axis",
+                options=axis_labels,
+                index=None,
+                placeholder="Select axis...",
+                key="vector_axis",
+            )
+            vector_axis_id = next(
+                (
+                    opt["id"]
+                    for opt in axis_options
+                    if opt["label"] == selected_axis_label
+                ),
+                None,
+            )
+            vector_n_bins = next(
+                (
+                    a["number_of_bins"]
+                    for a in axes_lookup
+                    if a["value_binning_axis_id"] == vector_axis_id
+                ),
+                0,
+            )
+
+    # Show format hint when axis is selected
+    if vector_axis_id and vector_n_bins > 0:
+        st.info(
+            f"CSV format: timestamp, bin_0, bin_1, ..., bin_{vector_n_bins - 1} "
+            f"({vector_n_bins} value columns). First row may be a header."
+        )
+
+    # Data Input
+    with st.container(border=True):
+        st.subheader("Data")
+
+        vector_input_mode = st.radio(
+            "Input method",
+            ["Paste CSV", "Upload CSV file"],
+            horizontal=True,
+            key="vector_input_mode",
+        )
+
+        vector_raw_csv = ""
+
+        if vector_input_mode == "Paste CSV":
+            vector_raw_csv = st.text_area(
+                "Paste CSV data",
+                placeholder=f"""timestamp,bin_0,bin_1,...
+2024-01-15T08:00:00,0.1,0.2,0.3,...
+2024-01-15T08:15:00,0.15,0.25,0.35,...""",
+                height=200,
+                key="vector_text_area",
+            )
+        else:
+            vector_uploaded_file = st.file_uploader(
+                "Choose CSV file", type=["csv"], key="vector_file_uploader"
+            )
+            if vector_uploaded_file is not None:
+                vector_raw_csv = vector_uploaded_file.read().decode("utf-8")
+
+    def parse_vector_csv(
+        csv_text: str, expected_bins: int
+    ) -> tuple[list[dict], list[str]]:
+        """Parse vector CSV data. Returns (observations, error_messages)."""
+        observations = []
+        errors = []
+
+        if not csv_text.strip():
+            return observations, errors
+
+        csv_text = csv_text.lstrip("\ufeff")
+
+        try:
+            reader = csv.reader(StringIO(csv_text))
+            rows = list(reader)
+
+            if not rows:
+                return observations, errors
+
+            # Detect header: if first cell not parseable as datetime
+            start_idx = 0
+            first_cell = rows[0][0].strip() if rows[0] else ""
+            try:
+                datetime.fromisoformat(first_cell)
+            except ValueError:
+                start_idx = 1
+
+            for idx, row in enumerate(rows[start_idx:], start=start_idx + 1):
+                if not row or all(cell.strip() == "" for cell in row):
+                    continue
+
+                try:
+                    timestamp_str = row[0].strip()
+                    try:
+                        timestamp = datetime.fromisoformat(timestamp_str)
+                    except ValueError:
+                        errors.append(
+                            f"Row {idx}: Invalid timestamp format: {timestamp_str}"
+                        )
+                        continue
+
+                    # Parse remaining columns as floats
+                    values = []
+                    for val_str in row[1:]:
+                        val_str = val_str.strip()
+                        if val_str == "":
+                            values.append(None)
+                        else:
+                            try:
+                                values.append(float(val_str))
+                            except ValueError:
+                                errors.append(
+                                    f"Row {idx}: Invalid numeric value: {val_str}"
+                                )
+                                values.append(None)
+
+                    # Pad with None if too short
+                    while len(values) < expected_bins:
+                        values.append(None)
+
+                    # Truncate if too long
+                    if len(values) > expected_bins:
+                        values = values[:expected_bins]
+                        errors.append(
+                            f"Row {idx}: Extra values truncated to {expected_bins} bins"
+                        )
+
+                    observations.append(
+                        {
+                            "timestamp": timestamp,
+                            "bin_values": values,
+                            "quality_code": None,
+                        }
+                    )
+
+                except Exception as e:
+                    errors.append(f"Row {idx}: {str(e)}")
+
+        except Exception as e:
+            errors.append(f"CSV parsing error: {str(e)}")
+
+        return observations, errors
+
+    # Parse button
+    if vector_raw_csv.strip() and vector_axis_id:
+        if st.button(
+            "Preview", type="secondary", key="vector_preview_btn"
+        ) or vector_raw_csv != st.session_state.get("vector_last_raw_csv", ""):
+            observations, parse_errors = parse_vector_csv(vector_raw_csv, vector_n_bins)
+            st.session_state.vector_parsed = observations
+            st.session_state.vector_parse_errors = parse_errors
+            st.session_state.vector_last_raw_csv = vector_raw_csv
+
+    # Display preview
+    if st.session_state.vector_parsed or st.session_state.vector_parse_errors:
+        if st.session_state.vector_parse_errors:
+            st.warning(
+                f"{len(st.session_state.vector_parse_errors)} parsing issues found."
+            )
+            with st.expander("Parse errors"):
+                for err in st.session_state.vector_parse_errors:
+                    st.text(err)
+
+        if st.session_state.vector_parsed:
+            # Show first 5 observations, first 10 bins
+            preview_data = []
+            display_bins = min(vector_n_bins, 10)
+            for obs in st.session_state.vector_parsed[:5]:
+                row = {"timestamp": obs["timestamp"]}
+                for i in range(display_bins):
+                    row[f"bin_{i}"] = (
+                        obs["bin_values"][i] if i < len(obs["bin_values"]) else None
+                    )
+                preview_data.append(row)
+
+            preview_df = pd.DataFrame(preview_data)
+            st.dataframe(preview_df, use_container_width=True)
+            st.caption(
+                f"Showing first {min(len(st.session_state.vector_parsed), 5)} observations "
+                f"and first {display_bins} bins of {vector_n_bins}"
+            )
+
+    # Submit Section
+    st.markdown("---")
+
+    vector_valid_obs = st.session_state.get("vector_parsed", [])
+    vector_has_required = all(
+        [vector_equipment_id, vector_parameter_id, vector_unit_id, vector_axis_id]
+    )
+    vector_submit_disabled = len(vector_valid_obs) == 0 or not vector_has_required
+
+    if not vector_has_required and len(vector_valid_obs) > 0:
+        st.info(
+            "Please select Equipment, Parameter, Unit, and Axis to enable submission."
+        )
+
+    if st.button(
+        "Submit to Database",
+        disabled=vector_submit_disabled,
+        type="primary",
+        key="vector_submit_btn",
+    ):
+        payload = {
+            "equipment_id": vector_equipment_id,
+            "parameter_id": vector_parameter_id,
+            "unit_id": vector_unit_id,
+            "binning_axis_id": vector_axis_id,
+            "data_provenance_id": vector_data_provenance_id,
+            "processing_degree_id": vector_processing_degree_id,
+            "observations": [
+                {
+                    "timestamp": obs["timestamp"].isoformat(),
+                    "bin_values": obs["bin_values"],
+                    "quality_code": obs["quality_code"],
+                }
+                for obs in vector_valid_obs
+            ],
+        }
+
+        try:
+            with st.spinner("Submitting..."):
+                result = ingest_sensor_vector(payload)
+            st.success(
+                f"✅ Ingested {result['rows_written']} rows into channel **{result['channel_id']}**"
+            )
+            st.session_state.vector_parsed = []
+            st.session_state.vector_parse_errors = []
+            st.session_state.vector_last_raw_csv = ""
+        except APIError as e:
+            st.error(f"Ingest failed: {e.message}")
+
+
+# =============================================================================
+# MATRIX TAB
+# =============================================================================
+with tab_matrix:
+    st.subheader("Matrix / 2D Distribution Sensor Ingest")
+    st.markdown(
+        "Each observation is one 2D matrix at one timestamp. "
+        "CSV format: first column is timestamp, then one column per (row_bin_index, col_bin_index) "
+        "pair in row-major order — i.e., all col values for row 0, then all col values for row 1."
+    )
+
+    # Load lookup data
+    try:
+        with st.spinner("Loading lookup data..."):
+            equipment_lookup = list_equipment_lookup()
+            parameters_lookup = list_parameters_lookup()
+            units_lookup = list_units_lookup()
+            axes_lookup = list_binning_axes_lookup()
+            provenance_lookup = list_data_provenance_lookup()
+            processing_degrees_lookup = list_processing_degrees_lookup()
+    except APIError as e:
+        st.error(f"Cannot load lookup data: {e.message}")
+        st.stop()
+
+    sensor_provenance = next(
+        (p for p in provenance_lookup if p["data_provenance_id"] == 1),
+        {"data_provenance_name": "Sensor"},
+    )
+    sensor_provenance_name = sensor_provenance["data_provenance_name"]
+
+    # Channel Identity
+    with st.container(border=True):
+        st.subheader("Channel Identity")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            equipment_options = [
+                {"id": e["equipment_id"], "label": e["identifier"]}
+                for e in equipment_lookup
+            ]
+            equipment_labels = [opt["label"] for opt in equipment_options]
+            selected_equipment_label = st.selectbox(
+                "Equipment",
+                options=equipment_labels,
+                index=None,
+                placeholder="Select equipment...",
+                key="matrix_equipment",
+            )
+            matrix_equipment_id = next(
+                (
+                    opt["id"]
+                    for opt in equipment_options
+                    if opt["label"] == selected_equipment_label
+                ),
+                None,
+            )
+
+        with col2:
+            parameter_options = [
+                {"id": p["parameter_id"], "label": p["parameter_name"]}
+                for p in parameters_lookup
+            ]
+            parameter_labels = [opt["label"] for opt in parameter_options]
+            selected_parameter_label = st.selectbox(
+                "Parameter",
+                options=parameter_labels,
+                index=None,
+                placeholder="Select parameter...",
+                key="matrix_parameter",
+            )
+            matrix_parameter_id = next(
+                (
+                    opt["id"]
+                    for opt in parameter_options
+                    if opt["label"] == selected_parameter_label
+                ),
+                None,
+            )
+
+        with col3:
+            unit_options = [
+                {"id": u["unit_id"], "label": u["unit"]} for u in units_lookup
+            ]
+            unit_labels = [opt["label"] for opt in unit_options]
+            selected_unit_label = st.selectbox(
+                "Unit",
+                options=unit_labels,
+                index=None,
+                placeholder="Select unit...",
+                key="matrix_unit",
+            )
+            matrix_unit_id = next(
+                (
+                    opt["id"]
+                    for opt in unit_options
+                    if opt["label"] == selected_unit_label
+                ),
+                None,
+            )
+
+        col4, col5, col6 = st.columns(3)
+
+        with col4:
+            st.markdown(f"**Data Provenance:** {sensor_provenance_name}")
+            matrix_data_provenance_id = 1
+
+        with col5:
+            processing_options = [
+                {"id": d["processing_degree_id"], "label": d["name"]}
+                for d in processing_degrees_lookup
+            ]
+            processing_labels = [opt["label"] for opt in processing_options]
+            selected_processing_label = st.selectbox(
+                "Processing Degree",
+                options=processing_labels,
+                index=0,
+                key="matrix_processing",
+            )
+            matrix_processing_degree_id = next(
+                (
+                    opt["id"]
+                    for opt in processing_options
+                    if opt["label"] == selected_processing_label
+                ),
+                None,
+            )
+
+        with col6:
+            st.markdown("&nbsp;")  # spacer
+
+    # Two axis selectors
+    axis_col1, axis_col2 = st.columns(2)
+
+    with axis_col1:
+        axis_options = [
+            {
+                "id": a["value_binning_axis_id"],
+                "label": f"{a['name']} ({a['number_of_bins']} bins)",
+            }
+            for a in axes_lookup
+        ]
+        axis_labels = [opt["label"] for opt in axis_options]
+        selected_row_axis_label = st.selectbox(
+            "Row Axis",
+            options=axis_labels,
+            index=None,
+            placeholder="Select row axis...",
+            key="matrix_row_axis",
+        )
+        matrix_row_axis_id = next(
+            (
+                opt["id"]
+                for opt in axis_options
+                if opt["label"] == selected_row_axis_label
+            ),
+            None,
+        )
+        matrix_n_row_bins = next(
+            (
+                a["number_of_bins"]
+                for a in axes_lookup
+                if a["value_binning_axis_id"] == matrix_row_axis_id
+            ),
+            0,
+        )
+
+    with axis_col2:
+        selected_col_axis_label = st.selectbox(
+            "Column Axis",
+            options=axis_labels,
+            index=None,
+            placeholder="Select column axis...",
+            key="matrix_col_axis",
+        )
+        matrix_col_axis_id = next(
+            (
+                opt["id"]
+                for opt in axis_options
+                if opt["label"] == selected_col_axis_label
+            ),
+            None,
+        )
+        matrix_n_col_bins = next(
+            (
+                a["number_of_bins"]
+                for a in axes_lookup
+                if a["value_binning_axis_id"] == matrix_col_axis_id
+            ),
+            0,
+        )
+
+    # Show format hint
+    if matrix_row_axis_id and matrix_col_axis_id:
+        total_values = matrix_n_row_bins * matrix_n_col_bins
+        st.info(
+            f"CSV columns: timestamp + {total_values} values "
+            f"(row-major: r0c0, r0c1, ..., r{matrix_n_row_bins - 1}c{matrix_n_col_bins - 1})"
+        )
+
+    # Data Input
+    with st.container(border=True):
+        st.subheader("Data")
+
+        matrix_input_mode = st.radio(
+            "Input method",
+            ["Paste CSV", "Upload CSV file"],
+            horizontal=True,
+            key="matrix_input_mode",
+        )
+
+        matrix_raw_csv = ""
+
+        if matrix_input_mode == "Paste CSV":
+            matrix_raw_csv = st.text_area(
+                "Paste CSV data",
+                placeholder=f"""timestamp,r0c0,r0c1,...,r0c{matrix_n_col_bins - 1},r1c0,...
+2024-01-15T08:00:00,0.1,0.2,...
+2024-01-15T08:15:00,0.15,0.25,...""",
+                height=200,
+                key="matrix_text_area",
+            )
+        else:
+            matrix_uploaded_file = st.file_uploader(
+                "Choose CSV file", type=["csv"], key="matrix_file_uploader"
+            )
+            if matrix_uploaded_file is not None:
+                matrix_raw_csv = matrix_uploaded_file.read().decode("utf-8")
+
+    def parse_matrix_csv(
+        csv_text: str, n_rows: int, n_cols: int
+    ) -> tuple[list[dict], list[str]]:
+        """Parse matrix CSV data. Returns (observations, error_messages)."""
+        observations = []
+        errors = []
+        expected_values = n_rows * n_cols
+
+        if not csv_text.strip():
+            return observations, errors
+
+        csv_text = csv_text.lstrip("\ufeff")
+
+        try:
+            reader = csv.reader(StringIO(csv_text))
+            rows = list(reader)
+
+            if not rows:
+                return observations, errors
+
+            # Detect header
+            start_idx = 0
+            first_cell = rows[0][0].strip() if rows[0] else ""
+            try:
+                datetime.fromisoformat(first_cell)
+            except ValueError:
+                start_idx = 1
+
+            for idx, row in enumerate(rows[start_idx:], start=start_idx + 1):
+                if not row or all(cell.strip() == "" for cell in row):
+                    continue
+
+                try:
+                    timestamp_str = row[0].strip()
+                    try:
+                        timestamp = datetime.fromisoformat(timestamp_str)
+                    except ValueError:
+                        errors.append(
+                            f"Row {idx}: Invalid timestamp format: {timestamp_str}"
+                        )
+                        continue
+
+                    # Parse remaining columns as floats
+                    values = []
+                    for val_str in row[1:]:
+                        val_str = val_str.strip()
+                        if val_str == "":
+                            values.append(None)
+                        else:
+                            try:
+                                values.append(float(val_str))
+                            except ValueError:
+                                errors.append(
+                                    f"Row {idx}: Invalid numeric value: {val_str}"
+                                )
+                                values.append(None)
+
+                    # Check expected count
+                    if len(values) < expected_values:
+                        while len(values) < expected_values:
+                            values.append(None)
+                        errors.append(
+                            f"Row {idx}: Padded with None to reach {expected_values} values"
+                        )
+                    elif len(values) > expected_values:
+                        values = values[:expected_values]
+                        errors.append(
+                            f"Row {idx}: Truncated to {expected_values} values"
+                        )
+
+                    # Reshape into matrix
+                    matrix = []
+                    for i in range(n_rows):
+                        row_start = i * n_cols
+                        row_end = row_start + n_cols
+                        matrix.append(values[row_start:row_end])
+
+                    observations.append(
+                        {
+                            "timestamp": timestamp,
+                            "matrix": matrix,
+                            "quality_code": None,
+                        }
+                    )
+
+                except Exception as e:
+                    errors.append(f"Row {idx}: {str(e)}")
+
+        except Exception as e:
+            errors.append(f"CSV parsing error: {str(e)}")
+
+        return observations, errors
+
+    # Parse button
+    if matrix_raw_csv.strip() and matrix_row_axis_id and matrix_col_axis_id:
+        if st.button(
+            "Preview", type="secondary", key="matrix_preview_btn"
+        ) or matrix_raw_csv != st.session_state.get("matrix_last_raw_csv", ""):
+            observations, parse_errors = parse_matrix_csv(
+                matrix_raw_csv, matrix_n_row_bins, matrix_n_col_bins
+            )
+            st.session_state.matrix_parsed = observations
+            st.session_state.matrix_parse_errors = parse_errors
+            st.session_state.matrix_last_raw_csv = matrix_raw_csv
+
+    # Display preview
+    if st.session_state.matrix_parsed or st.session_state.matrix_parse_errors:
+        if st.session_state.matrix_parse_errors:
+            st.warning(
+                f"{len(st.session_state.matrix_parse_errors)} parsing issues found."
+            )
+            with st.expander("Parse errors"):
+                for err in st.session_state.matrix_parse_errors:
+                    st.text(err)
+
+        if st.session_state.matrix_parsed:
+            # Show first 3 timestamps and 3x3 corner
+            preview_data = []
+            display_rows = min(matrix_n_row_bins, 3)
+            display_cols = min(matrix_n_col_bins, 3)
+
+            for obs in st.session_state.matrix_parsed[:3]:
+                row = {"timestamp": obs["timestamp"]}
+                for r in range(display_rows):
+                    for c in range(display_cols):
+                        key = f"r{r}c{c}"
+                        row[key] = (
+                            obs["matrix"][r][c]
+                            if r < len(obs["matrix"]) and c < len(obs["matrix"][r])
+                            else None
+                        )
+                preview_data.append(row)
+
+            preview_df = pd.DataFrame(preview_data)
+            st.dataframe(preview_df, use_container_width=True)
+            st.caption(
+                f"Showing first {min(len(st.session_state.matrix_parsed), 3)} observations "
+                f"and {display_rows}×{display_cols} corner of {matrix_n_row_bins}×{matrix_n_col_bins} matrix"
+            )
+
+    # Submit Section
+    st.markdown("---")
+
+    matrix_valid_obs = st.session_state.get("matrix_parsed", [])
+    matrix_has_required = all(
+        [
+            matrix_equipment_id,
+            matrix_parameter_id,
+            matrix_unit_id,
+            matrix_row_axis_id,
+            matrix_col_axis_id,
+        ]
+    )
+    matrix_submit_disabled = len(matrix_valid_obs) == 0 or not matrix_has_required
+
+    if not matrix_has_required and len(matrix_valid_obs) > 0:
+        st.info(
+            "Please select Equipment, Parameter, Unit, Row Axis, and Column Axis to enable submission."
+        )
+
+    if st.button(
+        "Submit to Database",
+        disabled=matrix_submit_disabled,
+        type="primary",
+        key="matrix_submit_btn",
+    ):
+        payload = {
+            "equipment_id": matrix_equipment_id,
+            "parameter_id": matrix_parameter_id,
+            "unit_id": matrix_unit_id,
+            "row_axis_id": matrix_row_axis_id,
+            "col_axis_id": matrix_col_axis_id,
+            "data_provenance_id": matrix_data_provenance_id,
+            "processing_degree_id": matrix_processing_degree_id,
+            "observations": [
+                {
+                    "timestamp": obs["timestamp"].isoformat(),
+                    "matrix": obs["matrix"],
+                    "quality_code": obs["quality_code"],
+                }
+                for obs in matrix_valid_obs
+            ],
+        }
+
+        try:
+            with st.spinner("Submitting..."):
+                result = ingest_sensor_matrix(payload)
+            st.success(
+                f"✅ Ingested {result['rows_written']} rows into channel **{result['channel_id']}**"
+            )
+            st.session_state.matrix_parsed = []
+            st.session_state.matrix_parse_errors = []
+            st.session_state.matrix_last_raw_csv = ""
+        except APIError as e:
+            st.error(f"Ingest failed: {e.message}")
