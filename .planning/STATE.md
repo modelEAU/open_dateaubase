@@ -3,12 +3,12 @@
 ## Current Position
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
-- **Active phase**: Phase 01 — App Foundation → **Phase complete**
-- **Plan**: 3 of 3 complete in current phase
-- **Status**: Phase complete — ready for Phase 02
-- **Last activity**: 2026-03-05 — Completed 01-03-PLAN.md
+- **Active phase**: Phase 02 — CRUD Pages: Reference Data
+- **Plan**: 1 of 4 complete in current phase
+- **Status**: In progress
+- **Last activity**: 2026-03-05 — Completed 02-01-PLAN.md
 
-Progress: ███░░░░░░░ 30% (3/10 plans)
+Progress: ████░░░░░░ 40% (4/10 plans)
 
 ## Accumulated Decisions
 
@@ -18,6 +18,7 @@ Progress: ███░░░░░░░ 30% (3/10 plans)
 - **Package management**: uv with optional extras — run `uv sync --extra api --extra app --extra dev` together to avoid extras pruning each other
 - **Test strategy**: API client layer tested with pytest + httpx mocking; UI verified via human checkpoint at end of each page plan
 - **Deployment target**: Docker Compose (`docker-compose up`) — one command for DB + API + App
+- **MSSQL insert ID**: Use `SELECT @@IDENTITY` after INSERT (pyodbc; OUTPUT clause not usable with cursor.fetchone() in same execute)
 
 ## Deferred Issues
 
@@ -35,8 +36,8 @@ Progress: ███░░░░░░░ 30% (3/10 plans)
 
 ## Session Continuity
 
-- **Last session**: 2026-03-05T15:02:56Z
-- **Stopped at**: Completed 01-03-PLAN.md (Phase 01 complete)
+- **Last session**: 2026-03-05T15:15:27Z
+- **Stopped at**: Completed 02-01-PLAN.md (1/4 plans in Phase 02)
 - **Resume file**: None
 
 ## Brief Alignment

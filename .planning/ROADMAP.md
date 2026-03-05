@@ -22,7 +22,7 @@ Deliverables:
 
 ---
 
-### Phase 02: CRUD Pages — Reference Data
+### Phase 02: CRUD Pages — Reference Data *(In progress — 1/4 plans)*
 Research: No | Dependencies: Phase 01
 
 Simple CRUD pages for entities with few foreign keys.
