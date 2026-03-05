@@ -38,6 +38,26 @@ class SiteIn(BaseModel):
     country: str | None = None
 
 
+class SitePatch(BaseModel):
+    """Partial update schema for Site - all fields optional."""
+
+    name: str | None = None
+    type: str | None = None
+    description: str | None = None
+    lat_wgs84: float | None = None
+    long_wgs84: float | None = None
+    city: str | None = None
+    province: str | None = None
+    country: str | None = None
+
+
+class SiteLookupOut(BaseModel):
+    """Lightweight site info for dropdowns."""
+
+    site_id: int
+    name: str
+
+
 class MetadataOut(BaseModel):
     """Full metadata record with all resolved foreign keys."""
 

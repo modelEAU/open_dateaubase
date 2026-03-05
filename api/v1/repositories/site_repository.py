@@ -118,6 +118,62 @@ def delete_site(conn: pyodbc.Connection, site_id: int) -> bool:
     return cursor.rowcount > 0
 
 
+def patch_site(conn: pyodbc.Connection, site_id: int, data: dict) -> dict | None:
+    """Partial update of a site - only updates fields that are present in data."""
+    # First check if site exists
+    existing = get_site_by_id(conn, site_id)
+    if existing is None:
+        return None
+
+    # Build dynamic UPDATE query based on provided fields
+    fields = []
+    values = []
+
+    if "name" in data:
+        fields.append("[Name]=?")
+        values.append(data["name"])
+    if "type" in data:
+        fields.append("[Type]=?")
+        values.append(data.get("type"))
+    if "description" in data:
+        fields.append("[Description]=?")
+        values.append(data.get("description"))
+    if "lat_wgs84" in data:
+        fields.append("[LatitudeWGS84]=?")
+        values.append(data.get("lat_wgs84"))
+    if "long_wgs84" in data:
+        fields.append("[LongitudeWGS84]=?")
+        values.append(data.get("long_wgs84"))
+    if "city" in data:
+        fields.append("[City]=?")
+        values.append(data.get("city"))
+    if "province" in data:
+        fields.append("[Province]=?")
+        values.append(data.get("province"))
+    if "country" in data:
+        fields.append("[Country]=?")
+        values.append(data.get("country"))
+
+    if not fields:
+        return existing  # No fields to update
+
+    values.append(site_id)
+    cursor = conn.cursor()
+    cursor.execute(
+        f"UPDATE [dbo].[Site] SET {', '.join(fields)} WHERE [Site_ID]=?",
+        *values,
+    )
+    conn.commit()
+    return get_site_by_id(conn, site_id)
+
+
+def get_sites_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return lightweight site list for dropdowns (id, name only)."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT [Site_ID], [Name] FROM [dbo].[Site] ORDER BY [Name]")
+    return [{"site_id": row[0], "name": row[1]} for row in cursor.fetchall()]
+
+
 def get_sampling_locations_for_site(
     conn: pyodbc.Connection, site_id: int
 ) -> list[dict]:

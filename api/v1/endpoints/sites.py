@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.database import get_db
 from ..repositories import site_repository
-from ..schemas.metadata import SamplingLocationOut, SiteIn, SiteOut
+from ..schemas.metadata import (
+    SamplingLocationOut,
+    SiteIn,
+    SiteOut,
+    SitePatch,
+    SiteLookupOut,
+)
 
 router = APIRouter()
 
@@ -47,6 +53,23 @@ def delete_site(site_id: int, conn=Depends(get_db)):
     deleted = site_repository.delete_site(conn, site_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Site {site_id} not found.")
+
+
+@router.patch("/{site_id}", response_model=SiteOut)
+def patch_site(site_id: int, body: SitePatch, conn=Depends(get_db)):
+    """Partial update of a site."""
+    updated = site_repository.patch_site(
+        conn, site_id, body.model_dump(exclude_unset=True)
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"Site {site_id} not found.")
+    return updated
+
+
+@router.get("/lookup/list", response_model=list[SiteLookupOut])
+def list_sites_lookup(conn=Depends(get_db)):
+    """Return lightweight site list for dropdowns (id, name only)."""
+    return site_repository.get_sites_lookup(conn)
 
 
 @router.get("/{site_id}/sampling-locations", response_model=list[SamplingLocationOut])

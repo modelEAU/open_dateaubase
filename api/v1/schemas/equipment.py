@@ -50,6 +50,24 @@ class EquipmentIn(BaseModel):
     purchase_date: str | None = None  # ISO date string, e.g. "2024-01-15"
 
 
+class EquipmentPatch(BaseModel):
+    """Partial update schema for Equipment - all fields optional."""
+
+    identifier: str | None = None
+    serial_number: str | None = None
+    model_id: int | None = None
+    owner: str | None = None
+    purchase_date: str | None = None
+
+
+class EquipmentModelLookupOut(BaseModel):
+    """Lightweight equipment model info for dropdowns."""
+
+    model_id: int
+    model_name: str
+    manufacturer: str | None = None
+
+
 class EquipmentLifecycleOut(BaseModel):
     equipment: EquipmentOut
     installations: list[InstallationOut]

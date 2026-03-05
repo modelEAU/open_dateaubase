@@ -52,7 +52,9 @@ def list_campaigns(
 
     where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     cursor = conn.cursor()
-    cursor.execute(_CAMPAIGN_SELECT + where_clause + " ORDER BY c.[Campaign_ID]", *params)
+    cursor.execute(
+        _CAMPAIGN_SELECT + where_clause + " ORDER BY c.[Campaign_ID]", *params
+    )
     return [_row_to_dict(row) for row in cursor.fetchall()]
 
 
@@ -82,7 +84,9 @@ def insert_campaign(conn: pyodbc.Connection, data: dict) -> dict:
     return get_campaign_by_id(conn, new_id)
 
 
-def update_campaign(conn: pyodbc.Connection, campaign_id: int, data: dict) -> dict | None:
+def update_campaign(
+    conn: pyodbc.Connection, campaign_id: int, data: dict
+) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE [dbo].[Campaign]"
@@ -106,6 +110,61 @@ def delete_campaign(conn: pyodbc.Connection, campaign_id: int) -> bool:
     cursor.execute("DELETE FROM [dbo].[Campaign] WHERE [Campaign_ID]=?", campaign_id)
     conn.commit()
     return cursor.rowcount > 0
+
+
+def patch_campaign(
+    conn: pyodbc.Connection, campaign_id: int, data: dict
+) -> dict | None:
+    """Partial update of a campaign - only updates fields that are present in data."""
+    existing = get_campaign_by_id(conn, campaign_id)
+    if existing is None:
+        return None
+
+    fields = []
+    values = []
+
+    if "name" in data:
+        fields.append("[Name]=?")
+        values.append(data.get("name"))
+    if "campaign_type_id" in data:
+        fields.append("[CampaignType_ID]=?")
+        values.append(data.get("campaign_type_id"))
+    if "site_id" in data:
+        fields.append("[Site_ID]=?")
+        values.append(data.get("site_id"))
+    if "description" in data:
+        fields.append("[Description]=?")
+        values.append(data.get("description"))
+    if "start_date" in data:
+        fields.append("[CampaignStartDateTime]=?")
+        values.append(data.get("start_date"))
+    if "end_date" in data:
+        fields.append("[CampaignEndDateTime]=?")
+        values.append(data.get("end_date"))
+
+    if not fields:
+        return existing
+
+    values.append(campaign_id)
+    cursor = conn.cursor()
+    cursor.execute(
+        f"UPDATE [dbo].[Campaign] SET {', '.join(fields)} WHERE [Campaign_ID]=?",
+        *values,
+    )
+    conn.commit()
+    return get_campaign_by_id(conn, campaign_id)
+
+
+def get_campaign_types(conn: pyodbc.Connection) -> list[dict]:
+    """Return all campaign types for dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [CampaignType_ID], [CampaignType_Name], [Description] FROM [dbo].[CampaignType] ORDER BY [CampaignType_Name]"
+    )
+    return [
+        {"campaign_type_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
 
 
 def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
@@ -136,7 +195,9 @@ def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
         """,
         campaign_id,
     )
-    equipment = [{"id": r[0], "identifier": r[1], "role": r[2]} for r in cursor.fetchall()]
+    equipment = [
+        {"id": r[0], "identifier": r[1], "role": r[2]} for r in cursor.fetchall()
+    ]
 
     # Parameters (distinct parameters across channels linked via campaign equipment)
     cursor.execute(

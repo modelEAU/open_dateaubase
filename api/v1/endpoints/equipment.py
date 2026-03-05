@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
 from ..repositories import equipment_repository
-from ..schemas.equipment import EquipmentIn, EquipmentLifecycleOut, EquipmentOut
+from ..schemas.equipment import (
+    EquipmentIn,
+    EquipmentLifecycleOut,
+    EquipmentOut,
+    EquipmentPatch,
+    EquipmentModelLookupOut,
+)
 
 router = APIRouter()
 
@@ -26,16 +32,41 @@ def create_equipment(body: EquipmentIn, conn=Depends(get_db)):
 
 @router.put("/{equipment_id}", response_model=EquipmentOut)
 def update_equipment(equipment_id: int, body: EquipmentIn, conn=Depends(get_db)):
-    updated = equipment_repository.update_equipment(conn, equipment_id, body.model_dump())
+    updated = equipment_repository.update_equipment(
+        conn, equipment_id, body.model_dump()
+    )
     if updated is None:
-        raise HTTPException(status_code=404, detail=f"Equipment {equipment_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Equipment {equipment_id} not found."
+        )
     return updated
 
 
 @router.delete("/{equipment_id}", status_code=204)
 def delete_equipment(equipment_id: int, conn=Depends(get_db)):
     if not equipment_repository.delete_equipment(conn, equipment_id):
-        raise HTTPException(status_code=404, detail=f"Equipment {equipment_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Equipment {equipment_id} not found."
+        )
+
+
+@router.patch("/{equipment_id}", response_model=EquipmentOut)
+def patch_equipment(equipment_id: int, body: EquipmentPatch, conn=Depends(get_db)):
+    """Partial update of equipment."""
+    updated = equipment_repository.patch_equipment(
+        conn, equipment_id, body.model_dump(exclude_unset=True)
+    )
+    if updated is None:
+        raise HTTPException(
+            status_code=404, detail=f"Equipment {equipment_id} not found."
+        )
+    return updated
+
+
+@router.get("/models/lookup", response_model=list[EquipmentModelLookupOut])
+def list_equipment_models_lookup(conn=Depends(get_db)):
+    """Return equipment models for dropdowns."""
+    return equipment_repository.get_models_lookup(conn)
 
 
 @router.get("/{equipment_id}", response_model=EquipmentOut)
@@ -43,7 +74,9 @@ def get_equipment(equipment_id: int, conn=Depends(get_db)):
     """Return a single equipment record by ID."""
     equip = equipment_repository.get_equipment_by_id(conn, equipment_id)
     if equip is None:
-        raise HTTPException(status_code=404, detail=f"Equipment {equipment_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Equipment {equipment_id} not found."
+        )
     return equip
 
 
@@ -57,12 +90,16 @@ def get_lifecycle(
     """Return the full lifecycle: installation history and all events."""
     equip = equipment_repository.get_equipment_by_id(conn, equipment_id)
     if equip is None:
-        raise HTTPException(status_code=404, detail=f"Equipment {equipment_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Equipment {equipment_id} not found."
+        )
 
     installations = equipment_repository.get_equipment_installations(
         conn, equipment_id, from_dt, to_dt
     )
-    events = equipment_repository.get_equipment_events(conn, equipment_id, from_dt, to_dt)
+    events = equipment_repository.get_equipment_events(
+        conn, equipment_id, from_dt, to_dt
+    )
 
     return EquipmentLifecycleOut(
         equipment=equip,

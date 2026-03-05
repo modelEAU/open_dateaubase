@@ -28,6 +28,25 @@ class CampaignIn(BaseModel):
     end_date: str | None = None
 
 
+class CampaignPatch(BaseModel):
+    """Partial update schema for Campaign - all fields optional."""
+
+    name: str | None = None
+    campaign_type_id: int | None = None
+    site_id: int | None = None
+    description: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class CampaignTypeOut(BaseModel):
+    """Campaign type info for dropdowns."""
+
+    campaign_type_id: int
+    name: str
+    description: str | None = None
+
+
 class CampaignContextOut(BaseModel):
     """Full context for a campaign — locations, equipment, parameters, metadata."""
 

@@ -79,7 +79,9 @@ def insert_equipment(conn: pyodbc.Connection, data: dict) -> dict:
     return get_equipment_by_id(conn, new_id)
 
 
-def update_equipment(conn: pyodbc.Connection, equipment_id: int, data: dict) -> dict | None:
+def update_equipment(
+    conn: pyodbc.Connection, equipment_id: int, data: dict
+) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE [dbo].[Equipment]"
@@ -101,6 +103,58 @@ def delete_equipment(conn: pyodbc.Connection, equipment_id: int) -> bool:
     cursor.execute("DELETE FROM [dbo].[Equipment] WHERE [Equipment_ID]=?", equipment_id)
     conn.commit()
     return cursor.rowcount > 0
+
+
+def patch_equipment(
+    conn: pyodbc.Connection, equipment_id: int, data: dict
+) -> dict | None:
+    """Partial update of equipment - only updates fields that are present in data."""
+    existing = get_equipment_by_id(conn, equipment_id)
+    if existing is None:
+        return None
+
+    fields = []
+    values = []
+
+    if "identifier" in data:
+        fields.append("[Identifier]=?")
+        values.append(data.get("identifier"))
+    if "serial_number" in data:
+        fields.append("[SerialNumber]=?")
+        values.append(data.get("serial_number"))
+    if "model_id" in data:
+        fields.append("[EquipmentModel_ID]=?")
+        values.append(data.get("model_id"))
+    if "owner" in data:
+        fields.append("[Owner]=?")
+        values.append(data.get("owner"))
+    if "purchase_date" in data:
+        fields.append("[PurchaseDate]=?")
+        values.append(data.get("purchase_date"))
+
+    if not fields:
+        return existing
+
+    values.append(equipment_id)
+    cursor = conn.cursor()
+    cursor.execute(
+        f"UPDATE [dbo].[Equipment] SET {', '.join(fields)} WHERE [Equipment_ID]=?",
+        *values,
+    )
+    conn.commit()
+    return get_equipment_by_id(conn, equipment_id)
+
+
+def get_models_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return equipment models for dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [EquipmentModel_ID], [EquipmentModel], [Manufacturer] FROM [dbo].[EquipmentModel] ORDER BY [Manufacturer], [EquipmentModel]"
+    )
+    return [
+        {"model_id": row[0], "model_name": row[1], "manufacturer": row[2]}
+        for row in cursor.fetchall()
+    ]
 
 
 def get_equipment_events(

@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
 from ..repositories import campaign_repository
-from ..schemas.campaigns import CampaignContextOut, CampaignIn, CampaignOut
+from ..schemas.campaigns import (
+    CampaignContextOut,
+    CampaignIn,
+    CampaignOut,
+    CampaignPatch,
+    CampaignTypeOut,
+)
 
 router = APIRouter()
 
@@ -18,7 +24,9 @@ def list_campaigns(
     conn=Depends(get_db),
 ):
     """Return all campaigns, optionally filtered by site or type."""
-    return campaign_repository.list_campaigns(conn, site_id=site_id, campaign_type_id=campaign_type_id)
+    return campaign_repository.list_campaigns(
+        conn, site_id=site_id, campaign_type_id=campaign_type_id
+    )
 
 
 @router.post("", response_model=CampaignOut, status_code=201)
@@ -30,14 +38,37 @@ def create_campaign(body: CampaignIn, conn=Depends(get_db)):
 def update_campaign(campaign_id: int, body: CampaignIn, conn=Depends(get_db)):
     updated = campaign_repository.update_campaign(conn, campaign_id, body.model_dump())
     if updated is None:
-        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Campaign {campaign_id} not found."
+        )
     return updated
 
 
 @router.delete("/{campaign_id}", status_code=204)
 def delete_campaign(campaign_id: int, conn=Depends(get_db)):
     if not campaign_repository.delete_campaign(conn, campaign_id):
-        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Campaign {campaign_id} not found."
+        )
+
+
+@router.patch("/{campaign_id}", response_model=CampaignOut)
+def patch_campaign(campaign_id: int, body: CampaignPatch, conn=Depends(get_db)):
+    """Partial update of a campaign."""
+    updated = campaign_repository.patch_campaign(
+        conn, campaign_id, body.model_dump(exclude_unset=True)
+    )
+    if updated is None:
+        raise HTTPException(
+            status_code=404, detail=f"Campaign {campaign_id} not found."
+        )
+    return updated
+
+
+@router.get("/types", response_model=list[CampaignTypeOut])
+def list_campaign_types(conn=Depends(get_db)):
+    """Return all campaign types for dropdowns."""
+    return campaign_repository.get_campaign_types(conn)
 
 
 @router.get("/{campaign_id}", response_model=CampaignOut)
@@ -45,7 +76,9 @@ def get_campaign(campaign_id: int, conn=Depends(get_db)):
     """Return a single campaign by ID."""
     campaign = campaign_repository.get_campaign_by_id(conn, campaign_id)
     if campaign is None:
-        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Campaign {campaign_id} not found."
+        )
     return campaign
 
 
@@ -54,6 +87,8 @@ def get_campaign_context(campaign_id: int, conn=Depends(get_db)):
     """Return full campaign context: locations, equipment, parameters, metadata count."""
     campaign = campaign_repository.get_campaign_by_id(conn, campaign_id)
     if campaign is None:
-        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Campaign {campaign_id} not found."
+        )
     context = campaign_repository.get_campaign_context(conn, campaign_id)
     return CampaignContextOut(campaign=campaign, **context)
