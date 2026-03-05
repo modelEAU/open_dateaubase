@@ -98,7 +98,10 @@ None - plan executed exactly as written.
 
 ## Issues Encountered
 
-None.
+- **Matrix primary key violation when row_axis_id == col_axis_id**: Discovered during testing that selecting the same axis for both rows and columns causes a PK violation on ValueMatrix (duplicate key: channel_id, timestamp, bin_id, bin_id). Fixed by adding Pydantic validation in `MatrixSensorIngestRequest` to require `row_axis_id != col_axis_id` with clear error message.
+
+  - Fix commit: `024c898`
+  - Validation: `@field_validator("col_axis_id")` checks against `row_axis_id`
 
 ## User Setup Required
 
