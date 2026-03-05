@@ -1,4 +1,4 @@
-"""Channel listing and retrieval endpoints."""
+"""Channel listing, retrieval, and write endpoints."""
 
 from __future__ import annotations
 
@@ -7,7 +7,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.database import get_db
 from ..repositories import channel_repository
 from ..schemas.common import PaginatedResponse
-from ..schemas.channel import ChannelOut
+from ..schemas.channel import (
+    ChannelOut,
+    ChannelIn,
+    EquipmentLookupOut,
+    ParameterLookupOut,
+    ProcessingDegreeLookupOut,
+)
+from ..repositories.equipment_repository import get_equipment_lookup
+from ..repositories.metadata_repository import (
+    get_parameters_lookup,
+    get_processing_degrees_lookup,
+)
 
 router = APIRouter()
 
@@ -15,8 +26,12 @@ router = APIRouter()
 @router.get("", response_model=PaginatedResponse[ChannelOut])
 def list_channels(
     parameter_id: int | None = Query(None, description="Filter by parameter ID"),
-    data_provenance_id: int | None = Query(None, description="Filter by data provenance ID"),
-    processing_degree_id: int | None = Query(None, description="Filter by processing degree ID (1=Raw, 2=Cleaned, etc.)"),
+    data_provenance_id: int | None = Query(
+        None, description="Filter by data provenance ID"
+    ),
+    processing_degree_id: int | None = Query(
+        None, description="Filter by processing degree ID (1=Raw, 2=Cleaned, etc.)"
+    ),
     equipment_id: int | None = Query(None, description="Filter by equipment ID"),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000),
@@ -48,3 +63,45 @@ def get_channel(channel_id: int, conn=Depends(get_db)):
     if channel is None:
         raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
     return channel
+
+
+@router.post("", response_model=ChannelOut, status_code=201)
+def create_channel(body: ChannelIn, conn=Depends(get_db)):
+    """Create a new channel."""
+    return channel_repository.insert_channel(conn, body.model_dump())
+
+
+@router.put("/{channel_id}", response_model=ChannelOut)
+def update_channel(channel_id: int, body: ChannelIn, conn=Depends(get_db)):
+    """Update an existing channel."""
+    updated = channel_repository.update_channel(conn, channel_id, body.model_dump())
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
+    return updated
+
+
+@router.delete("/{channel_id}", status_code=204)
+def delete_channel(channel_id: int, conn=Depends(get_db)):
+    """Delete a channel by ID."""
+    if not channel_repository.delete_channel(conn, channel_id):
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
+
+
+@router.get("/lookup/equipment", response_model=list[EquipmentLookupOut])
+def list_equipment_lookup(conn=Depends(get_db)):
+    """Return equipment for dropdowns."""
+    return get_equipment_lookup(conn)
+
+
+@router.get("/lookup/parameters", response_model=list[ParameterLookupOut])
+def list_parameters_lookup(conn=Depends(get_db)):
+    """Return parameters for dropdowns."""
+    return get_parameters_lookup(conn)
+
+
+@router.get(
+    "/lookup/processing-degrees", response_model=list[ProcessingDegreeLookupOut]
+)
+def list_processing_degrees_lookup(conn=Depends(get_db)):
+    """Return processing degrees for dropdowns."""
+    return get_processing_degrees_lookup(conn)

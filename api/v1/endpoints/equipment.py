@@ -69,6 +69,12 @@ def list_equipment_models_lookup(conn=Depends(get_db)):
     return equipment_repository.get_models_lookup(conn)
 
 
+@router.get("/lookup", response_model=list[dict])
+def list_equipment_lookup(conn=Depends(get_db)):
+    """Return all equipment for dropdowns (id + identifier)."""
+    return equipment_repository.get_equipment_lookup(conn)
+
+
 @router.get("/{equipment_id}", response_model=EquipmentOut)
 def get_equipment(equipment_id: int, conn=Depends(get_db)):
     """Return a single equipment record by ID."""
