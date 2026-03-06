@@ -90,7 +90,8 @@ Deliverables:
 
 ---
 
-### Phase 06: Deployment Setup
+### Phase 06: Deployment Setup *(In progress — 1/2 plans)*
+
 Research: No | Dependencies: Phase 01–05
 
 Make the full stack runnable with `docker-compose up`.

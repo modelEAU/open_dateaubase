@@ -4,11 +4,11 @@
 
 - **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
 - **Active phase**: Phase 06 — Deployment Setup
-- **Plan**: 0 of 2 complete in current phase
-- **Status**: Planning complete — ready to execute
-- **Last activity**: 2026-03-06 — Phase 05 complete (Timeseries Viewer, executed by separate agent); Phase 06 plans created
+- **Plan**: 1 of 2 complete in current phase
+- **Status**: In progress
+- **Last activity**: 2026-03-06 — Completed 06-01-PLAN.md (Dockerfiles)
 
-Progress: ████████████ 84% (17/21 plans)
+Progress: █████████████ 89% (18/21 plans)
 
 ## Accumulated Decisions
 
@@ -54,12 +54,12 @@ Progress: ████████████ 84% (17/21 plans)
 ## Session Continuity
 
 - **Last session**: 2026-03-06
-- **Stopped at**: Phase 05 marked complete (separate agent), Phase 06 plans created
+- **Stopped at**: Completed 06-01-PLAN.md (Dockerfile.api + Dockerfile.app)
 - **Resume file**: None
-- **Next action**: Execute 06-01-PLAN.md (Dockerfiles)
+- **Next action**: Execute 06-02-PLAN.md (docker-compose.yml, .env.example, README)
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app complete (phases 01–05). Phase 06 is the final phase: Docker deployment setup to make the full stack runnable with `docker-compose up`.
 
-**Status**: Phase 05 complete (1/1 plans). Data Explorer page (11_Explore.py) with multi-type visualization, LTTB downsampling, annotation/event overlays. Phase 06 plans created and ready for execution.
+**Status**: Phase 06 in progress (1/2 plans). Dockerfile.api and Dockerfile.app created, both build successfully. Ready for 06-02 (docker-compose + .env.example + README).
