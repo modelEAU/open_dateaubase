@@ -51,7 +51,7 @@ equipment_options = [
     {"id": e["equipment_id"], "label": e["identifier"]} for e in equipment_lookup
 ]
 parameter_options = [
-    {"id": p["parameter_id"], "label": p["name"]} for p in parameters_lookup
+    {"id": p["parameter_id"], "label": p["parameter_name"]} for p in parameters_lookup
 ]
 degree_options = [
     {"id": d["processing_degree_id"], "label": d["name"]}

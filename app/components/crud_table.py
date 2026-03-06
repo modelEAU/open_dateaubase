@@ -31,7 +31,7 @@ def crud_data_editor(
         df_original,
         column_config=column_config,
         num_rows=num_rows,
-        use_container_width=True,
+        width="content",
         key=f"crud_editor_{id_field}",
     )
 

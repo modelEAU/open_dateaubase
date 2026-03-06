@@ -45,11 +45,14 @@ with col_status:
         schema = health.get("schema_version") or health.get("db_schema_version")
         if schema:
             st.metric("Schema version", schema)
-    except APIError:
-        st.error(
-            f"Cannot reach API at {settings.API_BASE_URL}. "
-            "Make sure the API server is running."
-        )
+    except APIError as e:
+        if e.status_code == 503 and "Cannot reach API" not in e.message:
+            st.error(f"API is running but the database is unavailable: {e.message}")
+        else:
+            st.error(
+                f"Cannot reach API at {settings.API_BASE_URL}. "
+                "Make sure the API server is running."
+            )
 
 with col_nav:
     st.markdown("### Quick navigation")

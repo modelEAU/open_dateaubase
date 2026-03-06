@@ -368,6 +368,8 @@ def list_channels(
     parameter_id: int | None = None,
     equipment_id: int | None = None,
     processing_degree_id: int | None = None,
+    value_type_id: int | None = None,
+    campaign_id: int | None = None,
     page: int = 1,
     page_size: int = 100,
 ) -> dict:
@@ -378,6 +380,10 @@ def list_channels(
         params["equipment_id"] = equipment_id
     if processing_degree_id is not None:
         params["processing_degree_id"] = processing_degree_id
+    if value_type_id is not None:
+        params["value_type_id"] = value_type_id
+    if campaign_id is not None:
+        params["campaign_id"] = campaign_id
     try:
         with _get_client() as client:
             r = client.get("/channels", params=params)
@@ -526,6 +532,65 @@ def get_timeseries(
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
+
+
+def get_channel_timeseries(
+    channel_id: int,
+    start: str | None = None,
+    end: str | None = None,
+) -> dict:
+    """Fetch time series for a channel using the correct /timeseries/{channel_id} endpoint."""
+    params: dict = {}
+    if start is not None:
+        params["from"] = start
+    if end is not None:
+        params["to"] = end
+    try:
+        with _get_client() as client:
+            r = client.get(f"/timeseries/{channel_id}", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_channel_thumbnail(channel_id: int, timestamp: str) -> bytes:
+    """Fetch the JPEG thumbnail bytes for an image channel entry."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/timeseries/{channel_id}/thumbnail/{timestamp}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.content
+
+
+def get_channel_image(channel_id: int, timestamp: str) -> bytes:
+    """Fetch the full-resolution image bytes for an image channel entry."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/timeseries/{channel_id}/image/{timestamp}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.content
+
+
+# ---------------------------------------------------------------------------
+# Annotation types
+# ---------------------------------------------------------------------------
+
+
+def list_annotation_types() -> list[dict]:
+    """Return all annotation types for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/annotation-types")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    data = r.json()
+    return data.get("annotation_types", data) if isinstance(data, dict) else data
 
 
 # ---------------------------------------------------------------------------
@@ -679,6 +744,48 @@ def list_equipment_events_lookup() -> list[dict]:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
+
+
+def list_equipment_event_types() -> list[dict]:
+    """Return all equipment event types for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/equipment/event-types")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_equipment_event(data: dict) -> dict:
+    """Create a new equipment event."""
+    try:
+        with _get_client() as client:
+            r = client.post("/equipment/events", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_equipment_events(
+    equipment_id: int,
+    from_dt: str | None = None,
+    to_dt: str | None = None,
+) -> list[dict]:
+    """Fetch equipment events for a single equipment via the lifecycle endpoint."""
+    params: dict = {}
+    if from_dt is not None:
+        params["from"] = from_dt
+    if to_dt is not None:
+        params["to"] = to_dt
+    try:
+        with _get_client() as client:
+            r = client.get(f"/equipment/{equipment_id}/lifecycle", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json().get("events", [])
 
 
 def list_data_provenance_lookup() -> list[dict]:
