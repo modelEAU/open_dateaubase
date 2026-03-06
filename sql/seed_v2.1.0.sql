@@ -32,11 +32,6 @@ VALUES (N'Riviere Saint-Charles', N'Urban catchment in Quebec City', 550.0, 180,
 INSERT INTO [dbo].[Watershed] ([Name], [Description], [SurfaceArea], [ConcentrationTime], [ImperviousSurface])
 VALUES (N'Riviere Montmorency', N'Rural reference watershed north of Quebec City', 1150.0, 420, 8.2);  -- ID 2
 
--- Weather conditions
-INSERT INTO [dbo].[WeatherCondition] ([WeatherCondition], [Description]) VALUES (N'Dry', N'No precipitation in the last 48 hours');    -- ID 1
-INSERT INTO [dbo].[WeatherCondition] ([WeatherCondition], [Description]) VALUES (N'Rain', N'Active rainfall event');                   -- ID 2
-INSERT INTO [dbo].[WeatherCondition] ([WeatherCondition], [Description]) VALUES (N'Snowmelt', N'Spring snowmelt conditions');           -- ID 3
-
 -- Equipment models (IDs match v1.0.0 seed)
 INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation])
 VALUES (N'ISCO 6712', N'Automatic sampling', N'Portable autosampler for wastewater and stormwater', N'Teledyne ISCO', N'/manuals/isco_6712.pdf');  -- ID 1

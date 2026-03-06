@@ -19,8 +19,15 @@ GO
 :r /sql/seed_v2.1.0.sql
 GO
 
+-- Step 4: Load Explore page demonstration data (Feb 2026, all four value types)
+:r /sql/seed_explore.sql
+GO
+
 PRINT 'Database initialized at v2.1.0 with sample data.';
-SELECT [Version], [AppliedAt], [Description] FROM dbo.SchemaVersion ORDER BY [AppliedAt];
-SELECT 'channel' AS t, COUNT(*) AS n FROM dbo.Channel;
-SELECT 'value'   AS t, COUNT(*) AS n FROM dbo.[Value];
+SELECT [Version], [AppliedDateTime], [Description] FROM dbo.SchemaVersion ORDER BY [AppliedDateTime];
+SELECT 'channel'     AS t, COUNT(*) AS n FROM dbo.Channel;
+SELECT 'value'       AS t, COUNT(*) AS n FROM dbo.[Value];
+SELECT 'valuevector' AS t, COUNT(*) AS n FROM dbo.ValueVector;
+SELECT 'valuematrix' AS t, COUNT(*) AS n FROM dbo.ValueMatrix;
+SELECT 'valueimage'  AS t, COUNT(*) AS n FROM dbo.ValueImage;
 GO
