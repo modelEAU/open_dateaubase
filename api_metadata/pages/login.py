@@ -60,13 +60,9 @@ def main():
                 st.session_state["authenticated"] = True
                 st.session_state["username"] = username
                 st.session_state["token"] = token
-                st.session_state["authenticated"] = False
-st.session_state["token"] = None
-st.session_state["username"] = ""
 
-
-                # ✅ sanity check token
-                _ = api_get("/auth/me", with_auth=True)
+                # Sanity check : token valide ?
+                api_get("/auth/me", with_auth=True)
 
                 st.success("Connexion réussie ✅")
                 st.switch_page(DASHBOARD_PAGE)

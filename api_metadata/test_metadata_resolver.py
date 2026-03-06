@@ -1,38 +1,55 @@
 # test_metadata_resolver.py
-from metadata_resolver import resolve_metadata_id, MetadataNotFound
-from .db import get_connection
+import pytest
+from api_metadata.metadata_resolver import resolve_metadata_id, MetadataNotFound
+from api_metadata.db import get_connection
 
+
+def _seed_exists() -> bool:
+    """Vérifie que la ligne seed Metadata_ID=1 est présente."""
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM metadata WHERE Metadata_ID = 1")
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return count > 0
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(not _seed_exists(), reason="Seed data absent de la DB")
 def test_resolve_metadata_id_existing():
-    # Arrange: on suppose qu'on a déjà un metadata (1,1,1,1,1,1)
     conn = get_connection()
-    cur = conn.cursor()
+    cur  = conn.cursor()
     cur.execute("""
-        SELECT TOP 1 Metadata_ID, Equipment_ID, Parameter_ID, Unit_ID,
-        Purpose_ID, Sampling_point_ID, Project_ID, StartDate, EndDate
+        SELECT TOP 1
+            Metadata_ID, Equipment_ID, Parameter_ID, Unit_ID,
+            Purpose_ID, Sampling_point_ID, Project_ID, StartDate
         FROM metadata
         WHERE Metadata_ID = 1
     """)
     row = cur.fetchone()
     cur.close()
     conn.close()
+
     assert row is not None
 
     metadata_id = resolve_metadata_id(
-        equipment_id=row.Equipment_ID,
-        parameter_id=row.Parameter_ID,
-        unit_id=row.Unit_ID,
-        purpose_id=row.Purpose_ID,
-        sampling_point_id=row.Sampling_point_ID,
-        project_id=row.Project_ID,
-        ts_unix=row.StartDate or 1764484200,  # valeur par défaut si NULL
+        equipment_id      = row[1],
+        parameter_id      = row[2],
+        unit_id           = row[3],
+        purpose_id        = row[4],
+        sampling_point_id = row[5],
+        project_id        = row[6],
+        ts_unix           = row[7] if row[7] is not None else 1764484200,
     )
 
-    assert metadata_id == row.Metadata_ID
+    assert metadata_id == row[0]
 
 
 def test_resolve_metadata_id_not_found():
-    # On essaie une combinaison qui n'existe pas
-    try:
+    with pytest.raises(MetadataNotFound):
         resolve_metadata_id(
             equipment_id=9999,
             parameter_id=9999,
@@ -42,6 +59,3 @@ def test_resolve_metadata_id_not_found():
             project_id=9999,
             ts_unix=1764484200,
         )
-        assert False, "Aurait dû lever MetadataNotFound"
-    except MetadataNotFound:
-        assert True

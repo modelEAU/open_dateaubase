@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 
 from api_metadata.components.auth import ensure_auth_state, render_login, logout
@@ -5,9 +6,8 @@ from api_metadata.components.sidebar import render_sidebar
 from api_metadata.services.db_client import api_get
 from api_metadata.ui_style import apply_global_style
 
-# ✅ Corrige: on importe depuis api_metadata/pages (les vrais fichiers)
 from api_metadata.pages import dashboard
-from api_metadata.pages import Metadata_Explorer as metadata_explorer  # adapte si tu renomme en minuscules
+from api_metadata.pages import Metadata_Explorer as metadata_explorer
 
 
 def workspace():
@@ -20,7 +20,6 @@ def workspace():
     route = render_sidebar(st.session_state.get("username", ""))
 
     if route == "dashboard":
-        # ⚠️ selon ton dashboard.py ça peut être main() ou render()
         if hasattr(dashboard, "render"):
             dashboard.render()
         else:
@@ -37,11 +36,12 @@ def main():
     ensure_auth_state()
     is_auth = bool(st.session_state.get("authenticated") and st.session_state.get("token"))
 
-    # ✅ IMPORTANT: apply_global_style doit être le SEUL endroit qui fait set_page_config
     apply_global_style(authenticated=is_auth)
 
+    api_base_url = os.getenv("API_BASE_URL", "http://api:8000")
+
     if not is_auth:
-        render_login()
+        render_login(api_base_url)
         st.stop()
 
     workspace()

@@ -6,9 +6,16 @@ SET ANSI_WARNINGS ON;
 SET CONCAT_NULL_YIELDS_NULL ON;
 SET XACT_ABORT ON;
 
-BEGIN TRY
-BEGIN TRAN;
 
+
+IF DB_ID(N'proposed_2025_11') IS NULL
+BEGIN
+    CREATE DATABASE proposed_2025_11;
+END;
+GO
+
+USE proposed_2025_11;
+GO
 IF SCHEMA_ID('dbo') IS NULL
     EXEC('CREATE SCHEMA dbo');
 
@@ -541,7 +548,7 @@ END;
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes
     WHERE name = 'UX_value_MetadataID_Timestamp'
-      AND object_id = OBJECT_ID('dbo.[value]')
+    AND object_id = OBJECT_ID('dbo.[value]')
 )
 BEGIN
     CREATE UNIQUE INDEX UX_value_MetadataID_Timestamp
@@ -549,13 +556,4 @@ BEGIN
     WHERE Metadata_ID IS NOT NULL AND Timestamp IS NOT NULL;
 END;
 
-COMMIT TRAN;
-END TRY
-BEGIN CATCH
-    IF @@TRANCOUNT > 0 ROLLBACK TRAN;
 
-    DECLARE @msg nvarchar(4000) = ERROR_MESSAGE();
-    DECLARE @line int = ERROR_LINE();
-    DECLARE @num int = ERROR_NUMBER();
-    RAISERROR('Schema init failed (error %d at line %d): %s', 16, 1, @num, @line, @msg);
-END CATCH;

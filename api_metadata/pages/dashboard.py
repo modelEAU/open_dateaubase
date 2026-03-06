@@ -2,20 +2,25 @@ import pandas as pd
 import streamlit as st
 
 from api_metadata.ui_style import apply_global_style, render_header_logos
-from api_metadata.services.db_client import api_get
-from api_metadata.services import db_client
+from api_metadata.services.db_client import api_get, ApiError
+from api_metadata.components.auth import ensure_auth_state, logout
 
 LOGIN_PAGE = "pages/login.py"
 
+
+@st.cache_data(ttl=3600)
+def _load_lookup(path: str, token: str):
+    return api_get(path, with_auth=True)
+
+
 def _require_login():
+    ensure_auth_state()
     if not st.session_state.get("authenticated") or not st.session_state.get("token"):
         st.switch_page(LOGIN_PAGE)
-
-
-def _logout():
-    for k in ["authenticated", "token", "username", "selected_metadata_id"]:
-        st.session_state.pop(k, None)
-    st.switch_page(LOGIN_PAGE)
+    try:
+        api_get("/auth/me")
+    except Exception:
+        logout()
 
 
 def main():
@@ -24,38 +29,55 @@ def main():
     apply_global_style()
     st.markdown("<div class='authenticated'>", unsafe_allow_html=True)
 
-    # Debug (tu peux l’enlever après)
-    st.write("API_BASE_URL =", db_client.API_BASE_URL)
-
-    # Sidebar logout
     if st.sidebar.button("Se déconnecter"):
-        _logout()
+        for k in ["authenticated", "token", "username", "selected_metadata_id"]:
+            st.session_state.pop(k, None)
+        st.switch_page(LOGIN_PAGE)
 
     render_header_logos()
 
     st.title("📊 Tableau de bord datEAUbase")
-    st.caption(f"Connecté : {st.session_state.get('username','')}")
+    st.caption(f"Connecté : {st.session_state.get('username', '')}")
 
-    # ---- Filters (simple v1: IDs) ----
+    # ---- Filtres sidebar (dropdowns) ----
     st.sidebar.markdown("### Filtres (optionnel)")
-    project_id = st.sidebar.text_input("Project_ID", placeholder="ex: 1")
-    sampling_point_id = st.sidebar.text_input("Sampling_point_ID", placeholder="ex: 3")
-    equipment_id = st.sidebar.text_input("Equipment_ID", placeholder="ex: 2")
-    parameter_id = st.sidebar.text_input("Parameter_ID", placeholder="ex: 5")
 
-    def _int_or_none(x: str):
-        x = (x or "").strip()
-        return int(x) if x.isdigit() else None
+    token = st.session_state.get("token") or ""
+    try:
+        eq_items = _load_lookup("/lookups/equipment",       token)
+        pa_items = _load_lookup("/lookups/parameter",       token)
+        pr_items = _load_lookup("/lookups/project",         token)
+        sp_items = _load_lookup("/lookups/sampling_points", token)
+    except ApiError:
+        eq_items = pa_items = pr_items = sp_items = []
 
-    params = {
-        "project_id": _int_or_none(project_id),
-        "sampling_point_id": _int_or_none(sampling_point_id),
-        "equipment_id": _int_or_none(equipment_id),
-        "parameter_id": _int_or_none(parameter_id),
-    }
-    params = {k: v for k, v in params.items() if v is not None}
+    def _options(items):
+        opts    = ["Tous"]
+        mapping = {"Tous": None}
+        for it in items or []:
+            opt = f"{it['label']} (ID: {it['id']})"
+            opts.append(opt)
+            mapping[opt] = it["id"]
+        return opts, mapping
 
-    # ---- Load summary ----
+    eq_opts, eq_map = _options(eq_items)
+    pa_opts, pa_map = _options(pa_items)
+    pr_opts, pr_map = _options(pr_items)
+    sp_opts, sp_map = _options(sp_items)
+
+    eq_choice = st.sidebar.selectbox("Équipement",               eq_opts, index=0)
+    pa_choice = st.sidebar.selectbox("Paramètre",                pa_opts, index=0)
+    pr_choice = st.sidebar.selectbox("Projet",                   pr_opts, index=0)
+    sp_choice = st.sidebar.selectbox("Point d'échantillonnage",  sp_opts, index=0)
+
+    params = {k: v for k, v in {
+        "equipment_id":      eq_map.get(eq_choice),
+        "parameter_id":      pa_map.get(pa_choice),
+        "project_id":        pr_map.get(pr_choice),
+        "sampling_point_id": sp_map.get(sp_choice),
+    }.items() if v is not None}
+
+    # ---- KPIs ----
     try:
         summary = api_get("/dashboard/summary", params=params)
     except Exception as e:
@@ -64,9 +86,9 @@ def main():
         return
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Valeurs en base", summary.get("total_values", 0))
-    c2.metric("Points d’échantillonnage", summary.get("sampling_points", 0))
-    c3.metric("Métadonnées actives", summary.get("active_metadata", 0))
+    c1.metric("Valeurs en base",          summary.get("total_values", 0))
+    c2.metric("Points d'échantillonnage", summary.get("sampling_points", 0))
+    c3.metric("Métadonnées actives",      summary.get("active_metadata", 0))
 
     st.markdown("---")
 
@@ -76,7 +98,7 @@ def main():
         activity = api_get("/dashboard/activity_30d", params=params)
         df_daily = pd.DataFrame(activity)
     except Exception as e:
-        st.warning(f"Impossible de charger l’activité 30j. ({e})")
+        st.warning(f"Impossible de charger l'activité 30j. ({e})")
         df_daily = pd.DataFrame()
 
     if df_daily.empty:
@@ -90,7 +112,7 @@ def main():
     st.subheader("🏷️ Répartition par paramètre (30 jours)")
     try:
         top_params = api_get("/dashboard/top_parameters_30d", params={**params, "limit": 12})
-        df_param = pd.DataFrame(top_params)
+        df_param   = pd.DataFrame(top_params)
     except Exception as e:
         st.warning(f"Impossible de charger la répartition par paramètre. ({e})")
         df_param = pd.DataFrame()
@@ -109,3 +131,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

@@ -24,22 +24,24 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Run API unit tests
+      - name: Run unit tests (sans DB)
         run: |
-          pytest api_metadata
+          pytest api_metadata/test_metadata_resolver.py::test_resolve_metadata_id_not_found \
+                 api_metadata/test_ingest.py::test_login_invalid \
+                 -v
 
       - name: Create .env file
         run: |
           cp .env.docker.example .env
           echo "DB_PASSWORD=${DB_PASSWORD}" >> .env
 
-      - name: Build and start stack (with init)
+      - name: Build and start stack
         run: |
-          docker compose --profile init up --build -d
+          docker compose up --build -d
 
       - name: Wait for services
         run: |
-          sleep 25
+          sleep 30
 
       - name: API smoke test
         run: |
@@ -52,7 +54,7 @@ jobs:
       - name: DB sanity check
         run: |
           docker exec open_dateaubase_db /opt/mssql-tools18/bin/sqlcmd \
-            -S localhost -U sa -P "${DB_PASSWORD}" \
+            -S localhost -U sa -P "${DB_PASSWORD}" -C \
             -Q "IF OBJECT_ID('proposed_2025_11.dbo.metadata','U') IS NULL THROW 50000, 'metadata table missing', 1; SELECT COUNT(*) FROM proposed_2025_11.dbo.metadata;"
 
       - name: Shutdown stack

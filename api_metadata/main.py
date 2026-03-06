@@ -6,15 +6,13 @@ import os
 from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from .db import get_connection
 from .metadata_resolver import resolve_metadata_id, MetadataNotFound
 
 
-# ----------------------------
-# Logging
-# ----------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
@@ -26,9 +24,6 @@ logging.basicConfig(
 logger = logging.getLogger("metadata_api")
 
 
-# ----------------------------
-# Auth (JWT)
-# ----------------------------
 SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret-change-me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
@@ -71,9 +66,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-# ----------------------------
-# API Models
-# ----------------------------
 class IngestRequest(BaseModel):
     equipment_id: int
     parameter_id: int
@@ -94,6 +86,10 @@ class ValueItem(BaseModel):
 
 class LookupItem(BaseModel):
     id: int
+    label: str
+
+
+class LookupCreateRequest(BaseModel):
     label: str
 
 
@@ -119,9 +115,23 @@ class MetadataListResponse(BaseModel):
     items: List[MetadataListItem]
 
 
-# ----------------------------
-# FastAPI app
-# ----------------------------
+# BUG-02 — modèle pour la création de metadata
+class MetadataCreateRequest(BaseModel):
+    equipment_id: int
+    parameter_id: int
+    unit_id: int
+    purpose_id: int
+    sampling_point_id: int
+    project_id: int
+    procedure_id: Optional[int] = None
+    contact_id: Optional[int] = None
+    condition_id: Optional[int] = None
+    start_ts: int
+    end_ts: Optional[int] = None
+
+
+
+
 app = FastAPI(title="datEAUbase Metadata API")
 
 
@@ -132,19 +142,22 @@ def root():
 
 @app.get("/health")
 def health():
-    """API up + DB connected."""
     try:
         conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+        cur.close()
         conn.close()
         return {"status": "ok", "db": "connected"}
     except Exception as e:
-        logger.exception("Erreur de connexion DB dans /health")
-        return {"status": "ok", "db": f"error: {e}"}
+        logger.exception("DB healthcheck failed")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "db": str(e)},
+        )
 
 
-# ----------------------------
-# Auth endpoints
-# ----------------------------
 @app.post("/auth/login", response_model=TokenResponse)
 def login(req: LoginRequest):
     if not authenticate_user(req.username, req.password):
@@ -159,9 +172,6 @@ def me(user=Depends(get_current_user)):
     return user
 
 
-# ----------------------------
-# Helpers (DB)
-# ----------------------------
 def _lookup(table: str, id_col: str, label_col: str) -> List[dict]:
     conn = get_connection()
     cur = conn.cursor()
@@ -176,37 +186,103 @@ def _lookup(table: str, id_col: str, label_col: str) -> List[dict]:
     return [{"id": int(r[0]), "label": str(r[1])} for r in rows]
 
 
-# ----------------------------
-# Lookups (protected)
-# ----------------------------
+def _lookup_create(table: str, id_col: str, label_col: str, label: str) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        f"INSERT INTO {table} ({label_col}) OUTPUT INSERTED.{id_col} VALUES (?)",
+        label,
+    )
+    new_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"id": int(new_id), "label": label}
+
+
+
 @app.get("/lookups/equipment", response_model=List[LookupItem])
 def lookups_equipment(user=Depends(get_current_user)):
     return _lookup("equipment", "Equipment_ID", "Equipment_identifier")
+
+# BUG-03
+@app.post("/lookups/equipment", response_model=LookupItem, status_code=201)
+def create_equipment(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("equipment", "Equipment_ID", "Equipment_identifier", body.label)
 
 
 @app.get("/lookups/parameter", response_model=List[LookupItem])
 def lookups_parameter(user=Depends(get_current_user)):
     return _lookup("parameter", "Parameter_ID", "Parameter")
 
+@app.post("/lookups/parameter", response_model=LookupItem, status_code=201)
+def create_parameter(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("parameter", "Parameter_ID", "Parameter", body.label)
+
 
 @app.get("/lookups/unit", response_model=List[LookupItem])
 def lookups_unit(user=Depends(get_current_user)):
     return _lookup("unit", "Unit_ID", "Unit")
+
+@app.post("/lookups/unit", response_model=LookupItem, status_code=201)
+def create_unit(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("unit", "Unit_ID", "Unit", body.label)
 
 
 @app.get("/lookups/purpose", response_model=List[LookupItem])
 def lookups_purpose(user=Depends(get_current_user)):
     return _lookup("purpose", "Purpose_ID", "Purpose")
 
+# BUG-03
+@app.post("/lookups/purpose", response_model=LookupItem, status_code=201)
+def create_purpose(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("purpose", "Purpose_ID", "Purpose", body.label)
+
 
 @app.get("/lookups/project", response_model=List[LookupItem])
 def lookups_project(user=Depends(get_current_user)):
     return _lookup("project", "Project_ID", "Project_name")
 
+@app.post("/lookups/project", response_model=LookupItem, status_code=201)
+def create_project(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("project", "Project_ID", "Project_name", body.label)
+
 
 @app.get("/lookups/sampling_points", response_model=List[LookupItem])
 def lookups_sampling_points(user=Depends(get_current_user)):
     return _lookup("sampling_points", "Sampling_point_ID", "Sampling_point")
+
+@app.post("/lookups/sampling_points", response_model=LookupItem, status_code=201)
+def create_sampling_point(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("sampling_points", "Sampling_point_ID", "Sampling_point", body.label)
+
+
+@app.get("/lookups/procedures", response_model=List[LookupItem])
+def lookups_procedures(user=Depends(get_current_user)):
+    return _lookup("procedures", "Procedure_ID", "Procedure_name")
+
+@app.post("/lookups/procedures", response_model=LookupItem, status_code=201)
+def create_procedure(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("procedures", "Procedure_ID", "Procedure_name", body.label)
+
+
+@app.get("/lookups/contact", response_model=List[LookupItem])
+def lookups_contact(user=Depends(get_current_user)):
+    return _lookup("contact", "Contact_ID", "Last_name")
+
+@app.post("/lookups/contact", response_model=LookupItem, status_code=201)
+def create_contact(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("contact", "Contact_ID", "Last_name", body.label)
+
+
+@app.get("/lookups/weather_condition", response_model=List[LookupItem])
+def lookups_weather_condition(user=Depends(get_current_user)):
+    return _lookup("weather_condition", "Condition_ID", "Weather_condition")
+
+@app.post("/lookups/weather_condition", response_model=LookupItem, status_code=201)
+def create_weather_condition(body: LookupCreateRequest, user=Depends(get_current_user)):
+    return _lookup_create("weather_condition", "Condition_ID", "Weather_condition", body.label)
+
 
 @app.get("/dashboard/summary")
 def dashboard_summary(
@@ -216,9 +292,6 @@ def dashboard_summary(
     parameter_id: int | None = None,
     user=Depends(get_current_user),
 ):
-    """
-    KPIs + active metadata count. Filtres optionnels.
-    """
     now_unix = int(datetime.utcnow().timestamp())
 
     where = []
@@ -242,7 +315,6 @@ def dashboard_summary(
     conn = get_connection()
     cur = conn.cursor()
 
-    # Values count (join metadata to allow filters)
     cur.execute(
         f"""
         SELECT COUNT(*)
@@ -254,7 +326,6 @@ def dashboard_summary(
     )
     total_values = cur.fetchone()[0]
 
-    # Sampling points total (global, or filtered via metadata)
     cur.execute(
         f"""
         SELECT COUNT(DISTINCT m.Sampling_point_ID)
@@ -265,7 +336,6 @@ def dashboard_summary(
     )
     sampling_points = cur.fetchone()[0] or 0
 
-    # Active metadata (with filters)
     cur.execute(
         f"""
         SELECT COUNT(*)
@@ -297,10 +367,6 @@ def dashboard_activity_30d(
     parameter_id: int | None = None,
     user=Depends(get_current_user),
 ):
-    """
-    Série journalière nb valeurs sur 30 jours.
-    Retour: [{"day":"2026-02-01","count":12}, ...]
-    """
     where = []
     params = []
 
@@ -349,7 +415,7 @@ def dashboard_top_parameters_30d(
     project_id: int | None = None,
     sampling_point_id: int | None = None,
     equipment_id: int | None = None,
-    parameter_id: int | None = None,  # ✅ AJOUT
+    parameter_id: int | None = None,
     user=Depends(get_current_user),
 ):
     where = []
@@ -364,7 +430,7 @@ def dashboard_top_parameters_30d(
     if equipment_id is not None:
         where.append("m.Equipment_ID = ?")
         params.append(equipment_id)
-    if parameter_id is not None:  # ✅ AJOUT
+    if parameter_id is not None:
         where.append("m.Parameter_ID = ?")
         params.append(parameter_id)
 
@@ -399,9 +465,6 @@ def dashboard_top_parameters_30d(
     ]
 
 
-# ----------------------------
-# Metadata listing (protected)
-# ----------------------------
 @app.get("/metadata", response_model=MetadataListResponse)
 def list_metadata(
     limit: int = 200,
@@ -445,10 +508,10 @@ def list_metadata(
         s = f"%{q.strip()}%"
         where.append("""
             (
-              e.Equipment_identifier LIKE ?
-              OR p.Parameter LIKE ?
-              OR pr.Project_name LIKE ?
-              OR sp.Sampling_point LIKE ?
+            e.Equipment_identifier LIKE ?
+            OR p.Parameter LIKE ?
+            OR pr.Project_name LIKE ?
+            OR sp.Sampling_point LIKE ?
             )
         """)
         params.extend([s, s, s, s])
@@ -520,9 +583,50 @@ def list_metadata(
     return {"total": total, "items": items}
 
 
-# ----------------------------
-# Ingest + Values (protected)
-# ----------------------------
+# BUG-02 — endpoint POST /metadata manquant
+@app.post("/metadata", status_code=201)
+def create_metadata(data: MetadataCreateRequest, user=Depends(get_current_user)):
+    """Crée une nouvelle entrée metadata et retourne le Metadata_ID généré."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO metadata (
+                Equipment_ID, Parameter_ID, Unit_ID, Purpose_ID,
+                Sampling_point_ID, Project_ID,
+                Procedure_ID, Contact_ID, Condition_ID,
+                StartDate, EndDate
+            )
+            OUTPUT INSERTED.Metadata_ID
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            data.equipment_id,
+            data.parameter_id,
+            data.unit_id,
+            data.purpose_id,
+            data.sampling_point_id,
+            data.project_id,
+            data.procedure_id,
+            data.contact_id,
+            data.condition_id,
+            data.start_ts,
+            data.end_ts,
+        )
+        new_id = cur.fetchone()[0]
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        logger.exception("Erreur lors de la création de metadata")
+        raise HTTPException(status_code=500, detail="Erreur interne lors de la création du metadata.")
+    finally:
+        cur.close()
+        conn.close()
+
+    logger.info("Metadata créée: id=%s user=%s", new_id, user["username"])
+    return {"metadata_id": int(new_id)}
+
+
 @app.post("/ingest")
 def ingest(data: IngestRequest, user=Depends(get_current_user)):
     ts_unix = int(data.timestamp.timestamp())
@@ -539,9 +643,6 @@ def ingest(data: IngestRequest, user=Depends(get_current_user)):
         data.value,
         ts_unix,
     )
-
-    if data.value < 0:
-        raise HTTPException(status_code=400, detail="Valeur négative interdite.")
 
     try:
         metadata_id = resolve_metadata_id(
@@ -564,7 +665,7 @@ def ingest(data: IngestRequest, user=Depends(get_current_user)):
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO value (Value, Number_of_experiment, Metadata_ID, Comment_ID, [Timestamp])
+            INSERT INTO dbo.[value] (Value, Number_of_experiment, Metadata_ID, Comment_ID, [Timestamp])
             VALUES (?, NULL, ?, NULL, ?)
             """,
             data.value,

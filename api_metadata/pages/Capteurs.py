@@ -1,14 +1,24 @@
 import pandas as pd
-from datetime import datetime
 import streamlit as st
 
 from api_metadata.ui_style import apply_global_style, render_header_logos
-from api_metadata.db import get_connection
+from api_metadata.services.db_client import api_get, ApiError
+from api_metadata.components.auth import ensure_auth_state, logout
 
 LOGIN_PAGE = "pages/login.py"
 
 def main():
     apply_global_style()
+    ensure_auth_state()
+
+    if not st.session_state.get("token"):
+        st.switch_page(LOGIN_PAGE)
+
+    try:
+        api_get("/auth/me")
+    except Exception:
+        logout()
+
     render_header_logos()
 
     st.title("🧭 Capteurs")
@@ -16,28 +26,24 @@ def main():
 
     search = st.text_input("Rechercher (ID ou identifiant)", placeholder="ex: 12, pH, flow, ...")
 
-    conn = get_connection()
-    df = pd.read_sql(
-        """
-        SELECT Equipment_ID, Equipment_identifier
-        FROM equipment
-        ORDER BY Equipment_ID
-        """,
-        conn,
-    )
-    conn.close()
+    try:
+        items = api_get("/lookups/equipment")
+    except ApiError as e:
+        st.error(f"Impossible de charger les équipements depuis l'API. ({e})")
+        return
 
-    if df.empty:
+    if not items:
         st.info("Aucun capteur/équipement trouvé.")
         return
 
     if search.strip():
         s = search.strip().lower()
-        df = df[
-            df["Equipment_ID"].astype(str).str.contains(s)
-            | df["Equipment_identifier"].fillna("").str.lower().str.contains(s)
+        items = [
+            it for it in items
+            if s in str(it["id"]) or s in it["label"].lower()
         ]
 
+    df = pd.DataFrame([{"Equipment_ID": it["id"], "Equipment_identifier": it["label"]} for it in items])
     st.dataframe(df, use_container_width=True)
 
     st.markdown("---")

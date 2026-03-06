@@ -1,7 +1,6 @@
-import pyodbc
 import os
+import pyodbc
 from dotenv import load_dotenv
-
 
 if os.path.exists(".env.local"):
     load_dotenv(".env.local")
@@ -22,26 +21,26 @@ def get_connection():
             "DB_USER": user,
             "DB_PASSWORD": password,
         }.items() if not v]
-        raise RuntimeError(
-            f"Missing environment variables: {', '.join(missing)}"
-        )
+        raise RuntimeError(f"Missing environment variables: {', '.join(missing)}")
 
-    server = f"{host},{port}"
+    server = host if port in (None, "", "1433") else f"{host},{port}"
 
     conn_str = (
-    "DRIVER={ODBC Driver 18 for SQL Server};"
-    f"SERVER={server};"
-    f"DATABASE={db_name};"
-    f"UID={user};"
-    f"PWD={password};"
-    "Encrypt=no;"
-    "TrustServerCertificate=yes;"
-    "Connection Timeout=5;"
-)
-
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"SERVER={server};"
+        f"DATABASE={db_name};"
+        f"UID={user};"
+        f"PWD={password};"
+        "Encrypt=yes;"
+        "TrustServerCertificate=yes;"
+        "Connection Timeout=5;"
+    )
 
     return pyodbc.connect(conn_str)
+
 if __name__ == "__main__":
     conn = get_connection()
-    print("DB connection OK")
+    cur = conn.cursor()
+    cur.execute("SELECT 1")
+    print("DB connection + query OK")
     conn.close()
