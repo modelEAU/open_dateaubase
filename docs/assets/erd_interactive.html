@@ -2248,58 +2248,6 @@
       ]
     },
     {
-      "id": "SensorStatusCode",
-      "label": "SensorStatusCode",
-      "description": "Lookup table defining sensor status codes. Each code represents  a state a sensor channel or device can be in. IsOperational  indicates whether data collected in this state should be considered  trustworthy. Severity indicates the urgency (0=normal, 1=warning,  2=fault, 3=critical).\n",
-      "fields": [
-        {
-          "name": "StatusCodeID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Primary key, manually assigned. This is the value stored in dbo.Value."
-        },
-        {
-          "name": "StatusName",
-          "sql_type": "NVARCHAR(50)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Human-readable status name"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(200)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Detailed description of what this status means"
-        },
-        {
-          "name": "IsOperational",
-          "sql_type": "BIT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Whether data collected during this status should be considered  trustworthy. true = data is valid, false = data may be invalid.\n"
-        },
-        {
-          "name": "Severity",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "0=normal, 1=warning, 2=fault, 3=critical"
-        }
-      ]
-    },
-    {
       "id": "Site",
       "label": "Site",
       "description": "Stores general site information, including address, site type, and a link to the associated watershed",
@@ -2985,40 +2933,6 @@
           "is_required": false,
           "fk_target": null,
           "description": "Percentage of the impervious surface of the watershed in percentage [%]"
-        }
-      ]
-    },
-    {
-      "id": "WeatherCondition",
-      "label": "WeatherCondition",
-      "description": "Stores descriptive information about the prevailing weather conditions when the measurement was taken (e.g., dry weather, wet weather, snow melt)",
-      "fields": [
-        {
-          "name": "WeatherCondition_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "A unique ID is generated automatically by the database"
-        },
-        {
-          "name": "WeatherCondition",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Type of weather condition"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Description of the condition"
         }
       ]
     }

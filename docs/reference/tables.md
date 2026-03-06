@@ -638,25 +638,6 @@ Tracks which schema versions have been applied to this database instance
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Human-readable description of what this migration does | - |
 | MigrationScript | NVARCHAR(200) | - |  | <span id="MigrationScript"></span>Filename of the migration script that was applied | - |
 
-<span id="SensorStatusCode"></span>
-
-### SensorStatusCode
-
-Lookup table defining sensor status codes. Each code represents  a state a sensor channel or device can be in. IsOperational  indicates whether data collected in this state should be considered  trustworthy. Severity indicates the urgency (0=normal, 1=warning,  2=fault, 3=critical).
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| StatusCodeID | INT **(PK)** | - | ✓ | <span id="StatusCodeID"></span>Primary key, manually assigned. This is the value stored in dbo.Value. | - |
-| StatusName | NVARCHAR(50) | - | ✓ | <span id="StatusName"></span>Human-readable status name | - |
-| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Detailed description of what this status means | - |
-| IsOperational | BIT | - | ✓ | <span id="IsOperational"></span>Whether data collected during this status should be considered  trustworthy. true = data is valid, false = data may be invalid.
- | Default: `True` |
-| Severity | INT | - | ✓ | <span id="Severity"></span>0=normal, 1=warning, 2=fault, 3=critical | Default: `0` |
-
 <span id="Site"></span>
 
 ### Site
@@ -856,18 +837,3 @@ Stores general information about the watershed area, including surface area, con
 | SurfaceArea | REAL | - |  | <span id="SurfaceArea"></span>Surface area of the watershed [ha] | - |
 | ConcentrationTime | INT | - |  | <span id="ConcentrationTime"></span>Concentration time in minutes [min] | - |
 | ImperviousSurface | REAL | - |  | <span id="ImperviousSurface"></span>Percentage of the impervious surface of the watershed in percentage [%] | - |
-
-<span id="WeatherCondition"></span>
-
-### WeatherCondition
-
-Stores descriptive information about the prevailing weather conditions when the measurement was taken (e.g., dry weather, wet weather, snow melt)
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| WeatherCondition_ID | INT **(PK)** | - | ✓ | <span id="WeatherCondition_ID"></span>A unique ID is generated automatically by the database | - |
-| WeatherCondition | NVARCHAR(100) | - |  | <span id="WeatherCondition"></span>Type of weather condition | - |
-| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the condition | - |
