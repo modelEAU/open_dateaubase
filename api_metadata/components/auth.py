@@ -1,8 +1,6 @@
 import requests
 import streamlit as st
 
-LOGIN_PAGE = "pages/login.py"
-
 
 def ensure_auth_state():
     st.session_state.setdefault("authenticated", False)
@@ -48,7 +46,8 @@ def logout():
         "selected_metadata_id",
         "nav_idx",
         "nav_label",
+        "sensor_equipment_id_filter",
     ]:
         st.session_state.pop(k, None)
 
-    st.switch_page(LOGIN_PAGE)
+    st.rerun()

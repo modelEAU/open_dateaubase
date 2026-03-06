@@ -5,6 +5,7 @@ NAV = [
     ("📊 Dashboard", "dashboard"),
     ("🧾 Métadonnées", "metadata_list"),
     ("➕ Créer une métadonnée", "metadata_create"),
+    ("🧭 Capteurs", "sensors"),
 ]
 
 def render_sidebar(username: str) -> str:
@@ -19,11 +20,9 @@ def render_sidebar(username: str) -> str:
     labels = [label for label, _ in NAV]
     values = [value for _, value in NAV]
 
-    # ✅ persiste le choix
     default_idx = st.session_state.get("nav_idx", 0)
     choice_label = st.sidebar.radio("Navigation", labels, index=default_idx, key="nav_label")
 
     idx = labels.index(choice_label)
     st.session_state["nav_idx"] = idx
     return values[idx]
-

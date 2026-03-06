@@ -27,8 +27,8 @@ jobs:
       - name: Run unit tests (sans DB)
         run: |
           pytest api_metadata/test_metadata_resolver.py::test_resolve_metadata_id_not_found \
-                 api_metadata/test_ingest.py::test_login_invalid \
-                 -v
+                api_metadata/test_ingest.py::test_login_invalid \
+                -v
 
       - name: Create .env file
         run: |

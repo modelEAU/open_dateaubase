@@ -19,10 +19,6 @@ GO
 IF SCHEMA_ID('dbo') IS NULL
     EXEC('CREATE SCHEMA dbo');
 
-------------------------------------------------------------
--- 1) Reference tables
-------------------------------------------------------------
-
 IF OBJECT_ID('dbo.weather_condition', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.weather_condition (
@@ -130,9 +126,9 @@ END;
 IF OBJECT_ID('dbo.FK_equipment_Equipment_model_ID', 'F') IS NULL
 BEGIN
     ALTER TABLE dbo.equipment
-      ADD CONSTRAINT FK_equipment_Equipment_model_ID
-      FOREIGN KEY (Equipment_model_ID)
-      REFERENCES dbo.equipment_model (Equipment_model_ID);
+    ADD CONSTRAINT FK_equipment_Equipment_model_ID
+    FOREIGN KEY (Equipment_model_ID)
+    REFERENCES dbo.equipment_model (Equipment_model_ID);
 END;
 
 IF OBJECT_ID('dbo.project_has_equipment', 'U') IS NULL
@@ -199,15 +195,15 @@ END;
 IF OBJECT_ID('dbo.FK_project_has_contact_Project_ID', 'F') IS NULL
 BEGIN
     ALTER TABLE dbo.project_has_contact
-      ADD CONSTRAINT FK_project_has_contact_Project_ID
-      FOREIGN KEY (Project_ID) REFERENCES dbo.project(Project_ID);
+    ADD CONSTRAINT FK_project_has_contact_Project_ID
+    FOREIGN KEY (Project_ID) REFERENCES dbo.project(Project_ID);
 END;
 
 IF OBJECT_ID('dbo.FK_project_has_contact_Contact_ID', 'F') IS NULL
 BEGIN
     ALTER TABLE dbo.project_has_contact
-      ADD CONSTRAINT FK_project_has_contact_Contact_ID
-      FOREIGN KEY (Contact_ID) REFERENCES dbo.contact(Contact_ID);
+    ADD CONSTRAINT FK_project_has_contact_Contact_ID
+    FOREIGN KEY (Contact_ID) REFERENCES dbo.contact(Contact_ID);
 END;
 
 ------------------------------------------------------------
@@ -246,15 +242,15 @@ END;
 IF OBJECT_ID('dbo.FK_hydrological_characteristics_Watershed_ID', 'F') IS NULL
 BEGIN
     ALTER TABLE dbo.hydrological_characteristics
-      ADD CONSTRAINT FK_hydrological_characteristics_Watershed_ID
-      FOREIGN KEY (Watershed_ID) REFERENCES dbo.watershed(Watershed_ID);
+    ADD CONSTRAINT FK_hydrological_characteristics_Watershed_ID
+    FOREIGN KEY (Watershed_ID) REFERENCES dbo.watershed(Watershed_ID);
 END;
 
 IF OBJECT_ID('dbo.FK_urban_characteristics_Watershed_ID', 'F') IS NULL
 BEGIN
     ALTER TABLE dbo.urban_characteristics
-      ADD CONSTRAINT FK_urban_characteristics_Watershed_ID
-      FOREIGN KEY (Watershed_ID) REFERENCES dbo.watershed(Watershed_ID);
+    ADD CONSTRAINT FK_urban_characteristics_Watershed_ID
+    FOREIGN KEY (Watershed_ID) REFERENCES dbo.watershed(Watershed_ID);
 END;
 
 ------------------------------------------------------------

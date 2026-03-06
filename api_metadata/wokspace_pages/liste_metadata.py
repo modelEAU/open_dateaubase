@@ -1,12 +1,8 @@
-# api_metadata/workspace_pages/metadata_list.py  (ou ton chemin actuel)
 import pandas as pd
 import streamlit as st
 
 from api_metadata.ui_style import apply_global_style, render_header_logos
 from api_metadata.services.db_client import api_get, ApiError
-
-LOGIN_PAGE = "pages/login.py"
-
 
 
 def _to_dt(ts):
@@ -20,10 +16,6 @@ def _to_dt(ts):
 
 @st.cache_data(ttl=3600)
 def _load_lookup(path: str, token: str):
-    """
-    token est volontairement un paramètre pour que le cache varie
-    selon l'utilisateur / session (évite de garder un 401 en cache).
-    """
     return api_get(path, with_auth=True)
 
 
@@ -32,7 +24,6 @@ def _options(items):
     mapping = {"Tous": None}
 
     for it in items or []:
-        # Supporte {"id":..., "label":...} et variantes
         label = it.get("label") or it.get("name") or str(it.get("id"))
         opt = f"{label} (ID: {it['id']})"
         opts.append(opt)
@@ -40,25 +31,16 @@ def _options(items):
 
     return opts, mapping
 
+
 def main():
-    if not st.session_state.get("token"):
-        st.switch_page("pages/login.py")
-
-
     apply_global_style()
     st.markdown("<div class='authenticated'>", unsafe_allow_html=True)
 
-    # Sidebar logout
-    if st.sidebar.button("Se déconnecter"):
-        st.session_state.clear()
-        st.switch_page(LOGIN_PAGE)
-
     render_header_logos()
 
-    st.title("🧾 Liste des métadonnées")
+    st.title(" Liste des métadonnées")
     st.caption("Recherche, filtres, et affichage lisible (via FastAPI).")
 
-    # --- Lookups ---
     token = st.session_state.get("token") or ""
     try:
         equipment = _load_lookup("/lookups/equipment", token)
@@ -68,10 +50,6 @@ def main():
     except ApiError as e:
         st.error("Impossible de charger les listes (lookups). Vérifie l’API.")
         st.caption(str(e))
-        if str(e).startswith("401:"):
-            st.info("Ton token est absent/expiré → reconnecte-toi.")
-            st.session_state.clear()
-            st.switch_page(LOGIN_PAGE)
         st.markdown("</div>", unsafe_allow_html=True)
         return
     except Exception as e:
@@ -85,7 +63,6 @@ def main():
     pr_opts, pr_map = _options(projects)
     sp_opts, sp_map = _options(sampling_points)
 
-    # --- UI Filters ---
     with st.container():
         c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
         with c1:
@@ -109,7 +86,7 @@ def main():
 
         a1, a2 = st.columns([1, 1])
         with a1:
-            st.button("✅ Appliquer", use_container_width=True)  # optionnel
+            st.button("✅ Appliquer", use_container_width=True)
         with a2:
             if st.button("♻️ Réinitialiser", use_container_width=True):
                 st.rerun()
@@ -138,15 +115,10 @@ def main():
     if sp_id is not None:
         params["sampling_point_id"] = int(sp_id)
 
-    # --- Fetch metadata ---
     try:
         resp = api_get("/metadata", params=params, with_auth=True)
     except ApiError as e:
         st.error(f"Erreur lors du chargement des métadonnées depuis l’API. Détail: {e}")
-        if str(e).startswith("401:"):
-            st.info("Ton token est absent/expiré → reconnecte-toi.")
-            st.session_state.clear()
-            st.switch_page(LOGIN_PAGE)
         st.markdown("</div>", unsafe_allow_html=True)
         return
     except Exception as e:
@@ -175,6 +147,8 @@ def main():
                 "Parameter_ID": (it.get("parameter") or {}).get("id"),
                 "Unit": (it.get("unit") or {}).get("label"),
                 "Unit_ID": (it.get("unit") or {}).get("id"),
+                "Purpose": (it.get("purpose") or {}).get("label"),
+                "Purpose_ID": (it.get("purpose") or {}).get("id"),
                 "Project": (it.get("project") or {}).get("label"),
                 "Project_ID": (it.get("project") or {}).get("id"),
                 "Sampling_point": (it.get("sampling_point") or {}).get("label"),
@@ -187,14 +161,15 @@ def main():
     df = pd.DataFrame(rows)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-    st.markdown("### Ouvrir une métadonnée")
+    st.markdown("### Sélection")
     selected = st.selectbox(
-        "Choisir une Metadata_ID à explorer",
+        "Choisir une Metadata_ID",
         df["Metadata_ID"].dropna().astype(int).tolist(),
     )
-    if st.button("🔍 Ouvrir dans Metadata Explorer", use_container_width=True):
+
+    if st.button("🔍 Sélectionner cette métadonnée", use_container_width=True):
         st.session_state["selected_metadata_id"] = int(selected)
-        st.rerun()
+        st.success(f"Métadonnée sélectionnée : {selected}")
 
     csv = df.to_csv(index=False).encode("utf-8")
     st.download_button(

@@ -6,8 +6,10 @@ from api_metadata.components.sidebar import render_sidebar
 from api_metadata.services.db_client import api_get
 from api_metadata.ui_style import apply_global_style
 
-from api_metadata.pages import dashboard
-from api_metadata.pages import Metadata_Explorer as metadata_explorer
+from api_metadata.workspace_pages import dashboard
+from api_metadata.workspace_pages import metadata_explorer
+from api_metadata.workspace_pages import creer_metadata
+from api_metadata.workspace_pages import capteurs
 
 
 def workspace():
@@ -15,26 +17,32 @@ def workspace():
         api_get("/auth/me")
     except Exception:
         logout()
-        st.stop()
+        st.rerun()
 
     route = render_sidebar(st.session_state.get("username", ""))
 
     if route == "dashboard":
-        if hasattr(dashboard, "render"):
-            dashboard.render()
-        else:
-            dashboard.main()
+        dashboard.main()
+
     elif route == "metadata_list":
         metadata_explorer.render_list()
+
     elif route == "metadata_create":
-        metadata_explorer.render_create()
+        creer_metadata.main()
+
+    elif route == "sensors":
+        capteurs.main()
+
     else:
         st.error("Page inconnue.")
 
 
 def main():
     ensure_auth_state()
-    is_auth = bool(st.session_state.get("authenticated") and st.session_state.get("token"))
+    is_auth = bool(
+        st.session_state.get("authenticated")
+        and st.session_state.get("token")
+    )
 
     apply_global_style(authenticated=is_auth)
 
