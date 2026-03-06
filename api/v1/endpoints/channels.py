@@ -33,6 +33,8 @@ def list_channels(
         None, description="Filter by processing degree ID (1=Raw, 2=Cleaned, etc.)"
     ),
     equipment_id: int | None = Query(None, description="Filter by equipment ID"),
+    value_type_id: int | None = Query(None, description="Filter by value type (1=Scalar,2=Vector,3=Matrix,4=Image)"),
+    campaign_id: int | None = Query(None, description="Filter to channels whose equipment is in this campaign"),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000),
     conn=Depends(get_db),
@@ -44,6 +46,8 @@ def list_channels(
         data_provenance_id=data_provenance_id,
         processing_degree_id=processing_degree_id,
         equipment_id=equipment_id,
+        value_type_id=value_type_id,
+        campaign_id=campaign_id,
         page=page,
         page_size=page_size,
     )

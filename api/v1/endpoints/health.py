@@ -17,7 +17,7 @@ def health(conn=Depends(get_db)):
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT TOP 1 [Version] FROM [dbo].[SchemaVersion] ORDER BY [AppliedAt] DESC"
+            "SELECT TOP 1 [Version] FROM [dbo].[SchemaVersion] ORDER BY [AppliedDateTime] DESC"
         )
         row = cursor.fetchone()
         schema_version = row[0] if row else "unknown"
@@ -30,5 +30,9 @@ def health(conn=Depends(get_db)):
     except Exception as exc:
         return JSONResponse(
             status_code=503,
-            content={"status": "degraded", "db": f"error: {exc}", "api_version": settings.api_version},
+            content={
+                "status": "degraded",
+                "db": f"error: {exc}",
+                "api_version": settings.api_version,
+            },
         )

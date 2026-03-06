@@ -19,6 +19,7 @@ from .endpoints.annotations import (
 )
 from .endpoints.sensor_status import router as sensor_status_router
 from .endpoints.parameters import router as parameters_router
+from .endpoints.value_binning import router as value_binning_router
 
 router = APIRouter()
 
@@ -39,3 +40,6 @@ router.include_router(
 )
 router.include_router(sensor_status_router, tags=["sensor-status"])
 router.include_router(parameters_router, prefix="/parameters", tags=["parameters"])
+router.include_router(
+    value_binning_router, prefix="/value-binning-axes", tags=["value-binning-axes"]
+)

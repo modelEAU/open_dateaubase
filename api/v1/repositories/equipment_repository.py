@@ -266,7 +266,7 @@ def get_equipment_events(
     cursor.execute(
         f"""
         SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventType_ID],
-               eet.[EventType_Name],
+               eet.[EquipmentEventType_Name],
                ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
                ee.[PerformedByPerson_ID],
                CONCAT(per.[FirstName], ' ', per.[LastName]) AS PersonName,
@@ -317,7 +317,7 @@ def get_equipment_installations(
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT ei.[EquipmentInstallation_ID], ei.[SamplingPoint_ID],
+        SELECT ei.[Installation_ID], ei.[SamplingPoint_ID],
                sp.[SamplingPoint] AS LocationName,
                ei.[InstalledDate], ei.[RemovedDate],
                ei.[Campaign_ID], c.[Name] AS CampaignName,
@@ -343,3 +343,67 @@ def get_equipment_installations(
         }
         for row in cursor.fetchall()
     ]
+
+
+def get_equipment_event_types(conn: pyodbc.Connection) -> list[dict]:
+    """Return all EquipmentEventType rows for dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [EquipmentEventType_ID], [EquipmentEventType_Name] FROM [dbo].[EquipmentEventType] ORDER BY [EquipmentEventType_Name]"
+    )
+    return [{"event_type_id": row[0], "event_type_name": row[1]} for row in cursor.fetchall()]
+
+
+def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
+    """Insert a new EquipmentEvent row and return the created record."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[EquipmentEvent]
+            ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart], [EventDateTimeEnd],
+             [PerformedByPerson_ID], [Campaign_ID], [Notes])
+        OUTPUT INSERTED.[EquipmentEvent_ID]
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        data["equipment_id"],
+        data["event_type_id"],
+        data["start_datetime"],
+        data.get("end_datetime"),
+        data.get("performed_by_person_id"),
+        data.get("campaign_id"),
+        data.get("notes"),
+    )
+    event_id = cursor.fetchone()[0]
+    conn.commit()
+
+    # Re-fetch with joins for the full response
+    cursor.execute(
+        """
+        SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventType_ID],
+               eet.[EquipmentEventType_Name],
+               ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
+               ee.[PerformedByPerson_ID],
+               CONCAT(per.[FirstName], ' ', per.[LastName]) AS PersonName,
+               ee.[Campaign_ID], c.[Name] AS CampaignName,
+               ee.[Notes]
+        FROM [dbo].[EquipmentEvent] ee
+        LEFT JOIN [dbo].[EquipmentEventType] eet ON eet.[EquipmentEventType_ID] = ee.[EquipmentEventType_ID]
+        LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = ee.[PerformedByPerson_ID]
+        LEFT JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = ee.[Campaign_ID]
+        WHERE ee.[EquipmentEvent_ID] = ?
+        """,
+        event_id,
+    )
+    row = cursor.fetchone()
+    return {
+        "event_id": row[0],
+        "event_type_id": row[1],
+        "event_type_name": row[2],
+        "start_datetime": row[3],
+        "end_datetime": row[4],
+        "performed_by_person_id": row[5],
+        "performed_by_name": row[6],
+        "campaign_id": row[7],
+        "campaign_name": row[8],
+        "notes": row[9],
+    }

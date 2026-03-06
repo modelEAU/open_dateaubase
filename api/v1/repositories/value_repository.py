@@ -192,6 +192,42 @@ def get_image_values(
     ]
 
 
+def get_image_thumbnail(
+    conn,
+    channel_id: int,
+    timestamp: datetime,
+) -> bytes | None:
+    """Return the thumbnail bytes for a specific image, or None if not found."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Thumbnail] FROM [dbo].[ValueImage] WHERE [Channel_ID] = ? AND [Timestamp] = ?",
+        channel_id,
+        timestamp,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return bytes(row[0]) if row[0] is not None else None
+
+
+def get_image_metadata_by_timestamp(
+    conn,
+    channel_id: int,
+    timestamp: datetime,
+) -> dict | None:
+    """Return storage_path and format for a specific image."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [StoragePath], [ImageFormat] FROM [dbo].[ValueImage] WHERE [Channel_ID] = ? AND [Timestamp] = ?",
+        channel_id,
+        timestamp,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return {"storage_path": row[0], "image_format": row[1]}
+
+
 def get_values_for_metadata(
     conn: pyodbc.Connection,
     channel_id: int,

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response, FileResponse
 
+from api.config import settings
 from api.database import get_db
 from ..schemas.timeseries import TimeseriesOut
 from ..schemas.sensor_status import (
@@ -15,6 +18,7 @@ from ..schemas.sensor_status import (
 from ..services import timeseries_service
 from ..services.sensor_status_service import SensorStatusService
 from ..repositories.sensor_status_repository import SensorStatusRepository
+from ..repositories import value_repository
 
 router = APIRouter()
 
@@ -87,3 +91,50 @@ def get_timeseries_by_context(
         from_dt=from_dt,
         to_dt=to_dt,
     )
+
+
+@router.get("/{channel_id}/thumbnail/{timestamp}")
+def get_image_thumbnail(
+    channel_id: int,
+    timestamp: str,
+    conn=Depends(get_db),
+):
+    """Return the JPEG thumbnail bytes for a stored image (from DB Thumbnail column)."""
+    try:
+        ts = datetime.fromisoformat(timestamp)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid timestamp format") from exc
+
+    thumbnail = value_repository.get_image_thumbnail(conn, channel_id, ts)
+    if thumbnail is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return Response(content=thumbnail, media_type="image/jpeg")
+
+
+@router.get("/{channel_id}/image/{timestamp}")
+def get_image_file(
+    channel_id: int,
+    timestamp: str,
+    conn=Depends(get_db),
+):
+    """Return the full-resolution image file for a stored image (from filesystem)."""
+    try:
+        ts = datetime.fromisoformat(timestamp)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid timestamp format") from exc
+
+    meta = value_repository.get_image_metadata_by_timestamp(conn, channel_id, ts)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    # storage_path is relative to the project root (same dir as upload_dir)
+    project_root = Path(settings.upload_dir).parent.parent
+    abs_path = project_root / meta["storage_path"]
+    if not abs_path.exists():
+        raise HTTPException(status_code=404, detail="Image file not found on disk")
+
+    fmt = (meta["image_format"] or "jpeg").lower()
+    media_type_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+                      "tiff": "image/tiff", "bmp": "image/bmp", "gif": "image/gif"}
+    media_type = media_type_map.get(fmt, "application/octet-stream")
+    return FileResponse(str(abs_path), media_type=media_type)

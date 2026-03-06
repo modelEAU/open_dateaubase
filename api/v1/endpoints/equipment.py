@@ -16,6 +16,9 @@ from ..schemas.equipment import (
     EquipmentOut,
     EquipmentPatch,
     EquipmentModelLookupOut,
+    EquipmentEventTypeOut,
+    EquipmentEventCreate,
+    EquipmentEventOut,
 )
 
 router = APIRouter()
@@ -108,6 +111,18 @@ def delete_equipment_model(model_id: int, conn=Depends(get_db)):
 def list_equipment_lookup(conn=Depends(get_db)):
     """Return all equipment for dropdowns (id + identifier)."""
     return equipment_repository.get_equipment_lookup(conn)
+
+
+@router.get("/event-types", response_model=list[EquipmentEventTypeOut])
+def list_equipment_event_types(conn=Depends(get_db)):
+    """Return all EquipmentEventType values for dropdowns."""
+    return equipment_repository.get_equipment_event_types(conn)
+
+
+@router.post("/events", response_model=EquipmentEventOut, status_code=201)
+def create_equipment_event(body: EquipmentEventCreate, conn=Depends(get_db)):
+    """Create a new EquipmentEvent."""
+    return equipment_repository.insert_equipment_event(conn, body.model_dump())
 
 
 @router.get("/{equipment_id}", response_model=EquipmentOut)

@@ -50,7 +50,7 @@ def _build_annotation_response(row: dict) -> dict:
         "campaign_id": row.get("campaign_id"),
         "campaign_name": row.get("campaign_name"),
         "equipment_event_id": row.get("equipment_event_id"),
-        "created_at": row["created_at"],
+        "created_at": row.get("created_datetime") or row.get("created_at"),
         "modified_at": row.get("modified_at"),
     }
 
@@ -132,7 +132,7 @@ def create_annotation(
         "start_time": data.start_time,
         "end_time": data.end_time,
         "title": data.title,
-        "created_at": created["created_at"],
+        "created_at": created["created_datetime"],
     }
 
 
