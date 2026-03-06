@@ -20,6 +20,7 @@
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON;
 
 -- Guard: ensure we are starting from v1.0.0 baseline.
 IF OBJECT_ID('dbo.MetaData') IS NULL
@@ -129,30 +130,6 @@ VALUES
     (8,  N'Note',               N'General commentary',                           N'#888888'),
     (9,  N'Exclusion',          N'Data should be excluded from analysis',        N'#CC0000'),
     (10, N'Validated',          N'Data has been reviewed and accepted',          N'#00AA00');
-GO
-
-CREATE TABLE [dbo].[SensorStatusCode] (
-    [StatusCodeID]   INT          NOT NULL,
-    [StatusName]     NVARCHAR(50)  NOT NULL,
-    [Description]    NVARCHAR(200),
-    [IsOperational]  BIT          NOT NULL DEFAULT 1,
-    [Severity]       INT          NOT NULL DEFAULT 0,
-    CONSTRAINT [PK_SensorStatusCode] PRIMARY KEY ([StatusCodeID])
-);
-GO
-INSERT INTO [dbo].[SensorStatusCode] ([StatusCodeID], [StatusName], [Description], [IsOperational], [Severity])
-VALUES
-    (0,  N'Unknown',      N'Status not reported or not available',                     0, 1),
-    (1,  N'Operational',  N'Sensor channel is functioning normally',                   1, 0),
-    (2,  N'Warning',      N'Sensor is operational but a warning condition exists',     1, 1),
-    (3,  N'Fault',        N'Sensor channel has faulted, data is unreliable',           0, 2),
-    (4,  N'Maintenance',  N'Sensor is undergoing maintenance',                         0, 1),
-    (5,  N'Calibrating',  N'Sensor channel is being calibrated',                       0, 1),
-    (6,  N'Starting Up',  N'Sensor is in startup/warmup phase',                        0, 1),
-    (7,  N'Shutting Down',N'Sensor is shutting down',                                  0, 1),
-    (8,  N'Offline',      N'Sensor is powered off or disconnected',                    0, 0),
-    (9,  N'Degraded',     N'Sensor is operational but accuracy may be reduced',        1, 1),
-    (10, N'Fouled',       N'Sensor probe is fouled, readings likely biased',           1, 2);
 GO
 
 CREATE TABLE [dbo].[ProcessingDegree] (
@@ -319,6 +296,7 @@ DROP TABLE [dbo].[ProjectHasEquipment];
 DROP TABLE [dbo].[ProjectHasSamplingPoints];
 DROP TABLE [dbo].[Project];
 DROP TABLE [dbo].[Purpose];
+DROP TABLE [dbo].[WeatherCondition];
 GO
 
 -- ============================================================
@@ -398,6 +376,69 @@ GO
 ALTER TABLE [dbo].[SamplingPoint] ADD [ValidFrom]            DATETIME2(7) NULL;
 ALTER TABLE [dbo].[SamplingPoint] ADD [ValidTo]              DATETIME2(7) NULL;
 ALTER TABLE [dbo].[SamplingPoint] ADD [CreatedByCampaign_ID] INT NULL;
+GO
+
+-- ============================================================
+-- STEP 11b: Add LatitudeWGS84 and LongitudeWGS84 columns to Site table
+-- ============================================================
+
+ALTER TABLE [dbo].[Site] ADD [LatitudeWGS84] FLOAT NULL;
+ALTER TABLE [dbo].[Site] ADD [LongitudeWGS84] FLOAT NULL;
+GO
+
+-- ============================================================
+-- STEP 11c: Rename columns to PascalCase to match v2.1.0 schema
+-- ============================================================
+
+-- Site table
+EXEC sp_rename 'dbo.Site.Zip_code', 'PostCode', 'COLUMN';
+EXEC sp_rename 'dbo.Site.Street_number', 'StreetNumber', 'COLUMN';
+EXEC sp_rename 'dbo.Site.Street_name', 'StreetName', 'COLUMN';
+GO
+
+-- Person table (formerly Contact)
+EXEC sp_rename 'dbo.Person.Last_name', 'LastName', 'COLUMN';
+EXEC sp_rename 'dbo.Person.First_name', 'FirstName', 'COLUMN';
+GO
+
+-- Equipment table
+EXEC sp_rename 'dbo.Equipment.model_ID', 'EquipmentModel_ID', 'COLUMN';
+EXEC sp_rename 'dbo.Equipment.identifier', 'Identifier', 'COLUMN';
+EXEC sp_rename 'dbo.Equipment.Serial_number', 'SerialNumber', 'COLUMN';
+EXEC sp_rename 'dbo.Equipment.Storage_location', 'StorageLocation', 'COLUMN';
+EXEC sp_rename 'dbo.Equipment.Purchase_date', 'PurchaseDate', 'COLUMN';
+GO
+
+-- EquipmentModel table
+EXEC sp_rename 'dbo.EquipmentModel.Equipment_model_ID', 'EquipmentModel_ID', 'COLUMN';
+EXEC sp_rename 'dbo.EquipmentModel.Equipment_model', 'EquipmentModel', 'COLUMN';
+EXEC sp_rename 'dbo.EquipmentModel.Manual_location', 'ManualLocation', 'COLUMN';
+GO
+
+-- Watershed table
+EXEC sp_rename 'dbo.Watershed.name', 'Name', 'COLUMN';
+EXEC sp_rename 'dbo.Watershed.Surface_area', 'SurfaceArea', 'COLUMN';
+EXEC sp_rename 'dbo.Watershed.Concentration_time', 'ConcentrationTime', 'COLUMN';
+EXEC sp_rename 'dbo.Watershed.Impervious_surface', 'ImperviousSurface', 'COLUMN';
+GO
+
+-- UrbanCharacteristics table
+EXEC sp_rename 'dbo.UrbanCharacteristics.Green_spaces', 'GreenSpaces', 'COLUMN';
+GO
+
+-- HydrologicalCharacteristics table
+EXEC sp_rename 'dbo.HydrologicalCharacteristics.Urban_area', 'UrbanArea', 'COLUMN';
+GO
+
+-- Procedures table
+EXEC sp_rename 'dbo.Procedures.Procedure_name', 'ProcedureName', 'COLUMN';
+EXEC sp_rename 'dbo.Procedures.Procedure_type', 'ProcedureType', 'COLUMN';
+EXEC sp_rename 'dbo.Procedures.Procedure_location', 'ProcedureLocation', 'COLUMN';
+GO
+
+-- Junction tables (EquipmentModel column was renamed, so junction columns must match)
+EXEC sp_rename 'dbo.EquipmentModelHasParameter.Equipment_model_ID', 'EquipmentModel_ID', 'COLUMN';
+EXEC sp_rename 'dbo.EquipmentModelHasProcedures.Equipment_model_ID', 'EquipmentModel_ID', 'COLUMN';
 GO
 
 -- ============================================================
@@ -758,6 +799,9 @@ GO
 -- STEP 16: Indexes
 -- ============================================================
 
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE UNIQUE INDEX [UQ_Channel_SensorStream]
     ON [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID])
     WHERE [Equipment_ID] IS NOT NULL AND [Parameter_ID] IS NOT NULL;
@@ -785,16 +829,12 @@ SELECT
     e.[Identifier]                AS EquipmentName,
     p.[Parameter]                 AS MeasurementParameter,
     v.[Timestamp],
-    CAST(v.[Value] AS INT)        AS StatusCodeID,
-    sc.[StatusName],
-    sc.[IsOperational],
-    sc.[Severity]
+    CAST(v.[Value] AS INT)        AS StatusCodeID
 FROM [dbo].[Value] v
 JOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]
 JOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]
 JOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]
 JOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]
-LEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)
 WHERE statusC.[StatusChannel_ID] IS NOT NULL;
 GO
 
@@ -804,15 +844,11 @@ SELECT
     esc.[Equipment_ID]            AS EquipmentID,
     e.[Identifier]                AS EquipmentName,
     v.[Timestamp],
-    CAST(v.[Value] AS INT)        AS StatusCodeID,
-    sc.[StatusName],
-    sc.[IsOperational],
-    sc.[Severity]
+    CAST(v.[Value] AS INT)        AS StatusCodeID
 FROM [dbo].[Value] v
 JOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]
 JOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
-JOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]
-LEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT);
+JOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID];
 GO
 
 -- ============================================================

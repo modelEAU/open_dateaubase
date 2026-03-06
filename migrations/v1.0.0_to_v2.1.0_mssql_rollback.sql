@@ -92,7 +92,6 @@ GO
 
 -- Lookup tables
 DROP TABLE IF EXISTS [dbo].[AnnotationType];
-DROP TABLE IF EXISTS [dbo].[SensorStatusCode];
 DROP TABLE IF EXISTS [dbo].[ValueType];
 DROP TABLE IF EXISTS [dbo].[DataProvenance];
 GO
@@ -206,6 +205,60 @@ EXEC sp_rename 'dbo.Person', 'Contact';
 GO
 
 ALTER TABLE [dbo].[Contact] ADD CONSTRAINT [PK_Contact] PRIMARY KEY ([Contact_ID]);
+GO
+
+-- ============================================================
+-- STEP 7b: Rename columns back to snake_case (reverse of forward migration)
+-- ============================================================
+
+-- Site table
+EXEC sp_rename 'dbo.Site.PostCode', 'Zip_code', 'COLUMN';
+EXEC sp_rename 'dbo.Site.StreetNumber', 'Street_number', 'COLUMN';
+EXEC sp_rename 'dbo.Site.StreetName', 'Street_name', 'COLUMN';
+GO
+
+-- Contact table (formerly Person)
+EXEC sp_rename 'dbo.Contact.LastName', 'Last_name', 'COLUMN';
+EXEC sp_rename 'dbo.Contact.FirstName', 'First_name', 'COLUMN';
+GO
+
+-- Equipment table
+EXEC sp_rename 'dbo.Equipment.EquipmentModel_ID', 'model_ID', 'COLUMN';
+EXEC sp_rename 'dbo.Equipment.Identifier', 'identifier', 'COLUMN';
+EXEC sp_rename 'dbo.Equipment.SerialNumber', 'Serial_number', 'COLUMN';
+EXEC sp_rename 'dbo.Equipment.StorageLocation', 'Storage_location', 'COLUMN';
+EXEC sp_rename 'dbo.Equipment.PurchaseDate', 'Purchase_date', 'COLUMN';
+GO
+
+-- EquipmentModel table
+EXEC sp_rename 'dbo.EquipmentModel.EquipmentModel_ID', 'Equipment_model_ID', 'COLUMN';
+EXEC sp_rename 'dbo.EquipmentModel.EquipmentModel', 'Equipment_model', 'COLUMN';
+EXEC sp_rename 'dbo.EquipmentModel.ManualLocation', 'Manual_location', 'COLUMN';
+GO
+
+-- Watershed table
+EXEC sp_rename 'dbo.Watershed.Name', 'name', 'COLUMN';
+EXEC sp_rename 'dbo.Watershed.SurfaceArea', 'Surface_area', 'COLUMN';
+EXEC sp_rename 'dbo.Watershed.ConcentrationTime', 'Concentration_time', 'COLUMN';
+EXEC sp_rename 'dbo.Watershed.ImperviousSurface', 'Impervious_surface', 'COLUMN';
+GO
+
+-- UrbanCharacteristics table
+EXEC sp_rename 'dbo.UrbanCharacteristics.GreenSpaces', 'Green_spaces', 'COLUMN';
+GO
+
+-- HydrologicalCharacteristics table
+EXEC sp_rename 'dbo.HydrologicalCharacteristics.UrbanArea', 'Urban_area', 'COLUMN';
+GO
+
+-- Procedures table
+EXEC sp_rename 'dbo.Procedures.ProcedureName', 'Procedure_name', 'COLUMN';
+EXEC sp_rename 'dbo.Procedures.ProcedureType', 'Procedure_type', 'COLUMN';
+
+-- Junction tables (reverse EquipmentModel column rename)
+EXEC sp_rename 'dbo.EquipmentModelHasParameter.EquipmentModel_ID', 'Equipment_model_ID', 'COLUMN';
+EXEC sp_rename 'dbo.EquipmentModelHasProcedures.EquipmentModel_ID', 'Equipment_model_ID', 'COLUMN';
+EXEC sp_rename 'dbo.Procedures.ProcedureLocation', 'Procedure_location', 'COLUMN';
 GO
 
 -- ============================================================

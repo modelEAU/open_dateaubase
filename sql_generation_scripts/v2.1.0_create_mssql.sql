@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.1.0
 -- Platform: mssql
--- Generated: 2026-03-03 17:53:29 UTC
+-- Generated: 2026-03-06 20:41:58 UTC
 
 CREATE TABLE [dbo].[AnnotationType] (
     [AnnotationType_ID] INT NOT NULL,
@@ -99,15 +99,6 @@ CREATE TABLE [dbo].[SchemaVersion] (
     CONSTRAINT [PK_SchemaVersion] PRIMARY KEY ([VersionID])
 );
 
-CREATE TABLE [dbo].[SensorStatusCode] (
-    [StatusCodeID] INT NOT NULL,
-    [StatusName] NVARCHAR(50) NOT NULL,
-    [Description] NVARCHAR(200),
-    [IsOperational] BIT NOT NULL DEFAULT True,
-    [Severity] INT NOT NULL DEFAULT 0,
-    CONSTRAINT [PK_SensorStatusCode] PRIMARY KEY ([StatusCodeID])
-);
-
 CREATE TABLE [dbo].[Unit] (
     [Unit_ID] INT IDENTITY(1,1) NOT NULL,
     [Unit] NVARCHAR(100),
@@ -128,13 +119,6 @@ CREATE TABLE [dbo].[Watershed] (
     [ConcentrationTime] INT,
     [ImperviousSurface] REAL,
     CONSTRAINT [PK_Watershed] PRIMARY KEY ([Watershed_ID])
-);
-
-CREATE TABLE [dbo].[WeatherCondition] (
-    [WeatherCondition_ID] INT IDENTITY(1,1) NOT NULL,
-    [WeatherCondition] NVARCHAR(100),
-    [Description] NVARCHAR(MAX),
-    CONSTRAINT [PK_WeatherCondition] PRIMARY KEY ([WeatherCondition_ID])
 );
 
 CREATE TABLE [dbo].[Annotation] (
@@ -477,8 +461,6 @@ CREATE TABLE [dbo].[ValueVector] (
 
 
 
-
-
 CREATE INDEX [IX_Annotation_Channel_Time] ON [dbo].[Annotation] ([Channel_ID], [StartTime], [EndTime]);
 CREATE INDEX [IX_Annotation_Author] ON [dbo].[Annotation] ([AuthorPerson_ID], [CreatedDateTime]);
 
@@ -597,7 +579,7 @@ SELECT
     statusC.[Channel_ID]          AS StatusChannelID,
     statusC.[StatusChannel_ID]    AS MeasurementChannelID,
     measC.[Equipment_ID]          AS EquipmentID,
-    e.[Identifier]                AS EquipmentName,
+    e.[identifier]                AS EquipmentName,
     p.[Parameter]                 AS MeasurementParameter,
     v.[Timestamp],
     CAST(v.[Value] AS INT)        AS StatusCodeID,
@@ -616,7 +598,7 @@ CREATE OR ALTER VIEW [dbo].[vw_DeviceStatus] AS
 SELECT
     statusC.[Channel_ID]          AS StatusChannelID,
     esc.[Equipment_ID]            AS EquipmentID,
-    e.[Identifier]                AS EquipmentName,
+    e.[identifier]                AS EquipmentName,
     v.[Timestamp],
     CAST(v.[Value] AS INT)        AS StatusCodeID,
     sc.[StatusName],
