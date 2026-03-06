@@ -48,5 +48,33 @@ services:
       '
 
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: open_dateaubase_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.docker
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: open_dateaubase_app
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://api:8000/api/v1
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   mssql_data:
