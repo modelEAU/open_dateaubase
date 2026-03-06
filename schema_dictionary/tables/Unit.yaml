@@ -9,7 +9,7 @@ table:
       logical_type: integer
       nullable: false
       identity: true
-      description: "A unique ID is generated automatically by MySQL"
+      description: "A unique ID is generated automatically by the database"
     - name: Unit
       logical_type: string
       max_length: 100

@@ -16,7 +16,7 @@ table:
       logical_type: integer
       nullable: false
       identity: true
-      description: "A unique ID is generated automatically by MySQL"
+      description: "A unique ID is generated automatically by the database"
     - name: Value
       logical_type: float64
       nullable: true
