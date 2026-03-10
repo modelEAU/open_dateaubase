@@ -1,0 +1,32 @@
+[project]
+name = "table-import"
+version = "0.1.0"
+description = "Import sensor data from text files into datEAUbase"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "plotly>=5.6",
+    "pyodbc>=4.0",
+    "pytz>=2023.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "scipy>=1.11",
+    "sqlalchemy>=2.0",
+]
+
+[project.scripts]
+table-import = "table_import.__main__:cli"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-mock>=3.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/table_import"]

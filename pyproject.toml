@@ -7,7 +7,7 @@ name = "open-dateaubase"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.6.22",
@@ -52,3 +52,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 open_dateaubase = ["*.json", "dictionary.json"]
+
+[tool.uv.workspace]
+members = ["importer"]
