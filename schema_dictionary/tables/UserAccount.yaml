@@ -1,0 +1,52 @@
+_format_version: "1.0"
+table:
+  name: UserAccount
+  schema: dbo
+  description: "Stores authentication accounts used to access the application."
+
+  columns:
+    - name: UserAccount_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key for the user account"
+
+    - name: Email
+      logical_type: string
+      max_length: 255
+      nullable: false
+      description: "Unique e-mail address used to sign in"
+
+    - name: FullName
+      logical_type: string
+      max_length: 255
+      nullable: false
+      description: "Full name of the user"
+
+    - name: PasswordHash
+      logical_type: string
+      max_length: 255
+      nullable: false
+      description: "Hashed password for authentication"
+
+    - name: IsActive
+      logical_type: boolean
+      nullable: false
+      description: "Indicates whether the account is active"
+
+    - name: IsVerified
+      logical_type: boolean
+      nullable: false
+      description: "Indicates whether the account has been verified"
+
+    - name: CreatedAt
+      logical_type: datetime
+      nullable: false
+      description: "UTC timestamp when the account was created"
+
+    - name: UpdatedAt
+      logical_type: datetime
+      nullable: false
+      description: "UTC timestamp when the account was last updated"
+
+  primary_key: [UserAccount_ID]

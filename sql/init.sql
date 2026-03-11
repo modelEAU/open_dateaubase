@@ -15,11 +15,15 @@ GO
 :r /migrations/v1.0.0_to_v2.1.0_mssql.sql
 GO
 
--- Step 3: Load test seed data for the Quebec City monitoring scenario
+-- Step 3: Apply authentication migration to v2.1.1
+:r /migrations/v2.1.0_to_v2.1.1_auth_mssql.sql
+GO
+
+-- Step 4: Load test seed data for the Quebec City monitoring scenario
 :r /sql/seed_v2.1.0.sql
 GO
 
--- Step 4: Load Explore page demonstration data (Feb 2026, all four value types)
+-- Step 5: Load Explore page demonstration data (Feb 2026, all four value types)
 :r /sql/seed_explore.sql
 GO
 

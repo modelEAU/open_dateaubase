@@ -25,7 +25,7 @@ RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
 RUN pip install --no-cache-dir uv
 
 # Copy dependency files first for layer caching
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 COPY src/ ./src/
 
 # Install API dependencies (fastapi, uvicorn, pyodbc, python-dotenv, local package)
