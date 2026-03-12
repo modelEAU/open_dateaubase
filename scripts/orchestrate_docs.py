@@ -20,7 +20,7 @@ scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(scripts_dir))
 
 from generate_from_yaml import generate_all_from_yaml
-from legacy.generate_dictionary_reference import (
+from generate_dictionary_reference import (
     parse_parts_json,
     generate_value_sets_markdown,
 )

@@ -4,6 +4,7 @@ Requires a running MSSQL container (docker compose up -d db).
 Tests are automatically skipped if the container is not available.
 """
 
+from pathlib import Path
 import re
 import struct
 import uuid
@@ -30,10 +31,11 @@ def _handle_datetimeoffset(dto_value: bytes) -> datetime:
     """
     tup = struct.unpack("<6hI2h", dto_value)
     year, month, day, hour, minute, second = tup[:6]
-    microsecond = tup[6] // 1000  # nanoseconds → microseconds
+    microsecond = tup[6] // 1000
     tz_hour, tz_minute = tup[7], tup[8]
     tz = timezone(timedelta(hours=tz_hour, minutes=tz_minute))
     return datetime(year, month, day, hour, minute, second, microsecond, tz)
+
 
 # Connection parameters matching docker-compose.yml
 MSSQL_HOST = "127.0.0.1"
@@ -43,8 +45,6 @@ MSSQL_PASSWORD = "StrongPwd123!"
 MSSQL_DRIVER = "{ODBC Driver 18 for SQL Server}"
 
 # Paths to SQL files (relative to project root)
-from pathlib import Path
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
@@ -99,7 +99,6 @@ def run_sql_file(conn: "pyodbc.Connection", filepath: Path) -> None:
     """
     sql = filepath.read_text(encoding="utf-8")
 
-    # Split on GO as a standalone batch separator (line by itself or with whitespace)
     batches = re.split(r"^\s*GO\s*$", sql, flags=re.MULTILINE | re.IGNORECASE)
 
     cursor = conn.cursor()
@@ -107,7 +106,6 @@ def run_sql_file(conn: "pyodbc.Connection", filepath: Path) -> None:
         batch = batch.strip()
         if not batch:
             continue
-        # Skip sqlcmd directives (:r, :setvar, etc.)
         if batch.startswith(":"):
             continue
         cursor.execute(batch)
@@ -129,9 +127,7 @@ def get_table_names(conn: "pyodbc.Connection") -> set[str]:
     return {row[0] for row in cursor.fetchall()}
 
 
-def get_column_type(
-    conn: "pyodbc.Connection", table: str, column: str
-) -> str:
+def get_column_type(conn: "pyodbc.Connection", table: str, column: str) -> str:
     cursor = conn.cursor()
     cursor.execute(
         "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS "
@@ -152,6 +148,16 @@ def column_exists(conn: "pyodbc.Connection", table: str, column: str) -> bool:
         column,
     )
     return cursor.fetchone() is not None
+
+
+def _require_sql_files(keys: list[str]) -> None:
+    """Skip integration tests if required legacy SQL assets are not present."""
+    missing = [str(SQL_FILES[key]) for key in keys if not SQL_FILES[key].exists()]
+    if missing:
+        pytest.skip(
+            "Legacy integration SQL assets are missing from this repo: "
+            + ", ".join(missing)
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +185,6 @@ def mssql_engine():
         conn = pyodbc.connect(
             _connect_string(database), timeout=10, autocommit=True
         )
-        # pyodbc does not natively support DATETIMEOFFSET (ODBC type -155)
         conn.add_output_converter(-155, _handle_datetimeoffset)
         return conn
 
@@ -198,7 +203,6 @@ def fresh_db(mssql_engine):
     yield db_conn, db_name
 
     db_conn.close()
-    # Force-close any remaining connections before dropping
     master_conn.execute(
         f"ALTER DATABASE [{db_name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE"
     )
@@ -206,10 +210,9 @@ def fresh_db(mssql_engine):
     master_conn.close()
 
 
-def _apply_schema_and_seeds(
-    conn: "pyodbc.Connection", steps: list[str]
-) -> None:
+def _apply_schema_and_seeds(conn: "pyodbc.Connection", steps: list[str]) -> None:
     """Apply a sequence of SQL file keys from SQL_FILES."""
+    _require_sql_files(steps)
     for key in steps:
         run_sql_file(conn, SQL_FILES[key])
 

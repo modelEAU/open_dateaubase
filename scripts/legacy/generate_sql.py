@@ -13,7 +13,7 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
 # Add src to path to import models
 project_root = Path(__file__).parent.parent
@@ -21,7 +21,11 @@ sys.path.insert(0, str(project_root / "src"))
 
 from open_dateaubase.data_model.models import Dictionary, ViewPart, ViewColumnPart
 
-package_version = version("open-dateaubase")
+
+try:
+    package_version = version("open-dateaubase")
+except PackageNotFoundError:
+    package_version = "0.1.0-dev"
 
 
 def parse_parts_json(json_path):

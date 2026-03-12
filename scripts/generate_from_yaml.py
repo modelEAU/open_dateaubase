@@ -31,8 +31,11 @@ from tools.schema_migrate.render import render_column_type, render_create_script
 scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(scripts_dir))
 
-from legacy.generate_dictionary_reference import generate_tables_markdown, generate_views_markdown
-from legacy.generate_erd import generate_erd_data, generate_erd_html
+from generate_dictionary_reference import (
+    generate_tables_markdown,
+    generate_views_markdown,
+)
+from generate_erd import generate_erd_data, generate_erd_html
 
 
 def parse_yaml_for_docs(
