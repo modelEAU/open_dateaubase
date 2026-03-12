@@ -114,12 +114,6 @@ def add_deployment_dialog(
 
 require_auth()
 
-with st.sidebar:
-    user = get_current_user()
-    if user:
-        st.write(f"Logged in as: **{user['name']}**")
-    if st.button("Sign out"):
-        logout()
 
 st.title("Campaigns")
 

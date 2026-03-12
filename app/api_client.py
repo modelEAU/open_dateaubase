@@ -10,7 +10,7 @@ from __future__ import annotations
 import httpx
 
 from app.config import settings
-
+import streamlit as st
 
 class APIError(Exception):
     """Raised when the API returns a non-2xx response or is unreachable."""
@@ -22,7 +22,11 @@ class APIError(Exception):
 
 
 def _get_client() -> httpx.Client:
-    return httpx.Client(base_url=settings.API_BASE_URL, timeout=30)
+    headers = {}
+    token = st.session_state.get("access_token")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return httpx.Client(base_url=settings.API_BASE_URL, timeout=30, headers=headers)
 
 
 def _raise_for_status(response: httpx.Response) -> None:
@@ -48,6 +52,47 @@ def get_health() -> dict:
     _raise_for_status(r)
     return r.json()
 
+def signup(email: str, full_name: str, password: str) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(
+                "/auth/signup",
+                json={
+                    "email": email,
+                    "full_name": full_name,
+                    "password": password,
+                },
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def login(email: str, password: str) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(
+                "/auth/login",
+                json={
+                    "email": email,
+                    "password": password,
+                },
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_me() -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get("/auth/me")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
 
 # ---------------------------------------------------------------------------
 # Sites

@@ -11,8 +11,6 @@ services:
     volumes:
       - mssql_data:/var/opt/mssql
       - ./sql:/sql
-      - ./docker/mssql-init.sh:/mssql-init.sh
-    command: /bin/bash /mssql-init.sh
     restart: unless-stopped
 
   api:
@@ -42,6 +40,20 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: open_dateaubase_db_init
+    depends_on:
+      - db
+    env_file:
+      - .env.docker
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: ["python", "scripts/init_db.py"]
+    restart: "no"
 
 volumes:
   mssql_data:
