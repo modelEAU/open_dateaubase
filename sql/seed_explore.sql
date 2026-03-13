@@ -8,7 +8,7 @@
 -- Channels added:
 --   CH-12  ISCO-001 Conductivity (scalar)
 --   CH-13  HACH-001 Conductivity (vector, UV-Vis + LISST axes)
---   CH-14  ldo345   pH           (matrix, FlowCam × FlowCam)
+--   CH-14  ldo345   pH           (matrix, FlowCam × FlowCam)   [Equipment_ID=4]
 --   CH-15  YSI-001  Conductivity (image)
 --   CH-16  HACH-001 TSS          (scalar, 2 657 rows @ 15 min)
 --   CH-17  HACH-001 COD          (vector, 27 895 rows @ 10 min × 7 bins)
@@ -22,15 +22,12 @@
 SET NOCOUNT ON;
 
 -- ============================================================
--- Equipment 5: ldo345 (Hach 2100Q turbidimeter, serial 2222)
--- ID=5 is forced because ID=4 was never assigned in the live DB
+-- Equipment: ldo345 (Hach 2100Q turbidimeter, serial 2222) → auto ID 4
 -- ============================================================
-SET IDENTITY_INSERT [dbo].[Equipment] ON;
 INSERT INTO [dbo].[Equipment] (
-    [Equipment_ID], [EquipmentModel_ID], [Identifier],
+    [EquipmentModel_ID], [Identifier],
     [SerialNumber], [Owner], [StorageLocation], [PurchaseDate]
-) VALUES (5, 3, N'ldo345', N'2222', N'modelEAU Lab', NULL, '2026-03-18');
-SET IDENTITY_INSERT [dbo].[Equipment] OFF;
+) VALUES (3, N'ldo345', N'2222', N'modelEAU Lab', NULL, '2026-03-18');
 
 -- ============================================================
 -- Channels 12-18  (forced IDs to match live DB)
@@ -50,7 +47,7 @@ INSERT INTO [dbo].[Channel] (
 -- CH-14: ldo345 pH matrix (test channel)
 INSERT INTO [dbo].[Channel] (
     [Channel_ID],[Equipment_ID],[Parameter_ID],[DataProvenance_ID],[ProcessingDegree_ID],[ValueType_ID]
-) VALUES (14, 5, 3, 1, 1, 3);
+) VALUES (14, 4, 3, 1, 1, 3);
 
 -- CH-15: YSI-001 Conductivity image (test channel)
 INSERT INTO [dbo].[Channel] (
@@ -70,7 +67,7 @@ INSERT INTO [dbo].[Channel] (
 -- CH-18: ldo345 TSS matrix (LISST × FlowCam) — primary Feb 2026 matrix demo
 INSERT INTO [dbo].[Channel] (
     [Channel_ID],[Equipment_ID],[Parameter_ID],[DataProvenance_ID],[ProcessingDegree_ID],[ValueType_ID]
-) VALUES (18, 5, 1, 1, 1, 3);
+) VALUES (18, 4, 1, 1, 1, 3);
 
 SET IDENTITY_INSERT [dbo].[Channel] OFF;
 

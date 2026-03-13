@@ -23,6 +23,10 @@ GO
 :r /sql/seed_explore.sql
 GO
 
+-- Step 5: Load equipment/parameters needed by the importer test data
+:r /sql/seed_importer_fixtures.sql
+GO
+
 PRINT 'Database initialized at v2.1.0 with sample data.';
 SELECT [Version], [AppliedDateTime], [Description] FROM dbo.SchemaVersion ORDER BY [AppliedDateTime];
 SELECT 'channel'     AS t, COUNT(*) AS n FROM dbo.Channel;
