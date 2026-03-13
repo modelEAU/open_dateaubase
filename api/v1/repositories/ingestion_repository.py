@@ -196,6 +196,36 @@ def upsert_channel_axis(
     conn.commit()
 
 
+def get_last_timestamp_for_channel(
+    conn: pyodbc.Connection,
+    *,
+    equipment_id: int,
+    parameter_id: int,
+    data_provenance_id: int,
+    processing_degree_id: int,
+) -> datetime | None:
+    """Return the most recent Timestamp in dbo.Value for the matching channel, or None."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT TOP 1 v.[Timestamp]
+        FROM [dbo].[Value] v
+        JOIN [dbo].[Channel] c ON c.[Channel_ID] = v.[Channel_ID]
+        WHERE c.[Equipment_ID]        = ?
+          AND c.[Parameter_ID]        = ?
+          AND c.[DataProvenance_ID]   = ?
+          AND c.[ProcessingDegree_ID] = ?
+        ORDER BY v.[Timestamp] DESC
+        """,
+        equipment_id,
+        parameter_id,
+        data_provenance_id,
+        processing_degree_id,
+    )
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
 def insert_sample(
     conn: pyodbc.Connection,
     *,

@@ -122,6 +122,34 @@ def get_data_provenance_lookup(conn=Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
+# Deduplication helper
+# ---------------------------------------------------------------------------
+
+
+@router.get("/last-timestamp")
+def get_last_timestamp(
+    equipment_id: int,
+    parameter_id: int,
+    data_provenance_id: int = 1,
+    processing_degree_id: int = 1,
+    conn=Depends(get_db),
+):
+    """Return the most-recent ingested Timestamp for a sensor channel.
+
+    Used by the table-import CLI for watermark-based deduplication.
+    Returns {"last_timestamp": "<ISO 8601>" | null}.
+    """
+    ts = ingestion_repository.get_last_timestamp_for_channel(
+        conn,
+        equipment_id=equipment_id,
+        parameter_id=parameter_id,
+        data_provenance_id=data_provenance_id,
+        processing_degree_id=processing_degree_id,
+    )
+    return {"last_timestamp": ts.isoformat() if ts is not None else None}
+
+
+# ---------------------------------------------------------------------------
 # Ingest endpoints
 # ---------------------------------------------------------------------------
 
