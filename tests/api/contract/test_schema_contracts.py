@@ -553,3 +553,53 @@ class TestOpenAPISpec:
         paths = r.json()["paths"]
         for path in ("/api/v1/sites", "/api/v1/channels", "/api/v1/campaigns", "/api/v1/equipment"):
             assert "get" in paths[path], f"{path} must accept GET"
+
+
+# ---------------------------------------------------------------------------
+# Last-timestamp endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestLastTimestampEndpoint:
+    def test_returns_null_when_no_data(self, patched_client):
+        client, conn, cursor = patched_client
+        cursor.fetchone.return_value = None
+        r = client.get(
+            "/api/v1/ingest/last-timestamp",
+            params={
+                "equipment_id": 1,
+                "parameter_id": 2,
+                "data_provenance_id": 1,
+                "processing_degree_id": 1,
+            },
+        )
+        assert r.status_code == 200
+        assert r.json()["last_timestamp"] is None
+
+    def test_returns_iso_string_when_data_exists(self, patched_client):
+        from datetime import datetime
+        client, conn, cursor = patched_client
+        cursor.fetchone.return_value = (datetime(2024, 6, 1, 12, 0, 0),)
+        r = client.get(
+            "/api/v1/ingest/last-timestamp",
+            params={
+                "equipment_id": 1,
+                "parameter_id": 2,
+                "data_provenance_id": 1,
+                "processing_degree_id": 1,
+            },
+        )
+        assert r.status_code == 200
+        assert r.json()["last_timestamp"] is not None
+        assert "2024-06-01" in r.json()["last_timestamp"]
+
+    def test_missing_required_params_returns_422(self, patched_client):
+        client, conn, cursor = patched_client
+        r = client.get("/api/v1/ingest/last-timestamp")
+        assert r.status_code == 422
+
+    def test_in_openapi_spec(self, client):
+        r = client.get("/openapi.json")
+        paths = r.json()["paths"]
+        assert "/api/v1/ingest/last-timestamp" in paths
+        assert "get" in paths["/api/v1/ingest/last-timestamp"]
