@@ -31,8 +31,10 @@ RODTOX_VARIABLE = Variable(
     name="do",
     directory_path=str(Path(__file__).parent.parent / "test_data" / "rodtox" / "DO"),
     variable_name="HMI_DO",
-    metadata_id=204,
-    scaling_factor=1.0,
+    equipment_name="test_equipment",
+    parameter_name="Dissolved oxygen",
+    source_unit_name="mg/L",
+    channel_unit_name="mg/L",
 )
 
 

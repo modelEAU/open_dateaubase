@@ -22,7 +22,15 @@ TSDB_PATH = str(
 
 def _make_file(scaling_factor: float = 1.0) -> TsdbFile:
     struct = TsdbFileStructure(timezone="America/Montreal")
-    var = TsdbVariable(name="turb", directory_path=".", metadata_id=1, scaling_factor=scaling_factor)
+    var = TsdbVariable(
+        name="turb",
+        directory_path=".",
+        equipment_name="test_equipment",
+        parameter_name="Turbidity",
+        source_unit_name="NTU",
+        channel_unit_name="NTU",
+        conversion_factor=scaling_factor,
+    )
     return TsdbFile(filepath=TSDB_PATH, file_structure=struct, variable=var)
 
 

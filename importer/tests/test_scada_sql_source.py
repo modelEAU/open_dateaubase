@@ -28,7 +28,14 @@ def structure():
 
 @pytest.fixture
 def variable():
-    return ScadaVariable(name="test_var", tag_index=TAG_INDEX, metadata_id=999, scaling_factor=1.0)
+    return ScadaVariable(
+        name="test_var",
+        tag_index=TAG_INDEX,
+        equipment_name="test_equipment",
+        parameter_name="test_parameter",
+        source_unit_name="mg/L",
+        channel_unit_name="mg/L",
+    )
 
 
 @pytest.fixture
