@@ -86,7 +86,7 @@ class SqlServerSource:
             .map(lambda ts: ts.timestamp() if pd.notna(ts) else float("nan"))
         )
         df = df.dropna(subset=["Timestamp"])
-        df["Value"] = pd.to_numeric(df[val_col]) * self.variable.scaling_factor
+        df["Value"] = pd.to_numeric(df[val_col]) * self.variable.conversion_factor
         df["Metadata_ID"] = self.variable.metadata_id
         df["Number_of_experiment"] = 1
         df["Comment_ID"] = np.nan

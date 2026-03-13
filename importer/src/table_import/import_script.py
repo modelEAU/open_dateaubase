@@ -1,166 +1,275 @@
-import argparse
 import os
-from datetime import datetime as dt
+from datetime import datetime, timezone
 from pathlib import Path, PurePath
 
-import sqlalchemy
 import yaml
 
 from table_import import config
-from table_import import dateaubase as db
+from table_import.api_client import DateaubaseClient
 from table_import.data_file import DataCombiner, DataFile, get_file_reader
 from table_import.scada_sql_source import SqlServerSource, _build_scada_engine
 from table_import.tables import ValueTable
 
-# Define global constants
-TEST_CONFIG_RELATIVE_PATH = Path("../../test_config_anapro.yaml")
 
-def commit_to_dateaubase(values: ValueTable, engine: sqlalchemy.Engine, db_name: str, variable: str, metadata_id: int, sensor_name: str, dry_run: bool = False):
-    last_timestamp_before = db.get_last_timestamp_for_variable(engine, metadata_id)
+def unix_seconds_to_iso(unix_ts: float) -> str:
+    """Convert a Unix-seconds float to an ISO 8601 UTC string."""
+    return datetime.fromtimestamp(unix_ts, tz=timezone.utc).isoformat()
+
+
+def build_api_payload(
+    df: ValueTable,
+    last_unix_ts: float,
+    min_unix_ts: float | None,
+    conversion_factor: float,
+) -> list[dict]:
+    """Filter df and convert rows to API value dicts.
+
+    Keeps rows where Timestamp > last_unix_ts and (if min_unix_ts is set)
+    Timestamp >= min_unix_ts. Applies conversion_factor to Value.
+    """
+    mask = df["Timestamp"] > last_unix_ts
+    if min_unix_ts is not None:
+        mask &= df["Timestamp"] >= min_unix_ts
+
+    filtered = df[mask]
+    return [
+        {
+            "timestamp": unix_seconds_to_iso(row["Timestamp"]),
+            "value": row["Value"] * conversion_factor if row["Value"] is not None else None,
+        }
+        for _, row in filtered.iterrows()
+    ]
+
+
+def ingest_via_api(
+    client: DateaubaseClient,
+    *,
+    equipment_id: int,
+    parameter_id: int,
+    unit_id: int,
+    data_provenance_id: int,
+    processing_degree_id: int,
+    payload: list[dict],
+    label: str,
+    dry_run: bool = False,
+) -> None:
+    """Send payload to POST /api/v1/ingest/sensor and log the result."""
     if dry_run:
-        print(f"[DRY RUN] Would add {len(values)} rows to {db_name}")
-        print(f'{dt.fromtimestamp(last_timestamp_before)} - last {sensor_name} {variable} measurement in datEAUbase (unchanged)')
+        print(f"[DRY RUN] {label}: would send {len(payload)} rows to API")
         return
-    db.send_to_db(values, engine)
-    print(f"Added {len(values)} rows to {db_name}")
-    last_timestamp_after = db.get_last_timestamp_for_variable(engine, metadata_id)
-    print(f'{dt.fromtimestamp(last_timestamp_before)} - last {sensor_name} {variable} measurement in datEAUbase before import')
-    print(f'{dt.fromtimestamp(last_timestamp_after)} - last {sensor_name} {variable} measurement in datEAUbase after import')
+    result = client.ingest_sensor_values(
+        equipment_id=equipment_id,
+        parameter_id=parameter_id,
+        unit_id=unit_id,
+        data_provenance_id=data_provenance_id,
+        processing_degree_id=processing_degree_id,
+        values=payload,
+    )
+    print(f"{label}: wrote {result['rows_written']} rows → channel_id={result['channel_id']}")
 
 
-def connect_to_dateaubase(use_local: bool, conf: config.DatabaseConfig) -> sqlalchemy.Engine:
-    if use_local:
-        engine = db.connect_local(str(conf.local_url), conf.database_name)
-    else:
-        engine = db.connect_remote(str(conf.remote_url), conf.database_name, str(conf.credentials_path))
+def _resolve_variable_ids(
+    client: DateaubaseClient,
+    variable: config.Variable | config.TsdbVariable | config.ScadaVariable,
+) -> tuple[int, int, int]:
+    """Resolve names to (equipment_id, parameter_id, channel_unit_id)."""
+    equipment_id = client.resolve_equipment_id(variable.equipment_name)
+    parameter_id = client.resolve_parameter_id(variable.parameter_name)
+    unit_id = client.resolve_unit_id(variable.channel_unit_name)
+    return equipment_id, parameter_id, unit_id
 
-    if not db.engine_runs(engine):
-        raise ConnectionError(f"Could not connect to {conf.database_name}")
-    return engine
 
-def get_new_values_for_variable(
-        variable_settings: config.Variable,
-        engine: sqlalchemy.Engine,
-        file_structure: config.FileStructure,
-        file_reader_class: DataFile) -> ValueTable:
+def _last_unix_ts(
+    client: DateaubaseClient,
+    equipment_id: int,
+    parameter_id: int,
+    data_provenance_id: int,
+    processing_degree_id: int,
+) -> float:
+    """Return the last ingested timestamp as a Unix float (0.0 if none)."""
+    last_dt = client.get_last_timestamp(
+        equipment_id=equipment_id,
+        parameter_id=parameter_id,
+        data_provenance_id=data_provenance_id,
+        processing_degree_id=processing_degree_id,
+    )
+    return last_dt.timestamp() if last_dt is not None else 0.0
 
-    metadata_id = variable_settings.metadata_id
 
-    path = PurePath(variable_settings.directory_path)
-
-    last_id_for_table = db.get_last_value_id(engine)
-    last_timestamp_for_var = db.get_last_timestamp_for_variable(engine, metadata_id)
-    last_date_for_var = dt.utcfromtimestamp(last_timestamp_for_var) if last_timestamp_for_var else None
-
-    filepaths = [str(path.joinpath(x)) for x in os.listdir(str(path)) if file_structure.extension in x]
-
-    file_objects = [file_reader_class(
-        filepath=filepath,
-        file_structure=file_structure,
-        variable=variable_settings) for filepath in filepaths]
-
-    combiner = DataCombiner(last_id=last_id_for_table, last_date=last_date_for_var)
-    for file in file_objects:
-        combiner.add_file(file)
-
+def _get_file_values(
+    variable: config.Variable | config.TsdbVariable,
+    file_structure: config.FileStructure | config.TsdbFileStructure,
+    file_reader_class: type[DataFile],
+    last_unix_ts: float,
+) -> ValueTable:
+    """Load all files for a variable and return deduplicated ValueTable."""
+    path = PurePath(variable.directory_path)
+    filepaths = [
+        str(path.joinpath(x))
+        for x in os.listdir(str(path))
+        if file_structure.extension in x
+    ]
+    # Convert Unix float to naive UTC datetime for DataCombiner compatibility
+    last_date = (
+        datetime.utcfromtimestamp(last_unix_ts) if last_unix_ts > 0 else None
+    )
+    combiner = DataCombiner(last_id=0, last_date=last_date)
+    for filepath in filepaths:
+        file_obj = file_reader_class(
+            filepath=filepath,
+            file_structure=file_structure,
+            variable=variable,
+        )
+        combiner.add_file(file_obj)
     return combiner.values
 
-def get_new_values_for_scada_variable(
-        variable: config.ScadaVariable,
-        dateaubase_engine: sqlalchemy.Engine,
-        scada_engine: sqlalchemy.Engine,
-        structure: config.ScadaSqlStructure) -> ValueTable:
-    last_id = db.get_last_value_id(dateaubase_engine)
-    last_ts = db.get_last_timestamp_for_variable(dateaubase_engine, variable.metadata_id) or 0.0
-    source = SqlServerSource(structure=structure, variable=variable, engine=scada_engine)
-    values = source.get_values_since(last_ts)
-    if not values.empty:
-        values['Value_ID'] = range(last_id + 1, last_id + 1 + len(values))
-    return values
 
+def main(settings: config.Config, dry_run: bool = False) -> None:
+    """Import sensor data from all configured sources via the REST API.
 
-def main(settings: config.Config, use_local: bool, dry_run: bool = False) -> None:
-    """Main import routine. It has the following main steps:
-        1. Connect to the dateaubase
-        2. Cycle through each file types defined in the config
-        3. Cycle through each variable to import
-        4. Collect all the new data in the files present in the directory defined in the config.
-        5. Send the new data to the dateaubase, if any.
-
-    Arguments:
-        settings -- Config object with the database connection info,
-                    the file structure information, and the variables
-                    to import.
-        use_local -- should be True on the dateaubase server, and False
-                    when run from anywhere else.
-        dry_run   -- if True, connect and collect data but do not write to the database.
+    Steps:
+    1. Connect to the API and pre-resolve all name→ID mappings (fail-fast).
+    2. For each variable, determine the last ingested timestamp (watermark).
+    3. Read new data from source files / SCADA SQL.
+    4. Apply conversion_factor and global min_timestamp filter.
+    5. POST to /api/v1/ingest/sensor (or log in dry-run mode).
     """
-    print(dt.now())
-    db_conf = settings.database_config
-    engine = connect_to_dateaubase(use_local, db_conf)
+    print(datetime.now())
+    api_conf = settings.api_config
 
-    for file_config in settings.file_configs:
-        file_structure = file_config.file_structure
-        file_reader_class = get_file_reader(file_config.name)
-        for variable in file_config.variables:
+    min_unix_ts: float | None = None
+    if api_conf.min_timestamp:
+        min_unix_ts = datetime.fromisoformat(api_conf.min_timestamp).replace(
+            tzinfo=timezone.utc
+        ).timestamp()
 
-            data = get_new_values_for_variable(variable, engine, file_structure, file_reader_class)
+    with DateaubaseClient(api_conf.api_url) as client:
+        # ------------------------------------------------------------------
+        # File-based sources
+        # ------------------------------------------------------------------
+        for file_config in settings.file_configs:
+            file_structure = file_config.file_structure
+            file_reader_class = get_file_reader(file_config.name)
 
-            if data.empty:
-                print(f"There are no new {variable.name} values to send to {db_conf.database_name}")
-                continue
+            for variable in file_config.variables:
+                equipment_id, parameter_id, unit_id = _resolve_variable_ids(client, variable)
+                last_ts = _last_unix_ts(
+                    client, equipment_id, parameter_id,
+                    variable.data_provenance_id, variable.processing_degree_id,
+                )
+                data = _get_file_values(variable, file_structure, file_reader_class, last_ts)
 
-            commit_to_dateaubase(data, engine, db_conf.database_name, variable.name, variable.metadata_id, file_config.name, dry_run=dry_run)
+                if data.empty:
+                    print(f"No new data for {file_config.name}/{variable.name}")
+                    continue
 
-    for tsdb_config in settings.tsdb_configs:
-        file_reader_class = get_file_reader(tsdb_config.name)
-        for variable in tsdb_config.variables:
+                payload = build_api_payload(data, last_ts, min_unix_ts, variable.conversion_factor)
+                if not payload:
+                    print(f"No new data for {file_config.name}/{variable.name} after filtering")
+                    continue
 
-            data = get_new_values_for_variable(variable, engine, tsdb_config.tsdb_structure, file_reader_class)
+                ingest_via_api(
+                    client,
+                    equipment_id=equipment_id,
+                    parameter_id=parameter_id,
+                    unit_id=unit_id,
+                    data_provenance_id=variable.data_provenance_id,
+                    processing_degree_id=variable.processing_degree_id,
+                    payload=payload,
+                    label=f"{file_config.name}/{variable.name}",
+                    dry_run=dry_run,
+                )
 
-            if data.empty:
-                print(f"There are no new {variable.name} values to send to {db_conf.database_name}")
-                continue
+        # ------------------------------------------------------------------
+        # TSDB binary sources
+        # ------------------------------------------------------------------
+        for tsdb_config in settings.tsdb_configs:
+            file_reader_class = get_file_reader(tsdb_config.name)
 
-            commit_to_dateaubase(data, engine, db_conf.database_name, variable.name, variable.metadata_id, tsdb_config.name, dry_run=dry_run)
+            for variable in tsdb_config.variables:
+                equipment_id, parameter_id, unit_id = _resolve_variable_ids(client, variable)
+                last_ts = _last_unix_ts(
+                    client, equipment_id, parameter_id,
+                    variable.data_provenance_id, variable.processing_degree_id,
+                )
+                data = _get_file_values(variable, tsdb_config.tsdb_structure, file_reader_class, last_ts)
 
-    for scada_config in settings.scada_sql_configs:
-        scada_engine = _build_scada_engine(scada_config.scada_structure)
-        for variable in scada_config.variables:
+                if data.empty:
+                    print(f"No new data for {tsdb_config.name}/{variable.name}")
+                    continue
 
-            data = get_new_values_for_scada_variable(variable, engine, scada_engine, scada_config.scada_structure)
+                payload = build_api_payload(data, last_ts, min_unix_ts, variable.conversion_factor)
+                if not payload:
+                    print(f"No new data for {tsdb_config.name}/{variable.name} after filtering")
+                    continue
 
-            if data.empty:
-                print(f"There are no new {variable.name} values to send to {db_conf.database_name}")
-                continue
+                ingest_via_api(
+                    client,
+                    equipment_id=equipment_id,
+                    parameter_id=parameter_id,
+                    unit_id=unit_id,
+                    data_provenance_id=variable.data_provenance_id,
+                    processing_degree_id=variable.processing_degree_id,
+                    payload=payload,
+                    label=f"{tsdb_config.name}/{variable.name}",
+                    dry_run=dry_run,
+                )
 
-            commit_to_dateaubase(data, engine, db_conf.database_name, variable.name, variable.metadata_id, scada_config.name, dry_run=dry_run)
+        # ------------------------------------------------------------------
+        # SCADA SQL sources
+        # ------------------------------------------------------------------
+        for scada_config in settings.scada_sql_configs:
+            scada_engine = _build_scada_engine(scada_config.scada_structure)
+
+            for variable in scada_config.variables:
+                equipment_id, parameter_id, unit_id = _resolve_variable_ids(client, variable)
+                last_ts = _last_unix_ts(
+                    client, equipment_id, parameter_id,
+                    variable.data_provenance_id, variable.processing_degree_id,
+                )
+                source = SqlServerSource(
+                    structure=scada_config.scada_structure,
+                    variable=variable,
+                    engine=scada_engine,
+                )
+                data = source.get_values_since(last_ts)
+
+                if data.empty:
+                    print(f"No new data for {scada_config.name}/{variable.name}")
+                    continue
+
+                payload = build_api_payload(data, last_ts, min_unix_ts, variable.conversion_factor)
+                if not payload:
+                    print(f"No new data for {scada_config.name}/{variable.name} after filtering")
+                    continue
+
+                ingest_via_api(
+                    client,
+                    equipment_id=equipment_id,
+                    parameter_id=parameter_id,
+                    unit_id=unit_id,
+                    data_provenance_id=variable.data_provenance_id,
+                    processing_degree_id=variable.processing_degree_id,
+                    payload=payload,
+                    label=f"{scada_config.name}/{variable.name}",
+                    dry_run=dry_run,
+                )
 
 
 def str_to_bool(s: str) -> bool:
-    """Helper function to parse boolean flags received from the commead line"""
-    if s.lower() in {'y', 'yes', 'true'}: return True
-    if s.lower() in {'n', 'no', 'false'}: return False
+    """Helper function to parse boolean flags received from the command line."""
+    if s.lower() in {"y", "yes", "true"}:
+        return True
+    if s.lower() in {"n", "no", "false"}:
+        return False
     raise ValueError(f"Argument value {s} is neither 'true' or 'false'")
 
 
 def read_config_from_file(path: str) -> config.Config:
-    """Loads the configuration settings into a Config object from a yaml file"""
-    pathObj = Path(path)
-    if not pathObj.is_file():
+    """Load configuration settings from a YAML file into a Config object."""
+    path_obj = Path(path)
+    if not path_obj.is_file():
         raise ValueError(f"Could not find config file at {path}")
-    with open(pathObj) as f:
+    with open(path_obj) as f:
         file_config = yaml.safe_load(f)
     return config.Config(**file_config)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Import data from sensor files into datEAUbase')
-    parser.add_argument('--config', type=str, default=TEST_CONFIG_RELATIVE_PATH, help='Location of the configuration file with the parsing instructions.')
-    parser.add_argument('--local', type=str_to_bool, default=False)
-    parser.add_argument('--dry-run', action='store_true', default=False, help='Collect and format data but do not write to the database.')
-    args = parser.parse_args()
-
-    configuration = read_config_from_file(args.config)
-
-    main(configuration, args.local, dry_run=args.dry_run)

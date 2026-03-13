@@ -68,7 +68,7 @@ class TsdbFile(DataFile):
     def values(self) -> ValueTable:
         df = self.raw_data.copy()
         df["Timestamp"] = df["ticks"].apply(_ticks_to_unix_seconds)
-        df["Value"] = df["value"] * self.variable.scaling_factor
+        df["Value"] = df["value"] * self.variable.conversion_factor
         df["Metadata_ID"] = self.variable.metadata_id
         df["Number_of_experiment"] = 1
         df["Comment_ID"] = np.nan

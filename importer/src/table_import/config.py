@@ -7,8 +7,14 @@ class Variable(BaseModel):
     directory_path: str
     name: str
     variable_name: str
-    metadata_id: int
-    scaling_factor: float
+    equipment_name: str
+    parameter_name: str
+    source_unit_name: str
+    channel_unit_name: str
+    conversion_factor: float = 1.0
+    data_provenance_id: int = 1
+    processing_degree_id: int = 1
+    metadata_id: int = 0  # used internally by source readers to populate ValueTable; not sent to API
 
 
 class FileStructure(BaseModel):
@@ -33,11 +39,9 @@ class FileType(BaseModel):
     variables: List[Variable]
 
 
-class DatabaseConfig(BaseModel):
-    database_name: str
-    credentials_path: str
-    local_url: str
-    remote_url: str
+class ApiConfig(BaseModel):
+    api_url: str
+    min_timestamp: str | None = None  # ISO 8601 global cutoff (e.g. "2024-01-01T00:00:00")
 
 
 class TsdbFileStructure(BaseModel):
@@ -48,8 +52,14 @@ class TsdbFileStructure(BaseModel):
 class TsdbVariable(BaseModel):
     name: str
     directory_path: str
-    metadata_id: int
-    scaling_factor: float = 1.0
+    equipment_name: str
+    parameter_name: str
+    source_unit_name: str
+    channel_unit_name: str
+    conversion_factor: float = 1.0
+    data_provenance_id: int = 1
+    processing_degree_id: int = 1
+    metadata_id: int = 0
 
 
 class TsdbSource(BaseModel):
@@ -72,8 +82,14 @@ class ScadaSqlStructure(BaseModel):
 class ScadaVariable(BaseModel):
     name: str
     tag_index: int  # filters table by TagIndex column
-    metadata_id: int
-    scaling_factor: float = 1.0
+    equipment_name: str
+    parameter_name: str
+    source_unit_name: str
+    channel_unit_name: str
+    conversion_factor: float = 1.0
+    data_provenance_id: int = 1
+    processing_degree_id: int = 1
+    metadata_id: int = 0
 
 
 class ScadaSqlSource(BaseModel):
@@ -84,6 +100,6 @@ class ScadaSqlSource(BaseModel):
 
 class Config(BaseModel):
     file_configs: List[FileType]
-    database_config: DatabaseConfig
+    api_config: ApiConfig
     tsdb_configs: List[TsdbSource] = []
     scada_sql_configs: List[ScadaSqlSource] = []

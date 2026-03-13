@@ -135,7 +135,7 @@ class AnaproFile(TextDBFile):
             structure.time_column: "Timestamp",
             variable.variable_name: "Value",
         })
-        df["Value"] = df["Value"] * variable.scaling_factor
+        df["Value"] = df["Value"] * variable.conversion_factor
         df = df[[col for col in df.columns if col in ValueTable.acceptable_columns]]
         return ValueTable(df)
 
