@@ -1,0 +1,51 @@
+# Configuration for importing test data files into the database
+# This is used by the docker-compose setup to seed test data
+
+api_config:
+  api_url: "http://api:8000"
+
+file_configs:
+  # Rodtox CSV import configuration
+  - name: rodtox
+    file_structure:
+      extension: ".csv"
+      separator: ";"
+      encoding: "UTF-8"
+      dt_format: "%d.%m.%Y %H:%M:%S"
+      time_column: "TimeString"
+      timezone: "US/Eastern"
+      value_column: "VarValue"
+      variable_column: "VarName"
+      validity_column: "Validity"
+      validity_flag: 1
+      first_valid_row_idx: 1
+      last_valid_row_idx: -2
+      header_row_idx: 0
+    variables:
+      - name: do
+        directory_path: "/test-data/rodtox/DO"
+        variable_name: "HMI_DO"
+        equipment_name: "Rodtox-001"
+        parameter_name: "Dissolved oxygen"
+        source_unit_name: "mg/L"
+        channel_unit_name: "mg/L"
+        conversion_factor: 1.0
+        data_provenance_id: 1
+        processing_degree_id: 1
+
+tsdb_configs:
+  # Basestation TSDB binary import configuration
+  - name: tsdb
+    tsdb_structure:
+      extension: ".tsdb"
+      timezone: "America/Montreal"
+    variables:
+      - name: turb
+        directory_path: "/test-data/basestation"
+        equipment_name: "Basestation-Turb"
+        parameter_name: "Turbidity"
+        source_unit_name: "NTU"
+        channel_unit_name: "NTU"
+        conversion_factor: 1.0
+        data_provenance_id: 1
+        processing_degree_id: 1

@@ -1,0 +1,20 @@
+# Dockerfile for the table-import tool
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies (unixodbc-dev required for pyodbc build)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    unixodbc-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy importer package
+COPY importer/pyproject.toml ./
+COPY importer/src ./src
+
+# Install the package
+RUN pip install --no-cache-dir -e .
+
+# Set the entrypoint to the table-import CLI
+ENTRYPOINT ["table-import"]
