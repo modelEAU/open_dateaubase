@@ -35,6 +35,7 @@ def _handle_datetimeoffset(dto_value: bytes) -> datetime:
     tz = timezone(timedelta(hours=tz_hour, minutes=tz_minute))
     return datetime(year, month, day, hour, minute, second, microsecond, tz)
 
+
 # Connection parameters matching docker-compose.yml
 MSSQL_HOST = "127.0.0.1"
 MSSQL_PORT = 14330
@@ -76,7 +77,13 @@ SQL_FILES = {
     "seed_v1.3.0": SEED_DIR / "seed_v1.3.0.sql",
     "seed_v1.4.0": SEED_DIR / "seed_v1.4.0.sql",
     "seed_v1.5.0": SEED_DIR / "seed_v1.5.0.sql",
-    "seed_v1.6.0": SEED_DIR / "seed_v1.6.0.sql",
+    "seed_v1.6.0": SEED_DIR / "archive" / "seed_v1.6.0.sql",
+    "v2.1.0_to_v2.2.0": MIGRATIONS_DIR / "v2.1.0_to_v2.2.0_mssql.sql",
+    "rollback_v2.2.0": MIGRATIONS_DIR / "v2.1.0_to_v2.2.0_mssql_rollback.sql",
+    "seed_v2.2.0": SEED_DIR / "seed_v2.2.0.sql",
+    "v2.2.0_create": PROJECT_ROOT
+    / "sql_generation_scripts"
+    / "v2.2.0_create_mssql.sql",
 }
 
 
@@ -129,9 +136,7 @@ def get_table_names(conn: "pyodbc.Connection") -> set[str]:
     return {row[0] for row in cursor.fetchall()}
 
 
-def get_column_type(
-    conn: "pyodbc.Connection", table: str, column: str
-) -> str:
+def get_column_type(conn: "pyodbc.Connection", table: str, column: str) -> str:
     cursor = conn.cursor()
     cursor.execute(
         "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS "
@@ -176,9 +181,7 @@ def mssql_engine():
         pytest.skip("MSSQL container not running (start with: docker compose up -d db)")
 
     def connect(database: str = "master") -> "pyodbc.Connection":
-        conn = pyodbc.connect(
-            _connect_string(database), timeout=10, autocommit=True
-        )
+        conn = pyodbc.connect(_connect_string(database), timeout=10, autocommit=True)
         # pyodbc does not natively support DATETIMEOFFSET (ODBC type -155)
         conn.add_output_converter(-155, _handle_datetimeoffset)
         return conn
@@ -206,9 +209,7 @@ def fresh_db(mssql_engine):
     master_conn.close()
 
 
-def _apply_schema_and_seeds(
-    conn: "pyodbc.Connection", steps: list[str]
-) -> None:
+def _apply_schema_and_seeds(conn: "pyodbc.Connection", steps: list[str]) -> None:
     """Apply a sequence of SQL file keys from SQL_FILES."""
     for key in steps:
         run_sql_file(conn, SQL_FILES[key])
@@ -396,6 +397,24 @@ def db_at_v160(fresh_db):
             "seed_v1.5.0",
             "v1.5.0_to_v1.6.0",
             "seed_v1.6.0",
+        ],
+    )
+    yield conn, db_name
+
+
+@pytest.fixture()
+def db_at_v220(fresh_db):
+    """Database at v2.2.0 with sample data (Observation hub pattern).
+
+    Uses the v2.2.0 baseline CREATE script directly instead of applying
+    all migrations from v1.0.0 for faster test setup.
+    """
+    conn, db_name = fresh_db
+    _apply_schema_and_seeds(
+        conn,
+        [
+            "v2.2.0_create",  # Baseline v2.2.0 schema
+            "seed_v2.2.0",  # v2.2.0 format test data
         ],
     )
     yield conn, db_name

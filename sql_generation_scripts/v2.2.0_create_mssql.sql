@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.2.0
 -- Platform: mssql
--- Generated: 2026-03-16 19:35:00 UTC
+-- Generated: 2026-03-16 20:33:47 UTC
 
 CREATE TABLE [dbo].[AnnotationType] (
     [AnnotationType_ID] INT NOT NULL,
@@ -134,7 +134,7 @@ CREATE TABLE [dbo].[Annotation] (
     [Comment] NVARCHAR(MAX),
     [CreatedDateTime] DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     [ModifiedDateTime] DATETIME2(7),
-    [Observation_ID] BIGINT NULL,
+    [Observation_ID] INT,
     CONSTRAINT [PK_Annotation] PRIMARY KEY ([Annotation_ID])
 );
 
@@ -293,17 +293,12 @@ CREATE TABLE [dbo].[Laboratory] (
 );
 
 CREATE TABLE [dbo].[Observation] (
-    [Observation_ID] BIGINT        IDENTITY(1,1) NOT NULL,
-    [Channel_ID]     INT           NOT NULL,
-    [Timestamp]      DATETIME2(7)  NOT NULL,
-    [DataType]       VARCHAR(10)   NOT NULL,
+    [Observation_ID] INT IDENTITY(1,1) NOT NULL,
+    [Channel_ID] INT NOT NULL,
+    [Timestamp] DATETIME2(7) NOT NULL,
+    [DataType] NVARCHAR(10) NOT NULL,
     CONSTRAINT [PK_Observation] PRIMARY KEY ([Observation_ID]),
-    CONSTRAINT [UQ_Observation_ChannelTimestampType]
-        UNIQUE ([Channel_ID], [Timestamp], [DataType]),
-    CONSTRAINT [FK_Observation_Channel]
-        FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]),
-    CONSTRAINT [CK_Observation_DataType]
-        CHECK ([DataType] IN ('Scalar','Vector','Matrix','Image'))
+    CONSTRAINT [UQ_Observation_ChannelTimestampDataType] UNIQUE ([Channel_ID], [Timestamp], [DataType])
 );
 
 CREATE TABLE [dbo].[Parameter] (
@@ -398,11 +393,9 @@ CREATE TABLE [dbo].[UrbanCharacteristics] (
 );
 
 CREATE TABLE [dbo].[Value] (
-    [Observation_ID] BIGINT NOT NULL,
-    [Value]          FLOAT,
-    CONSTRAINT [PK_Value] PRIMARY KEY ([Observation_ID]),
-    CONSTRAINT [FK_Value_Observation]
-        FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID])
+    [Observation_ID] INT NOT NULL,
+    [Value] FLOAT,
+    CONSTRAINT [PK_Value] PRIMARY KEY ([Observation_ID])
 );
 
 CREATE TABLE [dbo].[ValueBin] (
@@ -426,54 +419,61 @@ CREATE TABLE [dbo].[ValueBinningAxis] (
 );
 
 CREATE TABLE [dbo].[ValueImage] (
-    [Observation_ID]    BIGINT        NOT NULL,
-    [ImageWidth]        INT           NOT NULL,
-    [ImageHeight]       INT           NOT NULL,
-    [NumberOfChannels]  INT           NOT NULL DEFAULT 3,
-    [ImageFormat]       NVARCHAR(20)  NOT NULL,
-    [FileSizeBytes]     BIGINT,
-    [StorageBackend]    NVARCHAR(50)  NOT NULL DEFAULT 'FileSystem',
-    [StoragePath]       NVARCHAR(1000) NOT NULL,
-    [Thumbnail]         VARBINARY(MAX),
-    [QualityCode]       INT,
-    CONSTRAINT [PK_ValueImage] PRIMARY KEY ([Observation_ID]),
-    CONSTRAINT [FK_ValueImage_Observation]
-        FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID])
+    [Observation_ID] INT NOT NULL,
+    [ImageWidth] INT NOT NULL,
+    [ImageHeight] INT NOT NULL,
+    [NumberOfChannels] INT NOT NULL DEFAULT 3,
+    [ImageFormat] NVARCHAR(20) NOT NULL,
+    [FileSizeBytes] BIGINT,
+    [StorageBackend] NVARCHAR(50) NOT NULL DEFAULT 'FileSystem',
+    [StoragePath] NVARCHAR(1000) NOT NULL,
+    [Thumbnail] VARBINARY(MAX),
+    [QualityCode] INT,
+    CONSTRAINT [PK_ValueImage] PRIMARY KEY ([Observation_ID])
 );
 
 CREATE TABLE [dbo].[ValueMatrix] (
-    [Observation_ID]    BIGINT NOT NULL,
-    [RowValueBin_ID]    INT    NOT NULL,
-    [ColValueBin_ID]    INT    NOT NULL,
-    [Value]             FLOAT,
-    [QualityCode]       INT,
-    CONSTRAINT [PK_ValueMatrix] PRIMARY KEY ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID]),
-    CONSTRAINT [FK_ValueMatrix_Observation]
-        FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]),
-    CONSTRAINT [FK_ValueMatrix_RowValueBin]
-        FOREIGN KEY ([RowValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]),
-    CONSTRAINT [FK_ValueMatrix_ColValueBin]
-        FOREIGN KEY ([ColValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID])
+    [Observation_ID] INT NOT NULL,
+    [RowValueBin_ID] INT NOT NULL,
+    [ColValueBin_ID] INT NOT NULL,
+    [Value] FLOAT,
+    [QualityCode] INT,
+    CONSTRAINT [PK_ValueMatrix] PRIMARY KEY ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID])
 );
 
 CREATE TABLE [dbo].[ValueVector] (
-    [Observation_ID] BIGINT NOT NULL,
-    [ValueBin_ID]    INT    NOT NULL,
-    [Value]          FLOAT,
-    [QualityCode]    INT,
-    CONSTRAINT [PK_ValueVector] PRIMARY KEY ([Observation_ID], [ValueBin_ID]),
-    CONSTRAINT [FK_ValueVector_Observation]
-        FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]),
-    CONSTRAINT [FK_ValueVector_ValueBin]
-        FOREIGN KEY ([ValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID])
+    [Observation_ID] INT NOT NULL,
+    [ValueBin_ID] INT NOT NULL,
+    [Value] FLOAT,
+    [QualityCode] INT,
+    CONSTRAINT [PK_ValueVector] PRIMARY KEY ([Observation_ID], [ValueBin_ID])
 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 CREATE INDEX [IX_Annotation_Channel_Time] ON [dbo].[Annotation] ([Channel_ID], [StartTime], [EndTime]);
 CREATE INDEX [IX_Annotation_Author] ON [dbo].[Annotation] ([AuthorPerson_ID], [CreatedDateTime]);
 
 
+
+
 CREATE UNIQUE INDEX [UQ_Channel_SensorStream] ON [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID]);
+
+
+
 
 
 CREATE INDEX [IX_EquipmentEvent_Equipment_Start] ON [dbo].[EquipmentEvent] ([Equipment_ID], [EventDateTimeStart]);
@@ -481,10 +481,27 @@ CREATE INDEX [IX_EquipmentEvent_Equipment_Start] ON [dbo].[EquipmentEvent] ([Equ
 CREATE INDEX [IX_EquipmentInstallation_Equipment] ON [dbo].[EquipmentInstallation] ([Equipment_ID], [InstalledDate]);
 CREATE INDEX [IX_EquipmentInstallation_SamplingPoint] ON [dbo].[EquipmentInstallation] ([SamplingPoint_ID], [InstalledDate]);
 
-CREATE INDEX [IX_Observation_Channel_Timestamp] ON [dbo].[Observation] ([Channel_ID], [Timestamp]);
+
+
+
+
+
+
+
+
 
 CREATE INDEX [IX_ProcessingLineage_Channel] ON [dbo].[ProcessingLineage] ([Channel_ID]);
 CREATE INDEX [IX_Lineage_Step_Role] ON [dbo].[ProcessingLineage] ([ProcessingStep_ID], [RoleInProcessingStep]);
+
+
+
+
+
+
+
+
+
+
 
 
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
@@ -534,6 +551,7 @@ ALTER TABLE [dbo].[LabValue] ADD CONSTRAINT [FK_LabValue_LabAnalysis] FOREIGN KE
 ALTER TABLE [dbo].[LabValue] ADD CONSTRAINT [FK_LabValue_Parameter] FOREIGN KEY ([Parameter_ID]) REFERENCES [dbo].[Parameter] ([Parameter_ID]);
 ALTER TABLE [dbo].[LabValue] ADD CONSTRAINT [FK_LabValue_QualityCode] FOREIGN KEY ([QualityCode_ID]) REFERENCES [dbo].[QualityCode] ([QualityCode_ID]);
 ALTER TABLE [dbo].[Laboratory] ADD CONSTRAINT [FK_Laboratory_Site] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
+ALTER TABLE [dbo].[Observation] ADD CONSTRAINT [FK_Observation_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
 ALTER TABLE [dbo].[Parameter] ADD CONSTRAINT [FK_Parameter_Unit] FOREIGN KEY ([Unit_ID]) REFERENCES [dbo].[Unit] ([Unit_ID]);
 ALTER TABLE [dbo].[ProcessingLineage] ADD CONSTRAINT [FK_ProcessingLineage_ProcessingStep] FOREIGN KEY ([ProcessingStep_ID]) REFERENCES [dbo].[ProcessingStep] ([ProcessingStep_ID]);
 ALTER TABLE [dbo].[ProcessingLineage] ADD CONSTRAINT [FK_ProcessingLineage_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
@@ -550,36 +568,50 @@ ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_Site] FOREIGN
 ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_Campaign] FOREIGN KEY ([CreatedByCampaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
 ALTER TABLE [dbo].[Site] ADD CONSTRAINT [FK_Site_Watershed] FOREIGN KEY ([Watershed_ID]) REFERENCES [dbo].[Watershed] ([Watershed_ID]);
 ALTER TABLE [dbo].[UrbanCharacteristics] ADD CONSTRAINT [FK_UrbanCharacteristics_Watershed] FOREIGN KEY ([Watershed_ID]) REFERENCES [dbo].[Watershed] ([Watershed_ID]);
+ALTER TABLE [dbo].[Value] ADD CONSTRAINT [FK_Value_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 ALTER TABLE [dbo].[ValueBin] ADD CONSTRAINT [FK_ValueBin_ValueBinningAxis] FOREIGN KEY ([ValueBinningAxis_ID]) REFERENCES [dbo].[ValueBinningAxis] ([ValueBinningAxis_ID]);
 ALTER TABLE [dbo].[ValueBinningAxis] ADD CONSTRAINT [FK_ValueBinningAxis_Unit] FOREIGN KEY ([Unit_ID]) REFERENCES [dbo].[Unit] ([Unit_ID]);
+ALTER TABLE [dbo].[ValueImage] ADD CONSTRAINT [FK_ValueImage_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
+ALTER TABLE [dbo].[ValueMatrix] ADD CONSTRAINT [FK_ValueMatrix_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
+ALTER TABLE [dbo].[ValueMatrix] ADD CONSTRAINT [FK_ValueMatrix_RowValueBin] FOREIGN KEY ([RowValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]);
+ALTER TABLE [dbo].[ValueMatrix] ADD CONSTRAINT [FK_ValueMatrix_ColValueBin] FOREIGN KEY ([ColValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]);
+ALTER TABLE [dbo].[ValueVector] ADD CONSTRAINT [FK_ValueVector_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
+ALTER TABLE [dbo].[ValueVector] ADD CONSTRAINT [FK_ValueVector_ValueBin] FOREIGN KEY ([ValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]);
 
 -- Views
 CREATE OR ALTER VIEW [dbo].[vw_ChannelStatus] AS
 SELECT
-    statusC.[Channel_ID]        AS StatusChannelID,
-    statusC.[StatusChannel_ID]  AS MeasurementChannelID,
-    measC.[Equipment_ID]        AS EquipmentID,
-    e.[Identifier]              AS EquipmentName,
-    p.[Parameter]               AS MeasurementParameter,
-    o.[Timestamp],
-    CAST(v.[Value] AS INT)      AS StatusCodeID
+    statusC.[Channel_ID]          AS StatusChannelID,
+    statusC.[StatusChannel_ID]    AS MeasurementChannelID,
+    measC.[Equipment_ID]          AS EquipmentID,
+    e.[identifier]                AS EquipmentName,
+    p.[Parameter]                 AS MeasurementParameter,
+    v.[Timestamp],
+    CAST(v.[Value] AS INT)        AS StatusCodeID,
+    sc.[StatusName],
+    sc.[IsOperational],
+    sc.[Severity]
 FROM [dbo].[Value] v
-JOIN [dbo].[Observation]   o       ON o.[Observation_ID]    = v.[Observation_ID]
-JOIN [dbo].[Channel]       statusC ON statusC.[Channel_ID]  = o.[Channel_ID]
-JOIN [dbo].[Channel]       measC   ON measC.[Channel_ID]    = statusC.[StatusChannel_ID]
-JOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]      = measC.[Parameter_ID]
-JOIN [dbo].[Equipment]     e       ON e.[Equipment_ID]      = measC.[Equipment_ID]
+JOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]
+JOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]
+JOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]
+JOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]
+LEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)
 WHERE statusC.[StatusChannel_ID] IS NOT NULL;
 
 CREATE OR ALTER VIEW [dbo].[vw_DeviceStatus] AS
 SELECT
-    statusC.[Channel_ID]        AS StatusChannelID,
-    esc.[Equipment_ID]          AS EquipmentID,
-    e.[Identifier]              AS EquipmentName,
-    o.[Timestamp],
-    CAST(v.[Value] AS INT)      AS StatusCodeID
+    statusC.[Channel_ID]          AS StatusChannelID,
+    esc.[Equipment_ID]            AS EquipmentID,
+    e.[identifier]                AS EquipmentName,
+    v.[Timestamp],
+    CAST(v.[Value] AS INT)        AS StatusCodeID,
+    sc.[StatusName],
+    sc.[IsOperational],
+    sc.[Severity]
 FROM [dbo].[Value] v
-JOIN [dbo].[Observation]            o       ON o.[Observation_ID]    = v.[Observation_ID]
-JOIN [dbo].[Channel]                statusC ON statusC.[Channel_ID]  = o.[Channel_ID]
-JOIN [dbo].[EquipmentStatusChannel] esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
-JOIN [dbo].[Equipment]              e       ON e.[Equipment_ID]      = esc.[Equipment_ID];
+JOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]
+JOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
+JOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]
+LEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT);
+

@@ -86,40 +86,51 @@ On first call for this `(equipment_id, parameter_id, data_provenance_id,
 processing_degree)` combination, a new `Channel` row is created automatically. All
 subsequent calls for the same stream reuse that `Channel_ID`.
 
-### Directly via SQL
+### Directly via SQL (v2.2.0 - Observation Hub Pattern)
 
 ```sql
 -- Step 1: find or create the Channel row
 IF NOT EXISTS (
     SELECT 1 FROM [dbo].[Channel]
     WHERE [Equipment_ID] = 1 AND [Parameter_ID] = 1
-      AND [DataProvenance_ID] = 1 AND [ProcessingDegree] = 'Raw'
+      AND [DataProvenance_ID] = 1 AND [ProcessingDegree_ID] = 1
 )
 INSERT INTO [dbo].[Channel]
-    ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID],
-     [ProcessingDegree], [ValueType_ID])
-VALUES (1, 1, 1, 1, 'Raw', 1);  -- ValueType_ID = 1 = Scalar
+    ([Equipment_ID], [Parameter_ID], [DataProvenance_ID],
+     [ProcessingDegree_ID], [ValueType_ID])
+VALUES (1, 1, 1, 1, 1);  -- ValueType_ID = 1 = Scalar
 
 DECLARE @channel_id INT;
 SELECT @channel_id = [Channel_ID] FROM [dbo].[Channel]
 WHERE [Equipment_ID] = 1 AND [Parameter_ID] = 1
-  AND [DataProvenance_ID] = 1 AND [ProcessingDegree] = 'Raw';
+  AND [DataProvenance_ID] = 1 AND [ProcessingDegree_ID] = 1;
 
--- Step 2: insert measurements
-INSERT INTO [dbo].[Value] ([Channel_ID], [Value], [Timestamp])
-VALUES
-    (@channel_id, 185.0, '2025-09-10T10:00:00.0000000'),
-    (@channel_id, 192.3, '2025-09-10T10:15:00.0000000'),
-    (@channel_id, 178.9, '2025-09-10T10:30:00.0000000');
+-- Step 2: insert observations and values
+-- Each measurement requires an Observation row first, then a Value row
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+VALUES (@channel_id, '2025-09-10T10:00:00.0000000', 'Scalar');
+INSERT INTO [dbo].[Value] ([Observation_ID], [Value])
+VALUES (SCOPE_IDENTITY(), 185.0);
+
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+VALUES (@channel_id, '2025-09-10T10:15:00.0000000', 'Scalar');
+INSERT INTO [dbo].[Value] ([Observation_ID], [Value])
+VALUES (SCOPE_IDENTITY(), 192.3);
+
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+VALUES (@channel_id, '2025-09-10T10:30:00.0000000', 'Scalar');
+INSERT INTO [dbo].[Value] ([Observation_ID], [Value])
+VALUES (SCOPE_IDENTITY(), 178.9);
 ```
 
 ### Retrieve the data
 
 ```sql
-SELECT v.[Value], v.[Timestamp]
+SELECT v.[Value], o.[Timestamp]
 FROM   [dbo].[Value] v
-WHERE  v.[Channel_ID] = @channel_id
-ORDER BY v.[Timestamp];
+JOIN   [dbo].[Observation] o ON v.[Observation_ID] = o.[Observation_ID]
+WHERE  o.[Channel_ID] = @channel_id
+ORDER BY o.[Timestamp];
 ```
 
 ---
@@ -193,18 +204,24 @@ INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]
 VALUES (@channel_id, 0, 1);
 ```
 
-### Step 5: Insert the spectral measurements
+### Step 5: Insert the spectral measurements (v2.2.0)
 
 ```sql
-INSERT INTO [dbo].[ValueVector] ([Channel_ID], [Timestamp], [ValueBin_ID], [Value])
+-- First, create the Observation for this timestamp
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+VALUES (@channel_id, '2025-09-10T10:00:00.0000000', 'Vector');
+DECLARE @obs_id BIGINT = SCOPE_IDENTITY();
+
+-- Then insert the vector values using the Observation_ID
+INSERT INTO [dbo].[ValueVector] ([Observation_ID], [ValueBin_ID], [Value])
 VALUES
-    (@channel_id, '2025-09-10T10:00:00.0000000', 1, 0.142),
-    (@channel_id, '2025-09-10T10:00:00.0000000', 2, 0.287),
-    (@channel_id, '2025-09-10T10:00:00.0000000', 3, 0.531),
-    (@channel_id, '2025-09-10T10:00:00.0000000', 4, 0.612),
-    (@channel_id, '2025-09-10T10:00:00.0000000', 5, 0.489),
-    (@channel_id, '2025-09-10T10:00:00.0000000', 6, 0.334),
-    (@channel_id, '2025-09-10T10:00:00.0000000', 7, 0.201);
+    (@obs_id, 1, 0.142),
+    (@obs_id, 2, 0.287),
+    (@obs_id, 3, 0.531),
+    (@obs_id, 4, 0.612),
+    (@obs_id, 5, 0.489),
+    (@obs_id, 6, 0.334),
+    (@obs_id, 7, 0.201);
 ```
 
 ### Retrieve a spectrum
@@ -215,9 +232,10 @@ SELECT
     (vb.[LowerBound] + vb.[UpperBound]) / 2.0  AS wavelength_nm,
     vv.[Value]                                  AS absorbance
 FROM   [dbo].[ValueVector] vv
-JOIN   [dbo].[ValueBin]    vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
-WHERE  vv.[Channel_ID] = @channel_id
-  AND  vv.[Timestamp]  = '2025-09-10T10:00:00.0000000'
+JOIN   [dbo].[Observation] o  ON vv.[Observation_ID] = o.[Observation_ID]
+JOIN   [dbo].[ValueBin]    vb ON vv.[ValueBin_ID]    = vb.[ValueBin_ID]
+WHERE  o.[Channel_ID] = @channel_id
+  AND  o.[Timestamp]  = '2025-09-10T10:00:00.0000000'
 ORDER BY vb.[BinIndex];
 ```
 
@@ -250,14 +268,19 @@ WHERE [Equipment_ID] = 3 AND [Parameter_ID] = 9
 
 No `ChannelAxis` row is needed — images do not use a binning axis.
 
-### Step 2: Insert the image record
+### Step 2: Insert the image record (v2.2.0)
 
 ```sql
+-- First, create the Observation for this image
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+VALUES (@channel_id, '2025-09-10T14:32:00.0000000', 'Image');
+
+-- Then insert the image metadata using the Observation_ID
 INSERT INTO [dbo].[ValueImage]
-    ([Channel_ID], [Timestamp], [ImageWidth], [ImageHeight], [ImageFormat],
+    ([Observation_ID], [ImageWidth], [ImageHeight], [ImageFormat],
      [StorageBackend], [StoragePath])
 VALUES
-    (@channel_id, '2025-09-10T14:32:00.0000000',
+    (SCOPE_IDENTITY(),
      1920, 1080, 'JPEG',
      'azure_blob',
      'https://storage.example.com/cso-images/20250910T143200.jpg');
@@ -320,14 +343,19 @@ VALUES
     (@channel_id, 1, 3);   -- column axis = velocity
 ```
 
-### Step 5: Insert the matrix cells
+### Step 5: Insert the matrix cells (v2.2.0)
 
 ```sql
+-- First, create the Observation for this matrix
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+VALUES (@channel_id, '2025-09-10T10:00:00.0000000', 'Matrix');
+DECLARE @obs_id BIGINT = SCOPE_IDENTITY();
+
+-- Then insert the matrix cells using the Observation_ID
 INSERT INTO [dbo].[ValueMatrix]
-    ([Channel_ID], [Timestamp], [RowValueBin_ID], [ColValueBin_ID], [Value])
+    ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID], [Value])
 SELECT
-    @channel_id,
-    '2025-09-10T10:00:00.0000000',
+    @obs_id,
     rb.[ValueBin_ID],
     cb.[ValueBin_ID],
     src.[Value]
