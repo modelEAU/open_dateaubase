@@ -256,13 +256,21 @@ def insert_scalar_values(
     """Insert rows into dbo.Value. Returns rows written."""
     cursor = conn.cursor()
     for v in values:
+        # Step 1: create Observation, get ID
         cursor.execute(
             """
-            INSERT INTO [dbo].[Value] ([Channel_ID], [Timestamp], [Value])
-            VALUES (?, ?, ?)
+            INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+            OUTPUT INSERTED.[Observation_ID]
+            VALUES (?, ?, 'Scalar')
             """,
             channel_id,
             v["timestamp"],
+        )
+        obs_id: int = cursor.fetchone()[0]
+        # Step 2: insert scalar payload
+        cursor.execute(
+            "INSERT INTO [dbo].[Value] ([Observation_ID], [Value]) VALUES (?, ?)",
+            obs_id,
             v["value"],
         )
     conn.commit()
@@ -399,18 +407,29 @@ def insert_image_value(
     quality_code: int | None,
     thumbnail: bytes | None = None,
 ) -> int:
-    """Insert a row into dbo.ValueImage. Returns the new ValueImage_ID."""
+    """Insert a row into dbo.ValueImage. Returns the new Observation_ID."""
     cursor = conn.cursor()
+    # Step 1: create Observation, get ID
     cursor.execute(
         """
-        INSERT INTO [dbo].[ValueImage]
-            ([Channel_ID], [Timestamp], [ImageWidth], [ImageHeight], [NumberOfChannels],
-             [ImageFormat], [FileSizeBytes], [StorageBackend], [StoragePath],
-             [Thumbnail], [QualityCode])
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'FileSystem', ?, ?, ?)
+        INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+        OUTPUT INSERTED.[Observation_ID]
+        VALUES (?, ?, 'Image')
         """,
         channel_id,
         timestamp,
+    )
+    obs_id: int = cursor.fetchone()[0]
+    # Step 2: insert image payload
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[ValueImage]
+            ([Observation_ID], [ImageWidth], [ImageHeight], [NumberOfChannels],
+             [ImageFormat], [FileSizeBytes], [StorageBackend], [StoragePath],
+             [Thumbnail], [QualityCode])
+        VALUES (?, ?, ?, ?, ?, ?, 'FileSystem', ?, ?, ?)
+        """,
+        obs_id,
         image_width,
         image_height,
         number_of_channels,
@@ -421,7 +440,4 @@ def insert_image_value(
         quality_code,
     )
     conn.commit()
-    # Get the last inserted identity
-    cursor.execute("SELECT @@IDENTITY")
-    row = cursor.fetchone()
-    return int(row[0]) if row else 0
+    return obs_id
