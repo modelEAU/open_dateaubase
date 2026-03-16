@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-16T18:43:10.039Z"
+last_updated: "2026-03-16T18:53:20.258Z"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 27
-  completed_plans: 24
+  completed_plans: 25
   percent: 89
 ---
 
@@ -18,11 +18,11 @@ progress:
 
 - **Active milestone**: Milestone 2 — Observation-Centric Schema (v2.2.0)
 - **Active phase**: Phase 07 — Observation Migration
-- **Plan**: 1 of 7 complete in current phase
+- **Plan**: 4 of 7 complete in current phase
 - **Status**: In progress
-- **Last activity**: 2026-03-16 — Completed 07-01-PLAN.md (Observation table + Value restructure DDL, Steps 1-2 of 5)
+- **Last activity**: 2026-03-16 — Completed 07-04-PLAN.md (Schema dictionary YAMLs — Observation.yaml + 5 updated tables)
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 93%
 
 ## Accumulated Decisions
 
@@ -51,6 +51,7 @@ Progress: [█████████░] 89%
 - [Phase 04-business-forms]: Pillow made optional with graceful fallback for image metadata
 - [Phase 07-observation-migration]: Observation table: BIGINT IDENTITY PK, UNIQUE on (Channel_ID, Timestamp, DataType), transaction stays open through 07-03
 - [Phase 07-observation-migration]: Value restructure: drop Value_ID+Channel_ID+Timestamp; Observation_ID becomes sole PK with FK to Observation
+- [Phase 07]: Observation.DataType max_length:10 to satisfy schema validator (VARCHAR(10) per DDL plan)
 
 ## Deferred Issues
 
@@ -70,12 +71,12 @@ Progress: [█████████░] 89%
 ## Session Continuity
 
 - **Last session**: 2026-03-16
-- **Stopped at**: Completed 07-01-PLAN.md — Observation table + Value restructure DDL (Steps 1-2 of 5)
+- **Stopped at**: Completed 07-04-PLAN.md — Schema dictionary YAMLs for v2.2.0
 - **Resume file**: None
-- **Next action**: Execute 07-02-PLAN.md (ValueVector, ValueMatrix, ValueImage restructure)
+- **Next action**: Execute 07-05-PLAN.md (API repository updates)
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app complete (phases 01–05). Phase 06 deployment setup complete. Full stack launches with `docker-compose up -d db api app`. Now beginning Phase 07: Observation-Centric Schema migration to v2.2.0.
 
-**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) in progress — 1 of 7 plans done.
+**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) in progress — 4 of 7 plans done.
