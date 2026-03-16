@@ -1,14 +1,28 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+last_updated: "2026-03-16T18:43:10.039Z"
+progress:
+  total_phases: 7
+  completed_phases: 5
+  total_plans: 27
+  completed_plans: 24
+  percent: 89
+---
+
 # Project State
 
 ## Current Position
 
-- **Active milestone**: Milestone 1 — Frontend Web App (v1.0)
-- **Active phase**: Phase 06 — Deployment Setup
-- **Plan**: 2 of 2 complete in current phase
-- **Status**: Phase complete — Milestone 1 complete
-- **Last activity**: 2026-03-06 — Completed 06-02-PLAN.md (docker-compose + .env.example + README)
+- **Active milestone**: Milestone 2 — Observation-Centric Schema (v2.2.0)
+- **Active phase**: Phase 07 — Observation Migration
+- **Plan**: 1 of 7 complete in current phase
+- **Status**: In progress
+- **Last activity**: 2026-03-16 — Completed 07-01-PLAN.md (Observation table + Value restructure DDL, Steps 1-2 of 5)
 
-Progress: ███████████████ 100% (all plans complete)
+Progress: [█████████░] 89%
 
 ## Accumulated Decisions
 
@@ -35,6 +49,8 @@ Progress: ███████████████ 100% (all plans complete
 - **Optional dependencies**: Pillow for image metadata extraction is optional; graceful fallback if not installed
 - [Phase 04-business-forms]: File storage on disk with metadata in DB, not BLOB storage
 - [Phase 04-business-forms]: Pillow made optional with graceful fallback for image metadata
+- [Phase 07-observation-migration]: Observation table: BIGINT IDENTITY PK, UNIQUE on (Channel_ID, Timestamp, DataType), transaction stays open through 07-03
+- [Phase 07-observation-migration]: Value restructure: drop Value_ID+Channel_ID+Timestamp; Observation_ID becomes sole PK with FK to Observation
 
 ## Deferred Issues
 
@@ -53,13 +69,13 @@ Progress: ███████████████ 100% (all plans complete
 
 ## Session Continuity
 
-- **Last session**: 2026-03-06
-- **Stopped at**: Completed 06-02-PLAN.md — Milestone 1 complete
+- **Last session**: 2026-03-16
+- **Stopped at**: Completed 07-01-PLAN.md — Observation table + Value restructure DDL (Steps 1-2 of 5)
 - **Resume file**: None
-- **Next action**: /gsd:complete-milestone
+- **Next action**: Execute 07-02-PLAN.md (ValueVector, ValueMatrix, ValueImage restructure)
 
 ## Brief Alignment
 
-Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app complete (phases 01–05). Phase 06 deployment setup complete. Full stack launches with `docker-compose up -d db api app`.
+Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app complete (phases 01–05). Phase 06 deployment setup complete. Full stack launches with `docker-compose up -d db api app`. Now beginning Phase 07: Observation-Centric Schema migration to v2.2.0.
 
-**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. All 6 phases done.
+**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) in progress — 1 of 7 plans done.
