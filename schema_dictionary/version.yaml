@@ -1,3 +1,3 @@
-schema_version: "2.1.0"
-description: "Current schema version. StatusChannel_ID on Channel marks per-channel status streams; EquipmentStatusChannel maps each equipment to its device-level status Channel."
-date: "2026-02-24"
+schema_version: "2.2.0"
+description: "Observation hub table introduced; Value restructured as lean scalar payload keyed by Observation_ID. ValueVector, ValueMatrix, ValueImage restructure and Annotation Observation_ID FK added in subsequent migration steps."
+date: "2026-03-16"

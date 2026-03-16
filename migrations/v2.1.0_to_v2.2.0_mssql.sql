@@ -43,3 +43,78 @@ GO
 CREATE INDEX [IX_Observation_Channel_Timestamp]
     ON [dbo].[Observation] ([Channel_ID], [Timestamp]);
 GO
+
+-- ============================================================
+-- STEP 2: Data integrity check + backfill Observation from Value;
+--         restructure Value as lean scalar payload
+-- ============================================================
+
+-- Pre-migration duplicate check — fail if any (Channel_ID, Timestamp) pair
+-- appears more than once in Value (would violate UQ_Observation_ChannelTimestampType).
+IF EXISTS (
+    SELECT [Channel_ID], [Timestamp]
+    FROM [dbo].[Value]
+    WHERE [Channel_ID] IS NOT NULL AND [Timestamp] IS NOT NULL
+    GROUP BY [Channel_ID], [Timestamp]
+    HAVING COUNT(*) > 1
+)
+    RAISERROR('Duplicate (Channel_ID, Timestamp) pairs in dbo.Value — deduplicate before migrating.', 16, 1);
+GO
+
+-- Backfill Observation rows from Value (one per scalar row).
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+SELECT [Channel_ID], [Timestamp], 'Scalar'
+FROM [dbo].[Value]
+WHERE [Channel_ID] IS NOT NULL AND [Timestamp] IS NOT NULL;
+GO
+
+-- Add Observation_ID column to Value (nullable until populated).
+ALTER TABLE [dbo].[Value] ADD [Observation_ID] BIGINT NULL;
+GO
+
+-- Populate Observation_ID by joining back to Observation.
+UPDATE v
+SET v.[Observation_ID] = o.[Observation_ID]
+FROM [dbo].[Value] v
+JOIN [dbo].[Observation] o
+    ON o.[Channel_ID] = v.[Channel_ID]
+   AND o.[Timestamp]  = v.[Timestamp]
+   AND o.[DataType]   = 'Scalar';
+GO
+
+-- Make Observation_ID NOT NULL now that all rows are populated.
+ALTER TABLE [dbo].[Value] ALTER COLUMN [Observation_ID] BIGINT NOT NULL;
+GO
+
+-- Drop FK_Value_Channel (blocks column drop).
+ALTER TABLE [dbo].[Value] DROP CONSTRAINT [FK_Value_Channel];
+GO
+
+-- Drop PK on Value_ID (use dynamic name lookup for safety).
+DECLARE @pk NVARCHAR(200) = (
+    SELECT name FROM sys.key_constraints
+    WHERE parent_object_id = OBJECT_ID('dbo.Value') AND type = 'PK'
+);
+IF @pk IS NOT NULL
+    EXEC('ALTER TABLE [dbo].[Value] DROP CONSTRAINT [' + @pk + ']');
+GO
+
+-- Drop Value_ID (IDENTITY — no other table FKs into Value.Value_ID).
+ALTER TABLE [dbo].[Value] DROP COLUMN [Value_ID];
+GO
+
+-- Drop Channel_ID and Timestamp (now redundant, encoded in Observation).
+ALTER TABLE [dbo].[Value] DROP COLUMN [Channel_ID];
+ALTER TABLE [dbo].[Value] DROP COLUMN [Timestamp];
+GO
+
+-- Add new PK on Observation_ID.
+ALTER TABLE [dbo].[Value]
+    ADD CONSTRAINT [PK_Value] PRIMARY KEY ([Observation_ID]);
+GO
+
+-- Add FK Observation_ID → Observation.
+ALTER TABLE [dbo].[Value]
+    ADD CONSTRAINT [FK_Value_Observation]
+    FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
+GO
