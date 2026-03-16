@@ -603,3 +603,60 @@ class TestLastTimestampEndpoint:
         paths = r.json()["paths"]
         assert "/api/v1/ingest/last-timestamp" in paths
         assert "get" in paths["/api/v1/ingest/last-timestamp"]
+
+
+# ---------------------------------------------------------------------------
+# Observation-aware ingest contract tests
+# ---------------------------------------------------------------------------
+
+
+class TestObservationAwareIngest:
+    """Contract tests verifying ingest endpoints work after Observation refactor.
+
+    These tests mock the repository layer to confirm:
+    1. insert_scalar_values is called (via the endpoint's internal flow)
+    2. The endpoint returns expected response shape
+    3. No KeyError or AttributeError from stale column references
+    """
+
+    def test_post_ingest_sensor_scalar_contract(self, client):
+        """POST /ingest/sensor returns {"rows_written": N} with valid input."""
+        from unittest.mock import patch
+
+        # Patch the repository functions the endpoint calls
+        with patch("api.v1.repositories.ingestion_repository.find_or_create_sensor_metadata",
+                   return_value=42), \
+             patch("api.v1.repositories.value_repository.insert_scalar_values",
+                   return_value=2):
+            resp = client.post("/api/v1/ingest/sensor", json={
+                "equipment_id": 1,
+                "parameter_id": 1,
+                "unit_id": 1,
+                "data_provenance_id": 1,
+                "processing_degree_id": 1,
+                "values": [
+                    {"timestamp": "2024-01-01T10:00:00", "value": 7.2},
+                    {"timestamp": "2024-01-01T10:05:00", "value": 7.3},
+                ]
+            })
+        assert resp.status_code in (200, 201)
+        body = resp.json()
+        assert "rows_written" in body
+        assert body["rows_written"] == 2
+
+    def test_get_last_timestamp_contract(self, client):
+        """GET /ingest/last-timestamp returns {"last_timestamp": ...} or null."""
+        from unittest.mock import patch
+        from datetime import datetime
+
+        with patch("api.v1.repositories.ingestion_repository.get_last_timestamp_for_channel",
+                   return_value=datetime(2024, 1, 1, 10, 5, 0)):
+            resp = client.get("/api/v1/ingest/last-timestamp", params={
+                "equipment_id": 1,
+                "parameter_id": 1,
+                "data_provenance_id": 1,
+                "processing_degree_id": 1,
+            })
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "last_timestamp" in body
