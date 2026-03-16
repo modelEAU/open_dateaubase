@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-16T19:05:56.784Z"
+last_updated: "2026-03-16T19:12:27.931Z"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 27
-  completed_plans: 26
+  completed_plans: 27
   percent: 93
 ---
 
@@ -18,11 +18,11 @@ progress:
 
 - **Active milestone**: Milestone 2 — Observation-Centric Schema (v2.2.0)
 - **Active phase**: Phase 07 — Observation Migration
-- **Plan**: 4 of 7 complete in current phase
+- **Plan**: 5 of 7 complete in current phase
 - **Status**: In progress
-- **Last activity**: 2026-03-16 — Completed 07-04-PLAN.md (Schema dictionary YAMLs — Observation.yaml + 5 updated tables)
+- **Last activity**: 2026-03-16 — Completed 07-05-PLAN.md (API repository updates — Observation-centric insert pattern)
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Accumulated Decisions
 
@@ -53,6 +53,7 @@ Progress: [█████████░] 93%
 - [Phase 07-observation-migration]: Value restructure: drop Value_ID+Channel_ID+Timestamp; Observation_ID becomes sole PK with FK to Observation
 - [Phase 07]: Observation.DataType max_length:10 to satisfy schema validator (VARCHAR(10) per DDL plan)
 - [Phase 07-observation-migration]: ValueVector/ValueMatrix use SELECT DISTINCT for Observation backfill; ValueImage skips DISTINCT (UQ enforces uniqueness); ValueImage drops constraints in UQ->FK->PK->IDENTITY order
+- [Phase 07-observation-migration]: Two-step insert pattern: INSERT Observation (OUTPUT INSERTED.Observation_ID) then INSERT payload table — no Channel_ID or Timestamp in Value/ValueVector/ValueMatrix/ValueImage
 
 ## Deferred Issues
 
@@ -72,12 +73,12 @@ Progress: [█████████░] 93%
 ## Session Continuity
 
 - **Last session**: 2026-03-16
-- **Stopped at**: Completed 07-04-PLAN.md — Schema dictionary YAMLs for v2.2.0
+- **Stopped at**: Completed 07-05-PLAN.md — API ingestion repository updates (Observation-centric inserts)
 - **Resume file**: None
-- **Next action**: Execute 07-05-PLAN.md (API repository updates)
+- **Next action**: Execute 07-06-PLAN.md (integration + contract test updates)
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app complete (phases 01–05). Phase 06 deployment setup complete. Full stack launches with `docker-compose up -d db api app`. Now beginning Phase 07: Observation-Centric Schema migration to v2.2.0.
 
-**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) in progress — 4 of 7 plans done.
+**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) in progress — 5 of 7 plans done.
