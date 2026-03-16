@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-16T19:12:27.931Z"
+last_updated: "2026-03-16T19:25:49.493Z"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 27
-  completed_plans: 27
-  percent: 93
+  completed_plans: 28
+  percent: 100
 ---
 
 # Project State
@@ -54,6 +54,7 @@ Progress: [██████████] 100%
 - [Phase 07]: Observation.DataType max_length:10 to satisfy schema validator (VARCHAR(10) per DDL plan)
 - [Phase 07-observation-migration]: ValueVector/ValueMatrix use SELECT DISTINCT for Observation backfill; ValueImage skips DISTINCT (UQ enforces uniqueness); ValueImage drops constraints in UQ->FK->PK->IDENTITY order
 - [Phase 07-observation-migration]: Two-step insert pattern: INSERT Observation (OUTPUT INSERTED.Observation_ID) then INSERT payload table — no Channel_ID or Timestamp in Value/ValueVector/ValueMatrix/ValueImage
+- [Phase 07-observation-migration 07-03]: Rollback script uses mssql_rollback.sql naming (CI test constraint); views dropped before Value is touched and recreated after; Value_ID/ValueImage_ID restored as ROW_NUMBER surrogates (SQL Server cannot ADD IDENTITY to existing columns)
 
 ## Deferred Issues
 
