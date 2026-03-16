@@ -307,6 +307,19 @@ def insert_vector_values(
         quality_code = obs.get("quality_code")
         bin_values = obs["bin_values"]
 
+        # Create Observation for this timestamp
+        cursor.execute(
+            """
+            INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+            OUTPUT INSERTED.[Observation_ID]
+            VALUES (?, ?, 'Vector')
+            """,
+            channel_id,
+            timestamp,
+        )
+        obs_id: int = cursor.fetchone()[0]
+
+        # Insert one row per bin (inner loop)
         for i, value in enumerate(bin_values):
             bin_id = bin_map.get(i)
             if bin_id is None:
@@ -314,11 +327,10 @@ def insert_vector_values(
             cursor.execute(
                 """
                 INSERT INTO [dbo].[ValueVector]
-                    (Channel_ID, Timestamp, ValueBin_ID, Value, QualityCode)
-                VALUES (?, ?, ?, ?, ?)
+                    ([Observation_ID], [ValueBin_ID], [Value], [QualityCode])
+                VALUES (?, ?, ?, ?)
                 """,
-                channel_id,
-                timestamp,
+                obs_id,
                 bin_id,
                 value,
                 quality_code,
@@ -368,6 +380,18 @@ def insert_matrix_values(
         quality_code = obs.get("quality_code")
         matrix = obs["matrix"]
 
+        # Create Observation for this timestamp
+        cursor.execute(
+            """
+            INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+            OUTPUT INSERTED.[Observation_ID]
+            VALUES (?, ?, 'Matrix')
+            """,
+            channel_id,
+            obs["timestamp"],
+        )
+        obs_id: int = cursor.fetchone()[0]
+
         for r, row in enumerate(matrix):
             for c, value in enumerate(row):
                 row_bin_id = row_map.get(r)
@@ -377,11 +401,10 @@ def insert_matrix_values(
                 cursor.execute(
                     """
                     INSERT INTO [dbo].[ValueMatrix]
-                        (Channel_ID, Timestamp, RowValueBin_ID, ColValueBin_ID, Value, QualityCode)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                        ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID], [Value], [QualityCode])
+                    VALUES (?, ?, ?, ?, ?)
                     """,
-                    channel_id,
-                    timestamp,
+                    obs_id,
                     row_bin_id,
                     col_bin_id,
                     value,

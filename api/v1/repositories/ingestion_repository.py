@@ -204,18 +204,18 @@ def get_last_timestamp_for_channel(
     data_provenance_id: int,
     processing_degree_id: int,
 ) -> datetime | None:
-    """Return the most recent Timestamp in dbo.Value for the matching channel, or None."""
+    """Return the most recent Timestamp in dbo.Observation for the matching channel, or None."""
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT TOP 1 v.[Timestamp]
-        FROM [dbo].[Value] v
-        JOIN [dbo].[Channel] c ON c.[Channel_ID] = v.[Channel_ID]
+        SELECT TOP 1 o.[Timestamp]
+        FROM [dbo].[Observation] o
+        JOIN [dbo].[Channel] c ON c.[Channel_ID] = o.[Channel_ID]
         WHERE c.[Equipment_ID]        = ?
           AND c.[Parameter_ID]        = ?
           AND c.[DataProvenance_ID]   = ?
           AND c.[ProcessingDegree_ID] = ?
-        ORDER BY v.[Timestamp] DESC
+        ORDER BY o.[Timestamp] DESC
         """,
         equipment_id,
         parameter_id,
