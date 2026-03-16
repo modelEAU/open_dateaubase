@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-16T19:25:49.493Z"
+last_updated: "2026-03-16T19:42:02.740Z"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 27
-  completed_plans: 28
+  completed_plans: 29
   percent: 100
 ---
 
@@ -18,9 +18,9 @@ progress:
 
 - **Active milestone**: Milestone 2 — Observation-Centric Schema (v2.2.0)
 - **Active phase**: Phase 07 — Observation Migration
-- **Plan**: 5 of 7 complete in current phase
+- **Plan**: 6 of 7 complete in current phase
 - **Status**: In progress
-- **Last activity**: 2026-03-16 — Completed 07-05-PLAN.md (API repository updates — Observation-centric insert pattern)
+- **Last activity**: 2026-03-16 — Completed 07-06-PLAN.md (Read path Observation join + v2.2.0 baseline CREATE script)
 
 Progress: [██████████] 100%
 
@@ -55,6 +55,8 @@ Progress: [██████████] 100%
 - [Phase 07-observation-migration]: ValueVector/ValueMatrix use SELECT DISTINCT for Observation backfill; ValueImage skips DISTINCT (UQ enforces uniqueness); ValueImage drops constraints in UQ->FK->PK->IDENTITY order
 - [Phase 07-observation-migration]: Two-step insert pattern: INSERT Observation (OUTPUT INSERTED.Observation_ID) then INSERT payload table — no Channel_ID or Timestamp in Value/ValueVector/ValueMatrix/ValueImage
 - [Phase 07-observation-migration 07-03]: Rollback script uses mssql_rollback.sql naming (CI test constraint); views dropped before Value is touched and recreated after; Value_ID/ValueImage_ID restored as ROW_NUMBER surrogates (SQL Server cannot ADD IDENTITY to existing columns)
+- [Phase 07]: All read filters route through o.[Channel_ID] and o.[Timestamp] — payload tables have no Channel_ID/Timestamp after v2.2.0 migration
+- [Phase 07]: v2.2.0 baseline places Observation CREATE before all payload tables to satisfy FK dependency order
 
 ## Deferred Issues
 
@@ -74,12 +76,12 @@ Progress: [██████████] 100%
 ## Session Continuity
 
 - **Last session**: 2026-03-16
-- **Stopped at**: Completed 07-05-PLAN.md — API ingestion repository updates (Observation-centric inserts)
+- **Stopped at**: Completed 07-06-PLAN.md — read path Observation joins + v2.2.0 baseline script
 - **Resume file**: None
-- **Next action**: Execute 07-06-PLAN.md (integration + contract test updates)
+- **Next action**: Execute 07-07-PLAN.md (integration + contract test updates)
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app complete (phases 01–05). Phase 06 deployment setup complete. Full stack launches with `docker-compose up -d db api app`. Now beginning Phase 07: Observation-Centric Schema migration to v2.2.0.
 
-**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) in progress — 5 of 7 plans done.
+**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) in progress — 6 of 7 plans done.
