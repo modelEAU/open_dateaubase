@@ -2,20 +2,18 @@ _format_version: "1.0"
 table:
   name: ValueVector
   schema: dbo
-  description: "Stores 1D binned measurement data as one row per bin per timestamp, unifying spectra, particle size distributions, and any other 1D distribution over a physical axis"
+  description: >
+    One row per (observation, bin) for vector (spectral) data. Unifies spectra,
+    particle size distributions, and any other 1D distribution over a physical axis.
+    Channel and Timestamp are resolved via the Observation table.
   columns:
-    - name: Channel_ID
+    - name: Observation_ID
       logical_type: integer
       nullable: false
-      description: "References the channel context for this measurement"
+      description: "References the Observation (channel + timestamp) for this measurement"
       foreign_key:
-        table: Channel
-        column: Channel_ID
-    - name: Timestamp
-      logical_type: timestamp
-      precision: 7
-      nullable: false
-      description: "UTC timestamp of the measurement (stored in UTC by convention)"
+        table: Observation
+        column: Observation_ID
     - name: ValueBin_ID
       logical_type: integer
       nullable: false
@@ -31,4 +29,4 @@ table:
       logical_type: integer
       nullable: true
       description: "Quality flag for this measurement"
-  primary_key: [Channel_ID, Timestamp, ValueBin_ID]
+  primary_key: [Observation_ID, ValueBin_ID]

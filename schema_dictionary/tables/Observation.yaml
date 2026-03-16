@@ -1,0 +1,36 @@
+_format_version: "1.0"
+table:
+  name: Observation
+  schema: dbo
+  description: >
+    Shared hub table representing a single measurement event on a channel at a
+    timestamp. The four payload tables (Value, ValueVector, ValueMatrix, ValueImage)
+    carry only their type-specific data, keyed by Observation_ID. DataType mirrors
+    Channel.ValueType_ID for self-description.
+  columns:
+    - name: Observation_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate key; auto-assigned by the database"
+    - name: Channel_ID
+      logical_type: integer
+      nullable: false
+      description: "The channel this observation belongs to"
+      foreign_key:
+        table: Channel
+        column: Channel_ID
+    - name: Timestamp
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC timestamp of the observation"
+    - name: DataType
+      logical_type: string
+      max_length: 10
+      nullable: false
+      description: "Payload type: Scalar, Vector, Matrix, or Image. Must match the Channel's ValueType."
+  primary_key: [Observation_ID]
+  unique_constraints:
+    - name: UQ_Observation_ChannelTimestampDataType
+      columns: [Channel_ID, Timestamp, DataType]
