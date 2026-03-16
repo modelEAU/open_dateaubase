@@ -27,39 +27,42 @@ def get_scalar_values(
     operational_only: bool = False,
 ) -> list[dict]:
     params: list = [channel_id]
-    where = "WHERE v.[Channel_ID] = ?"
+    where = "WHERE o.[Channel_ID] = ?"
     if from_dt:
-        where += " AND v.[Timestamp] >= ?"
+        where += " AND o.[Timestamp] >= ?"
         params.append(from_dt)
     if to_dt:
-        where += " AND v.[Timestamp] <= ?"
+        where += " AND o.[Timestamp] <= ?"
         params.append(to_dt)
 
     if operational_only:
         where += """
         AND (NOT EXISTS (
             SELECT 1 FROM dbo.Channel statusC
-            JOIN dbo.Value sv ON sv.Channel_ID = statusC.Channel_ID
-            WHERE statusC.StatusChannel_ID = v.Channel_ID
-              AND sv.Timestamp <= v.Timestamp
+            JOIN dbo.Observation so ON so.[Channel_ID] = statusC.[Channel_ID]
+            JOIN dbo.Value sv ON sv.[Observation_ID] = so.[Observation_ID]
+            WHERE statusC.[StatusChannel_ID] = o.[Channel_ID]
+              AND so.[Timestamp] <= o.[Timestamp]
         )
         OR EXISTS (
             SELECT 1 FROM dbo.Channel statusC
-            JOIN dbo.Value sv ON sv.Channel_ID = statusC.Channel_ID
-            JOIN dbo.QualityCode qc ON qc.QualityCode_ID = CAST(sv.Value AS INT)
-            WHERE statusC.StatusChannel_ID = v.Channel_ID
-              AND sv.Timestamp <= v.Timestamp
-              AND qc.IsUsable = 1
+            JOIN dbo.Observation so ON so.[Channel_ID] = statusC.[Channel_ID]
+            JOIN dbo.Value sv ON sv.[Observation_ID] = so.[Observation_ID]
+            JOIN dbo.QualityCode qc ON qc.[QualityCode_ID] = CAST(sv.[Value] AS INT)
+            WHERE statusC.[StatusChannel_ID] = o.[Channel_ID]
+              AND so.[Timestamp] <= o.[Timestamp]
+              AND qc.[IsUsable] = 1
         ))
         """
 
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT v.[Timestamp], v.[Value]
+        SELECT o.[Timestamp], v.[Value]
         FROM [dbo].[Value] v
+        JOIN [dbo].[Observation] o ON o.[Observation_ID] = v.[Observation_ID]
         {where}
-        ORDER BY v.[Timestamp]
+        ORDER BY o.[Timestamp]
         """,
         *params,
     )
@@ -76,23 +79,24 @@ def get_vector_values(
     to_dt: datetime | None,
 ) -> list[dict]:
     params: list = [channel_id]
-    where = "WHERE vv.[Channel_ID] = ?"
+    where = "WHERE o.[Channel_ID] = ?"
     if from_dt:
-        where += " AND vv.[Timestamp] >= ?"
+        where += " AND o.[Timestamp] >= ?"
         params.append(from_dt)
     if to_dt:
-        where += " AND vv.[Timestamp] <= ?"
+        where += " AND o.[Timestamp] <= ?"
         params.append(to_dt)
 
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT vv.[Timestamp], vb.[BinIndex], vb.[LowerBound], vb.[UpperBound],
+        SELECT o.[Timestamp], vb.[BinIndex], vb.[LowerBound], vb.[UpperBound],
                vv.[Value], vv.[QualityCode]
         FROM [dbo].[ValueVector] vv
-        JOIN [dbo].[ValueBin] vb ON vb.[ValueBin_ID] = vv.[ValueBin_ID]
+        JOIN [dbo].[Observation] o  ON o.[Observation_ID]  = vv.[Observation_ID]
+        JOIN [dbo].[ValueBin]    vb ON vb.[ValueBin_ID]    = vv.[ValueBin_ID]
         {where}
-        ORDER BY vv.[Timestamp], vb.[BinIndex]
+        ORDER BY o.[Timestamp], vb.[BinIndex]
         """,
         *params,
     )
@@ -116,24 +120,25 @@ def get_matrix_values(
     to_dt: datetime | None,
 ) -> list[dict]:
     params: list = [channel_id]
-    where = "WHERE vm.[Channel_ID] = ?"
+    where = "WHERE o.[Channel_ID] = ?"
     if from_dt:
-        where += " AND vm.[Timestamp] >= ?"
+        where += " AND o.[Timestamp] >= ?"
         params.append(from_dt)
     if to_dt:
-        where += " AND vm.[Timestamp] <= ?"
+        where += " AND o.[Timestamp] <= ?"
         params.append(to_dt)
 
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT vm.[Timestamp], rb.[BinIndex] AS RowBinIndex, cb.[BinIndex] AS ColBinIndex,
+        SELECT o.[Timestamp], rb.[BinIndex] AS RowBinIndex, cb.[BinIndex] AS ColBinIndex,
                vm.[Value], vm.[QualityCode]
         FROM [dbo].[ValueMatrix] vm
-        JOIN [dbo].[ValueBin] rb ON rb.[ValueBin_ID] = vm.[RowValueBin_ID]
-        JOIN [dbo].[ValueBin] cb ON cb.[ValueBin_ID] = vm.[ColValueBin_ID]
+        JOIN [dbo].[Observation] o  ON o.[Observation_ID]   = vm.[Observation_ID]
+        JOIN [dbo].[ValueBin]    rb ON rb.[ValueBin_ID]     = vm.[RowValueBin_ID]
+        JOIN [dbo].[ValueBin]    cb ON cb.[ValueBin_ID]     = vm.[ColValueBin_ID]
         {where}
-        ORDER BY vm.[Timestamp], rb.[BinIndex], cb.[BinIndex]
+        ORDER BY o.[Timestamp], rb.[BinIndex], cb.[BinIndex]
         """,
         *params,
     )
@@ -156,23 +161,24 @@ def get_image_values(
     to_dt: datetime | None,
 ) -> list[dict]:
     params: list = [channel_id]
-    where = "WHERE vi.[Channel_ID] = ?"
+    where = "WHERE o.[Channel_ID] = ?"
     if from_dt:
-        where += " AND vi.[Timestamp] >= ?"
+        where += " AND o.[Timestamp] >= ?"
         params.append(from_dt)
     if to_dt:
-        where += " AND vi.[Timestamp] <= ?"
+        where += " AND o.[Timestamp] <= ?"
         params.append(to_dt)
 
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT vi.[Timestamp], vi.[ImageWidth], vi.[ImageHeight],
+        SELECT o.[Timestamp], vi.[ImageWidth], vi.[ImageHeight],
                vi.[NumberOfChannels], vi.[ImageFormat], vi.[FileSizeBytes],
                vi.[StorageBackend], vi.[StoragePath], vi.[QualityCode]
         FROM [dbo].[ValueImage] vi
+        JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
         {where}
-        ORDER BY vi.[Timestamp]
+        ORDER BY o.[Timestamp]
         """,
         *params,
     )
@@ -200,7 +206,12 @@ def get_image_thumbnail(
     """Return the thumbnail bytes for a specific image, or None if not found."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Thumbnail] FROM [dbo].[ValueImage] WHERE [Channel_ID] = ? AND [Timestamp] = ?",
+        """
+        SELECT vi.[Thumbnail]
+        FROM [dbo].[ValueImage] vi
+        JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
+        WHERE o.[Channel_ID] = ? AND o.[Timestamp] = ?
+        """,
         channel_id,
         timestamp,
     )
@@ -218,7 +229,12 @@ def get_image_metadata_by_timestamp(
     """Return storage_path and format for a specific image."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [StoragePath], [ImageFormat] FROM [dbo].[ValueImage] WHERE [Channel_ID] = ? AND [Timestamp] = ?",
+        """
+        SELECT vi.[StoragePath], vi.[ImageFormat]
+        FROM [dbo].[ValueImage] vi
+        JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
+        WHERE o.[Channel_ID] = ? AND o.[Timestamp] = ?
+        """,
         channel_id,
         timestamp,
     )
