@@ -111,3 +111,37 @@ Deliverables:
 - **Plotly Dash dashboards**: Real-time monitoring dashboards
 - **Sensor status management UI**: View and update equipment status streams
 - **Lineage viewer**: Visual graph of data processing lineage
+
+---
+
+## Milestone 2: Observation-Centric Schema (v2.2.0)
+
+Goal: Replace the flat multi-table value design with an Observation hub table that eliminates Timestamp/Channel_ID duplication across Value, ValueVector, ValueMatrix, and ValueImage. Annotations gain variable-granularity support (time-range OR point-observation). ProcessingLineage unchanged (channel-level lineage semantics are sufficient).
+
+Schema version bump: v2.1.0 → v2.2.0
+
+**Design decisions (locked):**
+
+- `Observation(Observation_ID PK, Channel_ID FK, Timestamp, DataType)` — shared hub
+- Four payload tables keyed by `Observation_ID` only (no Channel_ID/Timestamp duplication)
+- `Annotation`: add nullable `Observation_ID` FK alongside existing `Channel_ID + StartTime/EndTime` — supports both range and point annotations
+- `ProcessingLineage`: unchanged — channel-level lineage semantics are correct
+
+---
+
+### Phase 07: Observation Migration *(Planned)*
+
+Research: No | Dependencies: Milestone 1 complete (v2.1.0 schema baseline)
+
+DDL migration, data backfill, schema dictionary, API repository updates, and tests.
+
+Deliverables:
+
+- `migrations/v2.1.0_to_v2.2.0_mssql.sql` — forward migration (single transaction)
+- `migrations/v2.1.0_to_v2.2.0_rollback_mssql.sql` — full rollback
+- `sql_generation_scripts/v2.2.0_create_mssql.sql` — clean baseline CREATE script
+- `schema_dictionary/tables/Observation.yaml` + updated Value*/Annotation YAMLs
+- Updated `api/v1/repositories/value_repository.py` + `ingestion_repository.py`
+- Updated integration + contract tests
+
+---
