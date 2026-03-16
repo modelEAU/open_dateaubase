@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-16T18:53:20.258Z"
+last_updated: "2026-03-16T19:05:56.784Z"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 27
-  completed_plans: 25
-  percent: 89
+  completed_plans: 26
+  percent: 93
 ---
 
 # Project State
@@ -52,6 +52,7 @@ Progress: [█████████░] 93%
 - [Phase 07-observation-migration]: Observation table: BIGINT IDENTITY PK, UNIQUE on (Channel_ID, Timestamp, DataType), transaction stays open through 07-03
 - [Phase 07-observation-migration]: Value restructure: drop Value_ID+Channel_ID+Timestamp; Observation_ID becomes sole PK with FK to Observation
 - [Phase 07]: Observation.DataType max_length:10 to satisfy schema validator (VARCHAR(10) per DDL plan)
+- [Phase 07-observation-migration]: ValueVector/ValueMatrix use SELECT DISTINCT for Observation backfill; ValueImage skips DISTINCT (UQ enforces uniqueness); ValueImage drops constraints in UQ->FK->PK->IDENTITY order
 
 ## Deferred Issues
 
