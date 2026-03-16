@@ -291,3 +291,73 @@ ALTER TABLE [dbo].[ValueImage]
     ADD CONSTRAINT [FK_ValueImage_Observation]
     FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 GO
+
+-- ==============================================================
+-- STEP 6: Add nullable Observation_ID FK to Annotation
+--         (supports point-level annotations alongside time-range)
+-- ==============================================================
+
+ALTER TABLE [dbo].[Annotation]
+    ADD [Observation_ID] BIGINT NULL;
+GO
+
+ALTER TABLE [dbo].[Annotation]
+    ADD CONSTRAINT [FK_Annotation_Observation]
+    FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
+GO
+
+-- ProcessingLineage: unchanged (channel-level lineage semantics are correct).
+
+-- ==============================================================
+-- STEP 7: Recreate views to join through Observation
+-- ==============================================================
+
+CREATE OR ALTER VIEW [dbo].[vw_ChannelStatus] AS
+SELECT
+    statusC.[Channel_ID]        AS StatusChannelID,
+    statusC.[StatusChannel_ID]  AS MeasurementChannelID,
+    measC.[Equipment_ID]        AS EquipmentID,
+    e.[Identifier]              AS EquipmentName,
+    p.[Parameter]               AS MeasurementParameter,
+    o.[Timestamp],
+    CAST(v.[Value] AS INT)      AS StatusCodeID
+FROM [dbo].[Value] v
+JOIN [dbo].[Observation]   o       ON o.[Observation_ID]    = v.[Observation_ID]
+JOIN [dbo].[Channel]       statusC ON statusC.[Channel_ID]  = o.[Channel_ID]
+JOIN [dbo].[Channel]       measC   ON measC.[Channel_ID]    = statusC.[StatusChannel_ID]
+JOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]      = measC.[Parameter_ID]
+JOIN [dbo].[Equipment]     e       ON e.[Equipment_ID]      = measC.[Equipment_ID]
+WHERE statusC.[StatusChannel_ID] IS NOT NULL;
+GO
+
+CREATE OR ALTER VIEW [dbo].[vw_DeviceStatus] AS
+SELECT
+    statusC.[Channel_ID]        AS StatusChannelID,
+    esc.[Equipment_ID]          AS EquipmentID,
+    e.[Identifier]              AS EquipmentName,
+    o.[Timestamp],
+    CAST(v.[Value] AS INT)      AS StatusCodeID
+FROM [dbo].[Value] v
+JOIN [dbo].[Observation]            o       ON o.[Observation_ID]    = v.[Observation_ID]
+JOIN [dbo].[Channel]                statusC ON statusC.[Channel_ID]  = o.[Channel_ID]
+JOIN [dbo].[EquipmentStatusChannel] esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
+JOIN [dbo].[Equipment]              e       ON e.[Equipment_ID]      = esc.[Equipment_ID];
+GO
+
+-- ==============================================================
+-- STEP 8: Record schema version and commit
+-- ==============================================================
+
+INSERT INTO [dbo].[SchemaVersion] ([Version], [AppliedDateTime], [Description], [MigrationScript])
+VALUES (
+    '2.2.0',
+    SYSUTCDATETIME(),
+    'Observation hub: Value/ValueVector/ValueMatrix/ValueImage keyed by Observation_ID; Annotation gains nullable Observation_ID FK',
+    'v2.1.0_to_v2.2.0_mssql.sql'
+);
+GO
+
+COMMIT TRANSACTION;
+GO
+
+PRINT 'Migration to v2.2.0 completed successfully.';
