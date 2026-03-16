@@ -118,3 +118,114 @@ ALTER TABLE [dbo].[Value]
     ADD CONSTRAINT [FK_Value_Observation]
     FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 GO
+
+-- ==============================================================
+-- STEP 3: Backfill Observation from ValueVector; restructure as
+--         lean payload keyed by (Observation_ID, ValueBin_ID)
+-- ==============================================================
+
+-- Backfill Observation rows from ValueVector (one per unique Channel_ID/Timestamp pair).
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+SELECT DISTINCT [Channel_ID], [Timestamp], 'Vector'
+FROM [dbo].[ValueVector];
+GO
+
+-- Add Observation_ID column to ValueVector (nullable until populated).
+ALTER TABLE [dbo].[ValueVector] ADD [Observation_ID] BIGINT NULL;
+GO
+
+-- Populate Observation_ID by joining back to Observation.
+UPDATE vv
+SET vv.[Observation_ID] = o.[Observation_ID]
+FROM [dbo].[ValueVector] vv
+JOIN [dbo].[Observation] o
+    ON o.[Channel_ID] = vv.[Channel_ID]
+   AND o.[Timestamp]  = vv.[Timestamp]
+   AND o.[DataType]   = 'Vector';
+GO
+
+-- Make Observation_ID NOT NULL now that all rows are populated.
+ALTER TABLE [dbo].[ValueVector] ALTER COLUMN [Observation_ID] BIGINT NOT NULL;
+GO
+
+-- Drop old composite PK (blocks column drops).
+ALTER TABLE [dbo].[ValueVector] DROP CONSTRAINT [PK_ValueVector];
+GO
+
+-- Drop FK on Channel_ID (blocks Channel_ID column drop).
+ALTER TABLE [dbo].[ValueVector] DROP CONSTRAINT [FK_ValueVector_Channel];
+GO
+
+-- Drop Channel_ID and Timestamp (now redundant, encoded in Observation).
+ALTER TABLE [dbo].[ValueVector] DROP COLUMN [Channel_ID];
+ALTER TABLE [dbo].[ValueVector] DROP COLUMN [Timestamp];
+GO
+
+-- Add new composite PK on (Observation_ID, ValueBin_ID).
+ALTER TABLE [dbo].[ValueVector]
+    ADD CONSTRAINT [PK_ValueVector] PRIMARY KEY ([Observation_ID], [ValueBin_ID]);
+GO
+
+-- Add FK Observation_ID → Observation.
+ALTER TABLE [dbo].[ValueVector]
+    ADD CONSTRAINT [FK_ValueVector_Observation]
+    FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
+GO
+
+-- Note: FK_ValueVector_ValueBin is NOT dropped — ValueBin_ID column is unchanged.
+
+-- ==============================================================
+-- STEP 4: Backfill Observation from ValueMatrix; restructure as
+--         lean payload keyed by (Observation_ID, RowValueBin_ID, ColValueBin_ID)
+-- ==============================================================
+
+-- Backfill Observation rows from ValueMatrix (one per unique Channel_ID/Timestamp pair).
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+SELECT DISTINCT [Channel_ID], [Timestamp], 'Matrix'
+FROM [dbo].[ValueMatrix];
+GO
+
+-- Add Observation_ID column to ValueMatrix (nullable until populated).
+ALTER TABLE [dbo].[ValueMatrix] ADD [Observation_ID] BIGINT NULL;
+GO
+
+-- Populate Observation_ID by joining back to Observation.
+UPDATE vm
+SET vm.[Observation_ID] = o.[Observation_ID]
+FROM [dbo].[ValueMatrix] vm
+JOIN [dbo].[Observation] o
+    ON o.[Channel_ID] = vm.[Channel_ID]
+   AND o.[Timestamp]  = vm.[Timestamp]
+   AND o.[DataType]   = 'Matrix';
+GO
+
+-- Make Observation_ID NOT NULL now that all rows are populated.
+ALTER TABLE [dbo].[ValueMatrix] ALTER COLUMN [Observation_ID] BIGINT NOT NULL;
+GO
+
+-- Drop old composite PK (blocks column drops).
+ALTER TABLE [dbo].[ValueMatrix] DROP CONSTRAINT [PK_ValueMatrix];
+GO
+
+-- Drop FK on Channel_ID (blocks Channel_ID column drop).
+ALTER TABLE [dbo].[ValueMatrix] DROP CONSTRAINT [FK_ValueMatrix_Channel];
+GO
+
+-- Drop Channel_ID and Timestamp (now redundant, encoded in Observation).
+ALTER TABLE [dbo].[ValueMatrix] DROP COLUMN [Channel_ID];
+ALTER TABLE [dbo].[ValueMatrix] DROP COLUMN [Timestamp];
+GO
+
+-- Add new composite PK on (Observation_ID, RowValueBin_ID, ColValueBin_ID).
+ALTER TABLE [dbo].[ValueMatrix]
+    ADD CONSTRAINT [PK_ValueMatrix]
+    PRIMARY KEY ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID]);
+GO
+
+-- Add FK Observation_ID → Observation.
+ALTER TABLE [dbo].[ValueMatrix]
+    ADD CONSTRAINT [FK_ValueMatrix_Observation]
+    FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
+GO
+
+-- Note: FK_ValueMatrix_RowValueBin and FK_ValueMatrix_ColValueBin are NOT dropped.
