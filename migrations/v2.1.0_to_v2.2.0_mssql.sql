@@ -229,3 +229,65 @@ ALTER TABLE [dbo].[ValueMatrix]
 GO
 
 -- Note: FK_ValueMatrix_RowValueBin and FK_ValueMatrix_ColValueBin are NOT dropped.
+
+-- ==============================================================
+-- STEP 5: Backfill Observation from ValueImage; restructure —
+--         swap ValueImage_ID IDENTITY PK for Observation_ID PK
+-- ==============================================================
+
+-- Backfill Observation rows from ValueImage.
+-- No DISTINCT needed: UQ_ValueImage_ChannelTimestamp already enforces uniqueness.
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+SELECT [Channel_ID], [Timestamp], 'Image'
+FROM [dbo].[ValueImage];
+GO
+
+-- Add Observation_ID column to ValueImage (nullable until populated).
+ALTER TABLE [dbo].[ValueImage] ADD [Observation_ID] BIGINT NULL;
+GO
+
+-- Populate Observation_ID by joining back to Observation.
+UPDATE vi
+SET vi.[Observation_ID] = o.[Observation_ID]
+FROM [dbo].[ValueImage] vi
+JOIN [dbo].[Observation] o
+    ON o.[Channel_ID] = vi.[Channel_ID]
+   AND o.[Timestamp]  = vi.[Timestamp]
+   AND o.[DataType]   = 'Image';
+GO
+
+-- Make Observation_ID NOT NULL now that all rows are populated.
+ALTER TABLE [dbo].[ValueImage] ALTER COLUMN [Observation_ID] BIGINT NOT NULL;
+GO
+
+-- Drop UNIQUE constraint on (Channel_ID, Timestamp) — blocks Timestamp column drop later.
+ALTER TABLE [dbo].[ValueImage] DROP CONSTRAINT [UQ_ValueImage_ChannelTimestamp];
+GO
+
+-- Drop FK on Channel_ID (blocks Channel_ID column drop).
+ALTER TABLE [dbo].[ValueImage] DROP CONSTRAINT [FK_ValueImage_Channel];
+GO
+
+-- Drop old PK on ValueImage_ID (required before dropping the IDENTITY column it covers).
+ALTER TABLE [dbo].[ValueImage] DROP CONSTRAINT [PK_ValueImage];
+GO
+
+-- Drop ValueImage_ID (IDENTITY column — no external FK references).
+ALTER TABLE [dbo].[ValueImage] DROP COLUMN [ValueImage_ID];
+GO
+
+-- Drop Channel_ID and Timestamp (now redundant, encoded in Observation).
+ALTER TABLE [dbo].[ValueImage] DROP COLUMN [Channel_ID];
+ALTER TABLE [dbo].[ValueImage] DROP COLUMN [Timestamp];
+GO
+
+-- Add new PK on Observation_ID.
+ALTER TABLE [dbo].[ValueImage]
+    ADD CONSTRAINT [PK_ValueImage] PRIMARY KEY ([Observation_ID]);
+GO
+
+-- Add FK Observation_ID → Observation.
+ALTER TABLE [dbo].[ValueImage]
+    ADD CONSTRAINT [FK_ValueImage_Observation]
+    FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
+GO
