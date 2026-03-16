@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-16T19:42:02.740Z"
+last_updated: "2026-03-16T19:50:14.838Z"
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 27
-  completed_plans: 29
+  completed_plans: 30
   percent: 100
 ---
 
@@ -18,9 +18,9 @@ progress:
 
 - **Active milestone**: Milestone 2 — Observation-Centric Schema (v2.2.0)
 - **Active phase**: Phase 07 — Observation Migration
-- **Plan**: 6 of 7 complete in current phase
-- **Status**: In progress
-- **Last activity**: 2026-03-16 — Completed 07-06-PLAN.md (Read path Observation join + v2.2.0 baseline CREATE script)
+- **Plan**: 7 of 7 complete in current phase
+- **Status**: Phase 07 complete
+- **Last activity**: 2026-03-16 — Completed 07-07-PLAN.md (Integration + contract tests for v2.2.0 Observation schema)
 
 Progress: [██████████] 100%
 
@@ -57,6 +57,7 @@ Progress: [██████████] 100%
 - [Phase 07-observation-migration 07-03]: Rollback script uses mssql_rollback.sql naming (CI test constraint); views dropped before Value is touched and recreated after; Value_ID/ValueImage_ID restored as ROW_NUMBER surrogates (SQL Server cannot ADD IDENTITY to existing columns)
 - [Phase 07]: All read filters route through o.[Channel_ID] and o.[Timestamp] — payload tables have no Channel_ID/Timestamp after v2.2.0 migration
 - [Phase 07]: v2.2.0 baseline places Observation CREATE before all payload tables to satisfy FK dependency order
+- [Phase 07]: Ingest endpoint returns HTTP 201 (not 200); contract test uses assert resp.status_code in (200, 201)
 
 ## Deferred Issues
 
@@ -76,12 +77,12 @@ Progress: [██████████] 100%
 ## Session Continuity
 
 - **Last session**: 2026-03-16
-- **Stopped at**: Completed 07-06-PLAN.md — read path Observation joins + v2.2.0 baseline script
+- **Stopped at**: Completed 07-07-PLAN.md — Phase 07 observation migration fully complete (all 7 plans)
 - **Resume file**: None
-- **Next action**: Execute 07-07-PLAN.md (integration + contract test updates)
+- **Next action**: Run /gsd:complete-milestone to archive Milestone 2 and begin Milestone 3 tracking
 
 ## Brief Alignment
 
 Backend (FastAPI + MSSQL) is complete at v2.1.0. Frontend Streamlit app complete (phases 01–05). Phase 06 deployment setup complete. Full stack launches with `docker-compose up -d db api app`. Now beginning Phase 07: Observation-Centric Schema migration to v2.2.0.
 
-**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) in progress — 6 of 7 plans done.
+**Status**: Milestone 1 — Frontend Web App (v1.0) — fully complete. Phase 07 (Observation Migration) — fully complete (all 7 plans done). Milestone 2 (v2.2.0 Observation-Centric Schema) complete.
