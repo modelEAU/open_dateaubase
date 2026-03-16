@@ -422,6 +422,15 @@
           "is_required": false,
           "fk_target": null,
           "description": "When this annotation was last modified"
+        },
+        {
+          "name": "Observation_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Observation.Observation_ID",
+          "description": "Optional link to a specific Observation for point-level annotations (e.g., 'wrong focal length on this image'). When NULL, the annotation applies to the time range [StartTime, EndTime] on the channel. When set, StartTime should match Observation.Timestamp.\n"
         }
       ]
     },
@@ -1489,6 +1498,49 @@
       ]
     },
     {
+      "id": "Observation",
+      "label": "Observation",
+      "description": "Shared hub table representing a single measurement event on a channel at a timestamp. The four payload tables (Value, ValueVector, ValueMatrix, ValueImage) carry only their type-specific data, keyed by Observation_ID. DataType mirrors Channel.ValueType_ID for self-description.\n",
+      "fields": [
+        {
+          "name": "Observation_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate key; auto-assigned by the database"
+        },
+        {
+          "name": "Channel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Channel.Channel_ID",
+          "description": "The channel this observation belongs to"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC timestamp of the observation"
+        },
+        {
+          "name": "DataType",
+          "sql_type": "NVARCHAR(10)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Payload type: Scalar, Vector, Matrix, or Image. Must match the Channel's ValueType."
+        }
+      ]
+    },
+    {
       "id": "Parameter",
       "label": "Parameter",
       "description": "Stores the different water quality or quantity parameters that are measured (e.g., pH, TSS, N-components)",
@@ -2478,25 +2530,16 @@
     {
       "id": "Value",
       "label": "Value",
-      "description": "Stores each measured water quality or quantity value, its time stamp, replicate identification, and the link to its specific metadata set",
+      "description": "Scalar payload for a single Observation. One row per Observation of DataType='Scalar'. Channel and Timestamp are resolved via the Observation table.\n",
       "fields": [
         {
-          "name": "Channel_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Channel.Channel_ID",
-          "description": "The measurement channel this value belongs to"
-        },
-        {
-          "name": "Value_ID",
+          "name": "Observation_ID",
           "sql_type": "INT",
           "is_pk": true,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": true,
-          "fk_target": null,
-          "description": "A unique ID is generated automatically by the database"
+          "fk_target": "Observation.Observation_ID",
+          "description": "Links this scalar value to its Observation (channel + timestamp)"
         },
         {
           "name": "Value",
@@ -2505,16 +2548,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Value of collected data"
-        },
-        {
-          "name": "Timestamp",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "UTC timestamp for date and time of collected data (stored in UTC by convention)"
+          "description": "Measured scalar value"
         }
       ]
     },
@@ -2625,34 +2659,16 @@
     {
       "id": "ValueImage",
       "label": "ValueImage",
-      "description": "Stores image measurement references with metadata about the image dimensions, format, and storage location",
+      "description": "Image measurement payload for a single Observation. One row per Observation of DataType='Image'. Stores metadata about image dimensions, format, and storage location. Channel and Timestamp are resolved via the Observation table.\n",
       "fields": [
         {
-          "name": "ValueImage_ID",
-          "sql_type": "BIGINT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Channel_ID",
+          "name": "Observation_ID",
           "sql_type": "INT",
-          "is_pk": false,
+          "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Channel_ID",
-          "description": "References the channel context for this image"
-        },
-        {
-          "name": "Timestamp",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "UTC timestamp when the image was captured (stored in UTC by convention)"
+          "fk_target": "Observation.Observation_ID",
+          "description": "Links this image to its Observation (channel + timestamp). Acts as both PK and FK \u2014 one image per observation.\n"
         },
         {
           "name": "ImageWidth",
@@ -2740,25 +2756,16 @@
     {
       "id": "ValueMatrix",
       "label": "ValueMatrix",
-      "description": "Stores 2D binned measurement data as one row per (row-bin, col-bin) cell per timestamp, supporting joint distributions such as particle size-velocity",
+      "description": "One row per (observation, row-bin, col-bin) for 2D matrix data. Supports joint distributions such as particle size-velocity. Channel and Timestamp are resolved via the Observation table.\n",
       "fields": [
         {
-          "name": "Channel_ID",
+          "name": "Observation_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Channel_ID",
-          "description": "References the channel context for this measurement"
-        },
-        {
-          "name": "Timestamp",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "UTC timestamp of the measurement (stored in UTC by convention)"
+          "fk_target": "Observation.Observation_ID",
+          "description": "References the Observation (channel + timestamp) for this measurement"
         },
         {
           "name": "RowValueBin_ID",
@@ -2767,7 +2774,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "ValueBin.ValueBin_ID",
-          "description": "References the bin on the row axis (AxisRole=0 in MetaDataAxis)"
+          "description": "References the bin on the row axis (AxisRole=0)"
         },
         {
           "name": "ColValueBin_ID",
@@ -2776,7 +2783,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "ValueBin.ValueBin_ID",
-          "description": "References the bin on the column axis (AxisRole=1 in MetaDataAxis)"
+          "description": "References the bin on the column axis (AxisRole=1)"
         },
         {
           "name": "Value",
@@ -2826,25 +2833,16 @@
     {
       "id": "ValueVector",
       "label": "ValueVector",
-      "description": "Stores 1D binned measurement data as one row per bin per timestamp, unifying spectra, particle size distributions, and any other 1D distribution over a physical axis",
+      "description": "One row per (observation, bin) for vector (spectral) data. Unifies spectra, particle size distributions, and any other 1D distribution over a physical axis. Channel and Timestamp are resolved via the Observation table.\n",
       "fields": [
         {
-          "name": "Channel_ID",
+          "name": "Observation_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Channel_ID",
-          "description": "References the channel context for this measurement"
-        },
-        {
-          "name": "Timestamp",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "UTC timestamp of the measurement (stored in UTC by convention)"
+          "fk_target": "Observation.Observation_ID",
+          "description": "References the Observation (channel + timestamp) for this measurement"
         },
         {
           "name": "ValueBin_ID",
@@ -3154,6 +3152,13 @@
       "relationship_type": null
     },
     {
+      "from_table": "Annotation",
+      "to_table": "Observation",
+      "from_field": "Observation_ID",
+      "to_field": "Observation_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "Campaign",
       "to_table": "CampaignType",
       "from_field": "CampaignType_ID",
@@ -3441,6 +3446,13 @@
       "relationship_type": null
     },
     {
+      "from_table": "Observation",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "Parameter",
       "to_table": "Unit",
       "from_field": "Unit_ID",
@@ -3554,9 +3566,9 @@
     },
     {
       "from_table": "Value",
-      "to_table": "Channel",
-      "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_table": "Observation",
+      "from_field": "Observation_ID",
+      "to_field": "Observation_ID",
       "relationship_type": null
     },
     {
@@ -3575,16 +3587,16 @@
     },
     {
       "from_table": "ValueImage",
-      "to_table": "Channel",
-      "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_table": "Observation",
+      "from_field": "Observation_ID",
+      "to_field": "Observation_ID",
       "relationship_type": null
     },
     {
       "from_table": "ValueMatrix",
-      "to_table": "Channel",
-      "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_table": "Observation",
+      "from_field": "Observation_ID",
+      "to_field": "Observation_ID",
       "relationship_type": null
     },
     {
@@ -3603,9 +3615,9 @@
     },
     {
       "from_table": "ValueVector",
-      "to_table": "Channel",
-      "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_table": "Observation",
+      "from_field": "Observation_ID",
+      "to_field": "Observation_ID",
       "relationship_type": null
     },
     {

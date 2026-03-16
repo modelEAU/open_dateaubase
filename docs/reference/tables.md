@@ -30,6 +30,8 @@ Human-authored annotations on time series data. Each annotation applies to a sin
 | Comment | NVARCHAR(MAX) | - |  | <span id="Comment"></span>Detailed free-text comment | - |
 | CreatedDateTime | DATETIME2(7) | - | ✓ | <span id="CreatedDateTime"></span>When this annotation was created | Default: `CURRENT_TIMESTAMP` |
 | ModifiedDateTime | DATETIME2(7) | - |  | <span id="ModifiedDateTime"></span>When this annotation was last modified | - |
+| Observation_ID | INT | - |  | <span id="Observation_ID"></span>Optional link to a specific Observation for point-level annotations (e.g., 'wrong focal length on this image'). When NULL, the annotation applies to the time range [StartTime, EndTime] on the channel. When set, StartTime should match Observation.Timestamp.
+ | FK → [Observation.Observation_ID](#Observation) |
 
 <span id="AnnotationType"></span>
 
@@ -406,6 +408,23 @@ A laboratory where discrete samples are analysed. May be on-site or external.
 | Site_ID | INT | - |  | <span id="Site_ID"></span>Site where the laboratory is located, if on-site. NULL for external labs. | FK → [Site.Site_ID](#Site) |
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Additional information about the laboratory | - |
 
+<span id="Observation"></span>
+
+### Observation
+
+Shared hub table representing a single measurement event on a channel at a timestamp. The four payload tables (Value, ValueVector, ValueMatrix, ValueImage) carry only their type-specific data, keyed by Observation_ID. DataType mirrors Channel.ValueType_ID for self-description.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Observation_ID | INT **(PK)** | - | ✓ | <span id="Observation_ID"></span>Surrogate key; auto-assigned by the database | - |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The channel this observation belongs to | FK → [Channel.Channel_ID](#Channel) |
+| Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the observation | - |
+| DataType | NVARCHAR(10) | - | ✓ | <span id="DataType"></span>Payload type: Scalar, Vector, Matrix, or Image. Must match the Channel's ValueType. | - |
+
 <span id="Parameter"></span>
 
 ### Parameter
@@ -701,17 +720,16 @@ Stores the urban land use percentages (e.g., commercial, residential, green spac
 
 ### Value
 
-Stores each measured water quality or quantity value, its time stamp, replicate identification, and the link to its specific metadata set
+Scalar payload for a single Observation. One row per Observation of DataType='Scalar'. Channel and Timestamp are resolved via the Observation table.
+
 
 
 #### Fields
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Channel_ID | INT | - |  | <span id="Channel_ID"></span>The measurement channel this value belongs to | FK → [Channel.Channel_ID](#Channel) |
-| Value_ID | INT **(PK)** | - | ✓ | <span id="Value_ID"></span>A unique ID is generated automatically by the database | - |
-| Value | FLOAT | - |  | <span id="Value"></span>Value of collected data | - |
-| Timestamp | DATETIME2(7) | - |  | <span id="Timestamp"></span>UTC timestamp for date and time of collected data (stored in UTC by convention) | - |
+| Observation_ID | INT **(PK)** | - | ✓ | <span id="Observation_ID"></span>Links this scalar value to its Observation (channel + timestamp) | FK → [Observation.Observation_ID](#Observation) |
+| Value | FLOAT | - |  | <span id="Value"></span>Measured scalar value | - |
 
 <span id="ValueBin"></span>
 
@@ -751,16 +769,16 @@ Defines a named measurement axis for binned data (e.g. wavelength, particle size
 
 ### ValueImage
 
-Stores image measurement references with metadata about the image dimensions, format, and storage location
+Image measurement payload for a single Observation. One row per Observation of DataType='Image'. Stores metadata about image dimensions, format, and storage location. Channel and Timestamp are resolved via the Observation table.
+
 
 
 #### Fields
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| ValueImage_ID | BIGINT **(PK)** | - | ✓ | <span id="ValueImage_ID"></span>Surrogate primary key | - |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>References the channel context for this image | FK → [Channel.Channel_ID](#Channel) |
-| Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp when the image was captured (stored in UTC by convention) | - |
+| Observation_ID | INT **(PK)** | - | ✓ | <span id="Observation_ID"></span>Links this image to its Observation (channel + timestamp). Acts as both PK and FK — one image per observation.
+ | FK → [Observation.Observation_ID](#Observation) |
 | ImageWidth | INT | - | ✓ | <span id="ImageWidth"></span>Width of the image in pixels | - |
 | ImageHeight | INT | - | ✓ | <span id="ImageHeight"></span>Height of the image in pixels | - |
 | NumberOfChannels | INT | - | ✓ | <span id="NumberOfChannels"></span>Number of color channels (e.g. 3 for RGB, 1 for grayscale) | Default: `3` |
@@ -775,17 +793,17 @@ Stores image measurement references with metadata about the image dimensions, fo
 
 ### ValueMatrix
 
-Stores 2D binned measurement data as one row per (row-bin, col-bin) cell per timestamp, supporting joint distributions such as particle size-velocity
+One row per (observation, row-bin, col-bin) for 2D matrix data. Supports joint distributions such as particle size-velocity. Channel and Timestamp are resolved via the Observation table.
+
 
 
 #### Fields
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the channel context for this measurement | FK → [Channel.Channel_ID](#Channel) |
-| Timestamp | DATETIME2(7) **(PK)** | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the measurement (stored in UTC by convention) | - |
-| RowValueBin_ID | INT **(PK)** | - | ✓ | <span id="RowValueBin_ID"></span>References the bin on the row axis (AxisRole=0 in MetaDataAxis) | FK → [ValueBin.ValueBin_ID](#ValueBin) |
-| ColValueBin_ID | INT **(PK)** | - | ✓ | <span id="ColValueBin_ID"></span>References the bin on the column axis (AxisRole=1 in MetaDataAxis) | FK → [ValueBin.ValueBin_ID](#ValueBin) |
+| Observation_ID | INT **(PK)** | - | ✓ | <span id="Observation_ID"></span>References the Observation (channel + timestamp) for this measurement | FK → [Observation.Observation_ID](#Observation) |
+| RowValueBin_ID | INT **(PK)** | - | ✓ | <span id="RowValueBin_ID"></span>References the bin on the row axis (AxisRole=0) | FK → [ValueBin.ValueBin_ID](#ValueBin) |
+| ColValueBin_ID | INT **(PK)** | - | ✓ | <span id="ColValueBin_ID"></span>References the bin on the column axis (AxisRole=1) | FK → [ValueBin.ValueBin_ID](#ValueBin) |
 | Value | FLOAT | - |  | <span id="Value"></span>Measured value at this (row-bin, col-bin) cell | - |
 | QualityCode | INT | - |  | <span id="QualityCode"></span>Quality flag for this measurement | - |
 
@@ -807,15 +825,15 @@ Lookup table defining the shape of stored measurement values (Scalar, Vector, Ma
 
 ### ValueVector
 
-Stores 1D binned measurement data as one row per bin per timestamp, unifying spectra, particle size distributions, and any other 1D distribution over a physical axis
+One row per (observation, bin) for vector (spectral) data. Unifies spectra, particle size distributions, and any other 1D distribution over a physical axis. Channel and Timestamp are resolved via the Observation table.
+
 
 
 #### Fields
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the channel context for this measurement | FK → [Channel.Channel_ID](#Channel) |
-| Timestamp | DATETIME2(7) **(PK)** | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the measurement (stored in UTC by convention) | - |
+| Observation_ID | INT **(PK)** | - | ✓ | <span id="Observation_ID"></span>References the Observation (channel + timestamp) for this measurement | FK → [Observation.Observation_ID](#Observation) |
 | ValueBin_ID | INT **(PK)** | - | ✓ | <span id="ValueBin_ID"></span>References the bin (and through it, the axis) for this value | FK → [ValueBin.ValueBin_ID](#ValueBin) |
 | Value | FLOAT | - |  | <span id="Value"></span>Measured value at this bin | - |
 | QualityCode | INT | - |  | <span id="QualityCode"></span>Quality flag for this measurement | - |
