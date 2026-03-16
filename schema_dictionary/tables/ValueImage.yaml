@@ -2,25 +2,20 @@ _format_version: "1.0"
 table:
   name: ValueImage
   schema: dbo
-  description: "Stores image measurement references with metadata about the image dimensions, format, and storage location"
+  description: >
+    Image measurement payload for a single Observation. One row per Observation of
+    DataType='Image'. Stores metadata about image dimensions, format, and storage
+    location. Channel and Timestamp are resolved via the Observation table.
   columns:
-    - name: ValueImage_ID
-      logical_type: biginteger
-      nullable: false
-      identity: true
-      description: "Surrogate primary key"
-    - name: Channel_ID
+    - name: Observation_ID
       logical_type: integer
       nullable: false
-      description: "References the channel context for this image"
+      description: >
+        Links this image to its Observation (channel + timestamp).
+        Acts as both PK and FK — one image per observation.
       foreign_key:
-        table: Channel
-        column: Channel_ID
-    - name: Timestamp
-      logical_type: timestamp
-      precision: 7
-      nullable: false
-      description: "UTC timestamp when the image was captured (stored in UTC by convention)"
+        table: Observation
+        column: Observation_ID
     - name: ImageWidth
       logical_type: integer
       nullable: false
@@ -62,10 +57,4 @@ table:
       logical_type: integer
       nullable: true
       description: "Quality flag for this image"
-  primary_key: [ValueImage_ID]
-  unique_constraints:
-    - name: UQ_ValueImage_ChannelTimestamp
-      columns: [Channel_ID, Timestamp]
-  indexes:
-    - name: IX_ValueImage_ChannelTimestamp
-      columns: [Channel_ID, Timestamp]
+  primary_key: [Observation_ID]

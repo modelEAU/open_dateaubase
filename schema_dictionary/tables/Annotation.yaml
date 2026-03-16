@@ -79,6 +79,17 @@ table:
       precision: 7
       nullable: true
       description: "When this annotation was last modified"
+    - name: Observation_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        Optional link to a specific Observation for point-level annotations
+        (e.g., 'wrong focal length on this image'). When NULL, the annotation
+        applies to the time range [StartTime, EndTime] on the channel. When set,
+        StartTime should match Observation.Timestamp.
+      foreign_key:
+        table: Observation
+        column: Observation_ID
   primary_key: [Annotation_ID]
   indexes:
     - name: IX_Annotation_Channel_Time
