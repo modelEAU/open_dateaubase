@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from api.database import get_db
 from ..repositories import campaign_repository
@@ -14,7 +14,6 @@ from ..schemas.campaigns import (
     CampaignTypeOut,
     DeploymentCreateIn,
     DeploymentCreateOut,
-    DeploymentDeleteIn,
     DeploymentOut,
 )
 
@@ -133,14 +132,15 @@ def create_campaign_deployment(
     return DeploymentCreateOut(installation_id=installation_id)
 
 
-@router.delete("/{campaign_id}/deployments", status_code=204)
-def delete_campaign_deployment(
-    campaign_id: int, body: DeploymentDeleteIn, conn=Depends(get_db)
+@router.delete("/{campaign_id}/deployments/{installation_id}", status_code=204)
+def remove_campaign_deployment(
+    campaign_id: int,
+    installation_id: int,
+    conn=Depends(get_db),
 ):
-    """Delete a deployment: remove equipment + sampling point pairing from a campaign."""
-    campaign_repository.delete_campaign_deployment(
-        conn,
-        campaign_id=campaign_id,
-        equipment_id=body.equipment_id,
-        sampling_point_id=body.sampling_point_id,
+    deleted = campaign_repository.delete_campaign_deployment_by_installation(
+        conn, campaign_id, installation_id
     )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Deployment not found.")
+    return Response(status_code=204)

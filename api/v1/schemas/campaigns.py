@@ -86,8 +86,3 @@ class DeploymentCreateOut(BaseModel):
     installation_id: int
 
 
-class DeploymentDeleteIn(BaseModel):
-    """Input for deleting a deployment."""
-
-    equipment_id: int
-    sampling_point_id: int

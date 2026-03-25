@@ -410,3 +410,26 @@ def delete_campaign_deployment(
     )
 
     conn.commit()
+
+
+def delete_campaign_deployment_by_installation(
+    conn: pyodbc.Connection,
+    campaign_id: int,
+    installation_id: int,
+) -> bool:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT [Equipment_ID], [SamplingPoint_ID]
+        FROM [dbo].[EquipmentInstallation]
+        WHERE [EquipmentInstallation_ID] = ? AND [Campaign_ID] = ?
+        """,
+        installation_id,
+        campaign_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return False
+    equipment_id, sampling_point_id = row
+    delete_campaign_deployment(conn, campaign_id, equipment_id, sampling_point_id)
+    return True
