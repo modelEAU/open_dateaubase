@@ -7,10 +7,41 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 
 from api.database import get_db
-from ..schemas.lineage import LineageTreeOut, ProcessingDegreeSummaryOut
+from ..schemas.lineage import (
+    LineageTreeOut,
+    ProcessingDegreeSummaryOut,
+    ProcessingStepCreate,
+    ProcessingStepOut,
+)
 from ..services import lineage_service
 
 router = APIRouter()
+
+
+@router.post("/steps", response_model=ProcessingStepOut, status_code=201)
+def record_processing_step(
+    body: ProcessingStepCreate,
+    conn=Depends(get_db),
+):
+    """Record a processing step and its data lineage without ingesting any values.
+
+    Use this when:
+    - You processed data in batches and want to record lineage once at the end.
+    - A QC algorithm ran but produced no output values.
+    - You need to retry lineage recording independently of data ingestion.
+    """
+    step_id = lineage_service.persist_processing(
+        conn,
+        source_metadata_ids=body.source_channel_ids,
+        method_name=body.method_name,
+        method_version=body.method_version,
+        processing_type=body.processing_type,
+        parameters=body.parameters,
+        executed_at=body.executed_at,
+        executed_by_person_id=body.executed_by_person_id,
+        output_metadata_id=body.output_channel_id,
+    )
+    return ProcessingStepOut(processing_step_id=step_id)
 
 
 @router.get("/{channel_id}/forward")

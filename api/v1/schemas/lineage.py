@@ -7,7 +7,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class ProcessingStepOut(BaseModel):
+class ProcessingStepDetailOut(BaseModel):
     processing_step_id: int
     name: str
     description: str | None
@@ -23,9 +23,24 @@ class LineageEdgeOut(BaseModel):
     """A single directed edge in the processing DAG."""
 
     channel_id: int
-    processing_step: ProcessingStepOut
+    processing_step: ProcessingStepDetailOut
     role: str
     output_channel_ids: list[int]
+
+
+class ProcessingStepCreate(BaseModel):
+    source_channel_ids: list[int]
+    output_channel_id: int
+    method_name: str
+    method_version: str | None = None
+    processing_type: str
+    parameters: dict = {}
+    executed_at: datetime | None = None
+    executed_by_person_id: int | None = None
+
+
+class ProcessingStepOut(BaseModel):
+    processing_step_id: int
 
 
 class LineageTreeOut(BaseModel):
