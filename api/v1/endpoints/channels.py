@@ -5,11 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
-from ..repositories import channel_repository
+from ..repositories import channel_repository, ingestion_repository
 from ..schemas.common import PaginatedResponse
 from ..schemas.channel import (
     ChannelOut,
     ChannelIn,
+    ChannelDerivedIn,
+    ChannelDerivedOut,
     EquipmentLookupOut,
     ParameterLookupOut,
     ProcessingDegreeLookupOut,
@@ -21,6 +23,25 @@ from ..repositories.metadata_repository import (
 )
 
 router = APIRouter()
+
+
+@router.post("/derived", response_model=ChannelDerivedOut, status_code=200)
+def provision_derived_channel(
+    body: ChannelDerivedIn,
+    conn=Depends(get_db),
+):
+    """Find or create an output Channel for a processed data stream.
+
+    Idempotent: calling with the same inputs always returns the same channel_id.
+    Use this before batch-ingesting processed data so you can reuse the channel
+    across many ingest calls without re-specifying all identity fields.
+    """
+    channel_id = ingestion_repository.find_or_create_derived_metadata(
+        conn,
+        source_channel_id=body.source_channel_id,
+        processing_degree_id=body.processing_degree_id,
+    )
+    return ChannelDerivedOut(channel_id=channel_id)
 
 
 @router.get("", response_model=PaginatedResponse[ChannelOut])

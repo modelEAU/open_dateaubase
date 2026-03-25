@@ -72,3 +72,12 @@ class ChannelListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class ChannelDerivedIn(BaseModel):
+    source_channel_id: int
+    processing_degree_id: int
+
+
+class ChannelDerivedOut(BaseModel):
+    channel_id: int
