@@ -2,7 +2,6 @@ import struct
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 
 from table_import.data_file import DataFile
@@ -69,8 +68,4 @@ class TsdbFile(DataFile):
         df = self.raw_data.copy()
         df["Timestamp"] = df["ticks"].apply(_ticks_to_unix_seconds)
         df["Value"] = df["value"] * self.variable.conversion_factor
-        df["Metadata_ID"] = self.variable.metadata_id
-        df["Number_of_experiment"] = 1
-        df["Comment_ID"] = np.nan
-        df["Value_ID"] = df.index
-        return ValueTable(df[ValueTable.acceptable_columns])
+        return ValueTable(df[["Timestamp", "Value"]])

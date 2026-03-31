@@ -192,12 +192,12 @@ class TaglessSensorIngestRequest(BaseModel):
     """Ingest raw sensor data from a direct-connect station (no SCADA tag name).
 
     A synthetic SignalPort tag is auto-generated as
-    ``"{equipment_identifier}/{parameter_name}"`` (lowercased, trimmed).
+    ``"{equipment_name}/{parameter_name}"`` (lowercased, trimmed).
     This tag is deterministic and stable across repeated runs.
     """
 
     das_name: str
-    equipment_identifier: str
+    equipment_name: str
     parameter_name: str
     unit_name: str
     data_provenance_id: int = 1
@@ -210,6 +210,35 @@ class TaglessSensorIngestRequest(BaseModel):
         if not v:
             raise ValueError("values list must not be empty")
         return v
+
+
+class SensorChannelResolveRequest(BaseModel):
+    """Resolve (or create) a tagged sensor channel. Returns channel_id with no data write."""
+
+    das_name: str
+    tag: str
+    signal_port_type: str = "value"
+    parent_tag: str | None = None
+    parameter_name: str
+    unit_name: str
+    data_provenance_id: int = 1
+    processing_degree_id: int = 1
+
+
+class TaglessSensorChannelResolveRequest(BaseModel):
+    """Resolve (or create) a tagless sensor channel. Returns channel_id with no data write."""
+
+    das_name: str
+    equipment_name: str
+    parameter_name: str
+    unit_name: str
+    data_provenance_id: int = 1
+    processing_degree_id: int = 1
+
+
+class ChannelResolveResponse(BaseModel):
+    channel_id: int
+    warnings: list[str] = []
 
 
 class SignalPortDeactivateResponse(BaseModel):

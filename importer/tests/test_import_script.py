@@ -40,14 +40,7 @@ def test_unix_seconds_to_iso_epoch():
 
 def _make_df(timestamps: list[float], values: list[float]) -> ValueTable:
     """Create a minimal ValueTable with Timestamp and Value columns."""
-    df = pd.DataFrame({
-        "Timestamp": timestamps,
-        "Value": values,
-        "Value_ID": [0] * len(timestamps),
-        "Number_of_experiment": [1] * len(timestamps),
-        "Metadata_ID": [0] * len(timestamps),
-        "Comment_ID": [None] * len(timestamps),
-    })
+    df = pd.DataFrame({"Timestamp": timestamps, "Value": values})
     return ValueTable(df)
 
 
@@ -61,7 +54,6 @@ def test_build_api_payload_filters_by_watermark():
 
 def test_build_api_payload_filters_by_min_timestamp():
     df = _make_df([100.0, 200.0, 300.0], [1.0, 2.0, 3.0])
-    # min_unix_ts removes the first row, watermark removes nothing additional
     payload = build_api_payload(df, last_unix_ts=0.0, min_unix_ts=150.0, conversion_factor=1.0)
     assert len(payload) == 2
     assert payload[0]["value"] == 2.0
@@ -84,7 +76,6 @@ def test_build_api_payload_timestamp_is_iso_string():
     df = _make_df([0.0], [5.0])
     payload = build_api_payload(df, last_unix_ts=-1.0, min_unix_ts=None, conversion_factor=1.0)
     assert isinstance(payload[0]["timestamp"], str)
-    # Should be parseable as ISO datetime
     datetime.fromisoformat(payload[0]["timestamp"])
 
 
@@ -92,44 +83,59 @@ def test_build_api_payload_timestamp_is_iso_string():
 # ingest_via_api
 # ---------------------------------------------------------------------------
 
+_COMMON = dict(
+    das_name="DAS-1",
+    tag="TIT-101",
+    signal_port_type="value",
+    parent_tag=None,
+    equipment_name=None,
+    parameter_name="temperature",
+    unit_name="degC",
+    data_provenance_id=1,
+    processing_degree_id=1,
+    label="test/var",
+)
+
+_PAYLOAD = [{"timestamp": "2024-01-01T00:00:00+00:00", "value": 1.0}]
+
 
 def test_ingest_via_api_dry_run_does_not_call_client():
     client = MagicMock()
-    payload = [{"timestamp": "2024-01-01T00:00:00+00:00", "value": 1.0}]
-    ingest_via_api(
-        client,
-        equipment_id=1,
-        parameter_id=10,
-        unit_id=5,
-        data_provenance_id=1,
-        processing_degree_id=1,
-        payload=payload,
-        label="test/var",
-        dry_run=True,
-    )
+    ingest_via_api(client, mode="tagged", payload=_PAYLOAD, dry_run=True, **_COMMON)
     client.ingest_sensor_values.assert_not_called()
+    client.ingest_sensor_values_tagless.assert_not_called()
 
 
-def test_ingest_via_api_calls_client_with_correct_args():
+def test_ingest_via_api_tagged_calls_correct_method():
     client = MagicMock()
     client.ingest_sensor_values.return_value = {"channel_id": 7, "rows_written": 1}
-    payload = [{"timestamp": "2024-01-01T00:00:00+00:00", "value": 1.0}]
-    ingest_via_api(
-        client,
-        equipment_id=1,
-        parameter_id=10,
-        unit_id=5,
-        data_provenance_id=1,
-        processing_degree_id=1,
-        payload=payload,
-        label="test/var",
-        dry_run=False,
-    )
+    ingest_via_api(client, mode="tagged", payload=_PAYLOAD, dry_run=False, **_COMMON)
     client.ingest_sensor_values.assert_called_once_with(
-        equipment_id=1,
-        parameter_id=10,
-        unit_id=5,
+        das_name="DAS-1",
+        tag="TIT-101",
+        signal_port_type="value",
+        parent_tag=None,
+        parameter_name="temperature",
+        unit_name="degC",
         data_provenance_id=1,
         processing_degree_id=1,
-        values=payload,
+        values=_PAYLOAD,
     )
+    client.ingest_sensor_values_tagless.assert_not_called()
+
+
+def test_ingest_via_api_tagless_calls_correct_method():
+    client = MagicMock()
+    client.ingest_sensor_values_tagless.return_value = {"channel_id": 8, "rows_written": 1}
+    tagless_common = {**_COMMON, "tag": None, "equipment_name": "Probe_A"}
+    ingest_via_api(client, mode="tagless", payload=_PAYLOAD, dry_run=False, **tagless_common)
+    client.ingest_sensor_values_tagless.assert_called_once_with(
+        das_name="DAS-1",
+        equipment_name="Probe_A",
+        parameter_name="temperature",
+        unit_name="degC",
+        data_provenance_id=1,
+        processing_degree_id=1,
+        values=_PAYLOAD,
+    )
+    client.ingest_sensor_values.assert_not_called()

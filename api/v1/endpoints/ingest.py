@@ -23,6 +23,7 @@ from api.config import settings
 from api.database import get_db
 from ..repositories import ingestion_repository, lookup_repository, signal_port_repository, value_repository
 from ..schemas.ingestion import (
+    ChannelResolveResponse,
     ImageIngestResponse,
     IngestResponse,
     LabIngestRequest,
@@ -31,8 +32,10 @@ from ..schemas.ingestion import (
     ProcessedIngestRequest,
     SampleCreateRequest,
     SampleCreateResponse,
+    SensorChannelResolveRequest,
     SensorIngestRequest,
     SignalPortDeactivateResponse,
+    TaglessSensorChannelResolveRequest,
     TaglessSensorIngestRequest,
     VectorSensorIngestRequest,
 )
@@ -118,7 +121,7 @@ def _resolve_tag_inputs(
 def _resolve_tagless_inputs(
     conn,
     das_name: str,
-    equipment_identifier: str,
+    equipment_name: str,
     parameter_name: str,
     unit_name: str,
 ) -> tuple[int, int, int, list[str]]:
@@ -157,11 +160,11 @@ def _resolve_tagless_inputs(
         collected_warnings.append(msg)
 
     equip_id, equip_created = signal_port_repository.find_or_create_equipment_by_identifier(
-        conn, equipment_identifier
+        conn, equipment_name
     )
     if equip_created:
         msg = (
-            f"Equipment identifier={equipment_identifier!r} was not found and has been "
+            f"Equipment identifier={equipment_name!r} was not found and has been "
             f"auto-created (ID={equip_id})."
         )
         logger.warning(msg)
@@ -175,7 +178,7 @@ def _resolve_tagless_inputs(
         )
 
     synthetic_tag = signal_port_repository.generate_tagless_tag(
-        equipment_identifier, parameter_name
+        equipment_name, parameter_name
     )
     port_id, port_created = signal_port_repository.find_or_create_signal_port(
         conn, das_id, synthetic_tag, spt_id
@@ -292,6 +295,77 @@ def get_last_timestamp(
 # ---------------------------------------------------------------------------
 
 
+@router.post("/resolve-channel", response_model=ChannelResolveResponse, status_code=200)
+def resolve_channel(data: SensorChannelResolveRequest, conn=Depends(get_db)):
+    """Resolve (or create) a tagged sensor channel without writing any values.
+
+    Runs the same validation and find-or-create logic as POST /ingest/sensor steps 1–3,
+    then returns the channel_id.  Use this to pre-resolve channels before bulk ingestion.
+    """
+    port_id, param_id, unit_id, warnings = _resolve_tag_inputs(
+        conn,
+        das_name=data.das_name,
+        tag=data.tag,
+        signal_port_type=data.signal_port_type,
+        parameter_name=data.parameter_name,
+        unit_name=data.unit_name,
+    )
+
+    if data.parent_tag is not None:
+        das_id, _ = signal_port_repository.find_or_create_das(conn, data.das_name)
+        parent_port_id = signal_port_repository.find_signal_port_by_tag(
+            conn, das_id, data.parent_tag
+        )
+        if parent_port_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"parent_tag {data.parent_tag!r} not found in DAS {data.das_name!r}. "
+                    "The parent port must exist before creating a sub-signal."
+                ),
+            )
+        try:
+            signal_port_repository.set_parent_port(conn, port_id, parent_port_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    channel_id = ingestion_repository.find_or_create_sensor_metadata(
+        conn,
+        signal_port_id=port_id,
+        parameter_id=param_id,
+        unit_id=unit_id,
+        data_provenance_id=data.data_provenance_id,
+        processing_degree_id=data.processing_degree_id,
+    )
+    return ChannelResolveResponse(channel_id=channel_id, warnings=warnings)
+
+
+@router.post("/resolve-channel-tagless", response_model=ChannelResolveResponse, status_code=200)
+def resolve_channel_tagless(data: TaglessSensorChannelResolveRequest, conn=Depends(get_db)):
+    """Resolve (or create) a tagless sensor channel without writing any values.
+
+    Runs the same validation and find-or-create logic as POST /ingest/sensor-tagless steps 1–3,
+    then returns the channel_id.  Use this to pre-resolve channels before bulk ingestion.
+    """
+    port_id, param_id, unit_id, warnings = _resolve_tagless_inputs(
+        conn,
+        das_name=data.das_name,
+        equipment_name=data.equipment_name,
+        parameter_name=data.parameter_name,
+        unit_name=data.unit_name,
+    )
+
+    channel_id = ingestion_repository.find_or_create_sensor_metadata(
+        conn,
+        signal_port_id=port_id,
+        parameter_id=param_id,
+        unit_id=unit_id,
+        data_provenance_id=data.data_provenance_id,
+        processing_degree_id=data.processing_degree_id,
+    )
+    return ChannelResolveResponse(channel_id=channel_id, warnings=warnings)
+
+
 @router.post("/sensor", response_model=IngestResponse, status_code=201)
 def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
     """Ingest raw sensor measurements.
@@ -352,21 +426,21 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
     """Ingest raw sensor measurements from a direct-connect station (no SCADA tag).
 
     A synthetic SignalPort tag is auto-generated as
-    ``"{equipment_identifier}/{parameter_name}"`` (lowercased, trimmed) — deterministic
+    ``"{equipment_name}/{parameter_name}"`` (lowercased, trimmed) — deterministic
     and stable across repeated runs.
 
     On first ingest a SignalPortEquipmentHistory row is opened immediately so
     provenance is recorded from the start.  Subsequent ingests for the same
-    (DAS, equipment_identifier, parameter_name) are idempotent.
+    (DAS, equipment_name, parameter_name) are idempotent.
 
-    Unrecognised equipment identifier produces a warning and auto-creates the
+    Unrecognised equipment name produces a warning and auto-creates the
     Equipment record.  Unrecognised parameter_name or unit_name returns 422 before
     any DB write.
     """
     port_id, param_id, unit_id, ingest_warnings = _resolve_tagless_inputs(
         conn,
         das_name=data.das_name,
-        equipment_identifier=data.equipment_identifier,
+        equipment_name=data.equipment_name,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )

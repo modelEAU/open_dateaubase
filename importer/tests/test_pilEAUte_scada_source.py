@@ -1,40 +1,37 @@
+"""Tests for PilEAUteSCADASource using a SQLite fixture database."""
+
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
 
-from table_import.config import ScadaSqlStructure, ScadaVariable
-from table_import.scada_sql_source import SqlServerSource
+from table_import.config import PilEAUteSCADAStructure, PilEAUteSCADAVariable
+from table_import.pilEAUte_scada_source import PilEAUteSCADASource
 from table_import.tables import ValueTable
 
 DB_PATH = Path(__file__).parent.parent / "test_data" / "scada_sql" / "float_table.db"
-TAG_INDEX = 45  # a TagIndex value that appears in the fixture TSV
+TAG_NAME = "HMI_DO"  # maps to TagIndex=45 in the fixture TagTable
 
 
 @pytest.fixture
 def structure():
-    return ScadaSqlStructure(
+    return PilEAUteSCADAStructure(
         server="unused",
         database="unused",
         credentials_path="unused",
-        table="FloatTable_hedi",
-        datetime_column="DateAndTime",
-        tag_index_column="TagIndex",
-        value_column="Val",
         timezone="America/Montreal",
     )
 
 
 @pytest.fixture
 def variable():
-    return ScadaVariable(
+    return PilEAUteSCADAVariable(
         name="test_var",
-        tag_index=TAG_INDEX,
-        equipment_name="test_equipment",
+        tag=TAG_NAME,
         parameter_name="test_parameter",
         source_unit_name="mg/L",
-        channel_unit_name="mg/L",
+        destination_unit_name="mg/L",
     )
 
 
@@ -45,7 +42,20 @@ def scada_engine():
 
 @pytest.fixture
 def source(structure, variable, scada_engine):
-    return SqlServerSource(structure=structure, variable=variable, engine=scada_engine)
+    return PilEAUteSCADASource(structure=structure, variable=variable, engine=scada_engine)
+
+
+def test_resolve_tag_index(source):
+    """_resolve_tag_index must return the integer TagIndex for a known tag name."""
+    idx = source._resolve_tag_index(TAG_NAME)
+    assert isinstance(idx, int)
+    assert idx == 45
+
+
+def test_resolve_tag_index_unknown_raises(source):
+    """_resolve_tag_index must raise ValueError for an unknown tag name."""
+    with pytest.raises(ValueError, match="not found"):
+        source._resolve_tag_index("NONEXISTENT_TAG_XYZ")
 
 
 def test_get_last_date(source):
@@ -67,7 +77,6 @@ def test_get_values_since_cutoff(source):
     """A cutoff near the end must return fewer rows than last_ts=0."""
     all_rows = source.get_values_since(0.0)
 
-    # Use a cutoff just before the last timestamp
     last_ts = all_rows["Timestamp"].max()
     cutoff_ts = float(last_ts) - 1.0  # 1 second before the latest
 
@@ -78,7 +87,7 @@ def test_get_values_since_cutoff(source):
 
 
 def test_values_schema(source):
-    """ValueTable must have exactly the 6 acceptable columns."""
+    """ValueTable must have exactly the 2 acceptable columns."""
     vt = source.get_values_since(0.0)
     assert sorted(vt.columns.tolist()) == sorted(ValueTable.acceptable_columns)
 

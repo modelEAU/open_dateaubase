@@ -1,9 +1,11 @@
 """HTTP client for the open_datEAUbase REST API.
 
 Provides synchronous access to:
-- Name→ID resolution for Equipment, Parameter, and Unit (cached per instance)
-- GET /api/v1/ingest/last-timestamp  (deduplication watermark)
-- POST /api/v1/ingest/sensor         (bulk scalar ingest)
+- POST /api/v1/ingest/resolve-channel          (tagged — channel pre-resolution)
+- POST /api/v1/ingest/resolve-channel-tagless  (tagless — channel pre-resolution)
+- GET  /api/v1/ingest/last-timestamp           (deduplication watermark, by channel_id)
+- POST /api/v1/ingest/sensor                   (tagged bulk scalar ingest)
+- POST /api/v1/ingest/sensor-tagless           (tagless bulk scalar ingest)
 """
 
 from __future__ import annotations
@@ -23,18 +25,11 @@ class ApiError(Exception):
 
 
 class DateaubaseClient:
-    """Thin synchronous wrapper around the open_datEAUbase REST API.
-
-    All name→ID caches are populated lazily on first use and held for the
-    lifetime of the client instance (one import run).
-    """
+    """Thin synchronous wrapper around the open_datEAUbase REST API."""
 
     def __init__(self, api_url: str, timeout: float = 300.0) -> None:
         self._base = api_url.rstrip("/")
         self._client = httpx.Client(timeout=timeout)
-        self._equipment_by_name: dict[str, int] | None = None
-        self._parameter_by_name: dict[str, int] | None = None
-        self._unit_by_name: dict[str, int] | None = None
 
     def close(self) -> None:
         self._client.close()
@@ -63,97 +58,65 @@ class DateaubaseClient:
             raise ApiError("POST", url, r.status_code, r.text)
         return r.json()
 
-    def _ensure_equipment_cache(self) -> None:
-        if self._equipment_by_name is not None:
-            return
-        items = self._get("/api/v1/channels/lookup/equipment")
-        # [{"equipment_id": int, "identifier": str}]
-        self._equipment_by_name = {row["identifier"]: row["equipment_id"] for row in items}
-
-    def _ensure_parameter_cache(self) -> None:
-        if self._parameter_by_name is not None:
-            return
-        items = self._get("/api/v1/channels/lookup/parameters")
-        # [{"parameter_id": int, "parameter_name": str}]
-        self._parameter_by_name = {row["parameter_name"]: row["parameter_id"] for row in items}
-
-    def _ensure_unit_cache(self) -> None:
-        if self._unit_by_name is not None:
-            return
-        items = self._get("/api/v1/ingest/lookup/units")
-        # [{"unit_id": int, "unit": str}]
-        self._unit_by_name = {row["unit"]: row["unit_id"] for row in items}
-
     # ------------------------------------------------------------------
-    # Public name→ID resolution
+    # Channel resolution (no data written)
     # ------------------------------------------------------------------
 
-    def resolve_equipment_id(self, identifier: str) -> int:
-        """Return Equipment_ID for the given Identifier string.
+    def resolve_channel(
+        self,
+        *,
+        das_name: str,
+        tag: str,
+        signal_port_type: str = "value",
+        parent_tag: str | None = None,
+        parameter_name: str,
+        unit_name: str,
+        data_provenance_id: int = 1,
+        processing_degree_id: int = 1,
+    ) -> tuple[int, list[str]]:
+        """POST /api/v1/ingest/resolve-channel → (channel_id, warnings)."""
+        body = {
+            "das_name": das_name,
+            "tag": tag,
+            "signal_port_type": signal_port_type,
+            "parent_tag": parent_tag,
+            "parameter_name": parameter_name,
+            "unit_name": unit_name,
+            "data_provenance_id": data_provenance_id,
+            "processing_degree_id": processing_degree_id,
+        }
+        payload = self._post("/api/v1/ingest/resolve-channel", body)
+        return payload["channel_id"], payload.get("warnings", [])
 
-        Raises ValueError if no matching equipment exists.
-        """
-        self._ensure_equipment_cache()
-        assert self._equipment_by_name is not None
-        if identifier not in self._equipment_by_name:
-            available = sorted(self._equipment_by_name)
-            raise ValueError(
-                f"Equipment identifier {identifier!r} not found. "
-                f"Available: {available}"
-            )
-        return self._equipment_by_name[identifier]
-
-    def resolve_parameter_id(self, name: str) -> int:
-        """Return Parameter_ID for the given parameter name.
-
-        Raises ValueError if no matching parameter exists.
-        """
-        self._ensure_parameter_cache()
-        assert self._parameter_by_name is not None
-        if name not in self._parameter_by_name:
-            available = sorted(self._parameter_by_name)
-            raise ValueError(
-                f"Parameter {name!r} not found. Available: {available}"
-            )
-        return self._parameter_by_name[name]
-
-    def resolve_unit_id(self, name: str) -> int:
-        """Return Unit_ID for the given unit name.
-
-        Raises ValueError if no matching unit exists.
-        """
-        self._ensure_unit_cache()
-        assert self._unit_by_name is not None
-        if name not in self._unit_by_name:
-            available = sorted(self._unit_by_name)
-            raise ValueError(
-                f"Unit {name!r} not found. Available: {available}"
-            )
-        return self._unit_by_name[name]
+    def resolve_channel_tagless(
+        self,
+        *,
+        das_name: str,
+        equipment_name: str,
+        parameter_name: str,
+        unit_name: str,
+        data_provenance_id: int = 1,
+        processing_degree_id: int = 1,
+    ) -> tuple[int, list[str]]:
+        """POST /api/v1/ingest/resolve-channel-tagless → (channel_id, warnings)."""
+        body = {
+            "das_name": das_name,
+            "equipment_name": equipment_name,
+            "parameter_name": parameter_name,
+            "unit_name": unit_name,
+            "data_provenance_id": data_provenance_id,
+            "processing_degree_id": processing_degree_id,
+        }
+        payload = self._post("/api/v1/ingest/resolve-channel-tagless", body)
+        return payload["channel_id"], payload.get("warnings", [])
 
     # ------------------------------------------------------------------
     # Deduplication watermark
     # ------------------------------------------------------------------
 
-    def get_last_timestamp(
-        self,
-        *,
-        equipment_id: int,
-        parameter_id: int,
-        data_provenance_id: int,
-        processing_degree_id: int,
-    ) -> datetime | None:
-        """Return the most recent ingested timestamp for a channel, or None.
-
-        The returned datetime is always UTC-aware.
-        """
-        payload = self._get(
-            "/api/v1/ingest/last-timestamp",
-            equipment_id=equipment_id,
-            parameter_id=parameter_id,
-            data_provenance_id=data_provenance_id,
-            processing_degree_id=processing_degree_id,
-        )
+    def get_last_timestamp(self, *, channel_id: int) -> datetime | None:
+        """GET /api/v1/ingest/last-timestamp?channel_id=X → UTC datetime or None."""
+        payload = self._get("/api/v1/ingest/last-timestamp", channel_id=channel_id)
         raw = payload.get("last_timestamp")
         if raw is None:
             return None
@@ -169,24 +132,57 @@ class DateaubaseClient:
     def ingest_sensor_values(
         self,
         *,
-        equipment_id: int,
-        parameter_id: int,
-        unit_id: int,
-        data_provenance_id: int,
-        processing_degree_id: int,
+        das_name: str,
+        tag: str,
+        signal_port_type: str = "value",
+        parent_tag: str | None = None,
+        parameter_name: str,
+        unit_name: str,
+        data_provenance_id: int = 1,
+        processing_degree_id: int = 1,
         values: list[dict],
     ) -> dict:
-        """POST a batch of scalar sensor values.
+        """POST /api/v1/ingest/sensor — tagged bulk scalar ingest.
 
         Each item in values: {"timestamp": "<ISO 8601>", "value": float}.
-        Returns IngestResponse dict: {"channel_id": int, "rows_written": int}.
+        Returns IngestResponse dict: {"channel_id": int, "rows_written": int, "warnings": list}.
         """
         body = {
-            "equipment_id": equipment_id,
-            "parameter_id": parameter_id,
-            "unit_id": unit_id,
+            "das_name": das_name,
+            "tag": tag,
+            "signal_port_type": signal_port_type,
+            "parent_tag": parent_tag,
+            "parameter_name": parameter_name,
+            "unit_name": unit_name,
             "data_provenance_id": data_provenance_id,
             "processing_degree_id": processing_degree_id,
             "values": values,
         }
         return self._post("/api/v1/ingest/sensor", body)
+
+    def ingest_sensor_values_tagless(
+        self,
+        *,
+        das_name: str,
+        equipment_name: str,
+        parameter_name: str,
+        unit_name: str,
+        data_provenance_id: int = 1,
+        processing_degree_id: int = 1,
+        values: list[dict],
+    ) -> dict:
+        """POST /api/v1/ingest/sensor-tagless — tagless bulk scalar ingest.
+
+        Each item in values: {"timestamp": "<ISO 8601>", "value": float}.
+        Returns IngestResponse dict: {"channel_id": int, "rows_written": int, "warnings": list}.
+        """
+        body = {
+            "das_name": das_name,
+            "equipment_name": equipment_name,
+            "parameter_name": parameter_name,
+            "unit_name": unit_name,
+            "data_provenance_id": data_provenance_id,
+            "processing_degree_id": processing_degree_id,
+            "values": values,
+        }
+        return self._post("/api/v1/ingest/sensor-tagless", body)

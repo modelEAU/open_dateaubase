@@ -1,7 +1,7 @@
 """Contract tests for tagless-mode sensor ingest (issue #6).
 
 Covers:
-- Deterministic synthetic tag generation from equipment_identifier + parameter_name
+- Deterministic synthetic tag generation from equipment_name + parameter_name
 - Validation error for unrecognised parameter_name fires before any DB write
 - Validation error for unrecognised unit_name fires before any DB write
 - Auto-create warnings for DAS and Equipment are returned in IngestResponse.warnings
@@ -29,7 +29,7 @@ _VAL_REPO = "api.v1.endpoints.ingest.value_repository"
 
 _VALID_PAYLOAD = {
     "das_name": "DirectStation",
-    "equipment_identifier": "Probe_A",
+    "equipment_name": "Probe_A",
     "parameter_name": "dissolved oxygen",
     "unit_name": "mg/L",
     "data_provenance_id": 1,

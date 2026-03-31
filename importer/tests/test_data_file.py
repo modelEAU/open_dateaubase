@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from table_import.config import FileStructure, Variable
+from table_import.config import FileStructure, TaggedFileVariable
 from table_import.data_file import RodtoxFile
 from table_import.tables import ValueTable
 
@@ -27,19 +27,21 @@ RODTOX_STRUCTURE = FileStructure(
     header_row_idx=0,
 )
 
-RODTOX_VARIABLE = Variable(
+RODTOX_VARIABLE = TaggedFileVariable(
     name="do",
     directory_path=str(Path(__file__).parent.parent / "test_data" / "rodtox" / "DO"),
-    variable_name="HMI_DO",
-    equipment_name="test_equipment",
+    source_variable_name="HMI_DO",
+    tag="HMI_DO",
     parameter_name="Dissolved oxygen",
     source_unit_name="mg/L",
-    channel_unit_name="mg/L",
+    destination_unit_name="mg/L",
 )
 
 
 def _make_file() -> RodtoxFile:
-    return RodtoxFile(filepath=RODTOX_PATH, file_structure=RODTOX_STRUCTURE, variable=RODTOX_VARIABLE)
+    return RodtoxFile(
+        filepath=RODTOX_PATH, file_structure=RODTOX_STRUCTURE, variable=RODTOX_VARIABLE
+    )
 
 
 def test_rodtox_values_schema():

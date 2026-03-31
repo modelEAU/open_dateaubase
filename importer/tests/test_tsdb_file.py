@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from table_import.config import TsdbFileStructure, TsdbVariable
+from table_import.config import TsdbFileStructure, TaglessTsdbVariable
 from table_import.tables import ValueTable
 from table_import.tsdb_file import (
     TsdbFile,
@@ -16,19 +16,22 @@ from table_import.tsdb_file import (
 )
 
 TSDB_PATH = str(
-    Path(__file__).parent.parent / "test_data" / "basestation" / "100924-135506_TurbR300_2025.tsdb"
+    Path(__file__).parent.parent
+    / "test_data"
+    / "basestation"
+    / "100924-135506_TurbR300_2025.tsdb"
 )
 
 
 def _make_file(scaling_factor: float = 1.0) -> TsdbFile:
     struct = TsdbFileStructure(timezone="America/Montreal")
-    var = TsdbVariable(
+    var = TaglessTsdbVariable(
         name="turb",
         directory_path=".",
         equipment_name="test_equipment",
         parameter_name="Turbidity",
         source_unit_name="NTU",
-        channel_unit_name="NTU",
+        destination_unit_name="NTU",
         conversion_factor=scaling_factor,
     )
     return TsdbFile(filepath=TSDB_PATH, file_structure=struct, variable=var)
@@ -37,7 +40,9 @@ def _make_file(scaling_factor: float = 1.0) -> TsdbFile:
 def test_record_size():
     """File size must be an exact multiple of 28 bytes."""
     size = os.path.getsize(TSDB_PATH)
-    assert size % _RECORD_SIZE == 0, f"File size {size} is not divisible by {_RECORD_SIZE}"
+    assert size % _RECORD_SIZE == 0, (
+        f"File size {size} is not divisible by {_RECORD_SIZE}"
+    )
 
 
 def test_get_last_date_returns_plausible_timestamp():
@@ -87,7 +92,9 @@ def test_values_scaling_factor():
     # NaN == NaN is always False, so compare only finite values
     mask = v1.notna() & v2.notna()
     assert mask.any(), "No non-NaN values found to compare"
-    assert (v2[mask] == v1[mask] * 2).all(), "scaling_factor=2.0 did not double all values"
+    assert (v2[mask] == v1[mask] * 2).all(), (
+        "scaling_factor=2.0 did not double all values"
+    )
 
 
 def test_tick_conversion_roundtrip():
