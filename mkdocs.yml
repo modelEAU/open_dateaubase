@@ -47,6 +47,7 @@ nav:
     - Processing Lineage: architecture/processing_lineage.md
     - Sensor Lifecycle: architecture/sensor_lifecycle.md
     - Sub-Signal Grouping: architecture/sub_signals.md
+    - Control Loop Modelling: architecture/control_loop.md
   - Operations:
     - Moving a sensor: operations/equipment_move_checklist.md
 markdown_extensions:
