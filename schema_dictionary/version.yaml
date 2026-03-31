@@ -1,3 +1,3 @@
-schema_version: "2.2.0"
-description: "Observation hub table introduced; Value restructured as lean scalar payload keyed by Observation_ID. ValueVector, ValueMatrix, ValueImage restructure and Annotation Observation_ID FK added in subsequent migration steps."
-date: "2026-03-16"
+schema_version: "3.0.0"
+description: "SignalPort abstraction: Channel.Equipment_ID replaced by SignalPort_ID. New tables: DataAcquisitionSystem, SignalPort, SignalPortType, ControlVariableType, SignalPortLocationHistory, SignalPortEquipmentHistory, ControlLoop, ControlLoopPort, ControlLoopPortRole, ControlLoopApplication. Dropped: EquipmentInstallation, EquipmentStatusChannel."
+date: "2026-03-30"
