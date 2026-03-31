@@ -33,6 +33,7 @@ from ..schemas.ingestion import (
     SampleCreateResponse,
     SensorIngestRequest,
     SignalPortDeactivateResponse,
+    TaglessSensorIngestRequest,
     VectorSensorIngestRequest,
 )
 from ..services import lineage_service
@@ -110,6 +111,84 @@ def _resolve_tag_inputs(
         msg = f"SignalPort tag={tag!r} (DAS={das_name!r}) was not found and has been auto-created (ID={port_id})."
         logger.warning(msg)
         collected_warnings.append(msg)
+
+    return port_id, param_id, unit_id, collected_warnings
+
+
+def _resolve_tagless_inputs(
+    conn,
+    das_name: str,
+    equipment_identifier: str,
+    parameter_name: str,
+    unit_name: str,
+) -> tuple[int, int, int, list[str]]:
+    """Validate names and resolve tagless ingest inputs to IDs.
+
+    Returns (signal_port_id, parameter_id, unit_id, warnings).
+
+    Raises HTTP 422 for unrecognised parameter_name or unit_name — before any DB writes.
+    Auto-creates DAS, Equipment, and SignalPort with warnings.
+    Opens a SignalPortEquipmentHistory row immediately when the port is newly created.
+    """
+    # --- Validation-only lookups first (no writes) ---
+    param_id = signal_port_repository.find_parameter_by_name(conn, parameter_name)
+    if param_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown parameter_name {parameter_name!r}. "
+                   "Add the parameter to the Parameter table before ingesting.",
+        )
+
+    unit_id = signal_port_repository.find_unit_by_name(conn, unit_name)
+    if unit_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown unit_name {unit_name!r}. "
+                   "Add the unit to the Unit table before ingesting.",
+        )
+
+    # --- Auto-create writes (warn on new rows) ---
+    collected_warnings: list[str] = []
+
+    das_id, das_created = signal_port_repository.find_or_create_das(conn, das_name)
+    if das_created:
+        msg = f"DataAcquisitionSystem {das_name!r} was not found and has been auto-created (ID={das_id})."
+        logger.warning(msg)
+        collected_warnings.append(msg)
+
+    equip_id, equip_created = signal_port_repository.find_or_create_equipment_by_identifier(
+        conn, equipment_identifier
+    )
+    if equip_created:
+        msg = (
+            f"Equipment identifier={equipment_identifier!r} was not found and has been "
+            f"auto-created (ID={equip_id})."
+        )
+        logger.warning(msg)
+        collected_warnings.append(msg)
+
+    spt_id = signal_port_repository.find_signal_port_type_by_name(conn, "value")
+    if spt_id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="SignalPortType 'value' is missing from the database seed data.",
+        )
+
+    synthetic_tag = signal_port_repository.generate_tagless_tag(
+        equipment_identifier, parameter_name
+    )
+    port_id, port_created = signal_port_repository.find_or_create_signal_port(
+        conn, das_id, synthetic_tag, spt_id
+    )
+    if port_created:
+        msg = (
+            f"SignalPort tag={synthetic_tag!r} (DAS={das_name!r}) was not found and has been "
+            f"auto-created (ID={port_id})."
+        )
+        logger.warning(msg)
+        collected_warnings.append(msg)
+        # Immediately open equipment history so provenance is recorded at ingest time.
+        signal_port_repository.open_port_equipment_history(conn, port_id, equip_id)
 
     return port_id, param_id, unit_id, collected_warnings
 
@@ -227,6 +306,48 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         das_name=data.das_name,
         tag=data.tag,
         signal_port_type=data.signal_port_type,
+        parameter_name=data.parameter_name,
+        unit_name=data.unit_name,
+    )
+
+    channel_id = ingestion_repository.find_or_create_sensor_metadata(
+        conn,
+        signal_port_id=port_id,
+        parameter_id=param_id,
+        unit_id=unit_id,
+        data_provenance_id=data.data_provenance_id,
+        processing_degree_id=data.processing_degree_id,
+    )
+
+    rows = value_repository.insert_scalar_values(
+        conn,
+        channel_id,
+        [v.model_dump() for v in data.values],
+    )
+
+    return IngestResponse(channel_id=channel_id, rows_written=rows, warnings=ingest_warnings)
+
+
+@router.post("/sensor-tagless", response_model=IngestResponse, status_code=201)
+def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)):
+    """Ingest raw sensor measurements from a direct-connect station (no SCADA tag).
+
+    A synthetic SignalPort tag is auto-generated as
+    ``"{equipment_identifier}/{parameter_name}"`` (lowercased, trimmed) — deterministic
+    and stable across repeated runs.
+
+    On first ingest a SignalPortEquipmentHistory row is opened immediately so
+    provenance is recorded from the start.  Subsequent ingests for the same
+    (DAS, equipment_identifier, parameter_name) are idempotent.
+
+    Unrecognised equipment identifier produces a warning and auto-creates the
+    Equipment record.  Unrecognised parameter_name or unit_name returns 422 before
+    any DB write.
+    """
+    port_id, param_id, unit_id, ingest_warnings = _resolve_tagless_inputs(
+        conn,
+        das_name=data.das_name,
+        equipment_identifier=data.equipment_identifier,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )

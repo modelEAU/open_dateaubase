@@ -187,6 +187,30 @@ class MatrixSensorIngestRequest(BaseModel):
         return v
 
 
+class TaglessSensorIngestRequest(BaseModel):
+    """Ingest raw sensor data from a direct-connect station (no SCADA tag name).
+
+    A synthetic SignalPort tag is auto-generated as
+    ``"{equipment_identifier}/{parameter_name}"`` (lowercased, trimmed).
+    This tag is deterministic and stable across repeated runs.
+    """
+
+    das_name: str
+    equipment_identifier: str
+    parameter_name: str
+    unit_name: str
+    data_provenance_id: int = 1
+    processing_degree_id: int = 1
+    values: list[ValueItem]
+
+    @field_validator("values")
+    @classmethod
+    def values_not_empty(cls, v: list) -> list:
+        if not v:
+            raise ValueError("values list must not be empty")
+        return v
+
+
 class SignalPortDeactivateResponse(BaseModel):
     signal_port_id: int
     deactivated: bool

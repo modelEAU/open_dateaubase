@@ -139,6 +139,69 @@ def find_or_create_signal_port(
 # ---------------------------------------------------------------------------
 
 
+def generate_tagless_tag(equipment_identifier: str, parameter_name: str) -> str:
+    """Generate a deterministic, stable synthetic SignalPort tag for tagless ingest.
+
+    Rule: ``"{equipment_identifier.strip().lower()}/{parameter_name.strip().lower()}"``
+    Example: ``"Probe_A "`` + ``" DO "`` → ``"probe_a/do"``
+    """
+    return f"{equipment_identifier.strip().lower()}/{parameter_name.strip().lower()}"
+
+
+def find_or_create_equipment_by_identifier(
+    conn: pyodbc.Connection, identifier: str
+) -> tuple[int, bool]:
+    """Find or create an Equipment row by Identifier (case-insensitive, trimmed).
+
+    Returns ``(Equipment_ID, created)`` where *created* is True when a new row was
+    inserted.  Logs a WARNING when auto-creating.
+    """
+    normalised = identifier.strip().lower()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Equipment_ID] FROM [dbo].[Equipment]"
+        " WHERE LOWER(LTRIM(RTRIM([Identifier]))) = ?",
+        normalised,
+    )
+    row = cursor.fetchone()
+    if row:
+        return row[0], False
+
+    stored_identifier = identifier.strip()
+    cursor.execute(
+        "INSERT INTO [dbo].[Equipment] ([Identifier])"
+        " OUTPUT INSERTED.[Equipment_ID] VALUES (?)",
+        stored_identifier,
+    )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    logger.warning(
+        "Equipment identifier=%r not found — auto-created (ID=%d)", stored_identifier, new_id
+    )
+    return new_id, True
+
+
+def open_port_equipment_history(
+    conn: pyodbc.Connection, signal_port_id: int, equipment_id: int
+) -> int:
+    """Insert a SignalPortEquipmentHistory row with StartTime=now (UTC) and EndTime=NULL.
+
+    Returns ``SignalPortEquipmentHistory_ID``.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[SignalPortEquipmentHistory]"
+        "    ([SignalPort_ID], [Equipment_ID], [StartTime])"
+        " OUTPUT INSERTED.[SignalPortEquipmentHistory_ID]"
+        " VALUES (?, ?, SYSUTCDATETIME())",
+        signal_port_id,
+        equipment_id,
+    )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return new_id
+
+
 def deactivate_signal_port(conn: pyodbc.Connection, signal_port_id: int) -> bool:
     """Set ``IsActive = 0`` on a SignalPort.  Returns True if the row was found."""
     cursor = conn.cursor()

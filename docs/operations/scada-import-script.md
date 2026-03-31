@@ -133,6 +133,94 @@ def get_last_timestamp(channel_id: int) -> str | None:
 Once you have the `channel_id` from the first successful ingest response, pass
 it here to get the watermark for subsequent runs.
 
+## Tagless (direct-connect) ingest
+
+Some monitoring stations (e.g. bench analysers, stand-alone data loggers) connect
+directly to the API and have no SCADA tag names.  For these use the
+`POST /api/v1/ingest/sensor-tagless` endpoint instead.
+
+### When to use tagless mode
+
+| Mode | Use when |
+|---|---|
+| Tag mode (`/ingest/sensor`) | Signal has a SCADA tag (e.g. `TIT-101`) |
+| Tagless mode (`/ingest/sensor-tagless`) | No tag — you identify signals by equipment + parameter |
+
+### Auto-tag generation rule
+
+The endpoint derives a stable, deterministic SignalPort tag from the two inputs:
+
+```text
+tag = "{equipment_identifier.strip().lower()}/{parameter_name.strip().lower()}"
+```
+
+Examples:
+
+| `equipment_identifier` | `parameter_name` | Generated tag |
+|---|---|---|
+| `"Probe_A"` | `"DO"` | `"probe_a/do"` |
+| `" Probe_A "` | `" DO "` | `"probe_a/do"` (whitespace stripped) |
+| `"Station1"` | `"Dissolved Oxygen"` | `"station1/dissolved oxygen"` |
+
+The tag is computed before any database lookup, so the same inputs always produce
+the same tag across all runs.
+
+### Tagless ingest example
+
+```python
+import requests
+
+API_BASE = "http://localhost:8000/api/v1"
+
+def push_direct_readings(equipment_id: str, readings: list[dict]) -> dict:
+    payload = {
+        "das_name": "BenchAnalyser",
+        "equipment_identifier": equipment_id,
+        "parameter_name": "dissolved oxygen",
+        "unit_name": "mg/L",
+        "data_provenance_id": 1,   # 1 = Sensor (default)
+        "processing_degree_id": 1, # 1 = Raw (default)
+        "values": readings,
+    }
+    resp = requests.post(f"{API_BASE}/ingest/sensor-tagless", json=payload)
+    resp.raise_for_status()
+    return resp.json()
+
+result = push_direct_readings(
+    equipment_id="Probe_A",
+    readings=[{"timestamp": "2024-06-01T08:00:00", "value": 8.3}],
+)
+print(result)
+# {"channel_id": 14, "rows_written": 1, "warnings": [...], "processing_step_id": null}
+```
+
+### How `SignalPortEquipmentHistory` is seeded automatically
+
+When the port is **first created**, the endpoint immediately opens a
+`SignalPortEquipmentHistory` row linking the Equipment to the port with
+`StartTime = now (UTC)` and `EndTime = NULL` (currently active).  This means
+provenance is recorded at ingest time — you do not need a separate API call to
+register the equipment.
+
+On **subsequent calls** with the same inputs the port already exists, so no
+duplicate history row is created.
+
+### Warning vs. error behaviour for tagless mode
+
+| Input | Behaviour | Effect on ingestion |
+|---|---|---|
+| Unknown `das_name` | **Warning** — DAS auto-created | Ingestion continues |
+| Unknown `equipment_identifier` | **Warning** — Equipment auto-created | Ingestion continues |
+| Unknown `parameter_name` | **Error** — HTTP 422 | Ingestion halted, no DB writes |
+| Unknown `unit_name` | **Error** — HTTP 422 | Ingestion halted, no DB writes |
+
+Equipment identifiers follow the same "auto-create with warning" policy as DAS
+names and SCADA tags — it is normal to encounter new equipment at ingest time.
+Parameter and unit names still require pre-registration because a typo would
+silently corrupt the data model.
+
+---
+
 ## Retiring a signal port
 
 When a SCADA tag is decommissioned, mark its port inactive.  Historical data and
