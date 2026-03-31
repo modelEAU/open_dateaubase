@@ -117,7 +117,7 @@ Lookup table classifying the nature of a Campaign (Experiment, Operations, Commi
 
 ### Channel
 
-Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins — it is NOT stored here. Lab measurements are stored in Value (scalar) or ValueVector/ValueMatrix/ValueImage. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
+Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the SignalPort via PortEquipmentHistory and SignalPortLocationHistory, leaving the Channel_ID stable. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
 
 
 
@@ -126,14 +126,14 @@ Invariant descriptor for a measurement stream (sensor channel). Each row identif
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Surrogate primary key | - |
-| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>Physical instrument that produces this measurement stream. | FK → [Equipment.Equipment_ID](#Equipment) |
+| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The SignalPort (stable signal identity) that this measurement stream belongs to. Replaces Equipment_ID — equipment that produces data is tracked via PortEquipmentHistory, allowing probes to be swapped without breaking the Channel.
+ | FK → [SignalPort.SignalPort_ID](#SignalPort) |
 | Parameter_ID | INT | - |  | <span id="Parameter_ID"></span>Measured analyte or parameter (e.g. TSS, pH) | FK → [Parameter.Parameter_ID](#Parameter) |
-| DataProvenance_ID | INT | - |  | <span id="DataProvenance_ID"></span>How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5) | FK → [DataProvenance.DataProvenance_ID](#DataProvenance) |
+| DataProvenance_ID | INT | - |  | <span id="DataProvenance_ID"></span>How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5, Forecast=6)
+ | FK → [DataProvenance.DataProvenance_ID](#DataProvenance) |
 | ProcessingDegree_ID | INT | - |  | <span id="ProcessingDegree_ID"></span>Level of processing applied to this time series (FK to ProcessingDegree lookup). Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation — if the processing degree changes, a new Channel row is created. Default 1 = Raw.
  | FK → [ProcessingDegree.ProcessingDegree_ID](#ProcessingDegree)<br>Default: `1` |
 | ValueType_ID | INT | - | ✓ | <span id="ValueType_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueType.ValueType_ID](#ValueType)<br>Default: `1` |
-| StatusChannel_ID | INT | - |  | <span id="StatusChannel_ID"></span>If this Channel is a per-measurement-channel status time series, this points to the measurement Channel_ID it describes. NULL for measurement channels and device-level status channels.
- | FK → [Channel.Channel_ID](#Channel) |
 
 <span id="ChannelAxis"></span>
 
@@ -150,11 +150,120 @@ Junction table linking a Channel measurement series to its binning axis or axes.
 | AxisRole | INT **(PK)** | - | ✓ | <span id="AxisRole"></span>Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only) | - |
 | ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the binning axis for this role | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
 
+<span id="ControlLoop"></span>
+
+### ControlLoop
+
+Identity record for a control scheme applied to a process. Describes the controller type and its degradation strategy (FallbackControlLoop_ID chain, or NULL for manual fallback). Temporal configuration (tuning, parameters) lives in ControlLoopApplication. SignalPort membership lives in ControlLoopPort.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ControlLoop_ID | INT **(PK)** | - | ✓ | <span id="ControlLoop_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable name for this control loop | - |
+| ControllerType | NVARCHAR(50) | - | ✓ | <span id="ControllerType"></span>Controller algorithm class: PID, PI, P, BangBang, Custom, Manual, MPC, Cascade, Feedforward, etc. | - |
+| FallbackControlLoop_ID | INT | - |  | <span id="FallbackControlLoop_ID"></span>The control loop that takes over if this loop is deactivated. NULL = falls back to manual operation. | FK → [ControlLoop.ControlLoop_ID](#ControlLoop) |
+| AlgorithmReference | NVARCHAR(500) | - |  | <span id="AlgorithmReference"></span>Path or repository URL for custom algorithm implementations | - |
+| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Narrative description of the loop, including notes on novel roles | - |
+
+<span id="ControlLoopApplication"></span>
+
+### ControlLoopApplication
+
+Temporal history of a ControlLoop's active configuration — tuning events and parameter changes, not per-interval dynamic setpoints. Application rows record human or supervisory changes (new Kp/Ki/Kd, new MPC weights) that are hours-to-weeks apart. Per-interval outputs (e.g. MPC setpoint trajectory) are Observations on a SetPoint-type Channel, not Application rows. At most one row per ControlLoop_ID may have EndTime IS NULL (the "active" application).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ControlLoopApplication_ID | INT **(PK)** | - | ✓ | <span id="ControlLoopApplication_ID"></span>Surrogate primary key | - |
+| ControlLoop_ID | INT | - | ✓ | <span id="ControlLoop_ID"></span>The control loop this application configuration belongs to | FK → [ControlLoop.ControlLoop_ID](#ControlLoop) |
+| StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>UTC datetime when this configuration became active | - |
+| EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>UTC datetime when this configuration was superseded. NULL = currently active. | - |
+| Parameters | NVARCHAR(MAX) | - |  | <span id="Parameters"></span>JSON blob of controller parameters for this application window. Examples: {"Kp":2.5,"Ki":0.1,"Kd":0.0} for PID; {"weights":{"DO":1.0,"NH4":0.5},"horizon":12} for MPC. Schema is controller-type-specific and deliberately unstructured.
+ | - |
+| AppliedByPerson_ID | INT | - |  | <span id="AppliedByPerson_ID"></span>Person who activated this configuration | FK → [Person.Person_ID](#Person) |
+| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes about this configuration change | - |
+
+<span id="ControlLoopPort"></span>
+
+### ControlLoopPort
+
+Association between a ControlLoop and its SignalPorts, with an explicit role for each port. The unique constraint ensures each port appears at most once per loop. Cascade control is modelled by using the same SignalPort_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ControlLoopPort_ID | INT **(PK)** | - | ✓ | <span id="ControlLoopPort_ID"></span>Surrogate primary key | - |
+| ControlLoop_ID | INT | - | ✓ | <span id="ControlLoop_ID"></span>The control loop this association belongs to | FK → [ControlLoop.ControlLoop_ID](#ControlLoop) |
+| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The port participating in this control loop | FK → [SignalPort.SignalPort_ID](#SignalPort) |
+| ControlLoopPortRole_ID | INT | - | ✓ | <span id="ControlLoopPortRole_ID"></span>The functional role of this port within the loop | FK → [ControlLoopPortRole.ControlLoopPortRole_ID](#ControlLoopPortRole) |
+
+<span id="ControlLoopPortRole"></span>
+
+### ControlLoopPortRole
+
+Controlled vocabulary for the functional role of a SignalPort within a ControlLoop. 'Other' is an explicit escape hatch for novel control schemes; its use should be accompanied by a description in ControlLoop.Description.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ControlLoopPortRole_ID | INT **(PK)** | - | ✓ | <span id="ControlLoopPortRole_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this role | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the role within a control loop | - |
+
+<span id="ControlVariableType"></span>
+
+### ControlVariableType
+
+Controlled vocabulary describing a SignalPort's engineering role in the physical process. Answers "what does this port do in the process?" — orthogonal to SignalPortType which answers "what kind of data flows here?". A DO sensor port has ControlVariableType=MeasuredVariable and SignalPortType=Value. NULL means unclassified.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ControlVariableType_ID | INT **(PK)** | - | ✓ | <span id="ControlVariableType_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this control variable type | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the engineering role | - |
+
+<span id="DataAcquisitionSystem"></span>
+
+### DataAcquisitionSystem
+
+Represents any upstream system that assigns tags to signals: SCADA servers, PLCs, data loggers, OPC-UA servers, CSV importers, etc. Supports hierarchy via ParentSystem_ID (e.g. plant SCADA → field PLC → sensor module).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| DataAcquisitionSystem_ID | INT **(PK)** | - | ✓ | <span id="DataAcquisitionSystem_ID"></span>Surrogate primary key | - |
+| ParentSystem_ID | INT | - |  | <span id="ParentSystem_ID"></span>Optional parent DAS in a hierarchy (e.g. plant SCADA containing a PLC sub-system) | FK → [DataAcquisitionSystem.DataAcquisitionSystem_ID](#DataAcquisitionSystem) |
+| Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable name of the system (e.g. 'Plant SCADA', 'CommCube-A') | - |
+| SystemType | NVARCHAR(50) | - |  | <span id="SystemType"></span>Category of system: SCADA, PLC, DataLogger, OPC-UA, CSV, etc. | - |
+| Manufacturer | NVARCHAR(100) | - |  | <span id="Manufacturer"></span>Manufacturer or vendor of the system | - |
+| Model | NVARCHAR(100) | - |  | <span id="Model"></span>Model name or version of the system | - |
+| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this DAS | - |
+
 <span id="DataProvenance"></span>
 
 ### DataProvenance
 
-Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source)
+Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast)
 
 
 #### Fields
@@ -162,7 +271,7 @@ Lookup table describing how a measurement was produced (Sensor, Laboratory, Manu
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | DataProvenance_ID | INT **(PK)** | - | ✓ | <span id="DataProvenance_ID"></span>Surrogate primary key | - |
-| DataProvenance_Name | NVARCHAR(50) | - | ✓ | <span id="DataProvenance_Name"></span>Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source | - |
+| DataProvenance_Name | NVARCHAR(50) | - | ✓ | <span id="DataProvenance_Name"></span>Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast | - |
 
 <span id="Dataset"></span>
 
@@ -203,20 +312,23 @@ Junction table linking Datasets to the Channels they contain. A Dataset groups o
 
 ### Equipment
 
-Stores information about a specific, physical piece of equipment (e.g., serial number, owner, purchase date, storage location)
+Stores information about a specific physical piece of equipment (e.g., serial number, owner, purchase date, storage location). Equipment is linked to measurement streams via PortEquipmentHistory (not directly via Channel), allowing instrument swaps without breaking data continuity.
+
 
 
 #### Fields
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Link to the Equipment table | - |
+| Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Surrogate primary key | - |
 | EquipmentModel_ID | INT | - |  | <span id="EquipmentModel_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.EquipmentModel_ID](#EquipmentModel) |
-| Identifier | NVARCHAR(100) | - |  | <span id="Identifier"></span>Identification name of the equipments | - |
+| Identifier | NVARCHAR(100) | - |  | <span id="Identifier"></span>Identification name of the equipment | - |
 | SerialNumber | NVARCHAR(100) | - |  | <span id="SerialNumber"></span>Serial number of the equipment | - |
 | Owner | NVARCHAR(MAX) | - |  | <span id="Owner"></span>Name of the owner of the equipment | - |
-| StorageLocation | NVARCHAR(100) | - |  | <span id="StorageLocation"></span>Where is the procedure stored | - |
-| PurchaseDate | DATE | - |  | <span id="PurchaseDate"></span>Date when the equipment was bought: 'YYYY-MM-DD | - |
+| StorageLocation | NVARCHAR(100) | - |  | <span id="StorageLocation"></span>Where the equipment is stored when not deployed | - |
+| PurchaseDate | DATE | - |  | <span id="PurchaseDate"></span>Date when the equipment was bought: 'YYYY-MM-DD' | - |
+| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability. Enables fast active/inactive filtering without inspecting PortEquipmentHistory.
+ | Default: `True` |
 
 <span id="EquipmentEvent"></span>
 
@@ -251,25 +363,6 @@ Lookup table classifying the type of lifecycle event that occurred on a piece of
 |-------|----------|-----------|----------|-------------|-------------|
 | EquipmentEventType_ID | INT **(PK)** | - | ✓ | <span id="EquipmentEventType_ID"></span>Surrogate primary key | - |
 | EquipmentEventType_Name | NVARCHAR(100) | - | ✓ | <span id="EquipmentEventType_Name"></span>Name of the event type. Controlled vocabulary: Calibration, Validation, Maintenance, Installation, Removal, Firmware Update, Failure, Repair | - |
-
-<span id="EquipmentInstallation"></span>
-
-### EquipmentInstallation
-
-Records the physical deployment history of a piece of equipment at a sampling location. Enables reconstructing which sensor was active at which location during any past interval.
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Installation_ID | INT **(PK)** | - | ✓ | <span id="Installation_ID"></span>Surrogate primary key | - |
-| Equipment_ID | INT | - | ✓ | <span id="Equipment_ID"></span>Equipment that was installed | FK → [Equipment.Equipment_ID](#Equipment) |
-| SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location where the equipment was installed | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
-| InstalledDate | DATETIME2(7) | - | ✓ | <span id="InstalledDate"></span>Date and time the equipment was installed at this location (UTC) | - |
-| RemovedDate | DATETIME2(7) | - |  | <span id="RemovedDate"></span>Date and time the equipment was removed (UTC). NULL means currently installed. | - |
-| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign during which this installation occurred (if applicable) | FK → [Campaign.Campaign_ID](#Campaign) |
-| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes about the installation or removal | - |
 
 <span id="EquipmentModel"></span>
 
@@ -316,21 +409,6 @@ Links equipment models to the relevant maintenance procedures
 |-------|----------|-----------|----------|-------------|-------------|
 | EquipmentModel_ID | INT **(PK)** | - | ✓ | <span id="EquipmentModel_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.EquipmentModel_ID](#EquipmentModel) |
 | Procedure_ID | INT **(PK)** | - | ✓ | <span id="Procedure_ID"></span>Link to the Procedures table | FK → [Procedures.Procedure_ID](#Procedures) |
-
-<span id="EquipmentStatusChannel"></span>
-
-### EquipmentStatusChannel
-
-Maps each piece of equipment to the Channel that carries its device-level status codes. One equipment can have at most one device-level status channel.
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Equipment whose device-level status is being tracked. | FK → [Equipment.Equipment_ID](#Equipment) |
-| StatusChannel_ID | INT | - | ✓ | <span id="StatusChannel_ID"></span>Channel that carries the device-level status time series. | FK → [Channel.Channel_ID](#Channel) |
 
 <span id="HydrologicalCharacteristics"></span>
 
@@ -462,6 +540,25 @@ Personal and professional information for people involved in projects (e.g., nam
 | Phone | NVARCHAR(100) | - |  | <span id="Phone"></span>Phone number | - |
 | Linkedin | NVARCHAR(100) | - |  | <span id="Linkedin"></span>LinkedIn profile URL | - |
 | Website | NVARCHAR(60) | - |  | <span id="Website"></span>Personal or organisation website URL | - |
+
+<span id="PortEquipmentHistory"></span>
+
+### PortEquipmentHistory
+
+Temporal record of which physical instrument (Equipment) is behind a SignalPort. When a sensor probe is replaced, close the current row (set EndTime) and open a new row for the replacement instrument. Equipment_ID may be NULL when the physical instrument is unknown at ingest time. At most one row per port may have EndTime IS NULL (the "currently installed" instrument).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| PortEquipmentHistory_ID | INT **(PK)** | - | ✓ | <span id="PortEquipmentHistory_ID"></span>Surrogate primary key | - |
+| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The port to which this equipment is linked | FK → [SignalPort.SignalPort_ID](#SignalPort) |
+| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>The physical instrument behind this port during this period. NULL = unknown at ingest time. | FK → [Equipment.Equipment_ID](#Equipment) |
+| StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>UTC datetime when this equipment started serving this port | - |
+| EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>UTC datetime when this equipment stopped serving this port. NULL = currently installed. | - |
+| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes (e.g. reason for swap, calibration context) | - |
 
 <span id="Procedures"></span>
 
@@ -656,6 +753,64 @@ Tracks which schema versions have been applied to this database instance
 | AppliedDateTime | DATETIME2(7) | - | ✓ | <span id="AppliedDateTime"></span>UTC datetime when this migration was applied (stored in UTC by convention) | Default: `CURRENT_TIMESTAMP` |
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Human-readable description of what this migration does | - |
 | MigrationScript | NVARCHAR(200) | - |  | <span id="MigrationScript"></span>Filename of the migration script that was applied | - |
+
+<span id="SignalPort"></span>
+
+### SignalPort
+
+Universal connection point between a DataAcquisitionSystem and a measurement Channel. A port is the stable identity of a signal: it persists across equipment swaps and sensor relocations. One row per tag per DAS. For SCADA systems the tag is a standard tag string (e.g. "TIT-101"). For direct-connect stations a synthetic tag is auto-generated as "{equipment_identifier}/{parameter_name}". Sub-signals (status, alarm, uncertainty) reference their parent value port via ParentPort_ID.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SignalPort_ID | INT **(PK)** | - | ✓ | <span id="SignalPort_ID"></span>Surrogate primary key | - |
+| DataAcquisitionSystem_ID | INT | - | ✓ | <span id="DataAcquisitionSystem_ID"></span>The DAS that owns this tag | FK → [DataAcquisitionSystem.DataAcquisitionSystem_ID](#DataAcquisitionSystem) |
+| Tag | NVARCHAR(200) | - | ✓ | <span id="Tag"></span>Tag string as published by the DAS (case-preserved; lookups are case-insensitive trimmed) | - |
+| SignalPortType_ID | INT | - | ✓ | <span id="SignalPortType_ID"></span>Kind of data flowing through this port (Value, Status, Alarm, Uncertainty) | FK → [SignalPortType.SignalPortType_ID](#SignalPortType) |
+| ControlVariableType_ID | INT | - |  | <span id="ControlVariableType_ID"></span>Engineering role of this port in the physical process (MeasuredVariable, ManipulatedVariable, SetPoint, Disturbance, Computed). NULL = unclassified.
+ | FK → [ControlVariableType.ControlVariableType_ID](#ControlVariableType) |
+| ParentPort_ID | INT | - |  | <span id="ParentPort_ID"></span>For sub-signals (Status, Alarm, Uncertainty ports), points to the parent Value-type port. NULL for primary value ports and unlinked ports.
+ | FK → [SignalPort.SignalPort_ID](#SignalPort) |
+| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this port is currently expected to receive data. Set to false when a signal is retired. | Default: `True` |
+| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this port | - |
+
+<span id="SignalPortLocationHistory"></span>
+
+### SignalPortLocationHistory
+
+Temporal record of where a SignalPort is measuring (which SamplingPoint). Enables the sensor relocation SOP: when a sensor is physically moved, close the current row (set EndTime) and open a new row for the new SamplingPoint. Point-in-time queries resolve the SamplingPoint at any historical timestamp. At most one row per port may have EndTime IS NULL (the "active" location).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SignalPortLocationHistory_ID | INT **(PK)** | - | ✓ | <span id="SignalPortLocationHistory_ID"></span>Surrogate primary key | - |
+| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The port whose physical location is recorded here | FK → [SignalPort.SignalPort_ID](#SignalPort) |
+| SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>The SamplingPoint where this port is measuring during this period | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
+| StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>UTC datetime when the port started measuring at this SamplingPoint | - |
+| EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>UTC datetime when the port stopped measuring here. NULL = currently active. | - |
+| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes (e.g. reason for relocation) | - |
+
+<span id="SignalPortType"></span>
+
+### SignalPortType
+
+Controlled vocabulary describing the kind of data flowing through a SignalPort. Answers "what kind of signal is this?" — orthogonal to ControlVariableType which answers "what does this port do in the physical process?". A blower command has SignalPortType=Value and ControlVariableType=ManipulatedVariable. A device health indicator has SignalPortType=Status and ControlVariableType=NULL.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SignalPortType_ID | INT **(PK)** | - | ✓ | <span id="SignalPortType_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this port type | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this port type means | - |
 
 <span id="Site"></span>
 

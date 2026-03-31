@@ -1,0 +1,54 @@
+_format_version: "1.0"
+table:
+  name: DataAcquisitionSystem
+  schema: dbo
+  description: >
+    Represents any upstream system that assigns tags to signals: SCADA servers,
+    PLCs, data loggers, OPC-UA servers, CSV importers, etc. Supports hierarchy
+    via ParentSystem_ID (e.g. plant SCADA → field PLC → sensor module).
+
+  columns:
+    - name: DataAcquisitionSystem_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: ParentSystem_ID
+      logical_type: integer
+      nullable: true
+      description: "Optional parent DAS in a hierarchy (e.g. plant SCADA containing a PLC sub-system)"
+      foreign_key:
+        table: DataAcquisitionSystem
+        column: DataAcquisitionSystem_ID
+
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable name of the system (e.g. 'Plant SCADA', 'CommCube-A')"
+
+    - name: SystemType
+      logical_type: string
+      max_length: 50
+      nullable: true
+      description: "Category of system: SCADA, PLC, DataLogger, OPC-UA, CSV, etc."
+
+    - name: Manufacturer
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Manufacturer or vendor of the system"
+
+    - name: Model
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Model name or version of the system"
+
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Free-text notes about this DAS"
+
+  primary_key: [DataAcquisitionSystem_ID]

@@ -1,0 +1,49 @@
+_format_version: "1.0"
+table:
+  name: ControlLoop
+  schema: dbo
+  description: >
+    Identity record for a control scheme applied to a process. Describes the controller
+    type and its degradation strategy (FallbackControlLoop_ID chain, or NULL for manual
+    fallback). Temporal configuration (tuning, parameters) lives in ControlLoopApplication.
+    SignalPort membership lives in ControlLoopPort.
+
+  columns:
+    - name: ControlLoop_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable name for this control loop"
+
+    - name: ControllerType
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Controller algorithm class: PID, PI, P, BangBang, Custom, Manual, MPC, Cascade, Feedforward, etc."
+
+    - name: FallbackControlLoop_ID
+      logical_type: integer
+      nullable: true
+      description: "The control loop that takes over if this loop is deactivated. NULL = falls back to manual operation."
+      foreign_key:
+        table: ControlLoop
+        column: ControlLoop_ID
+
+    - name: AlgorithmReference
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Path or repository URL for custom algorithm implementations"
+
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Narrative description of the loop, including notes on novel roles"
+
+  primary_key: [ControlLoop_ID]

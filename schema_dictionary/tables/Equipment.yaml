@@ -2,14 +2,18 @@ _format_version: "1.0"
 table:
   name: Equipment
   schema: dbo
-  description: "Stores information about a specific, physical piece of equipment (e.g., serial number, owner, purchase date, storage location)"
+  description: >
+    Stores information about a specific physical piece of equipment (e.g., serial number,
+    owner, purchase date, storage location). Equipment is linked to measurement streams
+    via SignalPortEquipmentHistory (not directly via Channel), allowing instrument swaps
+    without breaking data continuity.
 
   columns:
     - name: Equipment_ID
       logical_type: integer
       nullable: false
       identity: true
-      description: "Link to the Equipment table"
+      description: "Surrogate primary key"
     - name: EquipmentModel_ID
       logical_type: integer
       nullable: true
@@ -21,7 +25,7 @@ table:
       logical_type: string
       max_length: 100
       nullable: true
-      description: "Identification name of the equipments"
+      description: "Identification name of the equipment"
     - name: SerialNumber
       logical_type: string
       max_length: 100
@@ -35,10 +39,18 @@ table:
       logical_type: string
       max_length: 100
       nullable: true
-      description: "Where is the procedure stored"
+      description: "Where the equipment is stored when not deployed"
     - name: PurchaseDate
       logical_type: date
       nullable: true
-      description: "Date when the equipment was bought: 'YYYY-MM-DD"
+      description: "Date when the equipment was bought: 'YYYY-MM-DD'"
+    - name: IsActive
+      logical_type: boolean
+      nullable: false
+      default: true
+      description: >
+        Whether this equipment is currently in service. Set to false when decommissioned.
+        Decommissioning should also be recorded as an EquipmentEvent for auditability.
+        Enables fast active/inactive filtering without inspecting SignalPortEquipmentHistory.
 
   primary_key: [Equipment_ID]

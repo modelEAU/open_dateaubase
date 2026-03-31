@@ -1,0 +1,36 @@
+_format_version: "1.0"
+table:
+  name: SignalPortType
+  schema: dbo
+  description: >
+    Controlled vocabulary describing the kind of data flowing through a SignalPort.
+    Answers "what kind of signal is this?" — orthogonal to ControlVariableType
+    which answers "what does this port do in the physical process?".
+    A blower command has SignalPortType=Value and ControlVariableType=ManipulatedVariable.
+    A device health indicator has SignalPortType=Status and ControlVariableType=NULL.
+
+  columns:
+    - name: SignalPortType_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Short name for this port type"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this port type means"
+
+  primary_key: [SignalPortType_ID]
+
+  seed_data:
+    - { SignalPortType_ID: 1, Name: "Value",       Description: "Primary measurement or output value" }
+    - { SignalPortType_ID: 2, Name: "Status",      Description: "Device or measurement status flag" }
+    - { SignalPortType_ID: 3, Name: "Alarm",       Description: "Alarm or alert indicator" }
+    - { SignalPortType_ID: 4, Name: "Uncertainty", Description: "Measurement uncertainty estimate" }

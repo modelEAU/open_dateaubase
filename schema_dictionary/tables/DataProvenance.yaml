@@ -2,7 +2,7 @@ _format_version: "1.0"
 table:
   name: DataProvenance
   schema: dbo
-  description: "Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source)"
+  description: "Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast)"
 
   columns:
     - name: DataProvenance_ID
@@ -14,7 +14,7 @@ table:
       logical_type: string
       max_length: 50
       nullable: false
-      description: "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source"
+      description: "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast"
       value_set: data_provenance_set
 
   primary_key: [DataProvenance_ID]
@@ -30,3 +30,5 @@ table:
       DataProvenance_Name: "Model Output"
     - DataProvenance_ID: 5
       DataProvenance_Name: "External Source"
+    - DataProvenance_ID: 6
+      DataProvenance_Name: "Forecast"

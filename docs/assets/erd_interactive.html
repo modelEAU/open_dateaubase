@@ -643,7 +643,7 @@
     {
       "id": "Channel",
       "label": "Channel",
-      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (Equipment, Parameter, DataProvenance, ProcessingDegree) combination. Context that varies over time (location, campaign) is derived at query time via EquipmentInstallation and CampaignEquipment joins \u2014 it is NOT stored here. Lab measurements are stored in Value (scalar) or ValueVector/ValueMatrix/ValueImage. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the SignalPort via PortEquipmentHistory and SignalPortLocationHistory, leaving the Channel_ID stable. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
       "fields": [
         {
           "name": "Channel_ID",
@@ -655,13 +655,13 @@
           "description": "Surrogate primary key"
         },
         {
-          "name": "Equipment_ID",
+          "name": "SignalPort_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": false,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "Physical instrument that produces this measurement stream."
+          "is_required": true,
+          "fk_target": "SignalPort.SignalPort_ID",
+          "description": "The SignalPort (stable signal identity) that this measurement stream belongs to. Replaces Equipment_ID \u2014 equipment that produces data is tracked via PortEquipmentHistory, allowing probes to be swapped without breaking the Channel.\n"
         },
         {
           "name": "Parameter_ID",
@@ -679,7 +679,7 @@
           "is_fk": true,
           "is_required": false,
           "fk_target": "DataProvenance.DataProvenance_ID",
-          "description": "How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5)"
+          "description": "How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5, Forecast=6)\n"
         },
         {
           "name": "ProcessingDegree_ID",
@@ -698,15 +698,6 @@
           "is_required": true,
           "fk_target": "ValueType.ValueType_ID",
           "description": "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
-        },
-        {
-          "name": "StatusChannel_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Channel.Channel_ID",
-          "description": "If this Channel is a per-measurement-channel status time series, this points to the measurement Channel_ID it describes. NULL for measurement channels and device-level status channels.\n"
         }
       ]
     },
@@ -745,9 +736,321 @@
       ]
     },
     {
+      "id": "ControlLoop",
+      "label": "ControlLoop",
+      "description": "Identity record for a control scheme applied to a process. Describes the controller type and its degradation strategy (FallbackControlLoop_ID chain, or NULL for manual fallback). Temporal configuration (tuning, parameters) lives in ControlLoopApplication. SignalPort membership lives in ControlLoopPort.\n",
+      "fields": [
+        {
+          "name": "ControlLoop_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name for this control loop"
+        },
+        {
+          "name": "ControllerType",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Controller algorithm class: PID, PI, P, BangBang, Custom, Manual, MPC, Cascade, Feedforward, etc."
+        },
+        {
+          "name": "FallbackControlLoop_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ControlLoop.ControlLoop_ID",
+          "description": "The control loop that takes over if this loop is deactivated. NULL = falls back to manual operation."
+        },
+        {
+          "name": "AlgorithmReference",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Path or repository URL for custom algorithm implementations"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Narrative description of the loop, including notes on novel roles"
+        }
+      ]
+    },
+    {
+      "id": "ControlLoopApplication",
+      "label": "ControlLoopApplication",
+      "description": "Temporal history of a ControlLoop's active configuration \u2014 tuning events and parameter changes, not per-interval dynamic setpoints. Application rows record human or supervisory changes (new Kp/Ki/Kd, new MPC weights) that are hours-to-weeks apart. Per-interval outputs (e.g. MPC setpoint trajectory) are Observations on a SetPoint-type Channel, not Application rows. At most one row per ControlLoop_ID may have EndTime IS NULL (the \"active\" application).\n",
+      "fields": [
+        {
+          "name": "ControlLoopApplication_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "ControlLoop_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ControlLoop.ControlLoop_ID",
+          "description": "The control loop this application configuration belongs to"
+        },
+        {
+          "name": "StartTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC datetime when this configuration became active"
+        },
+        {
+          "name": "EndTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC datetime when this configuration was superseded. NULL = currently active."
+        },
+        {
+          "name": "Parameters",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "JSON blob of controller parameters for this application window. Examples: {\"Kp\":2.5,\"Ki\":0.1,\"Kd\":0.0} for PID; {\"weights\":{\"DO\":1.0,\"NH4\":0.5},\"horizon\":12} for MPC. Schema is controller-type-specific and deliberately unstructured.\n"
+        },
+        {
+          "name": "AppliedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who activated this configuration"
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about this configuration change"
+        }
+      ]
+    },
+    {
+      "id": "ControlLoopPort",
+      "label": "ControlLoopPort",
+      "description": "Association between a ControlLoop and its SignalPorts, with an explicit role for each port. The unique constraint ensures each port appears at most once per loop. Cascade control is modelled by using the same SignalPort_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner).\n",
+      "fields": [
+        {
+          "name": "ControlLoopPort_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "ControlLoop_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ControlLoop.ControlLoop_ID",
+          "description": "The control loop this association belongs to"
+        },
+        {
+          "name": "SignalPort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalPort.SignalPort_ID",
+          "description": "The port participating in this control loop"
+        },
+        {
+          "name": "ControlLoopPortRole_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ControlLoopPortRole.ControlLoopPortRole_ID",
+          "description": "The functional role of this port within the loop"
+        }
+      ]
+    },
+    {
+      "id": "ControlLoopPortRole",
+      "label": "ControlLoopPortRole",
+      "description": "Controlled vocabulary for the functional role of a SignalPort within a ControlLoop. 'Other' is an explicit escape hatch for novel control schemes; its use should be accompanied by a description in ControlLoop.Description.\n",
+      "fields": [
+        {
+          "name": "ControlLoopPortRole_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Short name for this role"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of the role within a control loop"
+        }
+      ]
+    },
+    {
+      "id": "ControlVariableType",
+      "label": "ControlVariableType",
+      "description": "Controlled vocabulary describing a SignalPort's engineering role in the physical process. Answers \"what does this port do in the process?\" \u2014 orthogonal to SignalPortType which answers \"what kind of data flows here?\". A DO sensor port has ControlVariableType=MeasuredVariable and SignalPortType=Value. NULL means unclassified.\n",
+      "fields": [
+        {
+          "name": "ControlVariableType_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Short name for this control variable type"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of the engineering role"
+        }
+      ]
+    },
+    {
+      "id": "DataAcquisitionSystem",
+      "label": "DataAcquisitionSystem",
+      "description": "Represents any upstream system that assigns tags to signals: SCADA servers, PLCs, data loggers, OPC-UA servers, CSV importers, etc. Supports hierarchy via ParentSystem_ID (e.g. plant SCADA \u2192 field PLC \u2192 sensor module).\n",
+      "fields": [
+        {
+          "name": "DataAcquisitionSystem_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "ParentSystem_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "DataAcquisitionSystem.DataAcquisitionSystem_ID",
+          "description": "Optional parent DAS in a hierarchy (e.g. plant SCADA containing a PLC sub-system)"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name of the system (e.g. 'Plant SCADA', 'CommCube-A')"
+        },
+        {
+          "name": "SystemType",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Category of system: SCADA, PLC, DataLogger, OPC-UA, CSV, etc."
+        },
+        {
+          "name": "Manufacturer",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Manufacturer or vendor of the system"
+        },
+        {
+          "name": "Model",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Model name or version of the system"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about this DAS"
+        }
+      ]
+    },
+    {
       "id": "DataProvenance",
       "label": "DataProvenance",
-      "description": "Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source)",
+      "description": "Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast)",
       "fields": [
         {
           "name": "DataProvenance_ID",
@@ -765,7 +1068,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source"
+          "description": "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast"
         }
       ]
     },
@@ -858,7 +1161,7 @@
     {
       "id": "Equipment",
       "label": "Equipment",
-      "description": "Stores information about a specific, physical piece of equipment (e.g., serial number, owner, purchase date, storage location)",
+      "description": "Stores information about a specific physical piece of equipment (e.g., serial number, owner, purchase date, storage location). Equipment is linked to measurement streams via PortEquipmentHistory (not directly via Channel), allowing instrument swaps without breaking data continuity.\n",
       "fields": [
         {
           "name": "Equipment_ID",
@@ -867,7 +1170,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Link to the Equipment table"
+          "description": "Surrogate primary key"
         },
         {
           "name": "EquipmentModel_ID",
@@ -885,7 +1188,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Identification name of the equipments"
+          "description": "Identification name of the equipment"
         },
         {
           "name": "SerialNumber",
@@ -912,7 +1215,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Where is the procedure stored"
+          "description": "Where the equipment is stored when not deployed"
         },
         {
           "name": "PurchaseDate",
@@ -921,7 +1224,16 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Date when the equipment was bought: 'YYYY-MM-DD"
+          "description": "Date when the equipment was bought: 'YYYY-MM-DD'"
+        },
+        {
+          "name": "IsActive",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability. Enables fast active/inactive filtering without inspecting PortEquipmentHistory.\n"
         }
       ]
     },
@@ -1026,76 +1338,6 @@
           "is_required": true,
           "fk_target": null,
           "description": "Name of the event type. Controlled vocabulary: Calibration, Validation, Maintenance, Installation, Removal, Firmware Update, Failure, Repair"
-        }
-      ]
-    },
-    {
-      "id": "EquipmentInstallation",
-      "label": "EquipmentInstallation",
-      "description": "Records the physical deployment history of a piece of equipment at a sampling location. Enables reconstructing which sensor was active at which location during any past interval.",
-      "fields": [
-        {
-          "name": "Installation_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Equipment_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "Equipment that was installed"
-        },
-        {
-          "name": "SamplingPoint_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "SamplingPoint.SamplingPoint_ID",
-          "description": "Sampling location where the equipment was installed"
-        },
-        {
-          "name": "InstalledDate",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Date and time the equipment was installed at this location (UTC)"
-        },
-        {
-          "name": "RemovedDate",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Date and time the equipment was removed (UTC). NULL means currently installed."
-        },
-        {
-          "name": "Campaign_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Campaign.Campaign_ID",
-          "description": "Campaign during which this installation occurred (if applicable)"
-        },
-        {
-          "name": "Notes",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Free-text notes about the installation or removal"
         }
       ]
     },
@@ -1207,31 +1449,6 @@
           "is_required": true,
           "fk_target": "Procedures.Procedure_ID",
           "description": "Link to the Procedures table"
-        }
-      ]
-    },
-    {
-      "id": "EquipmentStatusChannel",
-      "label": "EquipmentStatusChannel",
-      "description": "Maps each piece of equipment to the Channel that carries its device-level status codes. One equipment can have at most one device-level status channel.\n",
-      "fields": [
-        {
-          "name": "Equipment_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "Equipment whose device-level status is being tracked."
-        },
-        {
-          "name": "StatusChannel_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Channel.Channel_ID",
-          "description": "Channel that carries the device-level status time series."
         }
       ]
     },
@@ -1677,6 +1894,67 @@
           "is_required": false,
           "fk_target": null,
           "description": "Personal or organisation website URL"
+        }
+      ]
+    },
+    {
+      "id": "PortEquipmentHistory",
+      "label": "PortEquipmentHistory",
+      "description": "Temporal record of which physical instrument (Equipment) is behind a SignalPort. When a sensor probe is replaced, close the current row (set EndTime) and open a new row for the replacement instrument. Equipment_ID may be NULL when the physical instrument is unknown at ingest time. At most one row per port may have EndTime IS NULL (the \"currently installed\" instrument).\n",
+      "fields": [
+        {
+          "name": "PortEquipmentHistory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "SignalPort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalPort.SignalPort_ID",
+          "description": "The port to which this equipment is linked"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "The physical instrument behind this port during this period. NULL = unknown at ingest time."
+        },
+        {
+          "name": "StartTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC datetime when this equipment started serving this port"
+        },
+        {
+          "name": "EndTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC datetime when this equipment stopped serving this port. NULL = currently installed."
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes (e.g. reason for swap, calibration context)"
         }
       ]
     },
@@ -2296,6 +2574,180 @@
           "is_required": false,
           "fk_target": null,
           "description": "Filename of the migration script that was applied"
+        }
+      ]
+    },
+    {
+      "id": "SignalPort",
+      "label": "SignalPort",
+      "description": "Universal connection point between a DataAcquisitionSystem and a measurement Channel. A port is the stable identity of a signal: it persists across equipment swaps and sensor relocations. One row per tag per DAS. For SCADA systems the tag is a standard tag string (e.g. \"TIT-101\"). For direct-connect stations a synthetic tag is auto-generated as \"{equipment_identifier}/{parameter_name}\". Sub-signals (status, alarm, uncertainty) reference their parent value port via ParentPort_ID.\n",
+      "fields": [
+        {
+          "name": "SignalPort_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "DataAcquisitionSystem_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "DataAcquisitionSystem.DataAcquisitionSystem_ID",
+          "description": "The DAS that owns this tag"
+        },
+        {
+          "name": "Tag",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Tag string as published by the DAS (case-preserved; lookups are case-insensitive trimmed)"
+        },
+        {
+          "name": "SignalPortType_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalPortType.SignalPortType_ID",
+          "description": "Kind of data flowing through this port (Value, Status, Alarm, Uncertainty)"
+        },
+        {
+          "name": "ControlVariableType_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ControlVariableType.ControlVariableType_ID",
+          "description": "Engineering role of this port in the physical process (MeasuredVariable, ManipulatedVariable, SetPoint, Disturbance, Computed). NULL = unclassified.\n"
+        },
+        {
+          "name": "ParentPort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SignalPort.SignalPort_ID",
+          "description": "For sub-signals (Status, Alarm, Uncertainty ports), points to the parent Value-type port. NULL for primary value ports and unlinked ports.\n"
+        },
+        {
+          "name": "IsActive",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether this port is currently expected to receive data. Set to false when a signal is retired."
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about this port"
+        }
+      ]
+    },
+    {
+      "id": "SignalPortLocationHistory",
+      "label": "SignalPortLocationHistory",
+      "description": "Temporal record of where a SignalPort is measuring (which SamplingPoint). Enables the sensor relocation SOP: when a sensor is physically moved, close the current row (set EndTime) and open a new row for the new SamplingPoint. Point-in-time queries resolve the SamplingPoint at any historical timestamp. At most one row per port may have EndTime IS NULL (the \"active\" location).\n",
+      "fields": [
+        {
+          "name": "SignalPortLocationHistory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "SignalPort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalPort.SignalPort_ID",
+          "description": "The port whose physical location is recorded here"
+        },
+        {
+          "name": "SamplingPoint_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SamplingPoint.SamplingPoint_ID",
+          "description": "The SamplingPoint where this port is measuring during this period"
+        },
+        {
+          "name": "StartTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC datetime when the port started measuring at this SamplingPoint"
+        },
+        {
+          "name": "EndTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC datetime when the port stopped measuring here. NULL = currently active."
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes (e.g. reason for relocation)"
+        }
+      ]
+    },
+    {
+      "id": "SignalPortType",
+      "label": "SignalPortType",
+      "description": "Controlled vocabulary describing the kind of data flowing through a SignalPort. Answers \"what kind of signal is this?\" \u2014 orthogonal to ControlVariableType which answers \"what does this port do in the physical process?\". A blower command has SignalPortType=Value and ControlVariableType=ManipulatedVariable. A device health indicator has SignalPortType=Status and ControlVariableType=NULL.\n",
+      "fields": [
+        {
+          "name": "SignalPortType_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Short name for this port type"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this port type means"
         }
       ]
     },
@@ -3202,9 +3654,9 @@
     },
     {
       "from_table": "Channel",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
+      "to_table": "SignalPort",
+      "from_field": "SignalPort_ID",
+      "to_field": "SignalPort_ID",
       "relationship_type": null
     },
     {
@@ -3236,13 +3688,6 @@
       "relationship_type": null
     },
     {
-      "from_table": "Channel",
-      "to_table": "Channel",
-      "from_field": "StatusChannel_ID",
-      "to_field": "Channel_ID",
-      "relationship_type": null
-    },
-    {
       "from_table": "ChannelAxis",
       "to_table": "Channel",
       "from_field": "Channel_ID",
@@ -3254,6 +3699,55 @@
       "to_table": "ValueBinningAxis",
       "from_field": "ValueBinningAxis_ID",
       "to_field": "ValueBinningAxis_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ControlLoop",
+      "to_table": "ControlLoop",
+      "from_field": "FallbackControlLoop_ID",
+      "to_field": "ControlLoop_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ControlLoopApplication",
+      "to_table": "ControlLoop",
+      "from_field": "ControlLoop_ID",
+      "to_field": "ControlLoop_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ControlLoopApplication",
+      "to_table": "Person",
+      "from_field": "AppliedByPerson_ID",
+      "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ControlLoopPort",
+      "to_table": "ControlLoop",
+      "from_field": "ControlLoop_ID",
+      "to_field": "ControlLoop_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ControlLoopPort",
+      "to_table": "SignalPort",
+      "from_field": "SignalPort_ID",
+      "to_field": "SignalPort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ControlLoopPort",
+      "to_table": "ControlLoopPortRole",
+      "from_field": "ControlLoopPortRole_ID",
+      "to_field": "ControlLoopPortRole_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "DataAcquisitionSystem",
+      "to_table": "DataAcquisitionSystem",
+      "from_field": "ParentSystem_ID",
+      "to_field": "DataAcquisitionSystem_ID",
       "relationship_type": null
     },
     {
@@ -3313,27 +3807,6 @@
       "relationship_type": null
     },
     {
-      "from_table": "EquipmentInstallation",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentInstallation",
-      "to_table": "SamplingPoint",
-      "from_field": "SamplingPoint_ID",
-      "to_field": "SamplingPoint_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentInstallation",
-      "to_table": "Campaign",
-      "from_field": "Campaign_ID",
-      "to_field": "Campaign_ID",
-      "relationship_type": null
-    },
-    {
       "from_table": "EquipmentModelHasParameter",
       "to_table": "EquipmentModel",
       "from_field": "EquipmentModel_ID",
@@ -3359,20 +3832,6 @@
       "to_table": "Procedures",
       "from_field": "Procedure_ID",
       "to_field": "Procedure_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentStatusChannel",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentStatusChannel",
-      "to_table": "Channel",
-      "from_field": "StatusChannel_ID",
-      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
@@ -3457,6 +3916,20 @@
       "to_table": "Unit",
       "from_field": "Unit_ID",
       "to_field": "Unit_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "PortEquipmentHistory",
+      "to_table": "SignalPort",
+      "from_field": "SignalPort_ID",
+      "to_field": "SignalPort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "PortEquipmentHistory",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
       "relationship_type": null
     },
     {
@@ -3548,6 +4021,48 @@
       "to_table": "Campaign",
       "from_field": "CreatedByCampaign_ID",
       "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SignalPort",
+      "to_table": "DataAcquisitionSystem",
+      "from_field": "DataAcquisitionSystem_ID",
+      "to_field": "DataAcquisitionSystem_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SignalPort",
+      "to_table": "SignalPortType",
+      "from_field": "SignalPortType_ID",
+      "to_field": "SignalPortType_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SignalPort",
+      "to_table": "ControlVariableType",
+      "from_field": "ControlVariableType_ID",
+      "to_field": "ControlVariableType_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SignalPort",
+      "to_table": "SignalPort",
+      "from_field": "ParentPort_ID",
+      "to_field": "SignalPort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SignalPortLocationHistory",
+      "to_table": "SignalPort",
+      "from_field": "SignalPort_ID",
+      "to_field": "SignalPort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SignalPortLocationHistory",
+      "to_table": "SamplingPoint",
+      "from_field": "SamplingPoint_ID",
+      "to_field": "SamplingPoint_ID",
       "relationship_type": null
     },
     {

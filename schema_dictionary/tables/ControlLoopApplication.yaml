@@ -1,0 +1,68 @@
+_format_version: "1.0"
+table:
+  name: ControlLoopApplication
+  schema: dbo
+  description: >
+    Temporal history of a ControlLoop's active configuration — tuning events and
+    parameter changes, not per-interval dynamic setpoints.
+    Application rows record human or supervisory changes (new Kp/Ki/Kd, new MPC weights)
+    that are hours-to-weeks apart. Per-interval outputs (e.g. MPC setpoint trajectory)
+    are Observations on a SetPoint-type Channel, not Application rows.
+    At most one row per ControlLoop_ID may have EndTime IS NULL (the "active" application).
+
+  columns:
+    - name: ControlLoopApplication_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: ControlLoop_ID
+      logical_type: integer
+      nullable: false
+      description: "The control loop this application configuration belongs to"
+      foreign_key:
+        table: ControlLoop
+        column: ControlLoop_ID
+
+    - name: StartTime
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC datetime when this configuration became active"
+
+    - name: EndTime
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "UTC datetime when this configuration was superseded. NULL = currently active."
+
+    - name: Parameters
+      logical_type: text
+      nullable: true
+      description: >
+        JSON blob of controller parameters for this application window.
+        Examples: {"Kp":2.5,"Ki":0.1,"Kd":0.0} for PID;
+        {"weights":{"DO":1.0,"NH4":0.5},"horizon":12} for MPC.
+        Schema is controller-type-specific and deliberately unstructured.
+
+    - name: AppliedByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who activated this configuration"
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+    - name: Notes
+      logical_type: text
+      nullable: true
+      description: "Free-text notes about this configuration change"
+
+  indexes:
+    - name: UQ_ControlLoopApplication_ActiveRow
+      columns: [ControlLoop_ID]
+      unique: true
+      description: "At most one active (EndTime IS NULL) application per control loop. Filtered index."
+
+  primary_key: [ControlLoopApplication_ID]

@@ -1,0 +1,58 @@
+_format_version: "1.0"
+table:
+  name: SignalPortLocationHistory
+  schema: dbo
+  description: >
+    Temporal record of where a SignalPort is measuring (which SamplingPoint).
+    Enables the sensor relocation SOP: when a sensor is physically moved, close
+    the current row (set EndTime) and open a new row for the new SamplingPoint.
+    Point-in-time queries resolve the SamplingPoint at any historical timestamp.
+    At most one row per port may have EndTime IS NULL (the "active" location).
+
+  columns:
+    - name: SignalPortLocationHistory_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: SignalPort_ID
+      logical_type: integer
+      nullable: false
+      description: "The port whose physical location is recorded here"
+      foreign_key:
+        table: SignalPort
+        column: SignalPort_ID
+
+    - name: SamplingPoint_ID
+      logical_type: integer
+      nullable: false
+      description: "The SamplingPoint where this port is measuring during this period"
+      foreign_key:
+        table: SamplingPoint
+        column: SamplingPoint_ID
+
+    - name: StartTime
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC datetime when the port started measuring at this SamplingPoint"
+
+    - name: EndTime
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "UTC datetime when the port stopped measuring here. NULL = currently active."
+
+    - name: Notes
+      logical_type: text
+      nullable: true
+      description: "Free-text notes (e.g. reason for relocation)"
+
+  indexes:
+    - name: UQ_SignalPortLocationHistory_ActiveRow
+      columns: [SignalPort_ID]
+      unique: true
+      description: "At most one active (EndTime IS NULL) location row per port. Filtered index."
+
+  primary_key: [SignalPortLocationHistory_ID]

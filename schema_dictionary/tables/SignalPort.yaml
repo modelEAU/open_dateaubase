@@ -1,0 +1,80 @@
+_format_version: "1.0"
+table:
+  name: SignalPort
+  schema: dbo
+  description: >
+    Universal connection point between a DataAcquisitionSystem and a measurement Channel.
+    A port is the stable identity of a signal: it persists across equipment swaps and
+    sensor relocations. One row per tag per DAS.
+    For SCADA systems the tag is a standard tag string (e.g. "TIT-101").
+    For direct-connect stations a synthetic tag is auto-generated as
+    "{equipment_identifier}/{parameter_name}".
+    Sub-signals (status, alarm, uncertainty) reference their parent value port via ParentPort_ID.
+
+  columns:
+    - name: SignalPort_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: DataAcquisitionSystem_ID
+      logical_type: integer
+      nullable: false
+      description: "The DAS that owns this tag"
+      foreign_key:
+        table: DataAcquisitionSystem
+        column: DataAcquisitionSystem_ID
+
+    - name: Tag
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Tag string as published by the DAS (case-preserved; lookups are case-insensitive trimmed)"
+
+    - name: SignalPortType_ID
+      logical_type: integer
+      nullable: false
+      description: "Kind of data flowing through this port (Value, Status, Alarm, Uncertainty)"
+      foreign_key:
+        table: SignalPortType
+        column: SignalPortType_ID
+
+    - name: ControlVariableType_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        Engineering role of this port in the physical process (MeasuredVariable,
+        ManipulatedVariable, SetPoint, Disturbance, Computed). NULL = unclassified.
+      foreign_key:
+        table: ControlVariableType
+        column: ControlVariableType_ID
+
+    - name: ParentPort_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        For sub-signals (Status, Alarm, Uncertainty ports), points to the parent
+        Value-type port. NULL for primary value ports and unlinked ports.
+      foreign_key:
+        table: SignalPort
+        column: SignalPort_ID
+
+    - name: IsActive
+      logical_type: boolean
+      nullable: false
+      default: true
+      description: "Whether this port is currently expected to receive data. Set to false when a signal is retired."
+
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Free-text notes about this port"
+
+  indexes:
+    - name: UQ_SignalPort_DAS_Tag
+      columns: [DataAcquisitionSystem_ID, Tag]
+      unique: true
+      description: "One port per tag per DAS"
+
+  primary_key: [SignalPort_ID]
