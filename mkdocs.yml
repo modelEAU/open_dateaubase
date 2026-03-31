@@ -36,6 +36,7 @@ nav:
     - Tables: reference/tables.md
     - Views: reference/views.md
     - Value Sets: reference/valuesets.md
+    - SignalPortType vs ControlVariableType: reference/signal_port_types.md
     - ERD Diagram: reference/erd.md
     - Inserting Data: reference/inserting_data.md
     - Sample Data & Queries: reference/sample_data.md
@@ -45,6 +46,7 @@ nav:
     - Lab data: architecture/lab_data.md
     - Processing Lineage: architecture/processing_lineage.md
     - Sensor Lifecycle: architecture/sensor_lifecycle.md
+    - Sub-Signal Grouping: architecture/sub_signals.md
   - Operations:
     - Moving a sensor: operations/equipment_move_checklist.md
 markdown_extensions:
