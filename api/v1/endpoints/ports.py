@@ -16,7 +16,7 @@ import pyodbc
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
-from ..repositories import annotation_repository, temporal_history_repository
+from ..repositories import annotation_repository, signal_port_repository, temporal_history_repository
 from ..schemas.ports import (
     EquipmentAtTimeResponse,
     LocationAtTimeResponse,
@@ -26,6 +26,8 @@ from ..schemas.ports import (
     PortEquipmentSwapResponse,
     PortRelocateRequest,
     PortRelocateResponse,
+    SubSignalOut,
+    SubSignalsResponse,
 )
 
 router = APIRouter()
@@ -146,6 +148,18 @@ def relocate_sensor(
 
     Channel_ID and all observations are unaffected.
     """
+    # Sub-signal ports cannot be relocated independently.
+    parent_port_id = signal_port_repository.get_parent_port_id(conn, signal_port_id)
+    if parent_port_id is not None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"SignalPort {signal_port_id} is a sub-signal port "
+                f"(ParentPort_ID={parent_port_id}) and cannot be relocated independently. "
+                "Relocate the parent port instead."
+            ),
+        )
+
     try:
         new_loc_id, closed_loc_id, channel_ids = temporal_history_repository.relocate_sensor(
             conn,
@@ -274,4 +288,42 @@ def get_location_at(
         sampling_point_description=row["sampling_point_description"],
         start_time=row["start_time"],
         end_time=row["end_time"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Sub-signal navigation
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{signal_port_id}/sub-signals",
+    response_model=SubSignalsResponse,
+)
+def get_sub_signals(
+    signal_port_id: int,
+    conn=Depends(get_db),
+):
+    """Return all sub-signal ports linked to a parent value port.
+
+    A sub-signal port has ``ParentPort_ID = signal_port_id``.  This covers
+    Status, Alarm, and Uncertainty ports associated with a measurement point.
+
+    Returns an empty list when no sub-signals exist.
+    """
+    rows = signal_port_repository.get_sub_signals(conn, signal_port_id)
+    return SubSignalsResponse(
+        parent_port_id=signal_port_id,
+        sub_signals=[
+            SubSignalOut(
+                signal_port_id=r["SignalPort_ID"],
+                tag=r["Tag"],
+                is_active=bool(r["IsActive"]),
+                description=r["Description"],
+                parent_port_id=r["ParentPort_ID"],
+                signal_port_type_id=r["SignalPortType_ID"],
+                signal_port_type_name=r["signal_port_type_name"],
+            )
+            for r in rows
+        ],
     )

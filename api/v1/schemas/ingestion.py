@@ -19,6 +19,7 @@ class SensorIngestRequest(BaseModel):
     das_name: str
     tag: str
     signal_port_type: str = "value"
+    parent_tag: str | None = None
     parameter_name: str
     unit_name: str
     data_provenance_id: int = 1

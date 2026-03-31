@@ -88,3 +88,23 @@ class LocationAtTimeResponse(BaseModel):
     sampling_point_description: str | None
     start_time: datetime | None
     end_time: datetime | None
+
+
+# ---------------------------------------------------------------------------
+# Sub-signal navigation
+# ---------------------------------------------------------------------------
+
+
+class SubSignalOut(BaseModel):
+    signal_port_id: int
+    tag: str
+    is_active: bool
+    description: str | None
+    parent_port_id: int
+    signal_port_type_id: int
+    signal_port_type_name: str
+
+
+class SubSignalsResponse(BaseModel):
+    parent_port_id: int
+    sub_signals: list[SubSignalOut]

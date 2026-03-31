@@ -202,6 +202,96 @@ def open_port_equipment_history(
     return new_id
 
 
+def find_signal_port_by_tag(
+    conn: pyodbc.Connection, das_id: int, tag: str
+) -> int | None:
+    """Return SignalPort_ID for (DAS_ID, tag). None if not found.
+
+    Lookup is case-insensitive and whitespace-trimmed.
+    """
+    normalised = tag.strip().lower()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SignalPort_ID] FROM [dbo].[SignalPort]"
+        " WHERE [DataAcquisitionSystem_ID] = ?"
+        "   AND LOWER(LTRIM(RTRIM([Tag]))) = ?",
+        das_id,
+        normalised,
+    )
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def get_parent_port_id(conn: pyodbc.Connection, signal_port_id: int) -> int | None:
+    """Return the ParentPort_ID for a SignalPort.
+
+    Returns None when the port is a root port (ParentPort_ID IS NULL) or
+    when the port does not exist.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [ParentPort_ID] FROM [dbo].[SignalPort] WHERE [SignalPort_ID] = ?",
+        signal_port_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+def set_parent_port(
+    conn: pyodbc.Connection, signal_port_id: int, parent_port_id: int
+) -> None:
+    """Set ParentPort_ID on a SignalPort.
+
+    Idempotent: no-op if ``ParentPort_ID`` is already set to ``parent_port_id``.
+    Raises ``ValueError`` if the port already has a *different* parent.
+    """
+    existing = get_parent_port_id(conn, signal_port_id)
+    if existing == parent_port_id:
+        return  # already correct — idempotent
+    if existing is not None:
+        raise ValueError(
+            f"SignalPort {signal_port_id} already has ParentPort_ID={existing}; "
+            f"cannot reassign to {parent_port_id}."
+        )
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[SignalPort] SET [ParentPort_ID] = ? WHERE [SignalPort_ID] = ?",
+        parent_port_id,
+        signal_port_id,
+    )
+    conn.commit()
+
+
+def get_sub_signals(conn: pyodbc.Connection, parent_port_id: int) -> list[dict]:
+    """Return all sub-signal ports whose ParentPort_ID equals *parent_port_id*.
+
+    Each item contains: signal_port_id, tag, is_active, description,
+    parent_port_id, signal_port_type_id, signal_port_type_name.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            sp.[SignalPort_ID],
+            sp.[Tag],
+            sp.[IsActive],
+            sp.[Description],
+            sp.[ParentPort_ID],
+            spt.[SignalPortType_ID],
+            spt.[Name] AS [signal_port_type_name]
+        FROM [dbo].[SignalPort] sp
+        JOIN [dbo].[SignalPortType] spt
+            ON spt.[SignalPortType_ID] = sp.[SignalPortType_ID]
+        WHERE sp.[ParentPort_ID] = ?
+        """,
+        parent_port_id,
+    )
+    cols = [col[0] for col in cursor.description]
+    return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
 def deactivate_signal_port(conn: pyodbc.Connection, signal_port_id: int) -> bool:
     """Set ``IsActive = 0`` on a SignalPort.  Returns True if the row was found."""
     cursor = conn.cursor()

@@ -310,6 +310,25 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         unit_name=data.unit_name,
     )
 
+    # --- parent_tag: link sub-signal to parent port ---
+    if data.parent_tag is not None:
+        das_id, _ = signal_port_repository.find_or_create_das(conn, data.das_name)
+        parent_port_id = signal_port_repository.find_signal_port_by_tag(
+            conn, das_id, data.parent_tag
+        )
+        if parent_port_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"parent_tag {data.parent_tag!r} not found in DAS {data.das_name!r}. "
+                    "The parent port must exist before creating a sub-signal."
+                ),
+            )
+        try:
+            signal_port_repository.set_parent_port(conn, port_id, parent_port_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
         signal_port_id=port_id,
