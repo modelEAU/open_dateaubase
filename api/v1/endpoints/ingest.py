@@ -17,9 +17,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
+import logging
+
 from api.config import settings
 from api.database import get_db
-from ..repositories import ingestion_repository, lookup_repository, value_repository
+from ..repositories import ingestion_repository, lookup_repository, signal_port_repository, value_repository
 from ..schemas.ingestion import (
     ImageIngestResponse,
     IngestResponse,
@@ -30,9 +32,12 @@ from ..schemas.ingestion import (
     SampleCreateRequest,
     SampleCreateResponse,
     SensorIngestRequest,
+    SignalPortDeactivateResponse,
     VectorSensorIngestRequest,
 )
 from ..services import lineage_service
+
+logger = logging.getLogger(__name__)
 
 # Try to import Pillow, but make it optional
 try:
@@ -44,6 +49,69 @@ except ImportError:
     PILLOW_AVAILABLE = False
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Internal helper
+# ---------------------------------------------------------------------------
+
+
+def _resolve_tag_inputs(
+    conn,
+    das_name: str,
+    tag: str,
+    signal_port_type: str,
+    parameter_name: str,
+    unit_name: str,
+) -> tuple[int, int, int, list[str]]:
+    """Validate names and resolve to IDs.  Returns (signal_port_id, parameter_id, unit_id, warnings).
+
+    Raises HTTP 422 for unrecognised signal_port_type, parameter, or unit — *before* any DB writes.
+    Auto-creates DAS and SignalPort with warnings.
+    """
+    # --- Validation-only lookups first (no writes) ---
+    spt_id = signal_port_repository.find_signal_port_type_by_name(conn, signal_port_type)
+    if spt_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown signal_port_type {signal_port_type!r}. "
+                   "Valid values: value, status, alarm, uncertainty.",
+        )
+
+    param_id = signal_port_repository.find_parameter_by_name(conn, parameter_name)
+    if param_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown parameter_name {parameter_name!r}. "
+                   "Add the parameter to the Parameter table before ingesting.",
+        )
+
+    unit_id = signal_port_repository.find_unit_by_name(conn, unit_name)
+    if unit_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown unit_name {unit_name!r}. "
+                   "Add the unit to the Unit table before ingesting.",
+        )
+
+    # --- Auto-create writes (warn on new rows) ---
+    collected_warnings: list[str] = []
+
+    das_id, das_created = signal_port_repository.find_or_create_das(conn, das_name)
+    if das_created:
+        msg = f"DataAcquisitionSystem {das_name!r} was not found and has been auto-created (ID={das_id})."
+        logger.warning(msg)
+        collected_warnings.append(msg)
+
+    port_id, port_created = signal_port_repository.find_or_create_signal_port(
+        conn, das_id, tag, spt_id
+    )
+    if port_created:
+        msg = f"SignalPort tag={tag!r} (DAS={das_name!r}) was not found and has been auto-created (ID={port_id})."
+        logger.warning(msg)
+        collected_warnings.append(msg)
+
+    return port_id, param_id, unit_id, collected_warnings
 
 
 # ---------------------------------------------------------------------------
@@ -128,10 +196,7 @@ def get_data_provenance_lookup(conn=Depends(get_db)):
 
 @router.get("/last-timestamp")
 def get_last_timestamp(
-    equipment_id: int,
-    parameter_id: int,
-    data_provenance_id: int = 1,
-    processing_degree_id: int = 1,
+    channel_id: int,
     conn=Depends(get_db),
 ):
     """Return the most-recent ingested Timestamp for a sensor channel.
@@ -139,13 +204,7 @@ def get_last_timestamp(
     Used by the table-import CLI for watermark-based deduplication.
     Returns {"last_timestamp": "<ISO 8601>" | null}.
     """
-    ts = ingestion_repository.get_last_timestamp_for_channel(
-        conn,
-        equipment_id=equipment_id,
-        parameter_id=parameter_id,
-        data_provenance_id=data_provenance_id,
-        processing_degree_id=processing_degree_id,
-    )
+    ts = ingestion_repository.get_last_timestamp_for_channel(conn, channel_id=channel_id)
     return {"last_timestamp": ts.isoformat() if ts is not None else None}
 
 
@@ -159,14 +218,24 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
     """Ingest raw sensor measurements.
 
     Resolves (or creates) the Channel via the UNIQUE stream identity:
-    (equipment_id, parameter_id, data_provenance_id, processing_degree).
-    No pre-configuration is required.
+    (das_name, tag, parameter_name, data_provenance_id, processing_degree).
+    DAS and SignalPort are auto-created with a warning on first encounter.
+    Unrecognised parameter_name or unit_name returns 422 before any DB write.
     """
+    port_id, param_id, unit_id, ingest_warnings = _resolve_tag_inputs(
+        conn,
+        das_name=data.das_name,
+        tag=data.tag,
+        signal_port_type=data.signal_port_type,
+        parameter_name=data.parameter_name,
+        unit_name=data.unit_name,
+    )
+
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        equipment_id=data.equipment_id,
-        parameter_id=data.parameter_id,
-        unit_id=data.unit_id,
+        signal_port_id=port_id,
+        parameter_id=param_id,
+        unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
     )
@@ -177,7 +246,7 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         [v.model_dump() for v in data.values],
     )
 
-    return IngestResponse(channel_id=channel_id, rows_written=rows)
+    return IngestResponse(channel_id=channel_id, rows_written=rows, warnings=ingest_warnings)
 
 
 @router.post("/lab", response_model=LabIngestResponse, status_code=201)
@@ -266,11 +335,20 @@ def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
     Each observation contains a timestamp and an array of bin values.
     Channel is resolved/created with value_type_id=2 (Vector).
     """
+    port_id, param_id, unit_id, ingest_warnings = _resolve_tag_inputs(
+        conn,
+        das_name=data.das_name,
+        tag=data.tag,
+        signal_port_type=data.signal_port_type,
+        parameter_name=data.parameter_name,
+        unit_name=data.unit_name,
+    )
+
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        equipment_id=data.equipment_id,
-        parameter_id=data.parameter_id,
-        unit_id=data.unit_id,
+        signal_port_id=port_id,
+        parameter_id=param_id,
+        unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
         value_type_id=2,
@@ -282,7 +360,7 @@ def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
     rows = value_repository.insert_vector_values(
         conn, channel_id, data.binning_axis_id, observations
     )
-    return IngestResponse(channel_id=channel_id, rows_written=rows)
+    return IngestResponse(channel_id=channel_id, rows_written=rows, warnings=ingest_warnings)
 
 
 @router.post("/sensor-matrix", response_model=IngestResponse, status_code=201)
@@ -292,11 +370,20 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
     Each observation contains a timestamp and a 2D matrix of values.
     Channel is resolved/created with value_type_id=3 (Matrix).
     """
+    port_id, param_id, unit_id, ingest_warnings = _resolve_tag_inputs(
+        conn,
+        das_name=data.das_name,
+        tag=data.tag,
+        signal_port_type=data.signal_port_type,
+        parameter_name=data.parameter_name,
+        unit_name=data.unit_name,
+    )
+
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        equipment_id=data.equipment_id,
-        parameter_id=data.parameter_id,
-        unit_id=data.unit_id,
+        signal_port_id=port_id,
+        parameter_id=param_id,
+        unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
         value_type_id=3,
@@ -311,14 +398,16 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
     rows = value_repository.insert_matrix_values(
         conn, channel_id, data.row_axis_id, data.col_axis_id, observations
     )
-    return IngestResponse(channel_id=channel_id, rows_written=rows)
+    return IngestResponse(channel_id=channel_id, rows_written=rows, warnings=ingest_warnings)
 
 
 @router.post("/sensor-image", response_model=ImageIngestResponse, status_code=201)
 def ingest_sensor_image(
-    equipment_id: int = Form(...),
-    parameter_id: int = Form(...),
-    unit_id: int = Form(...),
+    das_name: str = Form(...),
+    tag: str = Form(...),
+    signal_port_type: str = Form("value"),
+    parameter_name: str = Form(...),
+    unit_name: str = Form(...),
     timestamp: str = Form(...),  # ISO datetime string
     quality_code: int | None = Form(None),
     data_provenance_id: int = Form(1),
@@ -364,11 +453,19 @@ def ingest_sensor_image(
             # Pillow failed — store without metadata
             pass
 
-    # 4. Find/create channel (value_type_id=4 = Image)
+    # 4. Resolve tag inputs and find/create channel (value_type_id=4 = Image)
+    port_id, param_id, unit_id, _ = _resolve_tag_inputs(
+        conn,
+        das_name=das_name,
+        tag=tag,
+        signal_port_type=signal_port_type,
+        parameter_name=parameter_name,
+        unit_name=unit_name,
+    )
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        equipment_id=equipment_id,
-        parameter_id=parameter_id,
+        signal_port_id=port_id,
+        parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=data_provenance_id,
         processing_degree_id=processing_degree_id,
@@ -417,3 +514,21 @@ def create_sample(data: SampleCreateRequest, conn=Depends(get_db)):
         description=data.description,
     )
     return SampleCreateResponse(sample_id=sample_id)
+
+
+@router.patch(
+    "/signal-ports/{signal_port_id}/deactivate",
+    response_model=SignalPortDeactivateResponse,
+)
+def deactivate_signal_port(signal_port_id: int, conn=Depends(get_db)):
+    """Set SignalPort.IsActive = 0.
+
+    Does not affect the associated Channel rows or any historical data.
+    Returns 404 if the SignalPort does not exist.
+    """
+    found = signal_port_repository.deactivate_signal_port(conn, signal_port_id)
+    if not found:
+        raise HTTPException(
+            status_code=404, detail=f"SignalPort {signal_port_id} not found."
+        )
+    return SignalPortDeactivateResponse(signal_port_id=signal_port_id, deactivated=True)

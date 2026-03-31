@@ -10,7 +10,7 @@ import pyodbc
 def find_or_create_sensor_metadata(
     conn: pyodbc.Connection,
     *,
-    equipment_id: int,
+    signal_port_id: int,
     parameter_id: int,
     unit_id: int | None = None,
     data_provenance_id: int,
@@ -20,7 +20,7 @@ def find_or_create_sensor_metadata(
     """Find or create a Channel row for a sensor stream. Returns Channel_ID.
 
     Uses the UNIQUE sensor stream constraint:
-    (Equipment_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID) WHERE both are NOT NULL.
+    (SignalPort_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID) WHERE both are NOT NULL.
 
     On first ingest, a new row is created automatically — no pre-configuration needed.
     Subsequent calls for the same stream return the existing Channel_ID.
@@ -30,21 +30,21 @@ def find_or_create_sensor_metadata(
         """
         IF NOT EXISTS (
             SELECT 1 FROM [dbo].[Channel]
-            WHERE [Equipment_ID] = ?
+            WHERE [SignalPort_ID] = ?
               AND [Parameter_ID] = ?
               AND [DataProvenance_ID] = ?
               AND [ProcessingDegree_ID] = ?
         )
         INSERT INTO [dbo].[Channel]
-            ([Equipment_ID], [Parameter_ID], [DataProvenance_ID],
+            ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID],
              [ProcessingDegree_ID], [ValueType_ID])
         VALUES (?, ?, ?, ?, ?)
         """,
-        equipment_id,
+        signal_port_id,
         parameter_id,
         data_provenance_id,
         processing_degree_id,
-        equipment_id,
+        signal_port_id,
         parameter_id,
         data_provenance_id,
         processing_degree_id,
@@ -54,12 +54,12 @@ def find_or_create_sensor_metadata(
     cursor.execute(
         """
         SELECT [Channel_ID] FROM [dbo].[Channel]
-        WHERE [Equipment_ID] = ?
+        WHERE [SignalPort_ID] = ?
           AND [Parameter_ID] = ?
           AND [DataProvenance_ID] = ?
           AND [ProcessingDegree_ID] = ?
         """,
-        equipment_id,
+        signal_port_id,
         parameter_id,
         data_provenance_id,
         processing_degree_id,
@@ -83,7 +83,7 @@ def find_or_create_derived_metadata(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ValueType_ID]
+        SELECT [SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ValueType_ID]
         FROM [dbo].[Channel]
         WHERE [Channel_ID] = ?
         """,
@@ -95,10 +95,10 @@ def find_or_create_derived_metadata(
             status_code=404,
             detail=f"Source channel {source_channel_id} not found.",
         )
-    equipment_id, parameter_id, data_provenance_id, value_type_id = row
+    signal_port_id, parameter_id, data_provenance_id, value_type_id = row
     return find_or_create_sensor_metadata(
         conn,
-        equipment_id=equipment_id,
+        signal_port_id=signal_port_id,
         parameter_id=parameter_id,
         unit_id=None,
         data_provenance_id=data_provenance_id,
@@ -199,28 +199,18 @@ def upsert_channel_axis(
 def get_last_timestamp_for_channel(
     conn: pyodbc.Connection,
     *,
-    equipment_id: int,
-    parameter_id: int,
-    data_provenance_id: int,
-    processing_degree_id: int,
+    channel_id: int,
 ) -> datetime | None:
-    """Return the most recent Timestamp in dbo.Observation for the matching channel, or None."""
+    """Return the most recent Timestamp in dbo.Observation for the given Channel_ID, or None."""
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT TOP 1 o.[Timestamp]
-        FROM [dbo].[Observation] o
-        JOIN [dbo].[Channel] c ON c.[Channel_ID] = o.[Channel_ID]
-        WHERE c.[Equipment_ID]        = ?
-          AND c.[Parameter_ID]        = ?
-          AND c.[DataProvenance_ID]   = ?
-          AND c.[ProcessingDegree_ID] = ?
-        ORDER BY o.[Timestamp] DESC
+        SELECT TOP 1 [Timestamp]
+        FROM [dbo].[Observation]
+        WHERE [Channel_ID] = ?
+        ORDER BY [Timestamp] DESC
         """,
-        equipment_id,
-        parameter_id,
-        data_provenance_id,
-        processing_degree_id,
+        channel_id,
     )
     row = cursor.fetchone()
     return row[0] if row else None

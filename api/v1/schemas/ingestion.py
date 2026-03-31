@@ -16,9 +16,11 @@ class ValueItem(BaseModel):
 class SensorIngestRequest(BaseModel):
     """Ingest raw sensor data. Channel is resolved (or created) from the stream identity."""
 
-    equipment_id: int
-    parameter_id: int
-    unit_id: int
+    das_name: str
+    tag: str
+    signal_port_type: str = "value"
+    parameter_name: str
+    unit_name: str
     data_provenance_id: int = 1
     processing_degree_id: int = 1
     values: list[ValueItem]
@@ -93,6 +95,7 @@ class IngestResponse(BaseModel):
     channel_id: int
     rows_written: int
     processing_step_id: int | None = None
+    warnings: list[str] = []
 
 
 class LabIngestResponse(BaseModel):
@@ -130,9 +133,11 @@ class VectorObservation(BaseModel):
 
 
 class VectorSensorIngestRequest(BaseModel):
-    equipment_id: int
-    parameter_id: int
-    unit_id: int
+    das_name: str
+    tag: str
+    signal_port_type: str = "value"
+    parameter_name: str
+    unit_name: str
     binning_axis_id: int
     data_provenance_id: int = 1
     processing_degree_id: int = 1
@@ -155,9 +160,11 @@ class MatrixObservation(BaseModel):
 
 
 class MatrixSensorIngestRequest(BaseModel):
-    equipment_id: int
-    parameter_id: int
-    unit_id: int
+    das_name: str
+    tag: str
+    signal_port_type: str = "value"
+    parameter_name: str
+    unit_name: str
     row_axis_id: int
     col_axis_id: int
     data_provenance_id: int = 1
@@ -178,3 +185,8 @@ class MatrixSensorIngestRequest(BaseModel):
         if row_axis_id is not None and v == row_axis_id:
             raise ValueError("row_axis_id and col_axis_id must be different")
         return v
+
+
+class SignalPortDeactivateResponse(BaseModel):
+    signal_port_id: int
+    deactivated: bool
