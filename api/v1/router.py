@@ -21,6 +21,7 @@ from .endpoints.sensor_status import router as sensor_status_router
 from .endpoints.parameters import router as parameters_router
 from .endpoints.ports import router as ports_router
 from .endpoints.value_binning import router as value_binning_router
+from .endpoints.control_loops import router as control_loops_router
 
 router = APIRouter()
 
@@ -44,4 +45,7 @@ router.include_router(parameters_router, prefix="/parameters", tags=["parameters
 router.include_router(ports_router, prefix="/ports", tags=["ports"])
 router.include_router(
     value_binning_router, prefix="/value-binning-axes", tags=["value-binning-axes"]
+)
+router.include_router(
+    control_loops_router, prefix="/control-loops", tags=["control-loops"]
 )
