@@ -452,15 +452,19 @@ class TestIngestionRequestValidation:
 
     def test_sensor_ingest_rejects_empty_values(self, patched_client):
         c, conn, cursor = patched_client
-        payload = {"equipment_id": 1, "parameter_id": 1, "unit_id": 1, "values": []}
+        payload = {
+            "das_name": "TestDAS", "tag": "TIT-1", "parameter_name": "temperature",
+            "unit_name": "degC", "values": [],
+        }
         r = c.post("/api/v1/ingest/sensor", json=payload)
         assert r.status_code == 422
 
-    def test_sensor_ingest_requires_equipment_id(self, patched_client):
+    def test_sensor_ingest_requires_das_name(self, patched_client):
         c, conn, cursor = patched_client
         payload = {
-            "parameter_id": 1,
-            "unit_id": 1,
+            "tag": "TIT-1",
+            "parameter_name": "temperature",
+            "unit_name": "degC",
             "values": [{"timestamp": "2025-01-01T00:00:00", "value": 24.5}],
         }
         r = c.post("/api/v1/ingest/sensor", json=payload)
@@ -566,12 +570,7 @@ class TestLastTimestampEndpoint:
         cursor.fetchone.return_value = None
         r = client.get(
             "/api/v1/ingest/last-timestamp",
-            params={
-                "equipment_id": 1,
-                "parameter_id": 2,
-                "data_provenance_id": 1,
-                "processing_degree_id": 1,
-            },
+            params={"channel_id": 1},
         )
         assert r.status_code == 200
         assert r.json()["last_timestamp"] is None
@@ -582,12 +581,7 @@ class TestLastTimestampEndpoint:
         cursor.fetchone.return_value = (datetime(2024, 6, 1, 12, 0, 0),)
         r = client.get(
             "/api/v1/ingest/last-timestamp",
-            params={
-                "equipment_id": 1,
-                "parameter_id": 2,
-                "data_provenance_id": 1,
-                "processing_degree_id": 1,
-            },
+            params={"channel_id": 1},
         )
         assert r.status_code == 200
         assert r.json()["last_timestamp"] is not None
@@ -620,24 +614,33 @@ class TestObservationAwareIngest:
     """
 
     def test_post_ingest_sensor_scalar_contract(self, client):
-        """POST /ingest/sensor returns {"rows_written": N} with valid input."""
+        """POST /ingest/sensor returns {"rows_written": N, "channel_id": N} with valid input."""
         from unittest.mock import patch
 
-        # Patch the repository functions the endpoint calls
-        with patch("api.v1.repositories.ingestion_repository.find_or_create_sensor_metadata",
-                   return_value=42), \
-             patch("api.v1.repositories.value_repository.insert_scalar_values",
-                   return_value=2):
+        _REPO = "api.v1.endpoints.ingest.signal_port_repository"
+        with (
+            patch(f"{_REPO}.find_signal_port_type_by_name", return_value=1),
+            patch(f"{_REPO}.find_parameter_by_name", return_value=1),
+            patch(f"{_REPO}.find_unit_by_name", return_value=1),
+            patch(f"{_REPO}.find_or_create_das", return_value=(5, False)),
+            patch(f"{_REPO}.find_or_create_signal_port", return_value=(10, False)),
+            patch("api.v1.endpoints.ingest.ingestion_repository.find_or_create_sensor_metadata",
+                  return_value=42),
+            patch("api.v1.endpoints.ingest.value_repository.insert_scalar_values",
+                  return_value=2),
+        ):
             resp = client.post("/api/v1/ingest/sensor", json={
-                "equipment_id": 1,
-                "parameter_id": 1,
-                "unit_id": 1,
+                "das_name": "PlantSCADA",
+                "tag": "TIT-101",
+                "signal_port_type": "value",
+                "parameter_name": "temperature",
+                "unit_name": "degC",
                 "data_provenance_id": 1,
                 "processing_degree_id": 1,
                 "values": [
                     {"timestamp": "2024-01-01T10:00:00", "value": 7.2},
                     {"timestamp": "2024-01-01T10:05:00", "value": 7.3},
-                ]
+                ],
             })
         assert resp.status_code in (200, 201)
         body = resp.json()
@@ -646,17 +649,12 @@ class TestObservationAwareIngest:
 
     def test_get_last_timestamp_contract(self, client):
         """GET /ingest/last-timestamp returns {"last_timestamp": ...} or null."""
-        from unittest.mock import patch
         from datetime import datetime
+        from unittest.mock import patch
 
-        with patch("api.v1.repositories.ingestion_repository.get_last_timestamp_for_channel",
+        with patch("api.v1.endpoints.ingest.ingestion_repository.get_last_timestamp_for_channel",
                    return_value=datetime(2024, 1, 1, 10, 5, 0)):
-            resp = client.get("/api/v1/ingest/last-timestamp", params={
-                "equipment_id": 1,
-                "parameter_id": 1,
-                "data_provenance_id": 1,
-                "processing_degree_id": 1,
-            })
+            resp = client.get("/api/v1/ingest/last-timestamp", params={"channel_id": 1})
         assert resp.status_code == 200
         body = resp.json()
         assert "last_timestamp" in body
