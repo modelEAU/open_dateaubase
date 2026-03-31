@@ -407,3 +407,105 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
         "campaign_name": row[8],
         "notes": row[9],
     }
+
+
+# ---------------------------------------------------------------------------
+# Commission / Decommission
+# ---------------------------------------------------------------------------
+
+
+def _find_event_type_id_by_name(conn: pyodbc.Connection, name: str) -> int | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [EquipmentEventType_ID] FROM [dbo].[EquipmentEventType]"
+        " WHERE [EquipmentEventType_Name] = ?",
+        name,
+    )
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def commission_equipment(
+    conn: pyodbc.Connection,
+    equipment_id: int,
+    notes: str | None = None,
+    performed_by_person_id: int | None = None,
+) -> dict:
+    """Set Equipment.IsActive = 1 and record a Commissioning EquipmentEvent.
+
+    Returns ``{"equipment_id", "is_active", "equipment_event_id"}``.
+    """
+    event_type_id = _find_event_type_id_by_name(conn, "Commissioning")
+    if event_type_id is None:
+        raise RuntimeError(
+            "EquipmentEventType 'Commissioning' is missing from seed data."
+        )
+
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[Equipment] SET [IsActive] = 1 WHERE [Equipment_ID] = ?",
+        equipment_id,
+    )
+    if cursor.rowcount == 0:
+        conn.rollback()
+        raise ValueError(f"Equipment {equipment_id} not found.")
+
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[EquipmentEvent]
+            ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart],
+             [PerformedByPerson_ID], [Notes])
+        OUTPUT INSERTED.[EquipmentEvent_ID]
+        VALUES (?, ?, SYSUTCDATETIME(), ?, ?)
+        """,
+        equipment_id,
+        event_type_id,
+        performed_by_person_id,
+        notes,
+    )
+    event_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return {"equipment_id": equipment_id, "is_active": True, "equipment_event_id": event_id}
+
+
+def decommission_equipment(
+    conn: pyodbc.Connection,
+    equipment_id: int,
+    notes: str | None = None,
+    performed_by_person_id: int | None = None,
+) -> dict:
+    """Set Equipment.IsActive = 0 and record a Decommissioning EquipmentEvent.
+
+    Returns ``{"equipment_id", "is_active", "equipment_event_id"}``.
+    """
+    event_type_id = _find_event_type_id_by_name(conn, "Decommissioning")
+    if event_type_id is None:
+        raise RuntimeError(
+            "EquipmentEventType 'Decommissioning' is missing from seed data."
+        )
+
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[Equipment] SET [IsActive] = 0 WHERE [Equipment_ID] = ?",
+        equipment_id,
+    )
+    if cursor.rowcount == 0:
+        conn.rollback()
+        raise ValueError(f"Equipment {equipment_id} not found.")
+
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[EquipmentEvent]
+            ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart],
+             [PerformedByPerson_ID], [Notes])
+        OUTPUT INSERTED.[EquipmentEvent_ID]
+        VALUES (?, ?, SYSUTCDATETIME(), ?, ?)
+        """,
+        equipment_id,
+        event_type_id,
+        performed_by_person_id,
+        notes,
+    )
+    event_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return {"equipment_id": equipment_id, "is_active": False, "equipment_event_id": event_id}

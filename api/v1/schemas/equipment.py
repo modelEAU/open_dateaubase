@@ -104,3 +104,18 @@ class EquipmentEventCreate(BaseModel):
     performed_by_person_id: int | None = None
     campaign_id: int | None = None
     notes: str | None = None
+
+
+class EquipmentLifecycleActionRequest(BaseModel):
+    """Request body for commission / decommission endpoints."""
+
+    notes: str | None = None
+    performed_by_person_id: int | None = None
+
+
+class EquipmentLifecycleActionResponse(BaseModel):
+    """Response for commission / decommission endpoints."""
+
+    equipment_id: int
+    is_active: bool
+    equipment_event_id: int

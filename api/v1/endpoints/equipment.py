@@ -10,6 +10,8 @@ from api.database import get_db
 from ..repositories import equipment_repository
 from ..schemas.equipment import (
     EquipmentIn,
+    EquipmentLifecycleActionRequest,
+    EquipmentLifecycleActionResponse,
     EquipmentLifecycleOut,
     EquipmentModelIn,
     EquipmentModelOut,
@@ -162,3 +164,53 @@ def get_lifecycle(
         installations=installations,
         events=events,
     )
+
+
+@router.post(
+    "/{equipment_id}/commission",
+    response_model=EquipmentLifecycleActionResponse,
+    status_code=201,
+)
+def commission_equipment(
+    equipment_id: int,
+    body: EquipmentLifecycleActionRequest,
+    conn=Depends(get_db),
+):
+    """Mark equipment as active (IsActive=1) and record a Commissioning event.
+
+    SignalPort and Channel rows are unaffected.
+    """
+    try:
+        return equipment_repository.commission_equipment(
+            conn,
+            equipment_id,
+            notes=body.notes,
+            performed_by_person_id=body.performed_by_person_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{equipment_id}/decommission",
+    response_model=EquipmentLifecycleActionResponse,
+    status_code=201,
+)
+def decommission_equipment(
+    equipment_id: int,
+    body: EquipmentLifecycleActionRequest,
+    conn=Depends(get_db),
+):
+    """Mark equipment as inactive (IsActive=0) and record a Decommissioning event.
+
+    SignalPort and Channel rows are unaffected.
+    """
+    try:
+        return equipment_repository.decommission_equipment(
+            conn,
+            equipment_id,
+            notes=body.notes,
+            performed_by_person_id=body.performed_by_person_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
