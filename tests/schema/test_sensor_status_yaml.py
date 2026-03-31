@@ -16,94 +16,78 @@ def views_dir():
     return Path(__file__).parent.parent.parent / "schema_dictionary" / "views"
 
 
-class TestSensorStatusCodeSchema:
-    """Tests for SensorStatusCode.yaml validation."""
+class TestSignalPortTypeSchema:
+    """Tests for SignalPortType.yaml — v3.0.0 replaces SensorStatusCode + StatusChannel_ID."""
 
-    def test_sensor_status_code_table_exists(self, tables_dir):
-        """SensorStatusCode table should exist in schema."""
+    def test_signal_port_type_table_exists(self, tables_dir):
+        """SignalPortType table should exist in schema."""
         schema = load_schema(tables_dir)
-        assert "SensorStatusCode" in schema
+        assert "SignalPortType" in schema
 
-    def test_sensor_status_code_has_all_columns(self, tables_dir):
-        """SensorStatusCode should have all required columns."""
+    def test_signal_port_type_has_all_columns(self, tables_dir):
+        """SignalPortType should have required columns."""
         schema = load_schema(tables_dir)
-        tbl = schema["SensorStatusCode"]["table"]
+        tbl = schema["SignalPortType"]["table"]
         col_names = [c["name"] for c in tbl["columns"]]
 
-        assert "StatusCodeID" in col_names
-        assert "StatusName" in col_names
+        assert "SignalPortType_ID" in col_names
+        assert "Name" in col_names
         assert "Description" in col_names
-        assert "IsOperational" in col_names
-        assert "Severity" in col_names
 
-    def test_sensor_status_code_primary_key(self, tables_dir):
-        """SensorStatusCode should have StatusCodeID as primary key."""
+    def test_signal_port_type_seed_data_has_four_types(self, tables_dir):
+        """SignalPortType should have Value, Status, Alarm, Uncertainty seed rows."""
         schema = load_schema(tables_dir)
-        tbl = schema["SensorStatusCode"]["table"]
-        pk = tbl.get("primary_key", [])
-
-        assert pk == ["StatusCodeID"]
-
-    def test_sensor_status_code_seed_data_count(self, tables_dir):
-        """SensorStatusCode should have 11 seed data rows."""
-        schema = load_schema(tables_dir)
-        tbl = schema["SensorStatusCode"]["table"]
+        tbl = schema["SignalPortType"]["table"]
         seed_data = tbl.get("seed_data", [])
 
-        assert len(seed_data) == 11
+        assert len(seed_data) == 4
+        names = {row["Name"] for row in seed_data}
+        assert names == {"Value", "Status", "Alarm", "Uncertainty"}
 
-    def test_sensor_status_code_seed_data_values(self, tables_dir):
-        """SensorStatusCode seed data should have expected values."""
+    def test_signal_port_type_ids(self, tables_dir):
+        """SignalPortType IDs should follow the expected convention."""
         schema = load_schema(tables_dir)
-        tbl = schema["SensorStatusCode"]["table"]
-        seed_data = {row["StatusCodeID"]: row for row in tbl.get("seed_data", [])}
+        tbl = schema["SignalPortType"]["table"]
+        by_name = {row["Name"]: row["SignalPortType_ID"] for row in tbl.get("seed_data", [])}
 
-        assert 0 in seed_data
-        assert seed_data[0]["StatusName"] == "Unknown"
-        assert seed_data[0]["IsOperational"] is False
-
-        assert 1 in seed_data
-        assert seed_data[1]["StatusName"] == "Operational"
-        assert seed_data[1]["IsOperational"] is True
-        assert seed_data[1]["Severity"] == 0
-
-        assert 10 in seed_data
-        assert seed_data[10]["StatusName"] == "Fouled"
-        assert seed_data[10]["Severity"] == 2
+        assert by_name["Value"] == 1
+        assert by_name["Status"] == 2
+        assert by_name["Alarm"] == 3
+        assert by_name["Uncertainty"] == 4
 
 
-class TestChannelStatusColumns:
-    """Tests for Channel.yaml and EquipmentStatusChannel.yaml status link columns (v2.1.0+)."""
+class TestSignalPortSubSignalColumns:
+    """Tests for SignalPort.yaml sub-signal columns — v3.0.0 parent-port navigation."""
 
-    def test_channel_has_status_channel_id(self, tables_dir):
-        """Channel should have StatusChannel_ID column (replaces StatusOfMetaDataID)."""
+    def test_signal_port_has_parent_port_id(self, tables_dir):
+        """SignalPort should have ParentPort_ID for sub-signal linking."""
         schema = load_schema(tables_dir)
-        tbl = schema["Channel"]["table"]
+        tbl = schema["SignalPort"]["table"]
         col_names = [c["name"] for c in tbl["columns"]]
 
-        assert "StatusChannel_ID" in col_names
+        assert "ParentPort_ID" in col_names
 
-    def test_channel_status_channel_id_is_nullable(self, tables_dir):
-        """Channel.StatusChannel_ID must be nullable (not all channels are status streams)."""
+    def test_signal_port_parent_port_id_is_nullable(self, tables_dir):
+        """ParentPort_ID must be nullable — only sub-signal ports set it."""
         schema = load_schema(tables_dir)
-        tbl = schema["Channel"]["table"]
+        tbl = schema["SignalPort"]["table"]
         cols = {c["name"]: c for c in tbl["columns"]}
 
-        assert cols["StatusChannel_ID"].get("nullable", True) is True
+        assert cols["ParentPort_ID"].get("nullable", True) is True
 
-    def test_equipment_status_channel_table_exists(self, tables_dir):
-        """EquipmentStatusChannel table should exist (replaces StatusOfEquipmentID on Channel)."""
+    def test_signal_port_has_signal_port_type_id(self, tables_dir):
+        """SignalPort should have SignalPortType_ID FK."""
         schema = load_schema(tables_dir)
-        assert "EquipmentStatusChannel" in schema
-
-    def test_equipment_status_channel_has_correct_columns(self, tables_dir):
-        """EquipmentStatusChannel should have Equipment_ID and StatusChannel_ID columns."""
-        schema = load_schema(tables_dir)
-        tbl = schema["EquipmentStatusChannel"]["table"]
+        tbl = schema["SignalPort"]["table"]
         col_names = [c["name"] for c in tbl["columns"]]
 
-        assert "Equipment_ID" in col_names
-        assert "StatusChannel_ID" in col_names
+        assert "SignalPortType_ID" in col_names
+
+    def test_deprecated_tables_not_active(self, tables_dir):
+        """SensorStatusCode and EquipmentStatusChannel should not be active tables (v3.0.0)."""
+        schema = load_schema(tables_dir)
+        assert "SensorStatusCode" not in schema
+        assert "EquipmentStatusChannel" not in schema
 
 
 class TestStatusViews:
