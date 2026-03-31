@@ -108,7 +108,9 @@ VALUES
     (N'Removal'),
     (N'Firmware Update'),
     (N'Failure'),
-    (N'Repair');
+    (N'Repair'),
+    (N'Commissioning'),
+    (N'Decommissioning');
 GO
 
 CREATE TABLE [dbo].[AnnotationType] (
@@ -130,7 +132,8 @@ VALUES
     (7,  N'Data Quality',       N'Suspect data quality (drift, fouling)',        N'#AA44FF'),
     (8,  N'Note',               N'General commentary',                           N'#888888'),
     (9,  N'Exclusion',          N'Data should be excluded from analysis',        N'#CC0000'),
-    (10, N'Validated',          N'Data has been reviewed and accepted',          N'#00AA00');
+    (10, N'Validated',          N'Data has been reviewed and accepted',          N'#00AA00'),
+    (11, N'Equipment Relocation', N'Sensor was physically moved to a different sampling point', N'#FF8C00');
 GO
 
 CREATE TABLE [dbo].[ProcessingDegree] (
