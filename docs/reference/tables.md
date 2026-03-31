@@ -117,7 +117,7 @@ Lookup table classifying the nature of a Campaign (Experiment, Operations, Commi
 
 ### Channel
 
-Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the SignalPort via PortEquipmentHistory and SignalPortLocationHistory, leaving the Channel_ID stable. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
+Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the SignalPort via SignalPortEquipmentHistory and SignalPortLocationHistory, leaving the Channel_ID stable. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
 
 
 
@@ -126,7 +126,7 @@ Invariant descriptor for a measurement stream (sensor channel). Each row identif
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Surrogate primary key | - |
-| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The SignalPort (stable signal identity) that this measurement stream belongs to. Replaces Equipment_ID — equipment that produces data is tracked via PortEquipmentHistory, allowing probes to be swapped without breaking the Channel.
+| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The SignalPort (stable signal identity) that this measurement stream belongs to. Replaces Equipment_ID — equipment that produces data is tracked via SignalPortEquipmentHistory, allowing probes to be swapped without breaking the Channel.
  | FK → [SignalPort.SignalPort_ID](#SignalPort) |
 | Parameter_ID | INT | - |  | <span id="Parameter_ID"></span>Measured analyte or parameter (e.g. TSS, pH) | FK → [Parameter.Parameter_ID](#Parameter) |
 | DataProvenance_ID | INT | - |  | <span id="DataProvenance_ID"></span>How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5, Forecast=6)
@@ -312,7 +312,7 @@ Junction table linking Datasets to the Channels they contain. A Dataset groups o
 
 ### Equipment
 
-Stores information about a specific physical piece of equipment (e.g., serial number, owner, purchase date, storage location). Equipment is linked to measurement streams via PortEquipmentHistory (not directly via Channel), allowing instrument swaps without breaking data continuity.
+Stores information about a specific physical piece of equipment (e.g., serial number, owner, purchase date, storage location). Equipment is linked to measurement streams via SignalPortEquipmentHistory (not directly via Channel), allowing instrument swaps without breaking data continuity.
 
 
 
@@ -327,7 +327,7 @@ Stores information about a specific physical piece of equipment (e.g., serial nu
 | Owner | NVARCHAR(MAX) | - |  | <span id="Owner"></span>Name of the owner of the equipment | - |
 | StorageLocation | NVARCHAR(100) | - |  | <span id="StorageLocation"></span>Where the equipment is stored when not deployed | - |
 | PurchaseDate | DATE | - |  | <span id="PurchaseDate"></span>Date when the equipment was bought: 'YYYY-MM-DD' | - |
-| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability. Enables fast active/inactive filtering without inspecting PortEquipmentHistory.
+| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability. Enables fast active/inactive filtering without inspecting SignalPortEquipmentHistory.
  | Default: `True` |
 
 <span id="EquipmentEvent"></span>
@@ -540,25 +540,6 @@ Personal and professional information for people involved in projects (e.g., nam
 | Phone | NVARCHAR(100) | - |  | <span id="Phone"></span>Phone number | - |
 | Linkedin | NVARCHAR(100) | - |  | <span id="Linkedin"></span>LinkedIn profile URL | - |
 | Website | NVARCHAR(60) | - |  | <span id="Website"></span>Personal or organisation website URL | - |
-
-<span id="PortEquipmentHistory"></span>
-
-### PortEquipmentHistory
-
-Temporal record of which physical instrument (Equipment) is behind a SignalPort. When a sensor probe is replaced, close the current row (set EndTime) and open a new row for the replacement instrument. Equipment_ID may be NULL when the physical instrument is unknown at ingest time. At most one row per port may have EndTime IS NULL (the "currently installed" instrument).
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| PortEquipmentHistory_ID | INT **(PK)** | - | ✓ | <span id="PortEquipmentHistory_ID"></span>Surrogate primary key | - |
-| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The port to which this equipment is linked | FK → [SignalPort.SignalPort_ID](#SignalPort) |
-| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>The physical instrument behind this port during this period. NULL = unknown at ingest time. | FK → [Equipment.Equipment_ID](#Equipment) |
-| StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>UTC datetime when this equipment started serving this port | - |
-| EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>UTC datetime when this equipment stopped serving this port. NULL = currently installed. | - |
-| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes (e.g. reason for swap, calibration context) | - |
 
 <span id="Procedures"></span>
 
@@ -776,6 +757,25 @@ Universal connection point between a DataAcquisitionSystem and a measurement Cha
  | FK → [SignalPort.SignalPort_ID](#SignalPort) |
 | IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this port is currently expected to receive data. Set to false when a signal is retired. | Default: `True` |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this port | - |
+
+<span id="SignalPortEquipmentHistory"></span>
+
+### SignalPortEquipmentHistory
+
+Temporal record of which physical instrument (Equipment) is behind a SignalPort. When a sensor probe is replaced, close the current row (set EndTime) and open a new row for the replacement instrument. Equipment_ID may be NULL when the physical instrument is unknown at ingest time. At most one row per port may have EndTime IS NULL (the "currently installed" instrument).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SignalPortEquipmentHistory_ID | INT **(PK)** | - | ✓ | <span id="SignalPortEquipmentHistory_ID"></span>Surrogate primary key | - |
+| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The port to which this equipment is linked | FK → [SignalPort.SignalPort_ID](#SignalPort) |
+| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>The physical instrument behind this port during this period. NULL = unknown at ingest time. | FK → [Equipment.Equipment_ID](#Equipment) |
+| StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>UTC datetime when this equipment started serving this port | - |
+| EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>UTC datetime when this equipment stopped serving this port. NULL = currently installed. | - |
+| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes (e.g. reason for swap, calibration context) | - |
 
 <span id="SignalPortLocationHistory"></span>
 

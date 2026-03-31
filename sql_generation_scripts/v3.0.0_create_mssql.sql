@@ -1,10 +1,6 @@
 -- Baseline CREATE script for schema v3.0.0
 -- Platform: mssql
--- Generated: 2026-03-30
-
--- ============================================================
--- Lookup / root tables (no FKs to other user tables)
--- ============================================================
+-- Generated: 2026-03-31 14:18:02 UTC
 
 CREATE TABLE [dbo].[AnnotationType] (
     [AnnotationType_ID] INT NOT NULL,
@@ -21,16 +17,16 @@ CREATE TABLE [dbo].[CampaignType] (
 );
 
 CREATE TABLE [dbo].[ControlLoopPortRole] (
-    [ControlLoopPortRole_ID] INT          NOT NULL,
-    [Name]                   NVARCHAR(50) NOT NULL,
-    [Description]            NVARCHAR(200) NULL,
+    [ControlLoopPortRole_ID] INT NOT NULL,
+    [Name] NVARCHAR(50) NOT NULL,
+    [Description] NVARCHAR(200),
     CONSTRAINT [PK_ControlLoopPortRole] PRIMARY KEY ([ControlLoopPortRole_ID])
 );
 
 CREATE TABLE [dbo].[ControlVariableType] (
-    [ControlVariableType_ID] INT          NOT NULL,
-    [Name]                   NVARCHAR(50) NOT NULL,
-    [Description]            NVARCHAR(200) NULL,
+    [ControlVariableType_ID] INT NOT NULL,
+    [Name] NVARCHAR(50) NOT NULL,
+    [Description] NVARCHAR(200),
     CONSTRAINT [PK_ControlVariableType] PRIMARY KEY ([ControlVariableType_ID])
 );
 
@@ -118,9 +114,9 @@ CREATE TABLE [dbo].[SchemaVersion] (
 );
 
 CREATE TABLE [dbo].[SignalPortType] (
-    [SignalPortType_ID] INT          NOT NULL,
-    [Name]              NVARCHAR(50) NOT NULL,
-    [Description]       NVARCHAR(200) NULL,
+    [SignalPortType_ID] INT NOT NULL,
+    [Name] NVARCHAR(50) NOT NULL,
+    [Description] NVARCHAR(200),
     CONSTRAINT [PK_SignalPortType] PRIMARY KEY ([SignalPortType_ID])
 );
 
@@ -145,10 +141,6 @@ CREATE TABLE [dbo].[Watershed] (
     [ImperviousSurface] REAL,
     CONSTRAINT [PK_Watershed] PRIMARY KEY ([Watershed_ID])
 );
-
--- ============================================================
--- Second-level tables (FK to root tables only)
--- ============================================================
 
 CREATE TABLE [dbo].[Annotation] (
     [Annotation_ID] INT IDENTITY(1,1) NOT NULL,
@@ -193,12 +185,12 @@ CREATE TABLE [dbo].[CampaignSamplingLocation] (
 );
 
 CREATE TABLE [dbo].[Channel] (
-    [Channel_ID]          INT IDENTITY(1,1) NOT NULL,
-    [SignalPort_ID]       INT NOT NULL,
-    [Parameter_ID]        INT,
-    [DataProvenance_ID]   INT,
+    [Channel_ID] INT IDENTITY(1,1) NOT NULL,
+    [SignalPort_ID] INT NOT NULL,
+    [Parameter_ID] INT,
+    [DataProvenance_ID] INT,
     [ProcessingDegree_ID] INT DEFAULT 1,
-    [ValueType_ID]        INT NOT NULL DEFAULT 1,
+    [ValueType_ID] INT NOT NULL DEFAULT 1,
     CONSTRAINT [PK_Channel] PRIMARY KEY ([Channel_ID])
 );
 
@@ -211,43 +203,42 @@ CREATE TABLE [dbo].[ChannelAxis] (
 );
 
 CREATE TABLE [dbo].[ControlLoop] (
-    [ControlLoop_ID]         INT IDENTITY(1,1) NOT NULL,
-    [Name]                   NVARCHAR(200) NOT NULL,
-    [ControllerType]         NVARCHAR(50)  NOT NULL,
-    [FallbackControlLoop_ID] INT           NULL,
-    [AlgorithmReference]     NVARCHAR(500) NULL,
-    [Description]            NVARCHAR(MAX) NULL,
+    [ControlLoop_ID] INT IDENTITY(1,1) NOT NULL,
+    [Name] NVARCHAR(200) NOT NULL,
+    [ControllerType] NVARCHAR(50) NOT NULL,
+    [FallbackControlLoop_ID] INT,
+    [AlgorithmReference] NVARCHAR(500),
+    [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_ControlLoop] PRIMARY KEY ([ControlLoop_ID])
 );
 
 CREATE TABLE [dbo].[ControlLoopApplication] (
     [ControlLoopApplication_ID] INT IDENTITY(1,1) NOT NULL,
-    [ControlLoop_ID]            INT           NOT NULL,
-    [StartTime]                 DATETIME2(7)  NOT NULL,
-    [EndTime]                   DATETIME2(7)  NULL,
-    [Parameters]                NVARCHAR(MAX) NULL,
-    [AppliedByPerson_ID]        INT           NULL,
-    [Notes]                     NVARCHAR(MAX) NULL,
+    [ControlLoop_ID] INT NOT NULL,
+    [StartTime] DATETIME2(7) NOT NULL,
+    [EndTime] DATETIME2(7),
+    [Parameters] NVARCHAR(MAX),
+    [AppliedByPerson_ID] INT,
+    [Notes] NVARCHAR(MAX),
     CONSTRAINT [PK_ControlLoopApplication] PRIMARY KEY ([ControlLoopApplication_ID])
 );
 
 CREATE TABLE [dbo].[ControlLoopPort] (
-    [ControlLoopPort_ID]     INT IDENTITY(1,1) NOT NULL,
-    [ControlLoop_ID]         INT NOT NULL,
-    [SignalPort_ID]          INT NOT NULL,
+    [ControlLoopPort_ID] INT IDENTITY(1,1) NOT NULL,
+    [ControlLoop_ID] INT NOT NULL,
+    [SignalPort_ID] INT NOT NULL,
     [ControlLoopPortRole_ID] INT NOT NULL,
-    CONSTRAINT [PK_ControlLoopPort] PRIMARY KEY ([ControlLoopPort_ID]),
-    CONSTRAINT [UQ_ControlLoopPort_LoopPort] UNIQUE ([ControlLoop_ID], [SignalPort_ID])
+    CONSTRAINT [PK_ControlLoopPort] PRIMARY KEY ([ControlLoopPort_ID])
 );
 
 CREATE TABLE [dbo].[DataAcquisitionSystem] (
     [DataAcquisitionSystem_ID] INT IDENTITY(1,1) NOT NULL,
-    [ParentSystem_ID]          INT           NULL,
-    [Name]                     NVARCHAR(200) NOT NULL,
-    [SystemType]               NVARCHAR(50)  NULL,
-    [Manufacturer]             NVARCHAR(100) NULL,
-    [Model]                    NVARCHAR(100) NULL,
-    [Description]              NVARCHAR(MAX) NULL,
+    [ParentSystem_ID] INT,
+    [Name] NVARCHAR(200) NOT NULL,
+    [SystemType] NVARCHAR(50),
+    [Manufacturer] NVARCHAR(100),
+    [Model] NVARCHAR(100),
+    [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_DataAcquisitionSystem] PRIMARY KEY ([DataAcquisitionSystem_ID])
 );
 
@@ -268,14 +259,14 @@ CREATE TABLE [dbo].[DatasetChannel] (
 );
 
 CREATE TABLE [dbo].[Equipment] (
-    [Equipment_ID]      INT IDENTITY(1,1) NOT NULL,
+    [Equipment_ID] INT IDENTITY(1,1) NOT NULL,
     [EquipmentModel_ID] INT,
-    [Identifier]        NVARCHAR(100),
-    [SerialNumber]      NVARCHAR(100),
-    [Owner]             NVARCHAR(MAX),
-    [StorageLocation]   NVARCHAR(100),
-    [PurchaseDate]      DATE,
-    [IsActive]          BIT NOT NULL DEFAULT 1,
+    [Identifier] NVARCHAR(100),
+    [SerialNumber] NVARCHAR(100),
+    [Owner] NVARCHAR(MAX),
+    [StorageLocation] NVARCHAR(100),
+    [PurchaseDate] DATE,
+    [IsActive] BIT NOT NULL DEFAULT True,
     CONSTRAINT [PK_Equipment] PRIMARY KEY ([Equipment_ID])
 );
 
@@ -362,16 +353,6 @@ CREATE TABLE [dbo].[Parameter] (
     CONSTRAINT [PK_Parameter] PRIMARY KEY ([Parameter_ID])
 );
 
-CREATE TABLE [dbo].[SignalPortEquipmentHistory] (
-    [SignalPortEquipmentHistory_ID] INT IDENTITY(1,1) NOT NULL,
-    [SignalPort_ID]                 INT          NOT NULL,
-    [Equipment_ID]                  INT          NULL,
-    [StartTime]                     DATETIME2(7) NOT NULL,
-    [EndTime]                       DATETIME2(7) NULL,
-    [Notes]                         NVARCHAR(MAX) NULL,
-    CONSTRAINT [PK_SignalPortEquipmentHistory] PRIMARY KEY ([SignalPortEquipmentHistory_ID])
-);
-
 CREATE TABLE [dbo].[ProcessingLineage] (
     [ProcessingLineage_ID] INT IDENTITY(1,1) NOT NULL,
     [ProcessingStep_ID] INT NOT NULL,
@@ -427,25 +408,34 @@ CREATE TABLE [dbo].[SamplingPoint] (
 );
 
 CREATE TABLE [dbo].[SignalPort] (
-    [SignalPort_ID]            INT IDENTITY(1,1) NOT NULL,
-    [DataAcquisitionSystem_ID] INT           NOT NULL,
-    [Tag]                      NVARCHAR(200) NOT NULL,
-    [SignalPortType_ID]        INT           NOT NULL,
-    [ControlVariableType_ID]   INT           NULL,
-    [ParentPort_ID]            INT           NULL,
-    [IsActive]                 BIT           NOT NULL DEFAULT 1,
-    [Description]              NVARCHAR(MAX) NULL,
-    CONSTRAINT [PK_SignalPort] PRIMARY KEY ([SignalPort_ID]),
-    CONSTRAINT [UQ_SignalPort_DAS_Tag] UNIQUE ([DataAcquisitionSystem_ID], [Tag])
+    [SignalPort_ID] INT IDENTITY(1,1) NOT NULL,
+    [DataAcquisitionSystem_ID] INT NOT NULL,
+    [Tag] NVARCHAR(200) NOT NULL,
+    [SignalPortType_ID] INT NOT NULL,
+    [ControlVariableType_ID] INT,
+    [ParentPort_ID] INT,
+    [IsActive] BIT NOT NULL DEFAULT True,
+    [Description] NVARCHAR(MAX),
+    CONSTRAINT [PK_SignalPort] PRIMARY KEY ([SignalPort_ID])
+);
+
+CREATE TABLE [dbo].[SignalPortEquipmentHistory] (
+    [SignalPortEquipmentHistory_ID] INT IDENTITY(1,1) NOT NULL,
+    [SignalPort_ID] INT NOT NULL,
+    [Equipment_ID] INT,
+    [StartTime] DATETIME2(7) NOT NULL,
+    [EndTime] DATETIME2(7),
+    [Notes] NVARCHAR(MAX),
+    CONSTRAINT [PK_SignalPortEquipmentHistory] PRIMARY KEY ([SignalPortEquipmentHistory_ID])
 );
 
 CREATE TABLE [dbo].[SignalPortLocationHistory] (
     [SignalPortLocationHistory_ID] INT IDENTITY(1,1) NOT NULL,
-    [SignalPort_ID]                INT          NOT NULL,
-    [SamplingPoint_ID]             INT          NOT NULL,
-    [StartTime]                    DATETIME2(7) NOT NULL,
-    [EndTime]                      DATETIME2(7) NULL,
-    [Notes]                        NVARCHAR(MAX) NULL,
+    [SignalPort_ID] INT NOT NULL,
+    [SamplingPoint_ID] INT NOT NULL,
+    [StartTime] DATETIME2(7) NOT NULL,
+    [EndTime] DATETIME2(7),
+    [Notes] NVARCHAR(MAX),
     CONSTRAINT [PK_SignalPortLocationHistory] PRIMARY KEY ([SignalPortLocationHistory_ID])
 );
 
@@ -535,37 +525,71 @@ CREATE TABLE [dbo].[ValueVector] (
     CONSTRAINT [PK_ValueVector] PRIMARY KEY ([Observation_ID], [ValueBin_ID])
 );
 
--- ============================================================
--- Indexes
--- ============================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 CREATE INDEX [IX_Annotation_Channel_Time] ON [dbo].[Annotation] ([Channel_ID], [StartTime], [EndTime]);
 CREATE INDEX [IX_Annotation_Author] ON [dbo].[Annotation] ([AuthorPerson_ID], [CreatedDateTime]);
 
-CREATE UNIQUE INDEX [UQ_Channel_SignalStream]
-    ON [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID])
-    WHERE [Parameter_ID] IS NOT NULL;
 
-CREATE UNIQUE INDEX [UQ_ControlLoopApplication_ActiveRow]
-    ON [dbo].[ControlLoopApplication] ([ControlLoop_ID])
-    WHERE [EndTime] IS NULL;
+
+
+CREATE UNIQUE INDEX [UQ_Channel_SignalStream] ON [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID]);
+
+
+
+CREATE UNIQUE INDEX [UQ_ControlLoopApplication_ActiveRow] ON [dbo].[ControlLoopApplication] ([ControlLoop_ID]);
+
+CREATE UNIQUE INDEX [UQ_ControlLoopPort_LoopPort] ON [dbo].[ControlLoopPort] ([ControlLoop_ID], [SignalPort_ID]);
+
+
+
+
 
 CREATE INDEX [IX_EquipmentEvent_Equipment_Start] ON [dbo].[EquipmentEvent] ([Equipment_ID], [EventDateTimeStart]);
+
+
+
+
+
+
+
+
 
 CREATE INDEX [IX_ProcessingLineage_Channel] ON [dbo].[ProcessingLineage] ([Channel_ID]);
 CREATE INDEX [IX_Lineage_Step_Role] ON [dbo].[ProcessingLineage] ([ProcessingStep_ID], [RoleInProcessingStep]);
 
-CREATE UNIQUE INDEX [UQ_SignalPortEquipmentHistory_ActiveRow]
-    ON [dbo].[SignalPortEquipmentHistory] ([SignalPort_ID])
-    WHERE [EndTime] IS NULL;
 
-CREATE UNIQUE INDEX [UQ_SignalPortLocationHistory_ActiveRow]
-    ON [dbo].[SignalPortLocationHistory] ([SignalPort_ID])
-    WHERE [EndTime] IS NULL;
 
--- ============================================================
--- Foreign key constraints
--- ============================================================
+
+CREATE UNIQUE INDEX [UQ_SignalPort_DAS_Tag] ON [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag]);
+
+CREATE UNIQUE INDEX [UQ_SignalPortEquipmentHistory_ActiveRow] ON [dbo].[SignalPortEquipmentHistory] ([SignalPort_ID]);
+
+CREATE UNIQUE INDEX [UQ_SignalPortLocationHistory_ActiveRow] ON [dbo].[SignalPortLocationHistory] ([SignalPort_ID]);
+
+
+
+
+
+
+
+
 
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_AnnotationType] FOREIGN KEY ([AnnotationType_ID]) REFERENCES [dbo].[AnnotationType] ([AnnotationType_ID]);
@@ -586,13 +610,13 @@ ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_ProcessingDegree] FOREIGN
 ALTER TABLE [dbo].[Channel] ADD CONSTRAINT [FK_Channel_ValueType] FOREIGN KEY ([ValueType_ID]) REFERENCES [dbo].[ValueType] ([ValueType_ID]);
 ALTER TABLE [dbo].[ChannelAxis] ADD CONSTRAINT [FK_ChannelAxis_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
 ALTER TABLE [dbo].[ChannelAxis] ADD CONSTRAINT [FK_ChannelAxis_ValueBinningAxis] FOREIGN KEY ([ValueBinningAxis_ID]) REFERENCES [dbo].[ValueBinningAxis] ([ValueBinningAxis_ID]);
-ALTER TABLE [dbo].[ControlLoop] ADD CONSTRAINT [FK_ControlLoop_Fallback] FOREIGN KEY ([FallbackControlLoop_ID]) REFERENCES [dbo].[ControlLoop] ([ControlLoop_ID]);
-ALTER TABLE [dbo].[ControlLoopApplication] ADD CONSTRAINT [FK_ControlLoopApplication_Loop] FOREIGN KEY ([ControlLoop_ID]) REFERENCES [dbo].[ControlLoop] ([ControlLoop_ID]);
+ALTER TABLE [dbo].[ControlLoop] ADD CONSTRAINT [FK_ControlLoop_ControlLoop] FOREIGN KEY ([FallbackControlLoop_ID]) REFERENCES [dbo].[ControlLoop] ([ControlLoop_ID]);
+ALTER TABLE [dbo].[ControlLoopApplication] ADD CONSTRAINT [FK_ControlLoopApplication_ControlLoop] FOREIGN KEY ([ControlLoop_ID]) REFERENCES [dbo].[ControlLoop] ([ControlLoop_ID]);
 ALTER TABLE [dbo].[ControlLoopApplication] ADD CONSTRAINT [FK_ControlLoopApplication_Person] FOREIGN KEY ([AppliedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
-ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_Loop] FOREIGN KEY ([ControlLoop_ID]) REFERENCES [dbo].[ControlLoop] ([ControlLoop_ID]);
-ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_Port] FOREIGN KEY ([SignalPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
-ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_Role] FOREIGN KEY ([ControlLoopPortRole_ID]) REFERENCES [dbo].[ControlLoopPortRole] ([ControlLoopPortRole_ID]);
-ALTER TABLE [dbo].[DataAcquisitionSystem] ADD CONSTRAINT [FK_DAS_ParentSystem] FOREIGN KEY ([ParentSystem_ID]) REFERENCES [dbo].[DataAcquisitionSystem] ([DataAcquisitionSystem_ID]);
+ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_ControlLoop] FOREIGN KEY ([ControlLoop_ID]) REFERENCES [dbo].[ControlLoop] ([ControlLoop_ID]);
+ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_SignalPort] FOREIGN KEY ([SignalPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
+ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_ControlLoopPortRole] FOREIGN KEY ([ControlLoopPortRole_ID]) REFERENCES [dbo].[ControlLoopPortRole] ([ControlLoopPortRole_ID]);
+ALTER TABLE [dbo].[DataAcquisitionSystem] ADD CONSTRAINT [FK_DataAcquisitionSystem_DataAcquisitionSystem] FOREIGN KEY ([ParentSystem_ID]) REFERENCES [dbo].[DataAcquisitionSystem] ([DataAcquisitionSystem_ID]);
 ALTER TABLE [dbo].[Dataset] ADD CONSTRAINT [FK_Dataset_Person] FOREIGN KEY ([CreatedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[DatasetChannel] ADD CONSTRAINT [FK_DatasetChannel_Dataset] FOREIGN KEY ([Dataset_ID]) REFERENCES [dbo].[Dataset] ([Dataset_ID]);
 ALTER TABLE [dbo].[DatasetChannel] ADD CONSTRAINT [FK_DatasetChannel_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
@@ -617,8 +641,6 @@ ALTER TABLE [dbo].[LabValue] ADD CONSTRAINT [FK_LabValue_QualityCode] FOREIGN KE
 ALTER TABLE [dbo].[Laboratory] ADD CONSTRAINT [FK_Laboratory_Site] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
 ALTER TABLE [dbo].[Observation] ADD CONSTRAINT [FK_Observation_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
 ALTER TABLE [dbo].[Parameter] ADD CONSTRAINT [FK_Parameter_Unit] FOREIGN KEY ([Unit_ID]) REFERENCES [dbo].[Unit] ([Unit_ID]);
-ALTER TABLE [dbo].[SignalPortEquipmentHistory] ADD CONSTRAINT [FK_SignalPortEquipmentHistory_Port] FOREIGN KEY ([SignalPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
-ALTER TABLE [dbo].[SignalPortEquipmentHistory] ADD CONSTRAINT [FK_SignalPortEquipmentHistory_Equipment] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
 ALTER TABLE [dbo].[ProcessingLineage] ADD CONSTRAINT [FK_ProcessingLineage_ProcessingStep] FOREIGN KEY ([ProcessingStep_ID]) REFERENCES [dbo].[ProcessingStep] ([ProcessingStep_ID]);
 ALTER TABLE [dbo].[ProcessingLineage] ADD CONSTRAINT [FK_ProcessingLineage_Channel] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
 ALTER TABLE [dbo].[ProcessingStep] ADD CONSTRAINT [FK_ProcessingStep_Person] FOREIGN KEY ([ExecutedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
@@ -632,11 +654,13 @@ ALTER TABLE [dbo].[Sample] ADD CONSTRAINT [FK_Sample_SampleMethod] FOREIGN KEY (
 ALTER TABLE [dbo].[Sample] ADD CONSTRAINT [FK_Sample_Equipment] FOREIGN KEY ([SampleEquipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
 ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_Site] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
 ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_Campaign] FOREIGN KEY ([CreatedByCampaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
-ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_DAS] FOREIGN KEY ([DataAcquisitionSystem_ID]) REFERENCES [dbo].[DataAcquisitionSystem] ([DataAcquisitionSystem_ID]);
-ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_Type] FOREIGN KEY ([SignalPortType_ID]) REFERENCES [dbo].[SignalPortType] ([SignalPortType_ID]);
+ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_DataAcquisitionSystem] FOREIGN KEY ([DataAcquisitionSystem_ID]) REFERENCES [dbo].[DataAcquisitionSystem] ([DataAcquisitionSystem_ID]);
+ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_SignalPortType] FOREIGN KEY ([SignalPortType_ID]) REFERENCES [dbo].[SignalPortType] ([SignalPortType_ID]);
 ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_ControlVariableType] FOREIGN KEY ([ControlVariableType_ID]) REFERENCES [dbo].[ControlVariableType] ([ControlVariableType_ID]);
-ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_ParentPort] FOREIGN KEY ([ParentPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
-ALTER TABLE [dbo].[SignalPortLocationHistory] ADD CONSTRAINT [FK_SignalPortLocationHistory_Port] FOREIGN KEY ([SignalPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
+ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_SignalPort] FOREIGN KEY ([ParentPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
+ALTER TABLE [dbo].[SignalPortEquipmentHistory] ADD CONSTRAINT [FK_SignalPortEquipmentHistory_SignalPort] FOREIGN KEY ([SignalPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
+ALTER TABLE [dbo].[SignalPortEquipmentHistory] ADD CONSTRAINT [FK_SignalPortEquipmentHistory_Equipment] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
+ALTER TABLE [dbo].[SignalPortLocationHistory] ADD CONSTRAINT [FK_SignalPortLocationHistory_SignalPort] FOREIGN KEY ([SignalPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
 ALTER TABLE [dbo].[SignalPortLocationHistory] ADD CONSTRAINT [FK_SignalPortLocationHistory_SamplingPoint] FOREIGN KEY ([SamplingPoint_ID]) REFERENCES [dbo].[SamplingPoint] ([SamplingPoint_ID]);
 ALTER TABLE [dbo].[Site] ADD CONSTRAINT [FK_Site_Watershed] FOREIGN KEY ([Watershed_ID]) REFERENCES [dbo].[Watershed] ([Watershed_ID]);
 ALTER TABLE [dbo].[UrbanCharacteristics] ADD CONSTRAINT [FK_UrbanCharacteristics_Watershed] FOREIGN KEY ([Watershed_ID]) REFERENCES [dbo].[Watershed] ([Watershed_ID]);
@@ -650,48 +674,40 @@ ALTER TABLE [dbo].[ValueMatrix] ADD CONSTRAINT [FK_ValueMatrix_ColValueBin] FORE
 ALTER TABLE [dbo].[ValueVector] ADD CONSTRAINT [FK_ValueVector_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 ALTER TABLE [dbo].[ValueVector] ADD CONSTRAINT [FK_ValueVector_ValueBin] FOREIGN KEY ([ValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]);
 
--- ============================================================
 -- Views
--- ============================================================
-
 CREATE OR ALTER VIEW [dbo].[vw_ChannelStatus] AS
 SELECT
-    statusC.[Channel_ID]        AS StatusChannelID,
-    valueC.[Channel_ID]         AS MeasurementChannelID,
-    e.[Equipment_ID]            AS EquipmentID,
-    e.[Identifier]              AS EquipmentName,
-    p.[Parameter]               AS MeasurementParameter,
-    o.[Timestamp],
-    CAST(v.[Value] AS INT)      AS StatusCodeID
+    statusC.[Channel_ID]          AS StatusChannelID,
+    statusC.[StatusChannel_ID]    AS MeasurementChannelID,
+    measC.[Equipment_ID]          AS EquipmentID,
+    e.[identifier]                AS EquipmentName,
+    p.[Parameter]                 AS MeasurementParameter,
+    v.[Timestamp],
+    CAST(v.[Value] AS INT)        AS StatusCodeID,
+    sc.[StatusName],
+    sc.[IsOperational],
+    sc.[Severity]
 FROM [dbo].[Value] v
-JOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]
-JOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]
-JOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]
-JOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]
-JOIN [dbo].[SignalPort]                valueP   ON valueP.[SignalPort_ID]  = statusP.[ParentPort_ID]
-JOIN [dbo].[Channel]                   valueC   ON valueC.[SignalPort_ID]  = valueP.[SignalPort_ID]
-JOIN [dbo].[Parameter]                 p        ON p.[Parameter_ID]        = valueC.[Parameter_ID]
-LEFT JOIN [dbo].[SignalPortEquipmentHistory] peh  ON peh.[SignalPort_ID]     = valueP.[SignalPort_ID]
-                                                  AND peh.[EndTime]          IS NULL
-LEFT JOIN [dbo].[Equipment]            e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
-WHERE spt.[Name] = N'Status'
-  AND statusP.[ParentPort_ID] IS NOT NULL;
-GO
+JOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]
+JOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]
+JOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]
+JOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]
+LEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)
+WHERE statusC.[StatusChannel_ID] IS NOT NULL;
 
 CREATE OR ALTER VIEW [dbo].[vw_DeviceStatus] AS
 SELECT
-    statusC.[Channel_ID]        AS StatusChannelID,
-    e.[Equipment_ID]            AS EquipmentID,
-    e.[Identifier]              AS EquipmentName,
-    o.[Timestamp],
-    CAST(v.[Value] AS INT)      AS StatusCodeID
+    statusC.[Channel_ID]          AS StatusChannelID,
+    esc.[Equipment_ID]            AS EquipmentID,
+    e.[identifier]                AS EquipmentName,
+    v.[Timestamp],
+    CAST(v.[Value] AS INT)        AS StatusCodeID,
+    sc.[StatusName],
+    sc.[IsOperational],
+    sc.[Severity]
 FROM [dbo].[Value] v
-JOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]
-JOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]
-JOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]
-JOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]
-JOIN [dbo].[SignalPortEquipmentHistory]  peh      ON peh.[SignalPort_ID]     = statusP.[SignalPort_ID]
-                                                 AND peh.[EndTime]          IS NULL
-JOIN [dbo].[Equipment]                 e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
-WHERE spt.[Name] = N'Status';
-GO
+JOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]
+JOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
+JOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]
+LEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT);
+

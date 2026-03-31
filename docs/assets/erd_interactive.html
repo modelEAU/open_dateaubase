@@ -643,7 +643,7 @@
     {
       "id": "Channel",
       "label": "Channel",
-      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the SignalPort via PortEquipmentHistory and SignalPortLocationHistory, leaving the Channel_ID stable. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the SignalPort via SignalPortEquipmentHistory and SignalPortLocationHistory, leaving the Channel_ID stable. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
       "fields": [
         {
           "name": "Channel_ID",
@@ -661,7 +661,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "SignalPort.SignalPort_ID",
-          "description": "The SignalPort (stable signal identity) that this measurement stream belongs to. Replaces Equipment_ID \u2014 equipment that produces data is tracked via PortEquipmentHistory, allowing probes to be swapped without breaking the Channel.\n"
+          "description": "The SignalPort (stable signal identity) that this measurement stream belongs to. Replaces Equipment_ID \u2014 equipment that produces data is tracked via SignalPortEquipmentHistory, allowing probes to be swapped without breaking the Channel.\n"
         },
         {
           "name": "Parameter_ID",
@@ -1161,7 +1161,7 @@
     {
       "id": "Equipment",
       "label": "Equipment",
-      "description": "Stores information about a specific physical piece of equipment (e.g., serial number, owner, purchase date, storage location). Equipment is linked to measurement streams via PortEquipmentHistory (not directly via Channel), allowing instrument swaps without breaking data continuity.\n",
+      "description": "Stores information about a specific physical piece of equipment (e.g., serial number, owner, purchase date, storage location). Equipment is linked to measurement streams via SignalPortEquipmentHistory (not directly via Channel), allowing instrument swaps without breaking data continuity.\n",
       "fields": [
         {
           "name": "Equipment_ID",
@@ -1233,7 +1233,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability. Enables fast active/inactive filtering without inspecting PortEquipmentHistory.\n"
+          "description": "Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability. Enables fast active/inactive filtering without inspecting SignalPortEquipmentHistory.\n"
         }
       ]
     },
@@ -1894,67 +1894,6 @@
           "is_required": false,
           "fk_target": null,
           "description": "Personal or organisation website URL"
-        }
-      ]
-    },
-    {
-      "id": "PortEquipmentHistory",
-      "label": "PortEquipmentHistory",
-      "description": "Temporal record of which physical instrument (Equipment) is behind a SignalPort. When a sensor probe is replaced, close the current row (set EndTime) and open a new row for the replacement instrument. Equipment_ID may be NULL when the physical instrument is unknown at ingest time. At most one row per port may have EndTime IS NULL (the \"currently installed\" instrument).\n",
-      "fields": [
-        {
-          "name": "PortEquipmentHistory_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "SignalPort_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "SignalPort.SignalPort_ID",
-          "description": "The port to which this equipment is linked"
-        },
-        {
-          "name": "Equipment_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "The physical instrument behind this port during this period. NULL = unknown at ingest time."
-        },
-        {
-          "name": "StartTime",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "UTC datetime when this equipment started serving this port"
-        },
-        {
-          "name": "EndTime",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "UTC datetime when this equipment stopped serving this port. NULL = currently installed."
-        },
-        {
-          "name": "Notes",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Free-text notes (e.g. reason for swap, calibration context)"
         }
       ]
     },
@@ -2653,6 +2592,67 @@
           "is_required": false,
           "fk_target": null,
           "description": "Free-text notes about this port"
+        }
+      ]
+    },
+    {
+      "id": "SignalPortEquipmentHistory",
+      "label": "SignalPortEquipmentHistory",
+      "description": "Temporal record of which physical instrument (Equipment) is behind a SignalPort. When a sensor probe is replaced, close the current row (set EndTime) and open a new row for the replacement instrument. Equipment_ID may be NULL when the physical instrument is unknown at ingest time. At most one row per port may have EndTime IS NULL (the \"currently installed\" instrument).\n",
+      "fields": [
+        {
+          "name": "SignalPortEquipmentHistory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "SignalPort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalPort.SignalPort_ID",
+          "description": "The port to which this equipment is linked"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "The physical instrument behind this port during this period. NULL = unknown at ingest time."
+        },
+        {
+          "name": "StartTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC datetime when this equipment started serving this port"
+        },
+        {
+          "name": "EndTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC datetime when this equipment stopped serving this port. NULL = currently installed."
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes (e.g. reason for swap, calibration context)"
         }
       ]
     },
@@ -3919,20 +3919,6 @@
       "relationship_type": null
     },
     {
-      "from_table": "PortEquipmentHistory",
-      "to_table": "SignalPort",
-      "from_field": "SignalPort_ID",
-      "to_field": "SignalPort_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "PortEquipmentHistory",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
-      "relationship_type": null
-    },
-    {
       "from_table": "ProcessingLineage",
       "to_table": "ProcessingStep",
       "from_field": "ProcessingStep_ID",
@@ -4049,6 +4035,20 @@
       "to_table": "SignalPort",
       "from_field": "ParentPort_ID",
       "to_field": "SignalPort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SignalPortEquipmentHistory",
+      "to_table": "SignalPort",
+      "from_field": "SignalPort_ID",
+      "to_field": "SignalPort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SignalPortEquipmentHistory",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
       "relationship_type": null
     },
     {
