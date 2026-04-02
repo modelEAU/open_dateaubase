@@ -23,13 +23,6 @@ CREATE TABLE [dbo].[ControlLoopPortRole] (
     CONSTRAINT [PK_ControlLoopPortRole] PRIMARY KEY ([ControlLoopPortRole_ID])
 );
 
-CREATE TABLE [dbo].[ControlVariableType] (
-    [ControlVariableType_ID] INT NOT NULL,
-    [Name] NVARCHAR(50) NOT NULL,
-    [Description] NVARCHAR(200),
-    CONSTRAINT [PK_ControlVariableType] PRIMARY KEY ([ControlVariableType_ID])
-);
-
 CREATE TABLE [dbo].[DataProvenance] (
     [DataProvenance_ID] INT IDENTITY(1,1) NOT NULL,
     [DataProvenance_Name] NVARCHAR(50) NOT NULL,
@@ -412,7 +405,6 @@ CREATE TABLE [dbo].[SignalPort] (
     [DataAcquisitionSystem_ID] INT NOT NULL,
     [Tag] NVARCHAR(200) NOT NULL,
     [SignalPortType_ID] INT NOT NULL,
-    [ControlVariableType_ID] INT,
     [ParentPort_ID] INT,
     [IsActive] BIT NOT NULL DEFAULT True,
     [Description] NVARCHAR(MAX),
@@ -656,7 +648,6 @@ ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_Site] FOREIGN
 ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_Campaign] FOREIGN KEY ([CreatedByCampaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
 ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_DataAcquisitionSystem] FOREIGN KEY ([DataAcquisitionSystem_ID]) REFERENCES [dbo].[DataAcquisitionSystem] ([DataAcquisitionSystem_ID]);
 ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_SignalPortType] FOREIGN KEY ([SignalPortType_ID]) REFERENCES [dbo].[SignalPortType] ([SignalPortType_ID]);
-ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_ControlVariableType] FOREIGN KEY ([ControlVariableType_ID]) REFERENCES [dbo].[ControlVariableType] ([ControlVariableType_ID]);
 ALTER TABLE [dbo].[SignalPort] ADD CONSTRAINT [FK_SignalPort_SignalPort] FOREIGN KEY ([ParentPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
 ALTER TABLE [dbo].[SignalPortEquipmentHistory] ADD CONSTRAINT [FK_SignalPortEquipmentHistory_SignalPort] FOREIGN KEY ([SignalPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
 ALTER TABLE [dbo].[SignalPortEquipmentHistory] ADD CONSTRAINT [FK_SignalPortEquipmentHistory_Equipment] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
@@ -675,39 +666,49 @@ ALTER TABLE [dbo].[ValueVector] ADD CONSTRAINT [FK_ValueVector_Observation] FORE
 ALTER TABLE [dbo].[ValueVector] ADD CONSTRAINT [FK_ValueVector_ValueBin] FOREIGN KEY ([ValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]);
 
 -- Views
+-- A "status channel" is a Channel whose SignalPort has SignalPortType=Status
+-- and a non-null ParentPort_ID pointing to the measured value port.
 CREATE OR ALTER VIEW [dbo].[vw_ChannelStatus] AS
 SELECT
-    statusC.[Channel_ID]          AS StatusChannelID,
-    statusC.[StatusChannel_ID]    AS MeasurementChannelID,
-    measC.[Equipment_ID]          AS EquipmentID,
-    e.[identifier]                AS EquipmentName,
-    p.[Parameter]                 AS MeasurementParameter,
-    v.[Timestamp],
-    CAST(v.[Value] AS INT)        AS StatusCodeID,
-    sc.[StatusName],
-    sc.[IsOperational],
-    sc.[Severity]
+    statusC.[Channel_ID]        AS StatusChannelID,
+    valueC.[Channel_ID]         AS MeasurementChannelID,
+    e.[Equipment_ID]            AS EquipmentID,
+    e.[Identifier]              AS EquipmentName,
+    p.[Parameter]               AS MeasurementParameter,
+    o.[Timestamp],
+    CAST(v.[Value] AS INT)      AS StatusCodeID
 FROM [dbo].[Value] v
-JOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]
-JOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]
-JOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]
-JOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]
-LEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)
-WHERE statusC.[StatusChannel_ID] IS NOT NULL;
+JOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]
+JOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]
+JOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]
+JOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]
+JOIN [dbo].[SignalPort]                valueP   ON valueP.[SignalPort_ID]  = statusP.[ParentPort_ID]
+JOIN [dbo].[Channel]                   valueC   ON valueC.[SignalPort_ID]  = valueP.[SignalPort_ID]
+JOIN [dbo].[Parameter]                 p        ON p.[Parameter_ID]        = valueC.[Parameter_ID]
+LEFT JOIN [dbo].[SignalPortEquipmentHistory] peh  ON peh.[SignalPort_ID]     = valueP.[SignalPort_ID]
+                                                  AND peh.[EndTime]          IS NULL
+LEFT JOIN [dbo].[Equipment]            e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
+WHERE spt.[Name] = N'Status'
+  AND statusP.[ParentPort_ID] IS NOT NULL;
+GO
 
+-- vw_DeviceStatus: status channels grouped by currently-linked equipment.
+-- Replaces the EquipmentStatusChannel junction from v2.x.
 CREATE OR ALTER VIEW [dbo].[vw_DeviceStatus] AS
 SELECT
-    statusC.[Channel_ID]          AS StatusChannelID,
-    esc.[Equipment_ID]            AS EquipmentID,
-    e.[identifier]                AS EquipmentName,
-    v.[Timestamp],
-    CAST(v.[Value] AS INT)        AS StatusCodeID,
-    sc.[StatusName],
-    sc.[IsOperational],
-    sc.[Severity]
+    statusC.[Channel_ID]        AS StatusChannelID,
+    e.[Equipment_ID]            AS EquipmentID,
+    e.[Identifier]              AS EquipmentName,
+    o.[Timestamp],
+    CAST(v.[Value] AS INT)      AS StatusCodeID
 FROM [dbo].[Value] v
-JOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]
-JOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
-JOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]
-LEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT);
+JOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]
+JOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]
+JOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]
+JOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]
+JOIN [dbo].[SignalPortEquipmentHistory]  peh      ON peh.[SignalPort_ID]     = statusP.[SignalPort_ID]
+                                                 AND peh.[EndTime]          IS NULL
+JOIN [dbo].[Equipment]                 e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
+WHERE spt.[Name] = N'Status';
+GO
 

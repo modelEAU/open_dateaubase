@@ -40,16 +40,6 @@ table:
         table: SignalPortType
         column: SignalPortType_ID
 
-    - name: ControlVariableType_ID
-      logical_type: integer
-      nullable: true
-      description: >
-        Engineering role of this port in the physical process (MeasuredVariable,
-        ManipulatedVariable, SetPoint, Disturbance, Computed). NULL = unclassified.
-      foreign_key:
-        table: ControlVariableType
-        column: ControlVariableType_ID
-
     - name: ParentPort_ID
       logical_type: integer
       nullable: true

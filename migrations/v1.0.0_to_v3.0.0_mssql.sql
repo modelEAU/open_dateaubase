@@ -1232,21 +1232,6 @@ INSERT INTO [dbo].[SignalPortType] ([SignalPortType_ID], [Name], [Description]) 
 (4, N'Uncertainty', N'Measurement uncertainty estimate');
 GO
 
-CREATE TABLE [dbo].[ControlVariableType] (
-    [ControlVariableType_ID] INT          NOT NULL,
-    [Name]                   NVARCHAR(50) NOT NULL,
-    [Description]            NVARCHAR(200) NULL,
-    CONSTRAINT [PK_ControlVariableType] PRIMARY KEY ([ControlVariableType_ID])
-);
-GO
-
-INSERT INTO [dbo].[ControlVariableType] ([ControlVariableType_ID], [Name], [Description]) VALUES
-(1, N'MeasuredVariable',    N'The variable being controlled or monitored'),
-(2, N'ManipulatedVariable', N'The variable adjusted by the controller to affect the process'),
-(3, N'SetPoint',            N'Target value the controller tries to achieve'),
-(4, N'Disturbance',         N'Measured input that affects the process but is not manipulated'),
-(5, N'Computed',            N'Derived or calculated signal within the control scheme');
-GO
 
 CREATE TABLE [dbo].[ControlLoopPortRole] (
     [ControlLoopPortRole_ID] INT          NOT NULL,
@@ -1293,7 +1278,6 @@ CREATE TABLE [dbo].[SignalPort] (
     [DataAcquisitionSystem_ID] INT           NOT NULL,
     [Tag]                      NVARCHAR(200) NOT NULL,
     [SignalPortType_ID]        INT           NOT NULL,
-    [ControlVariableType_ID]   INT           NULL,
     [ParentPort_ID]            INT           NULL,
     [IsActive]                 BIT           NOT NULL CONSTRAINT [DF_SignalPort_IsActive] DEFAULT 1,
     [Description]              NVARCHAR(MAX) NULL,
@@ -1306,9 +1290,6 @@ CREATE TABLE [dbo].[SignalPort] (
     CONSTRAINT [FK_SignalPort_Type]
         FOREIGN KEY ([SignalPortType_ID])
         REFERENCES [dbo].[SignalPortType] ([SignalPortType_ID]),
-    CONSTRAINT [FK_SignalPort_ControlVariableType]
-        FOREIGN KEY ([ControlVariableType_ID])
-        REFERENCES [dbo].[ControlVariableType] ([ControlVariableType_ID]),
     CONSTRAINT [FK_SignalPort_ParentPort]
         FOREIGN KEY ([ParentPort_ID])
         REFERENCES [dbo].[SignalPort] ([SignalPort_ID])

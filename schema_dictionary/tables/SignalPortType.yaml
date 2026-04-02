@@ -4,10 +4,9 @@ table:
   schema: dbo
   description: >
     Controlled vocabulary describing the kind of data flowing through a SignalPort.
-    Answers "what kind of signal is this?" — orthogonal to ControlVariableType
-    which answers "what does this port do in the physical process?".
-    A blower command has SignalPortType=Value and ControlVariableType=ManipulatedVariable.
-    A device health indicator has SignalPortType=Status and ControlVariableType=NULL.
+    Answers "what kind of signal is this?".
+    A blower command has SignalPortType=Value.
+    A device health indicator has SignalPortType=Status.
 
   columns:
     - name: SignalPortType_ID

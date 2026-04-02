@@ -58,8 +58,6 @@ DROP TABLE IF EXISTS [dbo].[DataAcquisitionSystem];
 GO
 DROP TABLE IF EXISTS [dbo].[SignalPortType];
 GO
-DROP TABLE IF EXISTS [dbo].[ControlVariableType];
-GO
 DROP TABLE IF EXISTS [dbo].[ControlLoopPortRole];
 GO
 
