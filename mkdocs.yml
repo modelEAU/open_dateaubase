@@ -36,7 +36,7 @@ nav:
     - Tables: reference/tables.md
     - Views: reference/views.md
     - Value Sets: reference/valuesets.md
-    - SignalPortType vs ControlVariableType: reference/signal_port_types.md
+    - SignalPortType: reference/signal_port_types.md
     - ERD Diagram: reference/erd.md
     - Inserting Data: reference/inserting_data.md
     - Sample Data & Queries: reference/sample_data.md

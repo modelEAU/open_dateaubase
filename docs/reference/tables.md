@@ -223,22 +223,6 @@ Controlled vocabulary for the functional role of a SignalPort within a ControlLo
 | Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this role | - |
 | Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the role within a control loop | - |
 
-<span id="ControlVariableType"></span>
-
-### ControlVariableType
-
-Controlled vocabulary describing a SignalPort's engineering role in the physical process. Answers "what does this port do in the process?" — orthogonal to SignalPortType which answers "what kind of data flows here?". A DO sensor port has ControlVariableType=MeasuredVariable and SignalPortType=Value. NULL means unclassified.
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| ControlVariableType_ID | INT **(PK)** | - | ✓ | <span id="ControlVariableType_ID"></span>Surrogate primary key, manually assigned | - |
-| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this control variable type | - |
-| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the engineering role | - |
-
 <span id="DataAcquisitionSystem"></span>
 
 ### DataAcquisitionSystem
@@ -751,8 +735,6 @@ Universal connection point between a DataAcquisitionSystem and a measurement Cha
 | DataAcquisitionSystem_ID | INT | - | ✓ | <span id="DataAcquisitionSystem_ID"></span>The DAS that owns this tag | FK → [DataAcquisitionSystem.DataAcquisitionSystem_ID](#DataAcquisitionSystem) |
 | Tag | NVARCHAR(200) | - | ✓ | <span id="Tag"></span>Tag string as published by the DAS (case-preserved; lookups are case-insensitive trimmed) | - |
 | SignalPortType_ID | INT | - | ✓ | <span id="SignalPortType_ID"></span>Kind of data flowing through this port (Value, Status, Alarm, Uncertainty) | FK → [SignalPortType.SignalPortType_ID](#SignalPortType) |
-| ControlVariableType_ID | INT | - |  | <span id="ControlVariableType_ID"></span>Engineering role of this port in the physical process (MeasuredVariable, ManipulatedVariable, SetPoint, Disturbance, Computed). NULL = unclassified.
- | FK → [ControlVariableType.ControlVariableType_ID](#ControlVariableType) |
 | ParentPort_ID | INT | - |  | <span id="ParentPort_ID"></span>For sub-signals (Status, Alarm, Uncertainty ports), points to the parent Value-type port. NULL for primary value ports and unlinked ports.
  | FK → [SignalPort.SignalPort_ID](#SignalPort) |
 | IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this port is currently expected to receive data. Set to false when a signal is retired. | Default: `True` |
@@ -800,7 +782,7 @@ Temporal record of where a SignalPort is measuring (which SamplingPoint). Enable
 
 ### SignalPortType
 
-Controlled vocabulary describing the kind of data flowing through a SignalPort. Answers "what kind of signal is this?" — orthogonal to ControlVariableType which answers "what does this port do in the physical process?". A blower command has SignalPortType=Value and ControlVariableType=ManipulatedVariable. A device health indicator has SignalPortType=Status and ControlVariableType=NULL.
+Controlled vocabulary describing the kind of data flowing through a SignalPort. Answers "what kind of signal is this?". A blower command has SignalPortType=Value. A device health indicator has SignalPortType=Status.
 
 
 

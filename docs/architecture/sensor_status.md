@@ -5,38 +5,44 @@
 Status is stored as a time series in `dbo.Value` using **state-change encoding** — only
 transitions are recorded, not heartbeats.
 
-1. **Status is per-channel (per Channel row)**, not per-equipment.
-2. **Device-level status is also supported** via `EquipmentStatusChannel`.
-3. **Status values go in `dbo.Value`** — no separate value table.
-4. **A lookup table (`SensorStatusCode`)** defines the meaning of each code.
-5. **State-change encoding**: only write a row when status changes.
+1. **Status is tracked via SignalPort sub-signals.** A status channel is a `Channel` whose
+   `SignalPort` has `SignalPortType = Status` and a non-null `ParentPort_ID` pointing to the
+   measured value port.
+2. **Status values go in `dbo.Observation` + `dbo.Value`** — no separate value table.
+3. **A lookup table (`SensorStatusCode`)** defines the meaning of each code.
+4. **State-change encoding**: only write a row when status changes.
 
 ---
 
 ## Schema
 
-### Channel.StatusChannel_ID
+### SignalPort sub-signal relationship
 
-A nullable `Channel_ID` FK on the `Channel` table itself. When non-NULL, this Channel
-*is* a status time series describing the measurement Channel identified by
-`StatusChannel_ID`.
+A status channel is identified by navigating the SignalPort hierarchy:
 
 ```text
-Channel (measurement): Channel_ID=42, Equipment_ID=7, Parameter_ID=3, StatusChannel_ID=NULL
-Channel (status):      Channel_ID=43, Equipment_ID=7, Parameter_ID=<status param>, StatusChannel_ID=42
+SignalPort (value port):  SignalPort_ID=10, SignalPortType=Value,  ParentPort_ID=NULL
+SignalPort (status port): SignalPort_ID=11, SignalPortType=Status, ParentPort_ID=10
+
+Channel (measurement): Channel_ID=42, SignalPort_ID=10, Parameter_ID=3
+Channel (status):      Channel_ID=43, SignalPort_ID=11, Parameter_ID=<status param>
 ```
 
-Channel 43 carries status codes for Channel 42. Values written to `dbo.Value` with
-`Channel_ID=43` are status transitions for the pH/TSS/etc. measurement on Channel 42.
+`Channel 43` carries status codes for `Channel 42`. Observations written against
+`Channel_ID=43` are status transitions for the measurement on Channel 42.
 
-### EquipmentStatusChannel
+To find the status channel for a given measurement channel:
 
-Maps an Equipment row to its device-level status Channel (one-to-one).
-
-| Column | Type | Notes |
-| --- | --- | --- |
-| `Equipment_ID` | INT PK FK→Equipment | Equipment whose device-level status is tracked |
-| `StatusChannel_ID` | INT FK→Channel | Channel carrying device-level status codes |
+```sql
+SELECT sc.[Channel_ID]
+FROM   [dbo].[Channel]        sc
+JOIN   [dbo].[SignalPort]     sp  ON sp.[SignalPort_ID]      = sc.[SignalPort_ID]
+JOIN   [dbo].[SignalPortType] spt ON spt.[SignalPortType_ID] = sp.[SignalPortType_ID]
+WHERE  sp.[ParentPort_ID] = (
+           SELECT c2.[SignalPort_ID] FROM [dbo].[Channel] c2 WHERE c2.[Channel_ID] = @MeasurementChannelID
+       )
+  AND  spt.[Name] = N'Status';
+```
 
 ### SensorStatusCode
 
@@ -63,37 +69,36 @@ untrustworthy. The API supports filtering with `operational_only=true`.
 
 ## Setting Up a Channel with Per-Channel Status
 
-### Step 1: Create the status Channel
+### Step 1: Create the status SignalPort and Channel
 
 ```sql
--- Assumes the measurement Channel already exists (Channel_ID = 42)
+-- Create a Status sub-signal port under the measurement port (SignalPort_ID=10)
+INSERT INTO [dbo].[SignalPort]
+    ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID], [ParentPort_ID], [IsActive])
+VALUES (@das_id, @status_tag, 2, 10, 1);  -- SignalPortType_ID=2 = Status
+
+SET @status_port_id = SCOPE_IDENTITY();
+
+-- Create the status Channel
 INSERT INTO [dbo].[Channel]
-    ([Equipment_ID], [Parameter_ID], [Unit_ID], [DataProvenance_ID],
-     [ProcessingDegree], [ValueType_ID], [StatusChannel_ID])
-SELECT
-    [Equipment_ID],
-    @status_param_id,   -- Parameter for 'Sensor Status'
-    @status_unit_id,    -- Unit for 'Status Code'
-    [DataProvenance_ID],
-    'Raw',
-    1,
-    42                  -- points back to the measurement Channel
-FROM [dbo].[Channel]
-WHERE [Channel_ID] = 42;
+    ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (@status_port_id, @status_param_id, @provenance_id, 1, 1);
 
 SET @status_channel_id = SCOPE_IDENTITY();
 ```
 
-### Step 2: Insert status transitions into dbo.Value
+### Step 2: Insert status transitions via Observation + Value
 
 ```sql
 -- Initial status: Operational
-INSERT INTO [dbo].[Value] ([Channel_ID], [Timestamp], [Value])
-VALUES (@status_channel_id, '2025-01-01T00:00:00', 1);  -- 1 = Operational
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+VALUES (@status_channel_id, '2025-01-01T00:00:00', 'Scalar');
+INSERT INTO [dbo].[Value] ([Observation_ID], [Value]) VALUES (SCOPE_IDENTITY(), 1);
 
 -- Later, sensor goes fouled:
-INSERT INTO [dbo].[Value] ([Channel_ID], [Timestamp], [Value])
-VALUES (@status_channel_id, '2025-02-15T09:00:00', 10); -- 10 = Fouled
+INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+VALUES (@status_channel_id, '2025-02-15T09:00:00', 'Scalar');
+INSERT INTO [dbo].[Value] ([Observation_ID], [Value]) VALUES (SCOPE_IDENTITY(), 10);
 ```
 
 ---
@@ -102,7 +107,8 @@ VALUES (@status_channel_id, '2025-02-15T09:00:00', 10); -- 10 = Fouled
 
 ### dbo.vw_ChannelStatus
 
-Joins per-channel status records with their measurement channels.
+Joins per-channel status records with their measurement channels via the SignalPort
+sub-signal relationship.
 
 ```sql
 SELECT * FROM [dbo].[vw_ChannelStatus]
@@ -110,22 +116,19 @@ WHERE EquipmentID = 5;
 ```
 
 Columns: `StatusChannelID`, `MeasurementChannelID`, `EquipmentID`, `EquipmentName`,
-`MeasurementParameter`, `Timestamp`, `StatusCodeID`, `StatusName`, `IsOperational`, `Severity`.
-
-The view selects all Channel rows where `StatusChannel_ID IS NOT NULL`, joining back to
-the measurement Channel via `StatusChannel_ID`.
+`MeasurementParameter`, `Timestamp`, `StatusCodeID`.
 
 ### dbo.vw_DeviceStatus
 
-Joins device-level status records via `EquipmentStatusChannel`.
+Finds status channels by resolving the currently-active `SignalPortEquipmentHistory`
+row for the equipment, then filtering for `SignalPortType=Status` ports.
 
 ```sql
 SELECT * FROM [dbo].[vw_DeviceStatus]
 WHERE EquipmentID = 5;
 ```
 
-Columns: `StatusChannelID`, `EquipmentID`, `EquipmentName`, `Timestamp`, `StatusCodeID`,
-`StatusName`, `IsOperational`, `Severity`.
+Columns: `StatusChannelID`, `EquipmentID`, `EquipmentName`, `Timestamp`, `StatusCodeID`.
 
 ---
 
@@ -135,16 +138,20 @@ Columns: `StatusChannelID`, `EquipmentID`, `EquipmentName`, `Timestamp`, `Status
 
 ```sql
 SELECT TOP 1
-    sc.[StatusCodeID],
-    sc.[StatusName],
-    sc.[IsOperational],
-    sc.[Severity],
-    v.[Timestamp] AS StatusSince
-FROM [dbo].[Channel]               statusC
-JOIN [dbo].[Value]                 v  ON v.[Channel_ID]    = statusC.[Channel_ID]
-LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
-WHERE statusC.[StatusChannel_ID] = @MeasurementChannelID
-ORDER BY v.[Timestamp] DESC;
+    sc.[StatusCodeID], sc.[StatusName], sc.[IsOperational], sc.[Severity],
+    o.[Timestamp] AS StatusSince
+FROM [dbo].[Observation]   o
+JOIN [dbo].[Value]         v  ON v.[Observation_ID] = o.[Observation_ID]
+JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
+WHERE o.[Channel_ID] = (
+    SELECT sc2.[Channel_ID]
+    FROM   [dbo].[Channel] sc2
+    JOIN   [dbo].[SignalPort] sp ON sp.[SignalPort_ID] = sc2.[SignalPort_ID]
+    JOIN   [dbo].[SignalPortType] spt ON spt.[SignalPortType_ID] = sp.[SignalPortType_ID]
+    WHERE  sp.[ParentPort_ID] = (SELECT c2.[SignalPort_ID] FROM [dbo].[Channel] c2 WHERE c2.[Channel_ID] = @MeasurementChannelID)
+      AND  spt.[Name] = N'Status'
+)
+ORDER BY o.[Timestamp] DESC;
 ```
 
 ### Status at a point in time
@@ -152,51 +159,13 @@ ORDER BY v.[Timestamp] DESC;
 ```sql
 SELECT TOP 1
     sc.[StatusCodeID], sc.[StatusName], sc.[IsOperational], sc.[Severity],
-    v.[Timestamp] AS StatusSince
-FROM [dbo].[Channel]               statusC
-JOIN [dbo].[Value]                 v  ON v.[Channel_ID]    = statusC.[Channel_ID]
-LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
-WHERE statusC.[StatusChannel_ID] = @MeasurementChannelID
-  AND v.[Timestamp] <= @QueryTimestamp
-ORDER BY v.[Timestamp] DESC;
-```
-
-### Status band (for UI rendering)
-
-```sql
-WITH StatusTransitions AS (
-    SELECT TOP 1 v.[Timestamp] AS TransitionTime, CAST(v.[Value] AS INT) AS StatusCodeID
-    FROM [dbo].[Channel]   statusC
-    JOIN [dbo].[Value]     v ON v.[Channel_ID] = statusC.[Channel_ID]
-    WHERE statusC.[StatusChannel_ID] = @MeasurementChannelID
-      AND v.[Timestamp] <= @T1
-    ORDER BY v.[Timestamp] DESC
-
-    UNION ALL
-
-    SELECT v.[Timestamp], CAST(v.[Value] AS INT)
-    FROM [dbo].[Channel]   statusC
-    JOIN [dbo].[Value]     v ON v.[Channel_ID] = statusC.[Channel_ID]
-    WHERE statusC.[StatusChannel_ID] = @MeasurementChannelID
-      AND v.[Timestamp] > @T1 AND v.[Timestamp] <= @T2
-),
-StatusIntervals AS (
-    SELECT
-        TransitionTime AS IntervalStart,
-        LEAD(TransitionTime) OVER (ORDER BY TransitionTime) AS IntervalEnd,
-        StatusCodeID
-    FROM StatusTransitions
-)
-SELECT
-    CASE WHEN si.IntervalStart < @T1 THEN @T1 ELSE si.IntervalStart END AS from_time,
-    CASE WHEN si.IntervalEnd IS NULL THEN @T2
-         WHEN si.IntervalEnd > @T2   THEN @T2
-         ELSE si.IntervalEnd END                                          AS to_time,
-    sc.[StatusCodeID], sc.[StatusName], sc.[IsOperational], sc.[Severity]
-FROM StatusIntervals si
-LEFT JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = si.StatusCodeID
-WHERE si.IntervalEnd IS NULL OR si.IntervalEnd > @T1
-ORDER BY si.IntervalStart;
+    o.[Timestamp] AS StatusSince
+FROM [dbo].[Observation]   o
+JOIN [dbo].[Value]         v  ON v.[Observation_ID] = o.[Observation_ID]
+JOIN [dbo].[SensorStatusCode] sc ON sc.[StatusCodeID] = CAST(v.[Value] AS INT)
+WHERE o.[Channel_ID] = (  /* same sub-query as above */ ... )
+  AND o.[Timestamp] <= @QueryTimestamp
+ORDER BY o.[Timestamp] DESC;
 ```
 
 ---
@@ -257,44 +226,13 @@ Get the status band for a specific measurement channel over a time range.
 
 **Query parameters:** `from`, `to` (ISO 8601).
 
-**Response:**
-
-```json
-{
-  "channel_id": 42,
-  "variable": "pH",
-  "equipment_name": "SC1000_Controller",
-  "query_range": {
-    "from": "2025-02-01T00:00:00Z",
-    "to": "2025-02-28T23:59:59Z"
-  },
-  "status_intervals": [
-    {
-      "from": "2025-02-01T00:00:00Z",
-      "to": "2025-02-15T00:00:00Z",
-      "status_code": 1,
-      "status_name": "Operational",
-      "is_operational": true,
-      "severity": 0
-    }
-  ],
-  "has_status_data": true
-}
-```
-
 ---
 
 ## State-Change Encoding
 
 Only write a row when the status actually changes. No heartbeats needed. The status at
-any point in time is the value from the most recent `dbo.Value` row with
-`Timestamp <= query_time` for that status Channel.
-
-**Ingestion pipeline pattern:**
-
-1. Track the last known status value.
-2. On each data point, check if the status has changed.
-3. Only insert a new `dbo.Value` row if different from the last known value.
+any point in time is the value from the most recent `dbo.Observation`/`dbo.Value` row
+with `Timestamp <= query_time` for that status Channel.
 
 ---
 
@@ -304,9 +242,6 @@ Status and annotations are complementary:
 
 - **Status** = machine-reported state (what the sensor reports about itself)
 - **Annotations** = human-authored commentary (what operators observed)
-
-A `Fault` annotation might be created by a human to explain a machine-reported `Fault`
-status, adding context the sensor cannot provide (e.g., "fouling due to biofilm growth").
 
 ---
 

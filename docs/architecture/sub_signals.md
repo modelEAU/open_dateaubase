@@ -143,5 +143,5 @@ Returns `{"parent_port_id": 17, "sub_signals": []}` when no sub-signals exist.
 
 ## See also
 
-- [SignalPortType vs ControlVariableType](../reference/signal_port_types.md)
+- [SignalPortType](../reference/signal_port_types.md)
 - [Sensor Relocation SOP](../operations/sensor-relocation-sop.md)

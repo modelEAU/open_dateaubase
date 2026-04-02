@@ -1,20 +1,4 @@
-# SignalPortType vs ControlVariableType
-
-Two orthogonal enumerations classify every `SignalPort`:
-
-| Attribute | Table | Question answered |
-| --- | --- | --- |
-| `SignalPortType_ID` | `SignalPortType` | *What kind of data flows here?* |
-| `ControlVariableType_ID` | `ControlVariableType` | *What engineering role does this port play?* |
-
-They are independent: a blower speed command has `SignalPortType=Value` and
-`ControlVariableType=ManipulatedVariable`.  A raw DO sensor reading has
-`SignalPortType=Value` and `ControlVariableType=MeasuredVariable`.  A device
-health indicator has `SignalPortType=Status` and `ControlVariableType=NULL`.
-
----
-
-## SignalPortType
+# SignalPortType
 
 Discriminates primary value ports from the sub-signals that annotate them.
 
@@ -25,7 +9,7 @@ Discriminates primary value ports from the sub-signals that annotate them.
 | 3 | Alarm | Alarm or alert indicator |
 | 4 | Uncertainty | Measurement uncertainty estimate |
 
-### Sub-signal constraint
+## Sub-signal constraint
 
 Ports with `SignalPortType` of **Status**, **Alarm**, or **Uncertainty** are
 sub-signal ports.  They are linked to their parent value port via
@@ -38,37 +22,14 @@ data model, ingest API, and query endpoint.
 
 ---
 
-## ControlVariableType
+## Quick-reference examples
 
-Describes the engineering role of a port within a process-control scheme.
-`NULL` means the port is not part of a control loop (most sensor channels).
-
-| ID | Name | Description |
-| --- | --- | --- |
-| 1 | MeasuredVariable | The variable being controlled or monitored |
-| 2 | ManipulatedVariable | The variable adjusted by the controller to affect the process |
-| 3 | SetPoint | Target value the controller tries to achieve |
-| 4 | Disturbance | Measured input that affects the process but is not manipulated |
-| 5 | Computed | Derived or calculated signal within the control scheme |
-
-### Relationship to ControlLoop
-
-When a port is part of a `ControlLoop`, it is registered in `ControlLoopPort`
-with the corresponding `ControlLoopPortRole_ID`.  `ControlVariableType_ID` on
-the `SignalPort` row itself is the per-port label that persists even when the
-port is not actively participating in a loop.
-
----
-
-## Quick-reference matrix
-
-| Example signal | SignalPortType | ControlVariableType |
-| --- | --- | --- |
-| TSS concentration (sensor) | Value | MeasuredVariable |
-| DO setpoint | Value | SetPoint |
-| Blower speed command | Value | ManipulatedVariable |
-| Influent flow (disturbance feed-forward) | Value | Disturbance |
-| Estimated SRT (model output) | Value | Computed |
-| Probe health status code | Status | *(NULL)* |
-| High-DO alarm flag | Alarm | *(NULL)* |
-| DO measurement uncertainty | Uncertainty | *(NULL)* |
+| Example signal | SignalPortType |
+| --- | --- |
+| TSS concentration (sensor) | Value |
+| Blower speed command | Value |
+| DO setpoint | Value |
+| Influent flow (feed-forward input) | Value |
+| Probe health status code | Status |
+| High-DO alarm flag | Alarm |
+| DO measurement uncertainty | Uncertainty |
