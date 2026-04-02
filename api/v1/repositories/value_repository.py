@@ -36,22 +36,37 @@ def get_scalar_values(
         params.append(to_dt)
 
     if operational_only:
+        # Navigate to the status channel via SignalPort sub-signal (v3.0.0 pattern).
+        # A status channel is one whose SignalPort has SignalPortType=Status and
+        # ParentPort_ID pointing to the measurement channel's SignalPort.
         where += """
         AND (NOT EXISTS (
-            SELECT 1 FROM dbo.Channel statusC
-            JOIN dbo.Observation so ON so.[Channel_ID] = statusC.[Channel_ID]
-            JOIN dbo.Value sv ON sv.[Observation_ID] = so.[Observation_ID]
-            WHERE statusC.[StatusChannel_ID] = o.[Channel_ID]
-              AND so.[Timestamp] <= o.[Timestamp]
+            SELECT 1
+            FROM   dbo.Channel       statusC
+            JOIN   dbo.SignalPort    sp  ON sp.[SignalPort_ID]      = statusC.[SignalPort_ID]
+            JOIN   dbo.SignalPortType spt ON spt.[SignalPortType_ID] = sp.[SignalPortType_ID]
+            JOIN   dbo.Observation   so  ON so.[Channel_ID]         = statusC.[Channel_ID]
+            JOIN   dbo.Value         sv  ON sv.[Observation_ID]     = so.[Observation_ID]
+            WHERE  sp.[ParentPort_ID] = (
+                       SELECT c2.[SignalPort_ID] FROM dbo.Channel c2 WHERE c2.[Channel_ID] = o.[Channel_ID]
+                   )
+              AND  spt.[Name] = N'Status'
+              AND  so.[Timestamp] <= o.[Timestamp]
         )
         OR EXISTS (
-            SELECT 1 FROM dbo.Channel statusC
-            JOIN dbo.Observation so ON so.[Channel_ID] = statusC.[Channel_ID]
-            JOIN dbo.Value sv ON sv.[Observation_ID] = so.[Observation_ID]
-            JOIN dbo.QualityCode qc ON qc.[QualityCode_ID] = CAST(sv.[Value] AS INT)
-            WHERE statusC.[StatusChannel_ID] = o.[Channel_ID]
-              AND so.[Timestamp] <= o.[Timestamp]
-              AND qc.[IsUsable] = 1
+            SELECT 1
+            FROM   dbo.Channel       statusC
+            JOIN   dbo.SignalPort    sp  ON sp.[SignalPort_ID]      = statusC.[SignalPort_ID]
+            JOIN   dbo.SignalPortType spt ON spt.[SignalPortType_ID] = sp.[SignalPortType_ID]
+            JOIN   dbo.Observation   so  ON so.[Channel_ID]         = statusC.[Channel_ID]
+            JOIN   dbo.Value         sv  ON sv.[Observation_ID]     = so.[Observation_ID]
+            JOIN   dbo.QualityCode   qc  ON qc.[QualityCode_ID]     = CAST(sv.[Value] AS INT)
+            WHERE  sp.[ParentPort_ID] = (
+                       SELECT c2.[SignalPort_ID] FROM dbo.Channel c2 WHERE c2.[Channel_ID] = o.[Channel_ID]
+                   )
+              AND  spt.[Name] = N'Status'
+              AND  so.[Timestamp] <= o.[Timestamp]
+              AND  qc.[IsUsable] = 1
         ))
         """
 

@@ -2,7 +2,10 @@ _format_version: "1.0"
 view:
   name: vw_DeviceStatus
   schema: dbo
-  description: "Join view for device-level sensor status queries. Joins via EquipmentStatusChannel to resolve the equipment-level status Channel for each piece of equipment."
+  description: >
+    Device-level status view. Finds status channels by following the currently-active
+    SignalPortEquipmentHistory row for each equipment, then filtering for ports with
+    SignalPortType=Status. Replaces the EquipmentStatusChannel junction table from v2.x.
   columns:
     - name: StatusChannelID
       sql_data_type: INT
@@ -11,35 +14,27 @@ view:
       sql_data_type: INT
       description: "Equipment ID this status describes"
     - name: EquipmentName
-      sql_data_type: NVARCHAR(100)
-      description: "Name/identifier of the equipment"
+      sql_data_type: NVARCHAR(200)
+      description: "Identifier of the equipment"
     - name: Timestamp
       sql_data_type: DATETIME2(7)
-      description: "Timestamp of the status transition"
+      description: "Timestamp of the status observation"
     - name: StatusCodeID
       sql_data_type: INT
-      description: "Status code from SensorStatusCode"
-    - name: StatusName
-      sql_data_type: NVARCHAR(100)
-      description: "Human-readable status name"
-    - name: IsOperational
-      sql_data_type: BIT
-      description: "Whether data is trustworthy in this status"
-    - name: Severity
-      sql_data_type: INT
-      description: "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
+      description: "Raw integer status code stored in the status Channel's Value rows"
   view_definition: |
     SELECT
-        statusC.[Channel_ID]          AS StatusChannelID,
-        esc.[Equipment_ID]            AS EquipmentID,
-        e.[identifier]                AS EquipmentName,
-        v.[Timestamp],
-        CAST(v.[Value] AS INT)        AS StatusCodeID,
-        sc.[StatusName],
-        sc.[IsOperational],
-        sc.[Severity]
+        statusC.[Channel_ID]        AS StatusChannelID,
+        e.[Equipment_ID]            AS EquipmentID,
+        e.[Identifier]              AS EquipmentName,
+        o.[Timestamp],
+        CAST(v.[Value] AS INT)      AS StatusCodeID
     FROM [dbo].[Value] v
-    JOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]
-    JOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
-    JOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]
-    LEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT)
+    JOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]
+    JOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]
+    JOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]
+    JOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]
+    JOIN [dbo].[SignalPortEquipmentHistory]  peh      ON peh.[SignalPort_ID]     = statusP.[SignalPort_ID]
+                                                     AND peh.[EndTime]          IS NULL
+    JOIN [dbo].[Equipment]                 e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
+    WHERE spt.[Name] = N'Status'
