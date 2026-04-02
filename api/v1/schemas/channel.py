@@ -9,6 +9,8 @@ class ChannelOut(BaseModel):
     """Full channel record with all resolved foreign keys."""
 
     channel_id: int
+    signal_port_id: int
+    signal_port_tag: str | None
     parameter_id: int | None
     parameter_name: str | None
     equipment_id: int | None
@@ -24,8 +26,8 @@ class ChannelOut(BaseModel):
 class ChannelIn(BaseModel):
     """Channel input schema for create/update operations."""
 
+    signal_port_id: int
     parameter_id: int | None = None
-    equipment_id: int | None = None
     data_provenance_id: int | None = None
     processing_degree_id: int | None = None
     value_type_id: int | None = None

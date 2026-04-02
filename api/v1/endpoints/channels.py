@@ -53,7 +53,8 @@ def list_channels(
     processing_degree_id: int | None = Query(
         None, description="Filter by processing degree ID (1=Raw, 2=Cleaned, etc.)"
     ),
-    equipment_id: int | None = Query(None, description="Filter by equipment ID"),
+    equipment_id: int | None = Query(None, description="Filter by equipment ID (resolved via active SignalPortEquipmentHistory)"),
+    signal_port_id: int | None = Query(None, description="Filter by signal port ID"),
     value_type_id: int | None = Query(None, description="Filter by value type (1=Scalar,2=Vector,3=Matrix,4=Image)"),
     campaign_id: int | None = Query(None, description="Filter to channels whose equipment is in this campaign"),
     page: int = Query(1, ge=1),
@@ -67,6 +68,7 @@ def list_channels(
         data_provenance_id=data_provenance_id,
         processing_degree_id=processing_degree_id,
         equipment_id=equipment_id,
+        signal_port_id=signal_port_id,
         value_type_id=value_type_id,
         campaign_id=campaign_id,
         page=page,
