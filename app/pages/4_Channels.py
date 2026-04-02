@@ -17,9 +17,9 @@ from app.api_client import (
     create_channel,
     delete_channel,
     list_channels,
-    list_equipment_lookup,
     list_parameters_lookup,
     list_processing_degrees_lookup,
+    list_signal_ports,
     update_channel,
 )
 from app.auth import get_current_user, logout, require_auth
@@ -39,7 +39,7 @@ st.title("Channels")
 # Load lookup data for dropdowns
 try:
     with st.spinner("Loading..."):
-        equipment_lookup = list_equipment_lookup()
+        signal_ports_data = list_signal_ports(page_size=500)
         parameters_lookup = list_parameters_lookup()
         processing_degrees_lookup = list_processing_degrees_lookup()
 except APIError as e:
@@ -47,8 +47,9 @@ except APIError as e:
     st.stop()
 
 # Prepare dropdown options
-equipment_options = [
-    {"id": e["equipment_id"], "label": e["identifier"]} for e in equipment_lookup
+signal_port_options = [
+    {"id": sp["signal_port_id"], "label": f"{sp['das_name']} / {sp['tag']}"}
+    for sp in signal_ports_data.get("items", [])
 ]
 parameter_options = [
     {"id": p["parameter_id"], "label": p["parameter_name"]} for p in parameters_lookup
@@ -63,18 +64,18 @@ st.markdown("### Filters")
 filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
 
 with filter_col1:
-    equipment_filter_options = [{"id": None, "label": "All"}] + equipment_options
-    selected_equipment_label = st.selectbox(
-        "Equipment",
-        options=[opt["label"] for opt in equipment_filter_options],
+    signal_port_filter_options = [{"id": None, "label": "All"}] + signal_port_options
+    selected_signal_port_label = st.selectbox(
+        "Signal Port",
+        options=[opt["label"] for opt in signal_port_filter_options],
         index=0,
-        key="filter_equipment",
+        key="filter_signal_port",
     )
-    equipment_id_filter = next(
+    signal_port_id_filter = next(
         (
             opt["id"]
-            for opt in equipment_filter_options
-            if opt["label"] == selected_equipment_label
+            for opt in signal_port_filter_options
+            if opt["label"] == selected_signal_port_label
         ),
         None,
     )
@@ -122,7 +123,7 @@ if apply_filters or "channels_loaded" not in st.session_state:
     try:
         with st.spinner("Loading channels..."):
             channels_data = list_channels(
-                equipment_id=equipment_id_filter,
+                signal_port_id=signal_port_id_filter,
                 parameter_id=parameter_id_filter,
                 processing_degree_id=degree_id_filter,
             )
@@ -177,16 +178,16 @@ with col1:
         create_form_dialog(
             fields=[
                 {
+                    "name": "signal_port_id",
+                    "type": "select",
+                    "required": True,
+                    "options": signal_port_options,
+                },
+                {
                     "name": "parameter_id",
                     "type": "select",
                     "required": False,
                     "options": parameter_options,
-                },
-                {
-                    "name": "equipment_id",
-                    "type": "select",
-                    "required": False,
-                    "options": equipment_options,
                 },
                 {
                     "name": "data_provenance_id",
@@ -240,16 +241,16 @@ with col2:
                 item_data=selected_item,
                 fields=[
                     {
+                        "name": "signal_port_id",
+                        "type": "select",
+                        "required": True,
+                        "options": signal_port_options,
+                    },
+                    {
                         "name": "parameter_id",
                         "type": "select",
                         "required": False,
                         "options": parameter_options,
-                    },
-                    {
-                        "name": "equipment_id",
-                        "type": "select",
-                        "required": False,
-                        "options": equipment_options,
                     },
                     {
                         "name": "data_provenance_id",

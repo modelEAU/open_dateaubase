@@ -28,6 +28,7 @@ from app.api_client import (
     list_equipment_lookup,
     list_parameters_lookup,
     list_channels,
+    list_signal_ports,
     list_equipment_event_types,
     create_equipment_event,
 )
@@ -43,12 +44,12 @@ VALUE_TYPE_MATRIX = 3
 VALUE_TYPE_IMAGE = 4
 
 QUALITY_COLORS = {
-    1: "#2ecc71",   # Accepted — green
-    2: "#f39c12",   # Suspect — orange
-    3: "#e74c3c",   # Rejected — red
-    4: "#95a5a6",   # BelowLoD — grey
-    5: "#8e44ad",   # AboveLoQ — purple
-    6: "#3498db",   # Outlier — blue
+    1: "#2ecc71",  # Accepted — green
+    2: "#f39c12",  # Suspect — orange
+    3: "#e74c3c",  # Rejected — red
+    4: "#95a5a6",  # BelowLoD — grey
+    5: "#8e44ad",  # AboveLoQ — purple
+    6: "#3498db",  # Outlier — blue
 }
 DEFAULT_QUALITY_COLOR = "#aaaaaa"
 
@@ -65,9 +66,9 @@ def _init_state() -> None:
         "explore_start": date.today() - timedelta(days=30),
         "explore_end": date.today(),
         "explore_mode": "viz",
-        "explore_data": {},             # (channel_id, start, end) → timeseries dict
-        "explore_annotations": {},      # channel_id → list[dict]
-        "explore_eq_events": {},        # equipment_id → list[dict]
+        "explore_data": {},  # (channel_id, start, end) → timeseries dict
+        "explore_annotations": {},  # channel_id → list[dict]
+        "explore_eq_events": {},  # equipment_id → list[dict]
         "explore_selected_points": {},  # Plotly selection result
         "explore_selected_images": [],  # list[str] timestamps
         "explore_image_detail_ch": None,
@@ -119,16 +120,21 @@ def _load_annotations(channel_id: int) -> list[dict]:
         try:
             start = st.session_state.explore_start
             end = st.session_state.explore_end
-            cache[channel_id] = _api_list_annotations_for_channel(channel_id, start, end)
+            cache[channel_id] = _api_list_annotations_for_channel(
+                channel_id, start, end
+            )
         except APIError:
             cache[channel_id] = []
     return cache[channel_id]
 
 
-def _api_list_annotations_for_channel(channel_id: int, start: date, end: date) -> list[dict]:
+def _api_list_annotations_for_channel(
+    channel_id: int, start: date, end: date
+) -> list[dict]:
     """Call GET /timeseries/{channel_id}/annotations with time range."""
     from app.api_client import _get_client, _raise_for_status, APIError
     import httpx
+
     params = {
         "from": datetime.combine(start, datetime.min.time()).isoformat(),
         "to": datetime.combine(end, datetime.max.time()).isoformat(),
@@ -179,8 +185,16 @@ def _build_scalar_figure(
     overlay_rows: list[dict] = []
 
     palette = [
-        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd",
+        "#8c564b",
+        "#e377c2",
+        "#7f7f7f",
+        "#bcbd22",
+        "#17becf",
     ]
 
     for idx, ch_id in enumerate(active_channels):
@@ -231,32 +245,42 @@ def _build_scalar_figure(
             t_end = ann.get("end_time") or t_start
             ann_color = ann.get("type", {}).get("color") or "#888888"
             ref = len(overlay_rows) + 1
-            overlay_rows.append({
-                "ref": ref,
-                "kind": "Annotation",
-                "source": f"CH-{ch_id}",
-                "category": ann.get("type", {}).get("name", ""),
-                "title": ann.get("title", "") or "",
-                "start": t_start,
-                "end": ann.get("end_time") or "",
-                "comment": ann.get("comment", "") or "",
-            })
+            overlay_rows.append(
+                {
+                    "ref": ref,
+                    "kind": "Annotation",
+                    "source": f"CH-{ch_id}",
+                    "category": ann.get("type", {}).get("name", ""),
+                    "title": ann.get("title", "") or "",
+                    "start": t_start,
+                    "end": ann.get("end_time") or "",
+                    "comment": ann.get("comment", "") or "",
+                }
+            )
             fig.add_vrect(
-                x0=t_start, x1=t_end,
-                fillcolor=ann_color, opacity=0.08,
+                x0=t_start,
+                x1=t_end,
+                fillcolor=ann_color,
+                opacity=0.08,
                 line_width=0,
             )
             fig.add_vline(
                 x=t_start,
-                line_color=ann_color, line_width=1.5, line_dash="dash",
+                line_color=ann_color,
+                line_width=1.5,
+                line_dash="dash",
             )
             fig.add_annotation(
-                x=t_start, y=1, yref="paper",
+                x=t_start,
+                y=1,
+                yref="paper",
                 text=f"[{ref}]",
                 showarrow=False,
-                xanchor="left", yanchor="top",
+                xanchor="left",
+                yanchor="top",
                 font=dict(size=11, color=ann_color),
-                bgcolor="rgba(0,0,0,0.55)", borderpad=2,
+                bgcolor="rgba(0,0,0,0.55)",
+                borderpad=2,
             )
 
         # Equipment event overlays — deduplicated per equipment
@@ -269,32 +293,42 @@ def _build_scalar_figure(
                     ev_start = ev.get("start_datetime")
                     ev_end = ev.get("end_datetime") or ev_start
                     ref = len(overlay_rows) + 1
-                    overlay_rows.append({
-                        "ref": ref,
-                        "kind": "Equipment Event",
-                        "source": eq_label,
-                        "category": ev.get("event_type_name", "") or "",
-                        "title": ev.get("notes", "") or "",
-                        "start": ev_start,
-                        "end": ev.get("end_datetime") or "",
-                        "comment": "",
-                    })
+                    overlay_rows.append(
+                        {
+                            "ref": ref,
+                            "kind": "Equipment Event",
+                            "source": eq_label,
+                            "category": ev.get("event_type_name", "") or "",
+                            "title": ev.get("notes", "") or "",
+                            "start": ev_start,
+                            "end": ev.get("end_datetime") or "",
+                            "comment": "",
+                        }
+                    )
                     fig.add_vrect(
-                        x0=ev_start, x1=ev_end,
-                        fillcolor="#5588aa", opacity=0.06,
+                        x0=ev_start,
+                        x1=ev_end,
+                        fillcolor="#5588aa",
+                        opacity=0.06,
                         line_width=0,
                     )
                     fig.add_vline(
                         x=ev_start,
-                        line_color="#7aaabb", line_width=1, line_dash="dot",
+                        line_color="#7aaabb",
+                        line_width=1,
+                        line_dash="dot",
                     )
                     fig.add_annotation(
-                        x=ev_start, y=1, yref="paper",
+                        x=ev_start,
+                        y=1,
+                        yref="paper",
                         text=f"[{ref}]",
                         showarrow=False,
-                        xanchor="right", yanchor="top",
+                        xanchor="right",
+                        yanchor="top",
                         font=dict(size=10, color="#7aaabb"),
-                        bgcolor="rgba(0,0,0,0.55)", borderpad=2,
+                        bgcolor="rgba(0,0,0,0.55)",
+                        borderpad=2,
                     )
                 try:
                     fig._drawn_eq_ids.add(eq_id)  # type: ignore[attr-defined]
@@ -336,9 +370,7 @@ def _build_vector_heatmap(data: dict, as_3d: bool = False) -> go.Figure:
         tick_step = max(1, len(x) // 10)
         tickvals = x_numeric[::tick_step]
         ticktext = x[::tick_step]
-        fig = go.Figure(
-            data=[go.Surface(z=z, x=x_numeric, y=y, colorscale="Viridis")]
-        )
+        fig = go.Figure(data=[go.Surface(z=z, x=x_numeric, y=y, colorscale="Viridis")])
         fig.update_layout(
             scene=dict(
                 xaxis=dict(title="Time", tickvals=tickvals, ticktext=ticktext),
@@ -431,7 +463,9 @@ def _annotation_dialog(
     end_time: str | None,
     annotation_types: list[dict],
 ) -> None:
-    st.markdown("Fill in the annotation details. Time range is pre-filled from your selection.")
+    st.markdown(
+        "Fill in the annotation details. Time range is pre-filled from your selection."
+    )
 
     type_options = {at["name"]: at["id"] for at in annotation_types}
     sel_type_name = st.selectbox("Annotation type *", list(type_options.keys()))
@@ -483,7 +517,10 @@ def _equipment_event_dialog(
     equipment_options: list[dict],
     event_type_options: list[dict],
 ) -> None:
-    eq_map = {e.get("identifier", str(e["equipment_id"])): e["equipment_id"] for e in equipment_options}
+    eq_map = {
+        e.get("identifier", str(e["equipment_id"])): e["equipment_id"]
+        for e in equipment_options
+    }
     et_map = {et["event_type_name"]: et["event_type_id"] for et in event_type_options}
 
     sel_eq = st.selectbox("Equipment *", list(eq_map.keys()))
@@ -598,38 +635,93 @@ def _render_sidebar(
 
         # --- Campaign filter ---
         campaign_options: dict = {"(all campaigns)": None}
-        campaign_options.update({c.get("name", str(c["campaign_id"])): c["campaign_id"] for c in campaigns})
-        sel_campaign_name = st.selectbox("Campaign", list(campaign_options.keys()), key="sidebar_campaign")
+        campaign_options.update(
+            {c.get("name", str(c["campaign_id"])): c["campaign_id"] for c in campaigns}
+        )
+        sel_campaign_name = st.selectbox(
+            "Campaign", list(campaign_options.keys()), key="sidebar_campaign"
+        )
         sel_campaign_id: int | None = campaign_options[sel_campaign_name]
 
         # Load channels filtered by campaign to build equipment & parameter lists
         try:
-            base_ch = list_channels(campaign_id=sel_campaign_id, page_size=1000).get("items", [])
+            base_ch = list_channels(
+                campaign_id=sel_campaign_id,
+                signal_port_id=sel_sp_id,
+                page_size=1000
+            ).get("items", [])
         except APIError:
             base_ch = []
 
         # --- Equipment filter (restricted to campaign's equipment) ---
-        eq_ids_in_campaign = {c["equipment_id"] for c in base_ch if c.get("equipment_id") is not None}
-        filtered_eq = [e for e in equipment if e["equipment_id"] in eq_ids_in_campaign] if sel_campaign_id else equipment
+        eq_ids_in_campaign = {
+            c["equipment_id"] for c in base_ch if c.get("equipment_id") is not None
+        }
+        filtered_eq = (
+            [e for e in equipment if e["equipment_id"] in eq_ids_in_campaign]
+            if sel_campaign_id
+            else equipment
+        )
         eq_options: dict = {"(all equipment)": None}
-        eq_options.update({e.get("identifier", str(e["equipment_id"])): e["equipment_id"] for e in filtered_eq})
-        sel_eq_name = st.selectbox("Equipment", list(eq_options.keys()), key="sidebar_equip")
+        eq_options.update(
+            {
+                e.get("identifier", str(e["equipment_id"])): e["equipment_id"]
+                for e in filtered_eq
+            }
+        )
+        sel_eq_name = st.selectbox(
+            "Equipment", list(eq_options.keys()), key="sidebar_equip"
+        )
         sel_eq_id: int | None = eq_options[sel_eq_name]
 
         # --- Parameter filter (restricted to campaign+equipment channels) ---
         param_ids_available = {
-            c["parameter_id"] for c in base_ch
+            c["parameter_id"]
+            for c in base_ch
             if c.get("parameter_id") is not None
             and (sel_eq_id is None or c.get("equipment_id") == sel_eq_id)
         }
-        filtered_params = [p for p in parameters if p["parameter_id"] in param_ids_available] if base_ch else parameters
+        filtered_params = (
+            [p for p in parameters if p["parameter_id"] in param_ids_available]
+            if base_ch
+            else parameters
+        )
         param_options: dict = {"(all parameters)": None}
-        param_options.update({p.get("parameter_name", str(p["parameter_id"])): p["parameter_id"] for p in filtered_params})
-        sel_param_name = st.selectbox("Parameter", list(param_options.keys()), key="sidebar_param")
+        param_options.update(
+            {
+                p.get("parameter_name", str(p["parameter_id"])): p["parameter_id"]
+                for p in filtered_params
+            }
+        )
+        sel_param_name = st.selectbox(
+            "Parameter", list(param_options.keys()), key="sidebar_param"
+        )
         sel_param_id: int | None = param_options[sel_param_name]
 
         # --- Value type filter ---
         sel_vtype_name = st.selectbox("Value type", list(_VALUE_TYPE_OPTIONS.keys()), key="sidebar_vtype")
+        sel_vtype_id: int | None = _VALUE_TYPE_OPTIONS[sel_vtype_name]
+
+        # --- Signal Port filter ---
+        try:
+            sp_data = list_signal_ports(page_size=500).get("items", [])
+        except APIError:
+            sp_data = []
+        sp_options: dict = {"(all signal ports)": None}
+        sp_options.update({f"{sp.get('das_name')} / {sp.get('tag')}": sp["signal_port_id"] for sp in sp_data})
+        sel_sp_name = st.selectbox("Signal Port", list(sp_options.keys()), key="sidebar_signalport")
+        sel_sp_id: int | None = sp_options[sel_sp_name]
+
+        # --- Channel list (fully filtered) ---
+        try:
+            ch_data = list_channels(
+                campaign_id=sel_campaign_id,
+                equipment_id=sel_eq_id,
+                parameter_id=sel_param_id,
+                value_type_id=sel_vtype_id,
+                signal_port_id=sel_sp_id,
+                page_size=500,
+            )
         sel_vtype_id: int | None = _VALUE_TYPE_OPTIONS[sel_vtype_name]
 
         # --- Channel list (fully filtered) ---
@@ -648,10 +740,14 @@ def _render_sidebar(
 
         if channels:
             ch_options = {
-                f"CH-{c['channel_id']}: {c.get('equipment_identifier','?')} / {c.get('parameter_name','?')} [{c.get('value_type_name','?')}]": c["channel_id"]
+                f"CH-{c['channel_id']}: {c.get('equipment_identifier', '?')} / {c.get('parameter_name', '?')} [{c.get('value_type_name', '?')}]": c[
+                    "channel_id"
+                ]
                 for c in channels
             }
-            sel_ch_label = st.selectbox("Channel", list(ch_options.keys()), key="sidebar_chan")
+            sel_ch_label = st.selectbox(
+                "Channel", list(ch_options.keys()), key="sidebar_chan"
+            )
             sel_ch_id = ch_options[sel_ch_label]
         else:
             st.caption("No channels match the current filters.")
@@ -679,7 +775,7 @@ def _render_sidebar(
                 if meta is None:
                     label = f"CH-{ch_id}"
                 else:
-                    label = f"CH-{ch_id}: {meta.get('equipment_identifier','?')} / {meta.get('parameter_name','?')}"
+                    label = f"CH-{ch_id}: {meta.get('equipment_identifier', '?')} / {meta.get('parameter_name', '?')}"
                 col_a, col_b = st.columns([4, 1])
                 with col_a:
                     st.caption(label)
@@ -697,10 +793,15 @@ def _render_sidebar(
 
         # Time range
         st.subheader("Time range")
-        new_start = st.date_input("From", value=st.session_state.explore_start, key="date_from")
+        new_start = st.date_input(
+            "From", value=st.session_state.explore_start, key="date_from"
+        )
         new_end = st.date_input("To", value=st.session_state.explore_end, key="date_to")
         if st.button("Apply time range"):
-            if new_start != st.session_state.explore_start or new_end != st.session_state.explore_end:
+            if (
+                new_start != st.session_state.explore_start
+                or new_end != st.session_state.explore_end
+            ):
                 st.session_state.explore_start = new_start
                 st.session_state.explore_end = new_end
                 _invalidate_data_cache()
@@ -725,13 +826,16 @@ def _render_sidebar(
 # ---------------------------------------------------------------------------
 
 
-def _render_scalar_tab(active_channels: list[int], channel_meta: dict, annotation_types: list[dict]) -> None:
+def _render_scalar_tab(
+    active_channels: list[int], channel_meta: dict, annotation_types: list[dict]
+) -> None:
     if not active_channels:
         st.info("Add scalar channels from the sidebar to begin.")
         return
 
     scalar_channels = [
-        ch for ch in active_channels
+        ch
+        for ch in active_channels
         if channel_meta.get(ch, {}).get("value_type_id") in (None, VALUE_TYPE_SCALAR)
     ]
     if not scalar_channels:
@@ -740,7 +844,9 @@ def _render_scalar_tab(active_channels: list[int], channel_meta: dict, annotatio
 
     mode = st.session_state.explore_mode
     if mode == "viz":
-        st.caption(f"Visualization mode: up to {VIZ_MAX_POINTS} points per series (LTTB downsampled).")
+        st.caption(
+            f"Visualization mode: up to {VIZ_MAX_POINTS} points per series (LTTB downsampled)."
+        )
     else:
         st.caption("Extraction mode: full raw data displayed.")
 
@@ -759,7 +865,9 @@ def _render_scalar_tab(active_channels: list[int], channel_meta: dict, annotatio
     selected_pts = selected.get("points", [])
 
     if selected_pts:
-        st.markdown(f"**{len(selected_pts)} points selected** across {len({p.get('curve_number') for p in selected_pts})} series.")
+        st.markdown(
+            f"**{len(selected_pts)} points selected** across {len({p.get('curve_number') for p in selected_pts})} series."
+        )
 
         # Determine time range of selection
         sel_times = [p.get("x") for p in selected_pts if p.get("x")]
@@ -790,7 +898,16 @@ def _render_scalar_tab(active_channels: list[int], channel_meta: dict, annotatio
         df_ov = pd.DataFrame(overlay_rows)[
             ["ref", "kind", "source", "category", "title", "start", "end", "comment"]
         ]
-        df_ov.columns = ["#", "Type", "Channel / Equipment", "Category", "Title / Notes", "Start", "End", "Comment"]
+        df_ov.columns = [
+            "#",
+            "Type",
+            "Channel / Equipment",
+            "Category",
+            "Title / Notes",
+            "Start",
+            "End",
+            "Comment",
+        ]
         st.dataframe(df_ov, use_container_width=True, hide_index=True)
 
     # Download
@@ -806,9 +923,12 @@ def _render_scalar_tab(active_channels: list[int], channel_meta: dict, annotatio
         )
 
 
-def _render_vector_tab(active_channels: list[int], channel_meta: dict, annotation_types: list[dict]) -> None:
+def _render_vector_tab(
+    active_channels: list[int], channel_meta: dict, annotation_types: list[dict]
+) -> None:
     vector_channels = [
-        ch for ch in active_channels
+        ch
+        for ch in active_channels
         if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_VECTOR
     ]
     if not vector_channels:
@@ -816,10 +936,12 @@ def _render_vector_tab(active_channels: list[int], channel_meta: dict, annotatio
         return
 
     ch_options = {
-        f"CH-{ch}: {channel_meta.get(ch, {}).get('equipment_identifier','?')} / {channel_meta.get(ch, {}).get('parameter_name','?')}": ch
+        f"CH-{ch}: {channel_meta.get(ch, {}).get('equipment_identifier', '?')} / {channel_meta.get(ch, {}).get('parameter_name', '?')}": ch
         for ch in vector_channels
     }
-    sel_label = st.selectbox("Select channel to display", list(ch_options.keys()), key="vec_chan_sel")
+    sel_label = st.selectbox(
+        "Select channel to display", list(ch_options.keys()), key="vec_chan_sel"
+    )
     ch_id = ch_options[sel_label]
 
     as_3d = st.toggle("Show as 3D surface", value=False, key="vec_3d")
@@ -863,7 +985,8 @@ def _render_vector_tab(active_channels: list[int], channel_meta: dict, annotatio
 
 def _render_matrix_tab(active_channels: list[int], channel_meta: dict) -> None:
     matrix_channels = [
-        ch for ch in active_channels
+        ch
+        for ch in active_channels
         if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_MATRIX
     ]
     if not matrix_channels:
@@ -871,10 +994,12 @@ def _render_matrix_tab(active_channels: list[int], channel_meta: dict) -> None:
         return
 
     ch_options = {
-        f"CH-{ch}: {channel_meta.get(ch, {}).get('equipment_identifier','?')} / {channel_meta.get(ch, {}).get('parameter_name','?')}": ch
+        f"CH-{ch}: {channel_meta.get(ch, {}).get('equipment_identifier', '?')} / {channel_meta.get(ch, {}).get('parameter_name', '?')}": ch
         for ch in matrix_channels
     }
-    sel_label = st.selectbox("Select channel", list(ch_options.keys()), key="mat_chan_sel")
+    sel_label = st.selectbox(
+        "Select channel", list(ch_options.keys()), key="mat_chan_sel"
+    )
     ch_id = ch_options[sel_label]
 
     data = _load_timeseries(ch_id)
@@ -887,7 +1012,11 @@ def _render_matrix_tab(active_channels: list[int], channel_meta: dict) -> None:
 
     view_mode = st.radio(
         "View mode",
-        ["Time slice (heatmap at timestamp)", "Row slice (time series)", "Column slice (time series)"],
+        [
+            "Time slice (heatmap at timestamp)",
+            "Row slice (time series)",
+            "Column slice (time series)",
+        ],
         key="mat_view_mode",
         horizontal=True,
     )
@@ -931,7 +1060,8 @@ def _render_image_tab(
     event_types: list[dict],
 ) -> None:
     image_channels = [
-        ch for ch in active_channels
+        ch
+        for ch in active_channels
         if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_IMAGE
     ]
     if not image_channels:
@@ -939,10 +1069,12 @@ def _render_image_tab(
         return
 
     ch_options = {
-        f"CH-{ch}: {channel_meta.get(ch, {}).get('equipment_identifier','?')} / {channel_meta.get(ch, {}).get('parameter_name','?')}": ch
+        f"CH-{ch}: {channel_meta.get(ch, {}).get('equipment_identifier', '?')} / {channel_meta.get(ch, {}).get('parameter_name', '?')}": ch
         for ch in image_channels
     }
-    sel_label = st.selectbox("Select image channel", list(ch_options.keys()), key="img_chan_sel")
+    sel_label = st.selectbox(
+        "Select image channel", list(ch_options.keys()), key="img_chan_sel"
+    )
     ch_id = ch_options[sel_label]
 
     data = _load_timeseries(ch_id)
@@ -961,13 +1093,15 @@ def _render_image_tab(
     # Gallery grid — 4 columns
     cols_per_row = 4
     for row_start in range(0, len(rows), cols_per_row):
-        chunk = rows[row_start: row_start + cols_per_row]
+        chunk = rows[row_start : row_start + cols_per_row]
         cols = st.columns(cols_per_row)
         for col_obj, img_meta in zip(cols, chunk):
             ts_str = str(img_meta.get("timestamp", ""))
             with col_obj:
                 # Checkbox for multi-select
-                is_checked = st.checkbox("", value=ts_str in selected_ts, key=f"img_sel_{ts_str}")
+                is_checked = st.checkbox(
+                    "", value=ts_str in selected_ts, key=f"img_sel_{ts_str}"
+                )
                 if is_checked and ts_str not in selected_ts:
                     selected_ts.append(ts_str)
                 elif not is_checked and ts_str in selected_ts:
@@ -978,7 +1112,9 @@ def _render_image_tab(
                     thumb = get_channel_thumbnail(ch_id, ts_str)
                     st.image(thumb, caption=ts_str[:16], use_container_width=True)
                 except APIError:
-                    st.caption(f"[{img_meta.get('image_width','?')}×{img_meta.get('image_height','?')}]")
+                    st.caption(
+                        f"[{img_meta.get('image_width', '?')}×{img_meta.get('image_height', '?')}]"
+                    )
                     st.caption(ts_str[:16])
 
                 # View full size
@@ -1102,7 +1238,9 @@ def main() -> None:
         _render_matrix_tab(active_channels, channel_meta)
 
     with tab_image:
-        _render_image_tab(active_channels, channel_meta, annotation_types, equipment, event_types)
+        _render_image_tab(
+            active_channels, channel_meta, annotation_types, equipment, event_types
+        )
 
 
 main()

@@ -20,6 +20,7 @@ from app.api_client import (
     ingest_sensor,
     ingest_sensor_image,
     ingest_sensor_matrix,
+    ingest_sensor_tagless,
     ingest_sensor_vector,
     list_binning_axes_lookup,
     list_data_provenance_lookup,
@@ -96,29 +97,63 @@ with tab_scalar:
     with st.container(border=True):
         st.subheader("Channel Identity")
 
-        col1, col2, col3 = st.columns(3)
+        scalar_ingest_mode = st.radio(
+            "Ingest mode",
+            ["Tagless (direct-connect)", "Tagged (SCADA)"],
+            horizontal=True,
+            key="scalar_ingest_mode",
+        )
 
-        with col1:
-            equipment_options = [
-                {"id": e["equipment_id"], "label": e["identifier"]}
-                for e in equipment_lookup
-            ]
-            equipment_labels = [opt["label"] for opt in equipment_options]
-            selected_equipment_label = st.selectbox(
-                "Equipment",
-                options=equipment_labels,
-                index=None,
-                placeholder="Select equipment...",
-                key="scalar_equipment",
-            )
-            scalar_equipment_id = next(
-                (
-                    opt["id"]
-                    for opt in equipment_options
-                    if opt["label"] == selected_equipment_label
-                ),
-                None,
-            )
+        if scalar_ingest_mode == "Tagless (direct-connect)":
+            col_das, col_equip = st.columns(2)
+            with col_das:
+                scalar_das_name = st.text_input(
+                    "DAS name",
+                    value="DirectConnect",
+                    key="scalar_das_name_tagless",
+                )
+            with col_equip:
+                equipment_options = [
+                    {"id": e["equipment_id"], "label": e["identifier"]}
+                    for e in equipment_lookup
+                ]
+                equipment_labels = [opt["label"] for opt in equipment_options]
+                selected_equipment_label = st.selectbox(
+                    "Equipment",
+                    options=equipment_labels,
+                    index=None,
+                    placeholder="Select equipment...",
+                    key="scalar_equipment_tagless",
+                )
+            scalar_equipment_name = selected_equipment_label  # identifier is the name
+            scalar_tag = None
+            scalar_signal_port_type = None
+        else:
+            col_das, col_tag, col_spt = st.columns(3)
+            with col_das:
+                scalar_das_name = st.text_input(
+                    "DAS name",
+                    value="",
+                    placeholder="e.g. SCADA_OPC",
+                    key="scalar_das_name_tagged",
+                )
+            with col_tag:
+                scalar_tag = st.text_input(
+                    "Tag",
+                    value="",
+                    placeholder="e.g. PLC1.pH_sensor",
+                    key="scalar_tag",
+                )
+            with col_spt:
+                scalar_signal_port_type = st.selectbox(
+                    "Signal port type",
+                    options=["value", "status", "alarm", "uncertainty"],
+                    index=0,
+                    key="scalar_signal_port_type",
+                )
+            scalar_equipment_name = None
+
+        col2, col3 = st.columns(2)
 
         with col2:
             parameter_options = [
@@ -133,14 +168,7 @@ with tab_scalar:
                 placeholder="Select parameter...",
                 key="scalar_parameter",
             )
-            scalar_parameter_id = next(
-                (
-                    opt["id"]
-                    for opt in parameter_options
-                    if opt["label"] == selected_parameter_label
-                ),
-                None,
-            )
+            scalar_parameter_name = selected_parameter_label
 
         with col3:
             unit_options = [
@@ -154,14 +182,7 @@ with tab_scalar:
                 placeholder="Select unit...",
                 key="scalar_unit",
             )
-            scalar_unit_id = next(
-                (
-                    opt["id"]
-                    for opt in unit_options
-                    if opt["label"] == selected_unit_label
-                ),
-                None,
-            )
+            scalar_unit_name = selected_unit_label
 
         col4, col5 = st.columns(2)
 
@@ -350,15 +371,27 @@ with tab_scalar:
     st.markdown("---")
 
     scalar_valid_rows = st.session_state.get("scalar_parsed_rows", [])
-    scalar_has_required_fields = all(
-        [scalar_equipment_id, scalar_parameter_id, scalar_unit_id]
-    )
+    if scalar_ingest_mode == "Tagless (direct-connect)":
+        scalar_has_required_fields = all(
+            [
+                scalar_das_name,
+                scalar_equipment_name,
+                scalar_parameter_name,
+                scalar_unit_name,
+            ]
+        )
+        scalar_missing_hint = "Please enter DAS name, select Equipment, Parameter, and Unit to enable submission."
+    else:
+        scalar_has_required_fields = all(
+            [scalar_das_name, scalar_tag, scalar_parameter_name, scalar_unit_name]
+        )
+        scalar_missing_hint = "Please enter DAS name, Tag, and select Parameter and Unit to enable submission."
     scalar_submit_disabled = (
         len(scalar_valid_rows) == 0 or not scalar_has_required_fields
     )
 
     if not scalar_has_required_fields and len(scalar_valid_rows) > 0:
-        st.info("Please select Equipment, Parameter, and Unit to enable submission.")
+        st.info(scalar_missing_hint)
 
     if st.button(
         "Submit to Database",
@@ -366,27 +399,41 @@ with tab_scalar:
         type="primary",
         key="scalar_submit_btn",
     ):
-        payload = {
-            "equipment_id": scalar_equipment_id,
-            "parameter_id": scalar_parameter_id,
-            "unit_id": scalar_unit_id,
-            "data_provenance_id": scalar_data_provenance_id,
-            "processing_degree_id": scalar_processing_degree_id,
-            "values": [
-                {
-                    "timestamp": r["timestamp"].isoformat(),
-                    "value": r["value"],
-                    "quality_code": r["quality_code"],
-                }
-                for r in scalar_valid_rows
-            ],
-        }
-
+        values_payload = [
+            {
+                "timestamp": r["timestamp"].isoformat(),
+                "value": r["value"],
+                "quality_code": r["quality_code"],
+            }
+            for r in scalar_valid_rows
+        ]
         try:
             with st.spinner("Submitting..."):
-                result = ingest_sensor(payload)
+                if scalar_ingest_mode == "Tagless (direct-connect)":
+                    payload = {
+                        "das_name": scalar_das_name,
+                        "equipment_name": scalar_equipment_name,
+                        "parameter_name": scalar_parameter_name,
+                        "unit_name": scalar_unit_name,
+                        "data_provenance_id": scalar_data_provenance_id,
+                        "processing_degree_id": scalar_processing_degree_id,
+                        "values": values_payload,
+                    }
+                    result = ingest_sensor_tagless(payload)
+                else:
+                    payload = {
+                        "das_name": scalar_das_name,
+                        "tag": scalar_tag,
+                        "signal_port_type": scalar_signal_port_type,
+                        "parameter_name": scalar_parameter_name,
+                        "unit_name": scalar_unit_name,
+                        "data_provenance_id": scalar_data_provenance_id,
+                        "processing_degree_id": scalar_processing_degree_id,
+                        "values": values_payload,
+                    }
+                    result = ingest_sensor(payload)
             st.success(
-                f"✅ Ingested {result['rows_written']} rows into channel **{result['channel_id']}**"
+                f"Ingested {result['rows_written']} rows into channel **{result['channel_id']}**"
             )
             st.session_state.scalar_parsed_rows = []
             st.session_state.scalar_parse_errors = []
@@ -428,29 +475,63 @@ with tab_vector:
     with st.container(border=True):
         st.subheader("Channel Identity")
 
-        col1, col2, col3 = st.columns(3)
+        vector_ingest_mode = st.radio(
+            "Ingest mode",
+            ["Tagless (direct-connect)", "Tagged (SCADA)"],
+            horizontal=True,
+            key="vector_ingest_mode",
+        )
 
-        with col1:
-            equipment_options = [
-                {"id": e["equipment_id"], "label": e["identifier"]}
-                for e in equipment_lookup
-            ]
-            equipment_labels = [opt["label"] for opt in equipment_options]
-            selected_equipment_label = st.selectbox(
-                "Equipment",
-                options=equipment_labels,
-                index=None,
-                placeholder="Select equipment...",
-                key="vector_equipment",
-            )
-            vector_equipment_id = next(
-                (
-                    opt["id"]
-                    for opt in equipment_options
-                    if opt["label"] == selected_equipment_label
-                ),
-                None,
-            )
+        if vector_ingest_mode == "Tagless (direct-connect)":
+            col_das, col_equip = st.columns(2)
+            with col_das:
+                vector_das_name = st.text_input(
+                    "DAS name",
+                    value="DirectConnect",
+                    key="vector_das_name_tagless",
+                )
+            with col_equip:
+                equipment_options = [
+                    {"id": e["equipment_id"], "label": e["identifier"]}
+                    for e in equipment_lookup
+                ]
+                equipment_labels = [opt["label"] for opt in equipment_options]
+                selected_equipment_label = st.selectbox(
+                    "Equipment",
+                    options=equipment_labels,
+                    index=None,
+                    placeholder="Select equipment...",
+                    key="vector_equipment_tagless",
+                )
+            vector_equipment_name = selected_equipment_label  # identifier is the name
+            vector_tag = None
+            vector_signal_port_type = None
+        else:
+            col_das, col_tag, col_spt = st.columns(3)
+            with col_das:
+                vector_das_name = st.text_input(
+                    "DAS name",
+                    value="",
+                    placeholder="e.g. SCADA_OPC",
+                    key="vector_das_name_tagged",
+                )
+            with col_tag:
+                vector_tag = st.text_input(
+                    "Tag",
+                    value="",
+                    placeholder="e.g. PLC1.PSD_sensor",
+                    key="vector_tag",
+                )
+            with col_spt:
+                vector_signal_port_type = st.selectbox(
+                    "Signal port type",
+                    options=["value", "status", "alarm", "uncertainty"],
+                    index=0,
+                    key="vector_signal_port_type",
+                )
+            vector_equipment_name = None
+
+        col2, col3 = st.columns(2)
 
         with col2:
             parameter_options = [
@@ -465,14 +546,7 @@ with tab_vector:
                 placeholder="Select parameter...",
                 key="vector_parameter",
             )
-            vector_parameter_id = next(
-                (
-                    opt["id"]
-                    for opt in parameter_options
-                    if opt["label"] == selected_parameter_label
-                ),
-                None,
-            )
+            vector_parameter_name = selected_parameter_label
 
         with col3:
             unit_options = [
@@ -486,14 +560,7 @@ with tab_vector:
                 placeholder="Select unit...",
                 key="vector_unit",
             )
-            vector_unit_id = next(
-                (
-                    opt["id"]
-                    for opt in unit_options
-                    if opt["label"] == selected_unit_label
-                ),
-                None,
-            )
+            vector_unit_name = selected_unit_label
 
         col4, col5, col6 = st.columns(3)
 
@@ -717,15 +784,37 @@ with tab_vector:
     st.markdown("---")
 
     vector_valid_obs = st.session_state.get("vector_parsed", [])
-    vector_has_required = all(
-        [vector_equipment_id, vector_parameter_id, vector_unit_id, vector_axis_id]
-    )
+    if vector_ingest_mode == "Tagless (direct-connect)":
+        vector_has_required = all(
+            [
+                vector_das_name,
+                vector_equipment_name,
+                vector_parameter_name,
+                vector_unit_name,
+                vector_axis_id,
+            ]
+        )
+    else:
+        vector_has_required = all(
+            [
+                vector_das_name,
+                vector_tag,
+                vector_parameter_name,
+                vector_unit_name,
+                vector_axis_id,
+            ]
+        )
     vector_submit_disabled = len(vector_valid_obs) == 0 or not vector_has_required
 
     if not vector_has_required and len(vector_valid_obs) > 0:
-        st.info(
-            "Please select Equipment, Parameter, Unit, and Axis to enable submission."
-        )
+        if vector_ingest_mode == "Tagless (direct-connect)":
+            st.info(
+                "Please select DAS name, Equipment, Parameter, Unit, and Axis to enable submission."
+            )
+        else:
+            st.info(
+                "Please enter DAS name, Tag, select Parameter, Unit, and Axis to enable submission."
+            )
 
     if st.button(
         "Submit to Database",
@@ -733,22 +822,43 @@ with tab_vector:
         type="primary",
         key="vector_submit_btn",
     ):
-        payload = {
-            "equipment_id": vector_equipment_id,
-            "parameter_id": vector_parameter_id,
-            "unit_id": vector_unit_id,
-            "binning_axis_id": vector_axis_id,
-            "data_provenance_id": vector_data_provenance_id,
-            "processing_degree_id": vector_processing_degree_id,
-            "observations": [
-                {
-                    "timestamp": obs["timestamp"].isoformat(),
-                    "bin_values": obs["bin_values"],
-                    "quality_code": obs["quality_code"],
-                }
-                for obs in vector_valid_obs
-            ],
-        }
+        if vector_ingest_mode == "Tagless (direct-connect)":
+            payload = {
+                "das_name": vector_das_name,
+                "equipment_name": vector_equipment_name,
+                "parameter_name": vector_parameter_name,
+                "unit_name": vector_unit_name,
+                "binning_axis_id": vector_axis_id,
+                "data_provenance_id": vector_data_provenance_id,
+                "processing_degree_id": vector_processing_degree_id,
+                "observations": [
+                    {
+                        "timestamp": obs["timestamp"].isoformat(),
+                        "bin_values": obs["bin_values"],
+                        "quality_code": obs["quality_code"],
+                    }
+                    for obs in vector_valid_obs
+                ],
+            }
+        else:
+            payload = {
+                "das_name": vector_das_name,
+                "tag": vector_tag,
+                "signal_port_type": vector_signal_port_type,
+                "parameter_name": vector_parameter_name,
+                "unit_name": vector_unit_name,
+                "binning_axis_id": vector_axis_id,
+                "data_provenance_id": vector_data_provenance_id,
+                "processing_degree_id": vector_processing_degree_id,
+                "observations": [
+                    {
+                        "timestamp": obs["timestamp"].isoformat(),
+                        "bin_values": obs["bin_values"],
+                        "quality_code": obs["quality_code"],
+                    }
+                    for obs in vector_valid_obs
+                ],
+            }
 
         try:
             with st.spinner("Submitting..."):
@@ -797,29 +907,63 @@ with tab_matrix:
     with st.container(border=True):
         st.subheader("Channel Identity")
 
-        col1, col2, col3 = st.columns(3)
+        matrix_ingest_mode = st.radio(
+            "Ingest mode",
+            ["Tagless (direct-connect)", "Tagged (SCADA)"],
+            horizontal=True,
+            key="matrix_ingest_mode",
+        )
 
-        with col1:
-            equipment_options = [
-                {"id": e["equipment_id"], "label": e["identifier"]}
-                for e in equipment_lookup
-            ]
-            equipment_labels = [opt["label"] for opt in equipment_options]
-            selected_equipment_label = st.selectbox(
-                "Equipment",
-                options=equipment_labels,
-                index=None,
-                placeholder="Select equipment...",
-                key="matrix_equipment",
-            )
-            matrix_equipment_id = next(
-                (
-                    opt["id"]
-                    for opt in equipment_options
-                    if opt["label"] == selected_equipment_label
-                ),
-                None,
-            )
+        if matrix_ingest_mode == "Tagless (direct-connect)":
+            col_das, col_equip = st.columns(2)
+            with col_das:
+                matrix_das_name = st.text_input(
+                    "DAS name",
+                    value="DirectConnect",
+                    key="matrix_das_name_tagless",
+                )
+            with col_equip:
+                equipment_options = [
+                    {"id": e["equipment_id"], "label": e["identifier"]}
+                    for e in equipment_lookup
+                ]
+                equipment_labels = [opt["label"] for opt in equipment_options]
+                selected_equipment_label = st.selectbox(
+                    "Equipment",
+                    options=equipment_labels,
+                    index=None,
+                    placeholder="Select equipment...",
+                    key="matrix_equipment_tagless",
+                )
+            matrix_equipment_name = selected_equipment_label  # identifier is the name
+            matrix_tag = None
+            matrix_signal_port_type = None
+        else:
+            col_das, col_tag, col_spt = st.columns(3)
+            with col_das:
+                matrix_das_name = st.text_input(
+                    "DAS name",
+                    value="",
+                    placeholder="e.g. SCADA_OPC",
+                    key="matrix_das_name_tagged",
+                )
+            with col_tag:
+                matrix_tag = st.text_input(
+                    "Tag",
+                    value="",
+                    placeholder="e.g. PLC1.PSD_sensor",
+                    key="matrix_tag",
+                )
+            with col_spt:
+                matrix_signal_port_type = st.selectbox(
+                    "Signal port type",
+                    options=["value", "status", "alarm", "uncertainty"],
+                    index=0,
+                    key="matrix_signal_port_type",
+                )
+            matrix_equipment_name = None
+
+        col2, col3 = st.columns(2)
 
         with col2:
             parameter_options = [
@@ -834,14 +978,7 @@ with tab_matrix:
                 placeholder="Select parameter...",
                 key="matrix_parameter",
             )
-            matrix_parameter_id = next(
-                (
-                    opt["id"]
-                    for opt in parameter_options
-                    if opt["label"] == selected_parameter_label
-                ),
-                None,
-            )
+            matrix_parameter_name = selected_parameter_label
 
         with col3:
             unit_options = [
@@ -855,14 +992,7 @@ with tab_matrix:
                 placeholder="Select unit...",
                 key="matrix_unit",
             )
-            matrix_unit_id = next(
-                (
-                    opt["id"]
-                    for opt in unit_options
-                    if opt["label"] == selected_unit_label
-                ),
-                None,
-            )
+            matrix_unit_name = selected_unit_label
 
         col4, col5, col6 = st.columns(3)
 
@@ -1134,21 +1264,39 @@ with tab_matrix:
     st.markdown("---")
 
     matrix_valid_obs = st.session_state.get("matrix_parsed", [])
-    matrix_has_required = all(
-        [
-            matrix_equipment_id,
-            matrix_parameter_id,
-            matrix_unit_id,
-            matrix_row_axis_id,
-            matrix_col_axis_id,
-        ]
-    )
+    if matrix_ingest_mode == "Tagless (direct-connect)":
+        matrix_has_required = all(
+            [
+                matrix_das_name,
+                matrix_equipment_name,
+                matrix_parameter_name,
+                matrix_unit_name,
+                matrix_row_axis_id,
+                matrix_col_axis_id,
+            ]
+        )
+    else:
+        matrix_has_required = all(
+            [
+                matrix_das_name,
+                matrix_tag,
+                matrix_parameter_name,
+                matrix_unit_name,
+                matrix_row_axis_id,
+                matrix_col_axis_id,
+            ]
+        )
     matrix_submit_disabled = len(matrix_valid_obs) == 0 or not matrix_has_required
 
     if not matrix_has_required and len(matrix_valid_obs) > 0:
-        st.info(
-            "Please select Equipment, Parameter, Unit, Row Axis, and Column Axis to enable submission."
-        )
+        if matrix_ingest_mode == "Tagless (direct-connect)":
+            st.info(
+                "Please select DAS name, Equipment, Parameter, Unit, Row Axis, and Column Axis to enable submission."
+            )
+        else:
+            st.info(
+                "Please enter DAS name, Tag, select Parameter, Unit, Row Axis, and Column Axis to enable submission."
+            )
 
     if st.button(
         "Submit to Database",
@@ -1156,23 +1304,45 @@ with tab_matrix:
         type="primary",
         key="matrix_submit_btn",
     ):
-        payload = {
-            "equipment_id": matrix_equipment_id,
-            "parameter_id": matrix_parameter_id,
-            "unit_id": matrix_unit_id,
-            "row_axis_id": matrix_row_axis_id,
-            "col_axis_id": matrix_col_axis_id,
-            "data_provenance_id": matrix_data_provenance_id,
-            "processing_degree_id": matrix_processing_degree_id,
-            "observations": [
-                {
-                    "timestamp": obs["timestamp"].isoformat(),
-                    "matrix": obs["matrix"],
-                    "quality_code": obs["quality_code"],
-                }
-                for obs in matrix_valid_obs
-            ],
-        }
+        if matrix_ingest_mode == "Tagless (direct-connect)":
+            payload = {
+                "das_name": matrix_das_name,
+                "equipment_name": matrix_equipment_name,
+                "parameter_name": matrix_parameter_name,
+                "unit_name": matrix_unit_name,
+                "row_axis_id": matrix_row_axis_id,
+                "col_axis_id": matrix_col_axis_id,
+                "data_provenance_id": matrix_data_provenance_id,
+                "processing_degree_id": matrix_processing_degree_id,
+                "observations": [
+                    {
+                        "timestamp": obs["timestamp"].isoformat(),
+                        "matrix": obs["matrix"],
+                        "quality_code": obs["quality_code"],
+                    }
+                    for obs in matrix_valid_obs
+                ],
+            }
+        else:
+            payload = {
+                "das_name": matrix_das_name,
+                "tag": matrix_tag,
+                "signal_port_type": matrix_signal_port_type,
+                "parameter_name": matrix_parameter_name,
+                "unit_name": matrix_unit_name,
+                "row_axis_id": matrix_row_axis_id,
+                "col_axis_id": matrix_col_axis_id,
+                "data_provenance_id": matrix_data_provenance_id,
+                "processing_degree_id": matrix_processing_degree_id,
+                "observations": [
+                    {
+                        "timestamp": obs["timestamp"].isoformat(),
+                        "matrix": obs["matrix"],
+                        "quality_code": obs["quality_code"],
+                    }
+                    for obs in matrix_valid_obs
+                ],
+            }
 
         try:
             with st.spinner("Submitting..."):
