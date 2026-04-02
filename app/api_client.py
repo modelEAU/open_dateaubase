@@ -370,6 +370,7 @@ def list_channels(
     processing_degree_id: int | None = None,
     value_type_id: int | None = None,
     campaign_id: int | None = None,
+    signal_port_id: int | None = None,
     page: int = 1,
     page_size: int = 100,
 ) -> dict:
@@ -384,6 +385,8 @@ def list_channels(
         params["value_type_id"] = value_type_id
     if campaign_id is not None:
         params["campaign_id"] = campaign_id
+    if signal_port_id is not None:
+        params["signal_port_id"] = signal_port_id
     try:
         with _get_client() as client:
             r = client.get("/channels", params=params)
@@ -945,3 +948,259 @@ def delete_binning_axis(axis_id: int) -> None:
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# SignalPort CRUD
+# ---------------------------------------------------------------------------
+
+
+def list_signal_ports(
+    das_id: int | None = None,
+    is_active: bool | None = None,
+    signal_port_type_id: int | None = None,
+    page: int = 1,
+    page_size: int = 100,
+) -> dict:
+    params: dict = {"page": page, "page_size": page_size}
+    if das_id is not None:
+        params["das_id"] = das_id
+    if is_active is not None:
+        params["is_active"] = is_active
+    if signal_port_type_id is not None:
+        params["signal_port_type_id"] = signal_port_type_id
+    try:
+        with _get_client() as client:
+            r = client.get("/ports", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_signal_port(signal_port_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/ports/{signal_port_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_signal_port(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/ports", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def patch_signal_port(signal_port_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.patch(f"/ports/{signal_port_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_das_lookup() -> list[dict]:
+    """Return list of {das_id, name} for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ports/lookup/das")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_signal_port_types_lookup() -> list[dict]:
+    """Return list of {signal_port_type_id, name} for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ports/lookup/types")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+# ---------------------------------------------------------------------------
+# SignalPort lifecycle
+# ---------------------------------------------------------------------------
+
+
+def register_equipment_at_port(signal_port_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/ports/{signal_port_id}/register-equipment", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def swap_equipment_at_port(signal_port_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/ports/{signal_port_id}/swap-equipment", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def relocate_signal_port(signal_port_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/ports/{signal_port_id}/relocate", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_equipment_at_port(signal_port_id: int, at: str) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/ports/{signal_port_id}/equipment-at", params={"at": at})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_location_at_port(signal_port_id: int, at: str) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/ports/{signal_port_id}/location-at", params={"at": at})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_sub_signals(signal_port_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/ports/{signal_port_id}/sub-signals")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+# ---------------------------------------------------------------------------
+# ControlLoop
+# ---------------------------------------------------------------------------
+
+
+def list_control_loops() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/control-loops")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_control_loop(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/control-loops", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_control_loop(loop_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/control-loops/{loop_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_control_loop_ports(loop_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/control-loops/{loop_id}/ports")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def add_control_loop_port(loop_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/control-loops/{loop_id}/ports", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_active_application(loop_id: int) -> dict | None:
+    """Return the active application for a control loop, or None if none exists."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/control-loops/{loop_id}/active-application")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def open_application(loop_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/control-loops/{loop_id}/applications", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def retune_control_loop(loop_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/control-loops/{loop_id}/retune", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_fallback_chain(loop_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/control-loops/{loop_id}/fallback-chain")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+# ---------------------------------------------------------------------------
+# Tagless sensor ingest
+# ---------------------------------------------------------------------------
+
+
+def ingest_sensor_tagless(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/ingest/sensor-tagless", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
