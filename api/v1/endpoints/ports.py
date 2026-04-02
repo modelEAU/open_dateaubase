@@ -1,6 +1,12 @@
-"""SignalPort lifecycle endpoints.
+"""SignalPort CRUD and lifecycle endpoints.
 
 Covers:
+  GET  /ports                                     — paginated list with filters
+  GET  /ports/lookup/das                          — list all DataAcquisitionSystems
+  GET  /ports/lookup/types                        — list all SignalPortTypes
+  GET  /ports/{signal_port_id}                    — get single port
+  POST /ports                                     — create port
+  PATCH /ports/{signal_port_id}                   — update description / is_active
   POST /ports/{signal_port_id}/swap-equipment     — close current + open new PortEquipmentHistory
   POST /ports/{signal_port_id}/register-equipment — open first PortEquipmentHistory (no active row)
   POST /ports/{signal_port_id}/relocate           — close + open LocationHistory + auto-annotation
@@ -17,7 +23,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
 from ..repositories import annotation_repository, signal_port_repository, temporal_history_repository
+from ..schemas.common import PaginatedResponse
 from ..schemas.ports import (
+    DasLookupOut,
     EquipmentAtTimeResponse,
     LocationAtTimeResponse,
     PortEquipmentRegisterRequest,
@@ -26,6 +34,10 @@ from ..schemas.ports import (
     PortEquipmentSwapResponse,
     PortRelocateRequest,
     PortRelocateResponse,
+    SignalPortCreateRequest,
+    SignalPortOut,
+    SignalPortPatchRequest,
+    SignalPortTypeLookupOut,
     SubSignalOut,
     SubSignalsResponse,
 )
@@ -34,6 +46,147 @@ router = APIRouter()
 
 # AnnotationType_ID for "Equipment Relocation" — seeded in migration
 _EQUIPMENT_RELOCATION_ANNOTATION_TYPE_ID = 11
+
+
+# ---------------------------------------------------------------------------
+# Lookup endpoints (must be registered before /{signal_port_id} routes)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/lookup/das",
+    response_model=list[DasLookupOut],
+)
+def list_das(conn=Depends(get_db)):
+    """Return all DataAcquisitionSystem rows ordered by name."""
+    rows = signal_port_repository.list_das(conn)
+    return [DasLookupOut(das_id=r["DataAcquisitionSystem_ID"], name=r["Name"]) for r in rows]
+
+
+@router.get(
+    "/lookup/types",
+    response_model=list[SignalPortTypeLookupOut],
+)
+def list_signal_port_types(conn=Depends(get_db)):
+    """Return all SignalPortType rows ordered by ID."""
+    rows = signal_port_repository.list_signal_port_types(conn)
+    return [
+        SignalPortTypeLookupOut(signal_port_type_id=r["SignalPortType_ID"], name=r["Name"])
+        for r in rows
+    ]
+
+
+# ---------------------------------------------------------------------------
+# SignalPort list / get / create / patch
+# ---------------------------------------------------------------------------
+
+
+def _row_to_port_out(row: dict) -> SignalPortOut:
+    return SignalPortOut(
+        signal_port_id=row["SignalPort_ID"],
+        tag=row["Tag"],
+        is_active=bool(row["IsActive"]),
+        description=row["Description"],
+        parent_port_id=row["ParentPort_ID"],
+        signal_port_type_id=row["SignalPortType_ID"],
+        signal_port_type_name=row["signal_port_type_name"],
+        das_id=row["DataAcquisitionSystem_ID"],
+        das_name=row["das_name"],
+    )
+
+
+@router.get(
+    "",
+    response_model=PaginatedResponse[SignalPortOut],
+)
+def list_ports(
+    das_id: int | None = Query(default=None, description="Filter by DataAcquisitionSystem_ID"),
+    is_active: bool | None = Query(default=None, description="Filter by IsActive flag"),
+    signal_port_type_id: int | None = Query(default=None, description="Filter by SignalPortType_ID"),
+    page: int = Query(default=1, ge=1, description="1-based page number"),
+    page_size: int = Query(default=100, ge=1, le=1000, description="Rows per page"),
+    conn=Depends(get_db),
+):
+    """Return a paginated list of SignalPorts with optional filters."""
+    items, total = signal_port_repository.list_signal_ports(
+        conn,
+        das_id=das_id,
+        is_active=is_active,
+        signal_port_type_id=signal_port_type_id,
+        page=page,
+        page_size=page_size,
+    )
+    return PaginatedResponse(
+        items=[_row_to_port_out(r) for r in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_next=(page * page_size) < total,
+    )
+
+
+@router.get(
+    "/{signal_port_id}",
+    response_model=SignalPortOut,
+)
+def get_port(signal_port_id: int, conn=Depends(get_db)):
+    """Return a SignalPort by ID."""
+    row = signal_port_repository.get_signal_port_by_id(conn, signal_port_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"SignalPort {signal_port_id} not found.")
+    return _row_to_port_out(row)
+
+
+@router.post(
+    "",
+    response_model=SignalPortOut,
+    status_code=201,
+)
+def create_port(body: SignalPortCreateRequest, conn=Depends(get_db)):
+    """Create a new SignalPort.
+
+    Returns 409 when a port with the same tag already exists in the same DAS.
+    """
+    try:
+        new_id = signal_port_repository.create_signal_port(
+            conn,
+            das_id=body.das_id,
+            tag=body.tag,
+            signal_port_type_id=body.signal_port_type_id,
+            description=body.description,
+            parent_port_id=body.parent_port_id,
+        )
+    except pyodbc.IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"A SignalPort with tag {body.tag!r} already exists in DAS {body.das_id}. "
+                f"Database error: {exc}"
+            ),
+        ) from exc
+
+    row = signal_port_repository.get_signal_port_by_id(conn, new_id)
+    return _row_to_port_out(row)
+
+
+@router.patch(
+    "/{signal_port_id}",
+    response_model=SignalPortOut,
+)
+def patch_port(signal_port_id: int, body: SignalPortPatchRequest, conn=Depends(get_db)):
+    """Partially update a SignalPort (description, is_active).
+
+    Only fields explicitly set in the request body are written.
+    """
+    if signal_port_repository.get_signal_port_by_id(conn, signal_port_id) is None:
+        raise HTTPException(status_code=404, detail=f"SignalPort {signal_port_id} not found.")
+
+    row = signal_port_repository.patch_signal_port(
+        conn,
+        signal_port_id,
+        body.model_dump(exclude_none=True),
+    )
+    return _row_to_port_out(row)
 
 
 # ---------------------------------------------------------------------------

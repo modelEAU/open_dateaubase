@@ -108,3 +108,54 @@ class SubSignalOut(BaseModel):
 class SubSignalsResponse(BaseModel):
     parent_port_id: int
     sub_signals: list[SubSignalOut]
+
+
+# ---------------------------------------------------------------------------
+# SignalPort CRUD
+# ---------------------------------------------------------------------------
+
+
+class SignalPortOut(BaseModel):
+    """Full SignalPort representation with resolved DAS and type names."""
+
+    signal_port_id: int
+    tag: str
+    is_active: bool
+    description: str | None
+    parent_port_id: int | None
+    signal_port_type_id: int
+    signal_port_type_name: str
+    das_id: int
+    das_name: str
+
+
+class SignalPortCreateRequest(BaseModel):
+    """Payload for creating a new SignalPort."""
+
+    das_id: int
+    tag: str
+    signal_port_type_id: int
+    description: str | None = None
+    parent_port_id: int | None = None
+
+
+class SignalPortPatchRequest(BaseModel):
+    """Partial update for a SignalPort — only supplied fields are written."""
+
+    description: str | None = None
+    is_active: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# Lookup tables
+# ---------------------------------------------------------------------------
+
+
+class DasLookupOut(BaseModel):
+    das_id: int
+    name: str
+
+
+class SignalPortTypeLookupOut(BaseModel):
+    signal_port_type_id: int
+    name: str

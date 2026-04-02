@@ -15,6 +15,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def list_control_loops(conn: pyodbc.Connection) -> list[dict]:
+    """Return all ControlLoop rows ordered by ControlLoop_ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [ControlLoop_ID], [Name], [ControllerType],"
+        "       [FallbackControlLoop_ID], [AlgorithmReference], [Description]"
+        " FROM [dbo].[ControlLoop]"
+        " ORDER BY [ControlLoop_ID]"
+    )
+    cols = [col[0] for col in cursor.description]
+    return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
 def create_control_loop(
     conn: pyodbc.Connection,
     name: str,

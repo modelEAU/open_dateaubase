@@ -301,3 +301,185 @@ def deactivate_signal_port(conn: pyodbc.Connection, signal_port_id: int) -> bool
     )
     conn.commit()
     return cursor.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# CRUD helpers
+# ---------------------------------------------------------------------------
+
+_SELECT_SIGNAL_PORT = """
+    SELECT
+        sp.[SignalPort_ID],
+        sp.[Tag],
+        sp.[IsActive],
+        sp.[Description],
+        sp.[ParentPort_ID],
+        sp.[SignalPortType_ID],
+        spt.[Name]                       AS [signal_port_type_name],
+        sp.[DataAcquisitionSystem_ID],
+        das.[Name]                       AS [das_name]
+    FROM [dbo].[SignalPort] sp
+    JOIN [dbo].[SignalPortType] spt
+        ON spt.[SignalPortType_ID] = sp.[SignalPortType_ID]
+    JOIN [dbo].[DataAcquisitionSystem] das
+        ON das.[DataAcquisitionSystem_ID] = sp.[DataAcquisitionSystem_ID]
+"""
+
+
+def list_signal_ports(
+    conn: pyodbc.Connection,
+    *,
+    das_id: int | None = None,
+    is_active: bool | None = None,
+    signal_port_type_id: int | None = None,
+    page: int = 1,
+    page_size: int = 100,
+) -> tuple[list[dict], int]:
+    """Return paginated SignalPort rows with DAS name and type name resolved.
+
+    Returns ``(items, total_count)`` where *items* is the page slice and
+    *total_count* is the number of rows matching the applied filters.
+    """
+    where_clauses: list[str] = []
+    params: list = []
+
+    if das_id is not None:
+        where_clauses.append("sp.[DataAcquisitionSystem_ID] = ?")
+        params.append(das_id)
+    if is_active is not None:
+        where_clauses.append("sp.[IsActive] = ?")
+        params.append(1 if is_active else 0)
+    if signal_port_type_id is not None:
+        where_clauses.append("sp.[SignalPortType_ID] = ?")
+        params.append(signal_port_type_id)
+
+    where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+    cursor = conn.cursor()
+
+    # Total count
+    cursor.execute(
+        "SELECT COUNT(*) FROM [dbo].[SignalPort] sp" + where_sql,
+        *params,
+    )
+    total: int = cursor.fetchone()[0]
+
+    # Paginated rows
+    offset = (page - 1) * page_size
+    cursor.execute(
+        _SELECT_SIGNAL_PORT
+        + where_sql
+        + " ORDER BY sp.[SignalPort_ID]"
+        + " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY",
+        *(params + [offset, page_size]),
+    )
+    cols = [col[0] for col in cursor.description]
+    items = [dict(zip(cols, row)) for row in cursor.fetchall()]
+    return items, total
+
+
+def get_signal_port_by_id(conn: pyodbc.Connection, signal_port_id: int) -> dict | None:
+    """Return a single SignalPort row with DAS and type names resolved, or None."""
+    cursor = conn.cursor()
+    cursor.execute(
+        _SELECT_SIGNAL_PORT + " WHERE sp.[SignalPort_ID] = ?",
+        signal_port_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    cols = [col[0] for col in cursor.description]
+    return dict(zip(cols, row))
+
+
+def create_signal_port(
+    conn: pyodbc.Connection,
+    *,
+    das_id: int,
+    tag: str,
+    signal_port_type_id: int,
+    description: str | None = None,
+    parent_port_id: int | None = None,
+) -> int:
+    """Insert a SignalPort row and return the new SignalPort_ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[SignalPort]"
+        "    ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID],"
+        "     [Description], [ParentPort_ID])"
+        " OUTPUT INSERTED.[SignalPort_ID]"
+        " VALUES (?, ?, ?, ?, ?)",
+        das_id,
+        tag.strip(),
+        signal_port_type_id,
+        description,
+        parent_port_id,
+    )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return new_id
+
+
+def patch_signal_port(
+    conn: pyodbc.Connection,
+    signal_port_id: int,
+    data: dict,
+) -> dict | None:
+    """Update only the keys present in *data* on a SignalPort row.
+
+    Supported keys: ``description``, ``is_active``.
+    Returns the updated row via :func:`get_signal_port_by_id`, or None when the
+    port does not exist.
+    """
+    column_map = {
+        "description": "[Description]",
+        "is_active": "[IsActive]",
+    }
+    set_clauses: list[str] = []
+    params: list = []
+
+    for key, col in column_map.items():
+        if key in data and data[key] is not None:
+            set_clauses.append(f"{col} = ?")
+            value = data[key]
+            if key == "is_active":
+                value = 1 if value else 0
+            params.append(value)
+
+    if not set_clauses:
+        return get_signal_port_by_id(conn, signal_port_id)
+
+    params.append(signal_port_id)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[SignalPort] SET "
+        + ", ".join(set_clauses)
+        + " WHERE [SignalPort_ID] = ?",
+        *params,
+    )
+    conn.commit()
+    return get_signal_port_by_id(conn, signal_port_id)
+
+
+def list_das(conn: pyodbc.Connection) -> list[dict]:
+    """Return all DataAcquisitionSystem rows ordered by name."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [DataAcquisitionSystem_ID], [Name]"
+        " FROM [dbo].[DataAcquisitionSystem]"
+        " ORDER BY [Name]"
+    )
+    cols = [col[0] for col in cursor.description]
+    return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
+def list_signal_port_types(conn: pyodbc.Connection) -> list[dict]:
+    """Return all SignalPortType rows ordered by ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SignalPortType_ID], [Name]"
+        " FROM [dbo].[SignalPortType]"
+        " ORDER BY [SignalPortType_ID]"
+    )
+    cols = [col[0] for col in cursor.description]
+    return [dict(zip(cols, row)) for row in cursor.fetchall()]

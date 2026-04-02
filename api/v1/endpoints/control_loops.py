@@ -66,6 +66,16 @@ def _row_to_app_out(row: dict) -> ControlLoopApplicationOut:
 # ---------------------------------------------------------------------------
 
 
+@router.get(
+    "",
+    response_model=list[ControlLoopOut],
+)
+def list_control_loops(conn=Depends(get_db)):
+    """Return all ControlLoops ordered by ID."""
+    rows = control_loop_repository.list_control_loops(conn)
+    return [_row_to_loop_out(r) for r in rows]
+
+
 @router.post(
     "",
     response_model=ControlLoopOut,
