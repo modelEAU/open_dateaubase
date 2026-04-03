@@ -10,6 +10,7 @@ Usage:
 
 import sys
 import json
+import yaml
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
@@ -308,7 +309,10 @@ class ERDRelationship:
     )
 
 
-def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
+def generate_erd_data(
+    parts_data: Dict[str, Any],
+    groups_config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Transform parsed dictionary data into ERD-friendly format.
 
@@ -437,15 +441,82 @@ def generate_erd_data(parts_data: Dict[str, Any]) -> Dict[str, Any]:
                     )
                     relationships.append(relationship)
 
+    # Build lookup for group info (case-insensitive on table id)
+    table_to_group: Dict[str, Any] = {}
+    settings: Dict[str, Any] = {}
+    groups_list: List[Dict[str, str]] = []
+    if groups_config:
+        table_to_group = groups_config.get("table_to_group", {})
+        settings = groups_config.get("settings", {})
+        groups_list = groups_config.get("groups", [])
+
+    view_color = settings.get("view_color", "#0284c7")
+    view_group_name = settings.get("view_group_name", "Views")
+    default_color = settings.get("default_color", "#6b7280")
+    default_group_name = settings.get("default_group_name", "Uncategorized")
+
+    # Annotate tables with group info
+    tables_out = []
+    for t in tables:
+        d = asdict(t)
+        group = table_to_group.get(t.id.lower(), None)
+        d["group_name"] = group["name"] if group else default_group_name
+        d["group_color"] = group["color"] if group else default_color
+        tables_out.append(d)
+
+    # Annotate views with group info
+    views_out = []
+    for v in views:
+        d = asdict(v)
+        d["group_name"] = view_group_name
+        d["group_color"] = view_color
+        views_out.append(d)
+
     return {
-        "tables": [asdict(t) for t in tables],
-        "views": [asdict(v) for v in views],
+        "tables": tables_out,
+        "views": views_out,
         "relationships": [asdict(r) for r in relationships],
+        "groups": groups_list,
+        "settings": settings,
+    }
+
+
+def load_erd_groups(groups_yaml_path: Path) -> Optional[Dict[str, Any]]:
+    """Load and normalize ERD group config from a YAML file.
+
+    Returns a dict with:
+      - ``table_to_group``: mapping of lowercase table name -> {name, color, key}
+      - ``groups``: ordered list of {key, name, color} for legend rendering
+      - ``settings``: global settings dict
+    Returns None if the file does not exist.
+    """
+    if not groups_yaml_path.exists():
+        return None
+    with groups_yaml_path.open(encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh)
+
+    table_to_group: Dict[str, Dict[str, str]] = {}
+    groups_list: List[Dict[str, str]] = []
+    raw_groups = raw.get("groups", {})
+    for key, info in raw_groups.items():
+        entry = {"key": key, "name": info.get("name", key), "color": info.get("color", "#6b7280")}
+        groups_list.append(entry)
+        for tname in info.get("tables", []):
+            table_to_group[tname.lower()] = entry
+
+    settings = raw.get("settings", {})
+    return {
+        "table_to_group": table_to_group,
+        "groups": groups_list,
+        "settings": settings,
     }
 
 
 def generate_erd_html(
-    erd_data: Dict[str, Any], output_path: Path, library: str = "jointjs"
+    erd_data: Dict[str, Any],
+    output_path: Path,
+    library: str = "jointjs",
+    groups_config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Generate standalone HTML file with interactive ERD using JointJS.
@@ -454,6 +525,7 @@ def generate_erd_html(
         erd_data: ERD data from generate_erd_data()
         output_path: Path to write HTML file
         library: Deprecated parameter, kept for backward compatibility. Only 'jointjs' is supported.
+        groups_config: Optional groups config from load_erd_groups().
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -462,15 +534,39 @@ def generate_erd_html(
             f"Unsupported library. Only 'jointjs' library is supported. Got: {library}"
         )
 
-    html_content = _generate_jointjs_html(erd_data)
+    html_content = _generate_jointjs_html(erd_data, groups_config)
     output_path.write_text(html_content, encoding="utf-8")
 
 
-def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
+def _generate_jointjs_html(
+    erd_data: Dict[str, Any],
+    groups_config: Optional[Dict[str, Any]] = None,
+) -> str:
     """Generate HTML using JointJS library with custom HTML elements (Lucid-like)."""
 
     # Serialize ERD data as JSON for embedding
     erd_json = json.dumps(erd_data, indent=2)
+
+    # Build legend HTML from groups
+    legend_items_html = ""
+    if groups_config:
+        for grp in groups_config.get("groups", []):
+            legend_items_html += (
+                f'<div class="legend-item">'
+                f'<span class="legend-dot" style="background:{grp["color"]}"></span>'
+                f'<span class="legend-label">{grp["name"]}</span>'
+                f"</div>\n"
+            )
+        # Views entry
+        settings = groups_config.get("settings", {})
+        view_color = settings.get("view_color", "#0284c7")
+        view_name = settings.get("view_group_name", "Views")
+        legend_items_html += (
+            f'<div class="legend-item">'
+            f'<span class="legend-dot" style="background:{view_color}"></span>'
+            f'<span class="legend-label">{view_name}</span>'
+            f"</div>\n"
+        )
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -755,12 +851,66 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
             background: #2563eb;
         }}
 
+        /* --- Legend --- */
+        #legend {{
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 999;
+            max-width: 200px;
+        }}
+
+        #legend-toggle {{
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 0;
+        }}
+
+        #legend-body {{
+            display: none;
+            margin-top: 8px;
+        }}
+
+        #legend-body.open {{
+            display: block;
+        }}
+
+        .legend-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 0;
+            font-size: 12px;
+            color: var(--text-primary);
+        }}
+
+        .legend-dot {{
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }}
+
+        .legend-label {{
+            line-height: 1;
+        }}
+
     </style>
 </head>
 <body>
 
     <div class="toolbar">
-        <button class="tool-btn primary" onclick="autoLayout()">Running Auto Layout...</button>
+        <button class="tool-btn primary" onclick="autoLayout()">Auto Layout</button>
         <button class="tool-btn" onclick="zoomIn()">+</button>
         <button class="tool-btn" onclick="zoomOut()">-</button>
         <button class="tool-btn" onclick="exportPNG()">Save as PNG</button>
@@ -768,6 +918,14 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
     </div>
 
     <div id="paper"></div>
+
+    <div id="legend">
+        <div id="legend-toggle" onclick="document.getElementById('legend-body').classList.toggle('open')">
+            ▶ Legend
+        </div>
+        <div id="legend-body">
+{legend_items_html}        </div>
+    </div>
 
     <div id="sidebar">
         <div class="sidebar-header">
@@ -809,6 +967,12 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
                 // Check if this is a view
                 if (this.model.get('isView')) {{
                     this.div.classList.add('view');
+                }}
+
+                // Apply group color as a colored left border accent
+                const _data = this.model.get('isView') ? this.model.get('viewData') : this.model.get('tableData');
+                if (_data && _data.group_color && !this.model.get('isView')) {{
+                    this.div.style.borderLeft = `4px solid ${{_data.group_color}}`;
                 }}
 
                 // Prevent paper panning when clicking on the element
@@ -860,9 +1024,11 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
                 }});
 
                 const badgeHtml = isView ? '<span class="view-badge">VIEW</span>' : '';
+                const headerBg = (!isView && data.group_color) ? data.group_color + '18' : '';
+                const headerStyle = headerBg ? `style="background:${{headerBg}}"` : '';
 
                 this.div.innerHTML = `
-                    <div class="table-header" onmousedown="startDrag(event, '${{this.model.id}}')">
+                    <div class="table-header" ${{headerStyle}} onmousedown="startDrag(event, '${{this.model.id}}')">
                         <span>${{data.label}}</span>${{badgeHtml}}
                         <span class="info-btn" onclick="showTableDetails('${{entityJson}}', event)">ℹ️</span>
                     </div>
@@ -1064,27 +1230,46 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
             }}
         }});
 
-        // --- Auto Layout ---
+        // --- Auto Layout (dagre-based, no dependency on joint.layout.DirectedGraph) ---
         function autoLayout() {{
-            joint.layout.DirectedGraph.layout(graph, {{
-                dagre: dagre,
-                graphlib: dagre.graphlib,
-                rankDir: 'LR', // Left to Right flow is often better for wide tables
-                nodeSep: 60,
-                rankSep: 120,
-                marginX: 50,
-                marginY: 50
-            }});
-            
-            // Force update of HTML elements after layout moves SVG nodes
-            graph.getElements().forEach(el => {{
-                // Trigger change event to update div position
-                el.trigger('change:position'); 
-            }});
-            
-            paper.scaleContentToFit({{ padding: 50, maxScale: 1 }});
-            // Update zoom level tracker
-            currentScale = paper.scale().sx;
+            try {{
+                // Build a dagre graph from the JointJS graph
+                const g = new dagre.graphlib.Graph();
+                g.setGraph({{ rankdir: 'LR', nodesep: 60, ranksep: 120, marginx: 50, marginy: 50 }});
+                g.setDefaultEdgeLabel(function() {{ return {{}}; }});
+
+                // Add nodes
+                graph.getElements().forEach(function(el) {{
+                    const size = el.size();
+                    g.setNode(el.id, {{ width: size.width, height: size.height }});
+                }});
+
+                // Add edges
+                graph.getLinks().forEach(function(link) {{
+                    const src = link.getSourceElement();
+                    const tgt = link.getTargetElement();
+                    if (src && tgt) {{ g.setEdge(src.id, tgt.id); }}
+                }});
+
+                // Run layout
+                dagre.layout(g);
+
+                // Apply positions back to JointJS models
+                g.nodes().forEach(function(nodeId) {{
+                    const n = g.node(nodeId);
+                    const el = graph.getCell(nodeId);
+                    if (el && n) {{
+                        // dagre positions are center-based; JointJS uses top-left
+                        el.position(n.x - n.width / 2, n.y - n.height / 2);
+                    }}
+                }});
+
+                paper.scaleContentToFit({{ padding: 50, maxScale: 1 }});
+                currentScale = paper.scale().sx;
+            }} catch (e) {{
+                console.error('Auto-layout failed:', e);
+                alert('Auto-layout failed: ' + e.message);
+            }}
         }}
 
         // Initial Layout
@@ -1301,127 +1486,225 @@ def _generate_jointjs_html(erd_data: Dict[str, Any]) -> str:
         function exportPNG() {{
             closeSidebar();
 
-            // Get the paper element
-            const paperElement = document.getElementById('paper');
-
-            // Calculate the bounding box of all elements
             const bbox = graph.getBBox();
+            if (!bbox || bbox.width === 0) {{
+                alert('Nothing to export.');
+                return;
+            }}
 
-            // Add some padding
             const padding = 50;
-            const width = bbox.width + (padding * 2);
-            const height = bbox.height + (padding * 2);
+            const width = Math.ceil(bbox.width + padding * 2);
+            const height = Math.ceil(bbox.height + padding * 2);
 
-            // Temporarily adjust view to fit content
             const originalTransform = paper.translate();
             const originalScale = paper.scale();
+            const paperElement = document.getElementById('paper');
+            const oldOverflow = paperElement.style.overflow;
 
-            // Reset to show all content
-            paper.translate(padding - bbox.x, padding - bbox.y);
+            // Reset view so all content fits exactly in [0, width] x [0, height]
             paper.scale(1, 1);
+            paper.translate(padding - bbox.x, padding - bbox.y);
 
-            // Use html2canvas to render
-            html2canvas(paperElement, {{
-                backgroundColor: '#f0f2f5',
-                width: width,
-                height: height,
-                scrollX: 0,
-                scrollY: 0,
-                windowWidth: width,
-                windowHeight: height,
-                useCORS: true
-            }}).then(canvas => {{
-                // Convert canvas to blob and download
-                canvas.toBlob(blob => {{
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.download = 'dateaubase_erd.png';
-                    link.href = url;
-                    link.click();
-                    URL.revokeObjectURL(url);
+            // Temporarily allow overflow so html2canvas can read all positioned children
+            paperElement.style.overflow = 'visible';
+
+            // Wait two animation frames for CSS transforms to flush before capture
+            requestAnimationFrame(function() {{
+                requestAnimationFrame(function() {{
+                    html2canvas(paperElement, {{
+                        backgroundColor: '#f0f2f5',
+                        width: width,
+                        height: height,
+                        x: 0,
+                        y: 0,
+                        scrollX: 0,
+                        scrollY: 0,
+                        useCORS: true,
+                        allowTaint: true,
+                        scale: 1
+                    }}).then(function(canvas) {{
+                        canvas.toBlob(function(blob) {{
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.download = 'dateaubase_erd.png';
+                            link.href = url;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                        }});
+                        paperElement.style.overflow = oldOverflow;
+                        paper.translate(originalTransform.tx, originalTransform.ty);
+                        paper.scale(originalScale.sx, originalScale.sy);
+                    }}).catch(function(err) {{
+                        console.error('PNG export error:', err);
+                        alert('PNG export failed. See console for details.');
+                        paperElement.style.overflow = oldOverflow;
+                        paper.translate(originalTransform.tx, originalTransform.ty);
+                        paper.scale(originalScale.sx, originalScale.sy);
+                    }});
                 }});
-
-                // Restore original view
-                paper.translate(originalTransform.tx, originalTransform.ty);
-                paper.scale(originalScale.sx, originalScale.sy);
-            }}).catch(err => {{
-                console.error('Error generating PNG:', err);
-                alert('Error generating PNG. See console for details.');
-
-                // Restore original view even on error
-                paper.translate(originalTransform.tx, originalTransform.ty);
-                paper.scale(originalScale.sx, originalScale.sy);
             }});
         }}
 
         function exportSVG() {{
             closeSidebar();
 
-            // Get the SVG element from the paper
-            const svgElement = paper.svg;
-
-            // Clone the SVG to avoid modifying the original
-            const svgClone = svgElement.cloneNode(true);
-
-            // Get bounding box for proper dimensions
             const bbox = graph.getBBox();
+            if (!bbox || bbox.width === 0) {{
+                alert('Nothing to export.');
+                return;
+            }}
+
             const padding = 50;
+            const NS = 'http://www.w3.org/2000/svg';
 
-            // Set viewBox and dimensions
+            // Start fresh SVG (clone paper SVG for relationship lines)
+            const svgClone = paper.svg.cloneNode(true);
+            svgClone.setAttribute('xmlns', NS);
             svgClone.setAttribute('viewBox', `${{bbox.x - padding}} ${{bbox.y - padding}} ${{bbox.width + padding * 2}} ${{bbox.height + padding * 2}}`);
-            svgClone.setAttribute('width', bbox.width + padding * 2);
-            svgClone.setAttribute('height', bbox.height + padding * 2);
+            svgClone.setAttribute('width', String(bbox.width + padding * 2));
+            svgClone.setAttribute('height', String(bbox.height + padding * 2));
 
-            // Add background rectangle
-            const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            bgRect.setAttribute('x', bbox.x - padding);
-            bgRect.setAttribute('y', bbox.y - padding);
-            bgRect.setAttribute('width', bbox.width + padding * 2);
-            bgRect.setAttribute('height', bbox.height + padding * 2);
-            bgRect.setAttribute('fill', '#f0f2f5');
-            svgClone.insertBefore(bgRect, svgClone.firstChild);
+            // Background
+            const bg = document.createElementNS(NS, 'rect');
+            bg.setAttribute('x', String(bbox.x - padding));
+            bg.setAttribute('y', String(bbox.y - padding));
+            bg.setAttribute('width', String(bbox.width + padding * 2));
+            bg.setAttribute('height', String(bbox.height + padding * 2));
+            bg.setAttribute('fill', '#f0f2f5');
+            svgClone.insertBefore(bg, svgClone.firstChild);
 
-            // Embed HTML elements as foreignObject
-            const htmlElements = document.querySelectorAll('.html-element');
-            htmlElements.forEach(htmlEl => {{
-                const modelId = htmlEl.id;
-                const model = graph.getCell(modelId);
-                if (!model) return;
+            // Helper: create SVG text element
+            function svgText(x, y, txt, opts) {{
+                const t = document.createElementNS(NS, 'text');
+                t.setAttribute('x', String(x));
+                t.setAttribute('y', String(y));
+                t.setAttribute('font-family', opts.mono ? 'monospace' : 'Arial, sans-serif');
+                t.setAttribute('font-size', String(opts.size || 12));
+                if (opts.weight) t.setAttribute('font-weight', opts.weight);
+                t.setAttribute('fill', opts.fill || '#334155');
+                if (opts.anchor) t.setAttribute('text-anchor', opts.anchor);
+                t.textContent = String(txt).substring(0, 40); // cap length
+                return t;
+            }}
 
-                const bbox = model.getBBox();
+            // Render each table/view as native SVG
+            graph.getElements().forEach(function(model) {{
+                const isView = model.get('isView');
+                const data = isView ? model.get('viewData') : model.get('tableData');
+                if (!data) return;
 
-                // Create foreignObject to embed HTML
-                const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-                foreignObject.setAttribute('x', bbox.x);
-                foreignObject.setAttribute('y', bbox.y);
-                foreignObject.setAttribute('width', bbox.width);
-                foreignObject.setAttribute('height', bbox.height);
+                const eb = model.getBBox();
+                const HEADER_H = 40;
+                const ROW_H = 30;
+                const items = isView ? data.columns : data.fields;
+                const groupColor = data.group_color || (isView ? '#0284c7' : '#e2e8f0');
 
-                // Clone the HTML element and its styles
-                const htmlClone = htmlEl.cloneNode(true);
-                htmlClone.style.transform = 'none';
-                htmlClone.style.position = 'relative';
-                htmlClone.style.width = bbox.width + 'px';
-                htmlClone.style.height = bbox.height + 'px';
+                const g = document.createElementNS(NS, 'g');
 
-                foreignObject.appendChild(htmlClone);
-                svgClone.appendChild(foreignObject);
+                // Outer rect
+                const outerRect = document.createElementNS(NS, 'rect');
+                outerRect.setAttribute('x', String(eb.x));
+                outerRect.setAttribute('y', String(eb.y));
+                outerRect.setAttribute('width', String(eb.width));
+                outerRect.setAttribute('height', String(eb.height));
+                outerRect.setAttribute('fill', isView ? '#eff6ff' : '#ffffff');
+                outerRect.setAttribute('stroke', isView ? '#3b82f6' : '#e2e8f0');
+                outerRect.setAttribute('stroke-width', isView ? '2' : '1');
+                outerRect.setAttribute('rx', '8');
+                g.appendChild(outerRect);
+
+                // Header background
+                const headerRect = document.createElementNS(NS, 'rect');
+                headerRect.setAttribute('x', String(eb.x));
+                headerRect.setAttribute('y', String(eb.y));
+                headerRect.setAttribute('width', String(eb.width));
+                headerRect.setAttribute('height', String(HEADER_H));
+                headerRect.setAttribute('fill', isView ? '#dbeafe' : (groupColor + '18'));
+                headerRect.setAttribute('rx', '8');
+                g.appendChild(headerRect);
+                // Square off bottom corners of header
+                const headerFix = document.createElementNS(NS, 'rect');
+                headerFix.setAttribute('x', String(eb.x));
+                headerFix.setAttribute('y', String(eb.y + HEADER_H / 2));
+                headerFix.setAttribute('width', String(eb.width));
+                headerFix.setAttribute('height', String(HEADER_H / 2));
+                headerFix.setAttribute('fill', isView ? '#dbeafe' : (groupColor + '18'));
+                g.appendChild(headerFix);
+
+                // Group accent border (left side)
+                if (!isView) {{
+                    const accent = document.createElementNS(NS, 'rect');
+                    accent.setAttribute('x', String(eb.x));
+                    accent.setAttribute('y', String(eb.y));
+                    accent.setAttribute('width', '4');
+                    accent.setAttribute('height', String(eb.height));
+                    accent.setAttribute('fill', groupColor);
+                    accent.setAttribute('rx', '8');
+                    g.appendChild(accent);
+                }}
+
+                // Header divider
+                const divider = document.createElementNS(NS, 'line');
+                divider.setAttribute('x1', String(eb.x));
+                divider.setAttribute('y1', String(eb.y + HEADER_H));
+                divider.setAttribute('x2', String(eb.x + eb.width));
+                divider.setAttribute('y2', String(eb.y + HEADER_H));
+                divider.setAttribute('stroke', '#e2e8f0');
+                g.appendChild(divider);
+
+                // Header title
+                g.appendChild(svgText(eb.x + 14, eb.y + 25, data.label, {{
+                    size: 13, weight: '600', fill: isView ? '#1e40af' : '#1e293b'
+                }}));
+
+                // Rows
+                items.forEach(function(field, idx) {{
+                    const rowY = eb.y + HEADER_H + idx * ROW_H;
+
+                    // Row separator
+                    const sep = document.createElementNS(NS, 'line');
+                    sep.setAttribute('x1', String(eb.x));
+                    sep.setAttribute('y1', String(rowY));
+                    sep.setAttribute('x2', String(eb.x + eb.width));
+                    sep.setAttribute('y2', String(rowY));
+                    sep.setAttribute('stroke', '#f1f5f9');
+                    g.appendChild(sep);
+
+                    // PK/FK badge
+                    if (field.is_pk || field.is_fk) {{
+                        const badge = field.is_pk ? 'PK' : 'FK';
+                        const badgeColor = field.is_pk ? '#ca8a04' : '#7c3aed';
+                        g.appendChild(svgText(eb.x + 14, rowY + 19, badge, {{
+                            size: 9, weight: 'bold', fill: badgeColor
+                        }}));
+                    }}
+
+                    // Field name
+                    g.appendChild(svgText(eb.x + 32, rowY + 19, field.name, {{
+                        size: 11, fill: '#334155'
+                    }}));
+
+                    // Field type (right-aligned)
+                    g.appendChild(svgText(eb.x + eb.width - 8, rowY + 19, field.sql_type, {{
+                        size: 10, fill: '#64748b', mono: true, anchor: 'end'
+                    }}));
+                }});
+
+                svgClone.appendChild(g);
             }});
 
-            // Serialize SVG to string
             const serializer = new XMLSerializer();
-            let svgString = serializer.serializeToString(svgClone);
-
-            // Add XML declaration and namespaces
-            svgString = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgString;
-
-            // Create blob and download
+            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(svgClone);
             const blob = new Blob([svgString], {{ type: 'image/svg+xml;charset=utf-8' }});
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.download = 'dateaubase_erd.svg';
             link.href = url;
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }}
         

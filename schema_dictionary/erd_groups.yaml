@@ -1,0 +1,110 @@
+# ERD Thematic Group Configuration
+# Table names must match PascalCase YAML filenames in schema_dictionary/tables/
+# Tables not listed here are placed in the 'Uncategorized' group
+
+groups:
+  site_facility:
+    name: Site & Facility
+    color: "#2563eb"
+    tables:
+      - Site
+      - SamplingPoint
+      - Watershed
+      - HydrologicalCharacteristics
+      - UrbanCharacteristics
+
+  equipment:
+    name: Equipment & Instruments
+    color: "#059669"
+    tables:
+      - Equipment
+      - EquipmentModel
+      - EquipmentModelHasParameter
+      - EquipmentModelHasProcedures
+      - EquipmentEvent
+      - EquipmentEventType
+      - DataAcquisitionSystem
+
+  signal_channel:
+    name: Signal / Channel
+    color: "#7c3aed"
+    tables:
+      - SignalPort
+      - SignalPortType
+      - SignalPortEquipmentHistory
+      - SignalPortLocationHistory
+      - Channel
+      - ChannelAxis
+      - ProcessingDegree
+      - ValueType
+
+  observations:
+    name: Observations & Values
+    color: "#dc2626"
+    tables:
+      - Observation
+      - Value
+      - ValueVector
+      - ValueMatrix
+      - ValueImage
+      - ValueBin
+      - ValueBinningAxis
+
+  lab:
+    name: Lab
+    color: "#0891b2"
+    tables:
+      - LabAnalysis
+      - LabValue
+      - Sample
+      - SampleType
+      - SampleMethod
+      - Laboratory
+
+  campaign_provenance:
+    name: Campaign & Provenance
+    color: "#d97706"
+    tables:
+      - Campaign
+      - CampaignType
+      - CampaignEquipment
+      - CampaignSamplingLocation
+      - DataProvenance
+      - Dataset
+      - DatasetChannel
+      - ProcessingStep
+      - ProcessingLineage
+
+  annotations:
+    name: Annotations
+    color: "#4d7c0f"
+    tables:
+      - Annotation
+      - AnnotationType
+
+  control_loops:
+    name: Control Loops
+    color: "#be123c"
+    tables:
+      - ControlLoop
+      - ControlLoopPort
+      - ControlLoopPortRole
+      - ControlLoopApplication
+
+  reference:
+    name: Lookup / Reference
+    color: "#475569"
+    tables:
+      - Unit
+      - Parameter
+      - Person
+      - QualityCode
+      - Procedures
+      - SchemaVersion
+
+# Global settings
+settings:
+  default_group_name: Uncategorized
+  default_color: "#6b7280"
+  view_group_name: Views
+  view_color: "#0284c7"

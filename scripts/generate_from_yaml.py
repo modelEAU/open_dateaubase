@@ -32,7 +32,7 @@ scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(scripts_dir))
 
 from legacy.generate_dictionary_reference import generate_tables_markdown, generate_views_markdown
-from legacy.generate_erd import generate_erd_data, generate_erd_html
+from legacy.generate_erd import generate_erd_data, generate_erd_html, load_erd_groups
 
 
 def parse_yaml_for_docs(
@@ -258,9 +258,11 @@ def generate_all_from_yaml(
     print(f"Generated views documentation: {views_path}")
 
     # Step 4: interactive ERD HTML
-    erd_data = generate_erd_data(parts_data)
+    groups_yaml = tables_dir.parent / "erd_groups.yaml"
+    groups_config = load_erd_groups(groups_yaml)
+    erd_data = generate_erd_data(parts_data, groups_config)
     erd_html_path = assets_dir / "erd_interactive.html"
-    generate_erd_html(erd_data, erd_html_path, library="jointjs")
+    generate_erd_html(erd_data, erd_html_path, library="jointjs", groups_config=groups_config)
     print(f"Generated interactive ERD: {erd_html_path}")
 
     # Step 5: erd.md
