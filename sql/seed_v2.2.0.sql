@@ -9,57 +9,13 @@
 SET NOCOUNT ON;
 
 -- ============================================================
--- TIER 0: Lookup Tables (normally populated by migrations)
+-- TIER 0: Lookup Tables — all seeded by the v3.0.0 migration.
+-- CampaignType IDs:    1=Experiment, 2=Operations, 3=Commissioning
+-- DataProvenance IDs:  1=Sensor, 2=Laboratory, 3=Manual Entry
+-- ValueType IDs:       1=Scalar, 2=Vector, 3=Matrix, 4=Image
+-- AnnotationType, EquipmentEventType, ProcessingDegree, QualityCode,
+-- SampleType, SampleMethod: seeded by migration; do not re-insert here.
 -- ============================================================
-
--- CampaignType
-INSERT INTO [dbo].[CampaignType] ([CampaignType_Name]) VALUES (N'Research');
-INSERT INTO [dbo].[CampaignType] ([CampaignType_Name]) VALUES (N'Routine Monitoring');
-
--- DataProvenance
-INSERT INTO [dbo].[DataProvenance] ([DataProvenance_Name]) VALUES (N'Sensor');
-INSERT INTO [dbo].[DataProvenance] ([DataProvenance_Name]) VALUES (N'Laboratory');
-INSERT INTO [dbo].[DataProvenance] ([DataProvenance_Name]) VALUES (N'Manual Entry');
-
--- EquipmentEventType
-INSERT INTO [dbo].[EquipmentEventType] ([EquipmentEventType_Name]) VALUES (N'Calibration');
-INSERT INTO [dbo].[EquipmentEventType] ([EquipmentEventType_Name]) VALUES (N'Maintenance');
-INSERT INTO [dbo].[EquipmentEventType] ([EquipmentEventType_Name]) VALUES (N'Cleaning');
-INSERT INTO [dbo].[EquipmentEventType] ([EquipmentEventType_Name]) VALUES (N'Failure');
-INSERT INTO [dbo].[EquipmentEventType] ([EquipmentEventType_Name]) VALUES (N'Deployment');
-INSERT INTO [dbo].[EquipmentEventType] ([EquipmentEventType_Name]) VALUES (N'Removal');
-
--- ProcessingDegree
-INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [Name], [Description]) VALUES (1, N'Raw', N'Unprocessed raw data');
-INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [Name], [Description]) VALUES (2, N'Validated', N'Quality-checked data');
-INSERT INTO [dbo].[ProcessingDegree] ([ProcessingDegree_ID], [Name], [Description]) VALUES (3, N'Processed', N'Processed or derived data');
-
--- QualityCode
-INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [Name], [Description], [IsUsable]) VALUES (1, N'Good', N'Data is valid and usable', 1);
-INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [Name], [Description], [IsUsable]) VALUES (2, N'Questionable', N'Data may have issues', 1);
-INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [Name], [Description], [IsUsable]) VALUES (3, N'Bad', N'Data is not usable', 0);
-
--- SampleMethod
-INSERT INTO [dbo].[SampleMethod] ([SampleMethod_ID], [Name], [Description]) VALUES (1, N'Grab', N'Grab sample');
-INSERT INTO [dbo].[SampleMethod] ([SampleMethod_ID], [Name], [Description]) VALUES (2, N'Composite', N'Time-weighted composite');
-
--- SampleType
-INSERT INTO [dbo].[SampleType] ([SampleType_ID], [Name], [Description]) VALUES (1, N'Influent', N'Raw influent wastewater');
-INSERT INTO [dbo].[SampleType] ([SampleType_ID], [Name], [Description]) VALUES (2, N'Effluent', N'Treated effluent');
-
--- ValueType
-INSERT INTO [dbo].[ValueType] ([ValueType_Name]) VALUES (N'Scalar');
-INSERT INTO [dbo].[ValueType] ([ValueType_Name]) VALUES (N'Vector');
-INSERT INTO [dbo].[ValueType] ([ValueType_Name]) VALUES (N'Matrix');
-INSERT INTO [dbo].[ValueType] ([ValueType_Name]) VALUES (N'Image');
-
--- AnnotationType
-INSERT INTO [dbo].[AnnotationType] ([AnnotationType_ID], [AnnotationTypeName], [Description]) VALUES (1, N'General', N'General annotation');
-INSERT INTO [dbo].[AnnotationType] ([AnnotationType_ID], [AnnotationTypeName], [Description]) VALUES (2, N'Maintenance', N'Equipment maintenance');
-INSERT INTO [dbo].[AnnotationType] ([AnnotationType_ID], [AnnotationTypeName], [Description]) VALUES (3, N'Calibration', N'Calibration event');
-INSERT INTO [dbo].[AnnotationType] ([AnnotationType_ID], [AnnotationTypeName], [Description]) VALUES (5, N'Experiment', N'Experimental condition');
-INSERT INTO [dbo].[AnnotationType] ([AnnotationType_ID], [AnnotationTypeName], [Description]) VALUES (7, N'Data Quality', N'Data quality issue');
-INSERT INTO [dbo].[AnnotationType] ([AnnotationType_ID], [AnnotationTypeName], [Description]) VALUES (9, N'Exclusion', N'Data exclusion period');
 
 -- ============================================================
 -- TIER 1: Tables with no foreign keys

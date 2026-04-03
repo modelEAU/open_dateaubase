@@ -1114,6 +1114,10 @@ GO
 ALTER TABLE [dbo].[ValueImage] DROP COLUMN [ValueImage_ID];
 GO
 
+-- Drop index on (Channel_ID, Timestamp) — blocks Channel_ID column drop.
+DROP INDEX IF EXISTS [IX_ValueImage_ChannelTimestamp] ON [dbo].[ValueImage];
+GO
+
 -- Drop Channel_ID and Timestamp (now redundant, encoded in Observation).
 ALTER TABLE [dbo].[ValueImage] DROP COLUMN [Channel_ID];
 ALTER TABLE [dbo].[ValueImage] DROP COLUMN [Timestamp];
