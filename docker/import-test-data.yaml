@@ -71,14 +71,11 @@ tsdb_configs:
         processing_degree_id: 1
 
 scada_sql_configs:
-  # Tagged SCADA SQL import (pilEAUte format)
-  # Uses tag for channel resolution (tagged mode)
+  # Tagged SCADA SQL import using local SQLite test fixture (pilEAUte schema)
   - name: pilEAUte
     das_name: pilEAUte_das
     scada_structure:
-      server: "localhost"
-      database: "test"
-      credentials_path: "/run/secrets/scada_credentials"
+      sqlite_path: "/test-data/scada_sql/float_table.db"
       timezone: "America/Montreal"
     variables:
       - name: do

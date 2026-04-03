@@ -19,7 +19,9 @@ _TAG_NAME_COL = "TagName"
 
 
 def _build_scada_engine(structure: PilEAUteSCADAStructure) -> sqlalchemy.Engine:
-    """Build a SQL Server engine from a credentials file."""
+    """Build a database engine — SQLite when sqlite_path is set, SQL Server otherwise."""
+    if structure.sqlite_path:
+        return create_engine(f"sqlite:///{structure.sqlite_path}")
     with open(structure.credentials_path) as f:
         username = f.readline().strip()
         password = parse.quote_plus(f.readline().strip())

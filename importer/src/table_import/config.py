@@ -129,10 +129,11 @@ class TaglessTsdbConfig(BaseModel):
 
 
 class PilEAUteSCADAStructure(BaseModel):
-    server: str
-    database: str
-    credentials_path: str   # plain-text file: line 1 = user, line 2 = password
-    timezone: str           # timezone of the SCADA timestamps
+    timezone: str                    # timezone of the SCADA timestamps
+    sqlite_path: str | None = None   # use a local SQLite file instead of SQL Server
+    server: str | None = None
+    database: str | None = None
+    credentials_path: str | None = None  # plain-text file: line 1 = user, line 2 = password
 
 
 class PilEAUteSCADAConfig(BaseModel):
