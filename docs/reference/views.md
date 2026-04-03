@@ -7,8 +7,9 @@ Virtual tables defined by SQL queries.
 
 ## vw_ChannelStatus
 
-Per-channel sensor status view. Navigates the SignalPort sub-signal relationship to find
-status channels (SignalPortType=Status, ParentPort_ID pointing to the value port).
+Per-channel sensor status view. A status channel is a Channel whose SignalPort has SignalPortType=Status and a non-null ParentPort_ID pointing to the measured value port. Navigates via SignalPort sub-signal relationship — replaces the StatusChannel_ID column from v2.x.
+
+
 
 **View Definition:**
 
@@ -34,27 +35,29 @@ LEFT JOIN [dbo].[SignalPortEquipmentHistory] peh  ON peh.[SignalPort_ID]     = v
 LEFT JOIN [dbo].[Equipment]            e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
 WHERE spt.[Name] = N'Status'
   AND statusP.[ParentPort_ID] IS NOT NULL
+
 ```
 
 
 #### Columns
 
-| Column | SQL Type | Description |
-|--------|----------|-------------|
-| StatusChannelID | INT | Channel_ID of the status time series |
-| MeasurementChannelID | INT | Channel_ID of the measurement channel this status describes |
-| EquipmentID | INT | Equipment ID of the currently-linked sensor (NULL if no active history row) |
-| EquipmentName | NVARCHAR(200) | Identifier of the currently-linked equipment |
-| MeasurementParameter | NVARCHAR(100) | Name of the measured parameter (TSS, pH, etc.) |
-| Timestamp | DATETIME2(7) | Timestamp of the status observation |
-| StatusCodeID | INT | Raw integer status code stored in the status Channel |
+| Column | SQL Type | Source Field | Description |
+|--------|----------|--------------|-------------|
+| StatusChannelID | INT | `StatusChannelID` | Channel_ID of the status time series |
+| MeasurementChannelID | INT | `MeasurementChannelID` | Channel_ID of the measurement channel this status describes |
+| EquipmentID | INT | `EquipmentID` | Equipment ID of the currently-linked sensor (NULL if no active history row) |
+| EquipmentName | NVARCHAR(200) | `EquipmentName` | Identifier of the currently-linked equipment |
+| MeasurementParameter | NVARCHAR(100) | `MeasurementParameter` | Name of the measured parameter (TSS, pH, etc.) |
+| Timestamp | DATETIME2(7) | `Timestamp` | Timestamp of the status observation |
+| StatusCodeID | INT | `StatusCodeID` | Raw integer status code stored in the status Channel's Value rows |
 
 <span id="vw_DeviceStatus"></span>
 
 ## vw_DeviceStatus
 
-Device-level status view. Finds status channels by resolving the currently-active
-`SignalPortEquipmentHistory` row for each equipment, then filtering for `SignalPortType=Status` ports.
+Device-level status view. Finds status channels by following the currently-active SignalPortEquipmentHistory row for each equipment, then filtering for ports with SignalPortType=Status. Replaces the EquipmentStatusChannel junction table from v2.x.
+
+
 
 **View Definition:**
 
@@ -74,15 +77,16 @@ JOIN [dbo].[SignalPortEquipmentHistory]  peh      ON peh.[SignalPort_ID]     = s
                                                  AND peh.[EndTime]          IS NULL
 JOIN [dbo].[Equipment]                 e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
 WHERE spt.[Name] = N'Status'
+
 ```
 
 
 #### Columns
 
-| Column | SQL Type | Description |
-|--------|----------|-------------|
-| StatusChannelID | INT | Channel_ID of the status time series |
-| EquipmentID | INT | Equipment ID this status describes |
-| EquipmentName | NVARCHAR(200) | Identifier of the equipment |
-| Timestamp | DATETIME2(7) | Timestamp of the status observation |
-| StatusCodeID | INT | Raw integer status code stored in the status Channel |
+| Column | SQL Type | Source Field | Description |
+|--------|----------|--------------|-------------|
+| StatusChannelID | INT | `StatusChannelID` | Channel_ID of the status time series |
+| EquipmentID | INT | `EquipmentID` | Equipment ID this status describes |
+| EquipmentName | NVARCHAR(200) | `EquipmentName` | Identifier of the equipment |
+| Timestamp | DATETIME2(7) | `Timestamp` | Timestamp of the status observation |
+| StatusCodeID | INT | `StatusCodeID` | Raw integer status code stored in the status Channel's Value rows |

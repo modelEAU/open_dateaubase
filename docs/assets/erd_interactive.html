@@ -281,12 +281,66 @@
             background: #2563eb;
         }
 
+        /* --- Legend --- */
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 999;
+            max-width: 200px;
+        }
+
+        #legend-toggle {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 0;
+        }
+
+        #legend-body {
+            display: none;
+            margin-top: 8px;
+        }
+
+        #legend-body.open {
+            display: block;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 0;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .legend-label {
+            line-height: 1;
+        }
+
     </style>
 </head>
 <body>
 
     <div class="toolbar">
-        <button class="tool-btn primary" onclick="autoLayout()">Running Auto Layout...</button>
+        <button class="tool-btn primary" onclick="autoLayout()">Auto Layout</button>
         <button class="tool-btn" onclick="zoomIn()">+</button>
         <button class="tool-btn" onclick="zoomOut()">-</button>
         <button class="tool-btn" onclick="exportPNG()">Save as PNG</button>
@@ -294,6 +348,24 @@
     </div>
 
     <div id="paper"></div>
+
+    <div id="legend">
+        <div id="legend-toggle" onclick="document.getElementById('legend-body').classList.toggle('open')">
+            ▶ Legend
+        </div>
+        <div id="legend-body">
+<div class="legend-item"><span class="legend-dot" style="background:#2563eb"></span><span class="legend-label">Site & Facility</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#059669"></span><span class="legend-label">Equipment & Instruments</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#7c3aed"></span><span class="legend-label">Signal / Channel</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#dc2626"></span><span class="legend-label">Observations & Values</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#0891b2"></span><span class="legend-label">Lab</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#d97706"></span><span class="legend-label">Campaign & Provenance</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#4d7c0f"></span><span class="legend-label">Annotations</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#be123c"></span><span class="legend-label">Control Loops</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#475569"></span><span class="legend-label">Lookup / Reference</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#0284c7"></span><span class="legend-label">Views</span></div>
+        </div>
+    </div>
 
     <div id="sidebar">
         <div class="sidebar-header">
@@ -432,7 +504,9 @@
           "fk_target": "Observation.Observation_ID",
           "description": "Optional link to a specific Observation for point-level annotations (e.g., 'wrong focal length on this image'). When NULL, the annotation applies to the time range [StartTime, EndTime] on the channel. When set, StartTime should match Observation.Timestamp.\n"
         }
-      ]
+      ],
+      "group_name": "Annotations",
+      "group_color": "#4d7c0f"
     },
     {
       "id": "AnnotationType",
@@ -475,7 +549,9 @@
           "fk_target": null,
           "description": "Hex color code for UI rendering, e.g. '#FF6B6B'"
         }
-      ]
+      ],
+      "group_name": "Annotations",
+      "group_color": "#4d7c0f"
     },
     {
       "id": "Campaign",
@@ -545,7 +621,9 @@
           "fk_target": null,
           "description": "Date and time the campaign ended (UTC); NULL if ongoing"
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "CampaignEquipment",
@@ -579,7 +657,9 @@
           "fk_target": null,
           "description": "Role of this equipment in the campaign (e.g., 'Primary sensor', 'Auto-sampler')"
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "CampaignSamplingLocation",
@@ -613,7 +693,9 @@
           "fk_target": null,
           "description": "Role of this location in the campaign (e.g., 'Inlet', 'Reference')"
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "CampaignType",
@@ -638,7 +720,9 @@
           "fk_target": null,
           "description": "Name of the campaign type. Controlled vocabulary: Experiment, Operations, Commissioning"
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "Channel",
@@ -699,7 +783,9 @@
           "fk_target": "ValueType.ValueType_ID",
           "description": "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
         }
-      ]
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
     },
     {
       "id": "ChannelAxis",
@@ -733,7 +819,9 @@
           "fk_target": "ValueBinningAxis.ValueBinningAxis_ID",
           "description": "References the binning axis for this role"
         }
-      ]
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
     },
     {
       "id": "ControlLoop",
@@ -794,7 +882,9 @@
           "fk_target": null,
           "description": "Narrative description of the loop, including notes on novel roles"
         }
-      ]
+      ],
+      "group_name": "Control Loops",
+      "group_color": "#be123c"
     },
     {
       "id": "ControlLoopApplication",
@@ -864,7 +954,9 @@
           "fk_target": null,
           "description": "Free-text notes about this configuration change"
         }
-      ]
+      ],
+      "group_name": "Control Loops",
+      "group_color": "#be123c"
     },
     {
       "id": "ControlLoopPort",
@@ -907,7 +999,9 @@
           "fk_target": "ControlLoopPortRole.ControlLoopPortRole_ID",
           "description": "The functional role of this port within the loop"
         }
-      ]
+      ],
+      "group_name": "Control Loops",
+      "group_color": "#be123c"
     },
     {
       "id": "ControlLoopPortRole",
@@ -941,41 +1035,9 @@
           "fk_target": null,
           "description": "Explanation of the role within a control loop"
         }
-      ]
-    },
-    {
-      "id": "ControlVariableType",
-      "label": "ControlVariableType",
-      "description": "Controlled vocabulary describing a SignalPort's engineering role in the physical process. Answers \"what does this port do in the process?\" \u2014 orthogonal to SignalPortType which answers \"what kind of data flows here?\". A DO sensor port has ControlVariableType=MeasuredVariable and SignalPortType=Value. NULL means unclassified.\n",
-      "fields": [
-        {
-          "name": "ControlVariableType_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key, manually assigned"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(50)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Short name for this control variable type"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(200)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Explanation of the engineering role"
-        }
-      ]
+      ],
+      "group_name": "Control Loops",
+      "group_color": "#be123c"
     },
     {
       "id": "DataAcquisitionSystem",
@@ -1045,7 +1107,9 @@
           "fk_target": null,
           "description": "Free-text notes about this DAS"
         }
-      ]
+      ],
+      "group_name": "Equipment & Instruments",
+      "group_color": "#059669"
     },
     {
       "id": "DataProvenance",
@@ -1070,7 +1134,9 @@
           "fk_target": null,
           "description": "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast"
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "Dataset",
@@ -1131,7 +1197,9 @@
           "fk_target": "Person.Person_ID",
           "description": "Person who created this dataset. NULL for automated pipelines."
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "DatasetChannel",
@@ -1156,7 +1224,9 @@
           "fk_target": "Channel.Channel_ID",
           "description": "The channel (signal) included in this dataset"
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "Equipment",
@@ -1235,7 +1305,9 @@
           "fk_target": null,
           "description": "Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability. Enables fast active/inactive filtering without inspecting SignalPortEquipmentHistory.\n"
         }
-      ]
+      ],
+      "group_name": "Equipment & Instruments",
+      "group_color": "#059669"
     },
     {
       "id": "EquipmentEvent",
@@ -1314,7 +1386,9 @@
           "fk_target": null,
           "description": "Free-text notes about the event"
         }
-      ]
+      ],
+      "group_name": "Equipment & Instruments",
+      "group_color": "#059669"
     },
     {
       "id": "EquipmentEventType",
@@ -1339,7 +1413,9 @@
           "fk_target": null,
           "description": "Name of the event type. Controlled vocabulary: Calibration, Validation, Maintenance, Installation, Removal, Firmware Update, Failure, Repair"
         }
-      ]
+      ],
+      "group_name": "Equipment & Instruments",
+      "group_color": "#059669"
     },
     {
       "id": "EquipmentModel",
@@ -1400,7 +1476,9 @@
           "fk_target": null,
           "description": "Location where the manual is stored"
         }
-      ]
+      ],
+      "group_name": "Equipment & Instruments",
+      "group_color": "#059669"
     },
     {
       "id": "EquipmentModelHasParameter",
@@ -1425,7 +1503,9 @@
           "fk_target": "Parameter.Parameter_ID",
           "description": "Link to the Parameter table"
         }
-      ]
+      ],
+      "group_name": "Equipment & Instruments",
+      "group_color": "#059669"
     },
     {
       "id": "EquipmentModelHasProcedures",
@@ -1450,7 +1530,9 @@
           "fk_target": "Procedures.Procedure_ID",
           "description": "Link to the Procedures table"
         }
-      ]
+      ],
+      "group_name": "Equipment & Instruments",
+      "group_color": "#059669"
     },
     {
       "id": "HydrologicalCharacteristics",
@@ -1520,7 +1602,9 @@
           "fk_target": null,
           "description": "Percentage [%] of grasslands"
         }
-      ]
+      ],
+      "group_name": "Site & Facility",
+      "group_color": "#2563eb"
     },
     {
       "id": "LabAnalysis",
@@ -1599,7 +1683,9 @@
           "fk_target": null,
           "description": "Free-text notes about this analysis run"
         }
-      ]
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2"
     },
     {
       "id": "LabValue",
@@ -1669,7 +1755,9 @@
           "fk_target": null,
           "description": "Optional free-text comment reference"
         }
-      ]
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2"
     },
     {
       "id": "Laboratory",
@@ -1712,7 +1800,9 @@
           "fk_target": null,
           "description": "Additional information about the laboratory"
         }
-      ]
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2"
     },
     {
       "id": "Observation",
@@ -1755,7 +1845,9 @@
           "fk_target": null,
           "description": "Payload type: Scalar, Vector, Matrix, or Image. Must match the Channel's ValueType."
         }
-      ]
+      ],
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626"
     },
     {
       "id": "Parameter",
@@ -1798,7 +1890,9 @@
           "fk_target": null,
           "description": "Description of the parameter"
         }
-      ]
+      ],
+      "group_name": "Lookup / Reference",
+      "group_color": "#475569"
     },
     {
       "id": "Person",
@@ -1895,7 +1989,9 @@
           "fk_target": null,
           "description": "Personal or organisation website URL"
         }
-      ]
+      ],
+      "group_name": "Lookup / Reference",
+      "group_color": "#475569"
     },
     {
       "id": "Procedures",
@@ -1947,7 +2043,9 @@
           "fk_target": null,
           "description": "Where is the procedure stored"
         }
-      ]
+      ],
+      "group_name": "Lookup / Reference",
+      "group_color": "#475569"
     },
     {
       "id": "ProcessingDegree",
@@ -1981,7 +2079,9 @@
           "fk_target": null,
           "description": "Explanation of what this processing level means"
         }
-      ]
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
     },
     {
       "id": "ProcessingLineage",
@@ -2042,7 +2142,9 @@
           "fk_target": null,
           "description": "End of the data slice that was consumed or produced by this step (UTC). NULL means the slice is open-ended (ongoing online processing).\n"
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "ProcessingStep",
@@ -2139,7 +2241,9 @@
           "fk_target": "Dataset.Dataset_ID",
           "description": "The Dataset this processing step belongs to. NULL for steps that operate on a single channel without a named analysis context. Required for multivariate steps that consume or produce multiple channels.\n"
         }
-      ]
+      ],
+      "group_name": "Campaign & Provenance",
+      "group_color": "#d97706"
     },
     {
       "id": "QualityCode",
@@ -2182,7 +2286,9 @@
           "fk_target": null,
           "description": "Whether a value carrying this code should be included in analysis. true = value is fit for use; false = value must be excluded or treated specially.\n"
         }
-      ]
+      ],
+      "group_name": "Lookup / Reference",
+      "group_color": "#475569"
     },
     {
       "id": "Sample",
@@ -2288,7 +2394,9 @@
           "fk_target": null,
           "description": "Additional notes about the sample"
         }
-      ]
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2"
     },
     {
       "id": "SampleMethod",
@@ -2322,7 +2430,9 @@
           "fk_target": null,
           "description": "Explanation of the collection method"
         }
-      ]
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2"
     },
     {
       "id": "SampleType",
@@ -2356,7 +2466,9 @@
           "fk_target": null,
           "description": "Explanation of what this sample type represents"
         }
-      ]
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2"
     },
     {
       "id": "SamplingPoint",
@@ -2462,7 +2574,9 @@
           "fk_target": "Campaign.Campaign_ID",
           "description": "Campaign during which this sampling point was first established (if applicable)"
         }
-      ]
+      ],
+      "group_name": "Site & Facility",
+      "group_color": "#2563eb"
     },
     {
       "id": "SchemaVersion",
@@ -2514,7 +2628,9 @@
           "fk_target": null,
           "description": "Filename of the migration script that was applied"
         }
-      ]
+      ],
+      "group_name": "Lookup / Reference",
+      "group_color": "#475569"
     },
     {
       "id": "SignalPort",
@@ -2558,15 +2674,6 @@
           "description": "Kind of data flowing through this port (Value, Status, Alarm, Uncertainty)"
         },
         {
-          "name": "ControlVariableType_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "ControlVariableType.ControlVariableType_ID",
-          "description": "Engineering role of this port in the physical process (MeasuredVariable, ManipulatedVariable, SetPoint, Disturbance, Computed). NULL = unclassified.\n"
-        },
-        {
           "name": "ParentPort_ID",
           "sql_type": "INT",
           "is_pk": false,
@@ -2593,7 +2700,9 @@
           "fk_target": null,
           "description": "Free-text notes about this port"
         }
-      ]
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
     },
     {
       "id": "SignalPortEquipmentHistory",
@@ -2654,7 +2763,9 @@
           "fk_target": null,
           "description": "Free-text notes (e.g. reason for swap, calibration context)"
         }
-      ]
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
     },
     {
       "id": "SignalPortLocationHistory",
@@ -2715,12 +2826,14 @@
           "fk_target": null,
           "description": "Free-text notes (e.g. reason for relocation)"
         }
-      ]
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
     },
     {
       "id": "SignalPortType",
       "label": "SignalPortType",
-      "description": "Controlled vocabulary describing the kind of data flowing through a SignalPort. Answers \"what kind of signal is this?\" \u2014 orthogonal to ControlVariableType which answers \"what does this port do in the physical process?\". A blower command has SignalPortType=Value and ControlVariableType=ManipulatedVariable. A device health indicator has SignalPortType=Status and ControlVariableType=NULL.\n",
+      "description": "Controlled vocabulary describing the kind of data flowing through a SignalPort. Answers \"what kind of signal is this?\". A blower command has SignalPortType=Value. A device health indicator has SignalPortType=Status.\n",
       "fields": [
         {
           "name": "SignalPortType_ID",
@@ -2749,7 +2862,9 @@
           "fk_target": null,
           "description": "Explanation of what this port type means"
         }
-      ]
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
     },
     {
       "id": "Site",
@@ -2873,7 +2988,9 @@
           "fk_target": null,
           "description": "Address: name of the country"
         }
-      ]
+      ],
+      "group_name": "Site & Facility",
+      "group_color": "#2563eb"
     },
     {
       "id": "Unit",
@@ -2898,7 +3015,9 @@
           "fk_target": null,
           "description": "SI-units only"
         }
-      ]
+      ],
+      "group_name": "Lookup / Reference",
+      "group_color": "#475569"
     },
     {
       "id": "UrbanCharacteristics",
@@ -2977,7 +3096,9 @@
           "fk_target": null,
           "description": "Percentage [%] of recreational areas. For example parks or sport fields"
         }
-      ]
+      ],
+      "group_name": "Site & Facility",
+      "group_color": "#2563eb"
     },
     {
       "id": "Value",
@@ -3002,7 +3123,9 @@
           "fk_target": null,
           "description": "Measured scalar value"
         }
-      ]
+      ],
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626"
     },
     {
       "id": "ValueBin",
@@ -3054,7 +3177,9 @@
           "fk_target": null,
           "description": "Exclusive upper edge of this bin in the axis unit; must be greater than LowerBound"
         }
-      ]
+      ],
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626"
     },
     {
       "id": "ValueBinningAxis",
@@ -3106,7 +3231,9 @@
           "fk_target": "Unit.Unit_ID",
           "description": "Physical unit of the axis coordinates (e.g. nm, \u00b5m, m/s) \u2014 distinct from the measured value unit stored in MetaData"
         }
-      ]
+      ],
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626"
     },
     {
       "id": "ValueImage",
@@ -3203,7 +3330,9 @@
           "fk_target": null,
           "description": "Quality flag for this image"
         }
-      ]
+      ],
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626"
     },
     {
       "id": "ValueMatrix",
@@ -3255,7 +3384,9 @@
           "fk_target": null,
           "description": "Quality flag for this measurement"
         }
-      ]
+      ],
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626"
     },
     {
       "id": "ValueType",
@@ -3280,7 +3411,9 @@
           "fk_target": null,
           "description": "Human-readable name of the value type (Scalar, Vector, Matrix, or Image)"
         }
-      ]
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
     },
     {
       "id": "ValueVector",
@@ -3323,7 +3456,9 @@
           "fk_target": null,
           "description": "Quality flag for this measurement"
         }
-      ]
+      ],
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626"
     },
     {
       "id": "Watershed",
@@ -3384,15 +3519,17 @@
           "fk_target": null,
           "description": "Percentage of the impervious surface of the watershed in percentage [%]"
         }
-      ]
+      ],
+      "group_name": "Site & Facility",
+      "group_color": "#2563eb"
     }
   ],
   "views": [
     {
       "id": "vw_ChannelStatus",
       "label": "vw_ChannelStatus",
-      "description": "Join view for per-channel sensor status queries. Selects all Channel rows where StatusChannel_ID is non-NULL, joining each status time series back to its measurement Channel.",
-      "view_definition": "SELECT\n    statusC.[Channel_ID]          AS StatusChannelID,\n    statusC.[StatusChannel_ID]    AS MeasurementChannelID,\n    measC.[Equipment_ID]          AS EquipmentID,\n    e.[identifier]                AS EquipmentName,\n    p.[Parameter]                 AS MeasurementParameter,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT)        AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]\nJOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]\nJOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]\nJOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]\nLEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)\nWHERE statusC.[StatusChannel_ID] IS NOT NULL\n",
+      "description": "Per-channel sensor status view. A status channel is a Channel whose SignalPort has SignalPortType=Status and a non-null ParentPort_ID pointing to the measured value port. Navigates via SignalPort sub-signal relationship \u2014 replaces the StatusChannel_ID column from v2.x.\n",
+      "view_definition": "SELECT\n    statusC.[Channel_ID]        AS StatusChannelID,\n    valueC.[Channel_ID]         AS MeasurementChannelID,\n    e.[Equipment_ID]            AS EquipmentID,\n    e.[Identifier]              AS EquipmentName,\n    p.[Parameter]               AS MeasurementParameter,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)      AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]\nJOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]\nJOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]\nJOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]\nJOIN [dbo].[SignalPort]                valueP   ON valueP.[SignalPort_ID]  = statusP.[ParentPort_ID]\nJOIN [dbo].[Channel]                   valueC   ON valueC.[SignalPort_ID]  = valueP.[SignalPort_ID]\nJOIN [dbo].[Parameter]                 p        ON p.[Parameter_ID]        = valueC.[Parameter_ID]\nLEFT JOIN [dbo].[SignalPortEquipmentHistory] peh  ON peh.[SignalPort_ID]     = valueP.[SignalPort_ID]\n                                                  AND peh.[EndTime]          IS NULL\nLEFT JOIN [dbo].[Equipment]            e        ON e.[Equipment_ID]        = peh.[Equipment_ID]\nWHERE spt.[Name] = N'Status'\n  AND statusP.[ParentPort_ID] IS NOT NULL\n",
       "columns": [
         {
           "name": "StatusChannelID",
@@ -3419,16 +3556,16 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Equipment ID of the sensor"
+          "description": "Equipment ID of the currently-linked sensor (NULL if no active history row)"
         },
         {
           "name": "EquipmentName",
-          "sql_type": "NVARCHAR(100)",
+          "sql_type": "NVARCHAR(200)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Name/identifier of the equipment"
+          "description": "Identifier of the currently-linked equipment"
         },
         {
           "name": "MeasurementParameter",
@@ -3446,7 +3583,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Timestamp of the status transition"
+          "description": "Timestamp of the status observation"
         },
         {
           "name": "StatusCodeID",
@@ -3455,42 +3592,17 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Status code from SensorStatusCode"
-        },
-        {
-          "name": "StatusName",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Human-readable status name"
-        },
-        {
-          "name": "IsOperational",
-          "sql_type": "BIT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Whether data is trustworthy in this status"
-        },
-        {
-          "name": "Severity",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
+          "description": "Raw integer status code stored in the status Channel's Value rows"
         }
-      ]
+      ],
+      "group_name": "Views",
+      "group_color": "#0284c7"
     },
     {
       "id": "vw_DeviceStatus",
       "label": "vw_DeviceStatus",
-      "description": "Join view for device-level sensor status queries. Joins via EquipmentStatusChannel to resolve the equipment-level status Channel for each piece of equipment.",
-      "view_definition": "SELECT\n    statusC.[Channel_ID]          AS StatusChannelID,\n    esc.[Equipment_ID]            AS EquipmentID,\n    e.[identifier]                AS EquipmentName,\n    v.[Timestamp],\n    CAST(v.[Value] AS INT)        AS StatusCodeID,\n    sc.[StatusName],\n    sc.[IsOperational],\n    sc.[Severity]\nFROM [dbo].[Value] v\nJOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]\nJOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]\nJOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]\nLEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT)\n",
+      "description": "Device-level status view. Finds status channels by following the currently-active SignalPortEquipmentHistory row for each equipment, then filtering for ports with SignalPortType=Status. Replaces the EquipmentStatusChannel junction table from v2.x.\n",
+      "view_definition": "SELECT\n    statusC.[Channel_ID]        AS StatusChannelID,\n    e.[Equipment_ID]            AS EquipmentID,\n    e.[Identifier]              AS EquipmentName,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)      AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]\nJOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]\nJOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]\nJOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]\nJOIN [dbo].[SignalPortEquipmentHistory]  peh      ON peh.[SignalPort_ID]     = statusP.[SignalPort_ID]\n                                                 AND peh.[EndTime]          IS NULL\nJOIN [dbo].[Equipment]                 e        ON e.[Equipment_ID]        = peh.[Equipment_ID]\nWHERE spt.[Name] = N'Status'\n",
       "columns": [
         {
           "name": "StatusChannelID",
@@ -3512,12 +3624,12 @@
         },
         {
           "name": "EquipmentName",
-          "sql_type": "NVARCHAR(100)",
+          "sql_type": "NVARCHAR(200)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Name/identifier of the equipment"
+          "description": "Identifier of the equipment"
         },
         {
           "name": "Timestamp",
@@ -3526,7 +3638,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Timestamp of the status transition"
+          "description": "Timestamp of the status observation"
         },
         {
           "name": "StatusCodeID",
@@ -3535,36 +3647,11 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Status code from SensorStatusCode"
-        },
-        {
-          "name": "StatusName",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Human-readable status name"
-        },
-        {
-          "name": "IsOperational",
-          "sql_type": "BIT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Whether data is trustworthy in this status"
-        },
-        {
-          "name": "Severity",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Urgency level (0=normal, 1=warning, 2=fault, 3=critical)"
+          "description": "Raw integer status code stored in the status Channel's Value rows"
         }
-      ]
+      ],
+      "group_name": "Views",
+      "group_color": "#0284c7"
     }
   ],
   "relationships": [
@@ -4025,13 +4112,6 @@
     },
     {
       "from_table": "SignalPort",
-      "to_table": "ControlVariableType",
-      "from_field": "ControlVariableType_ID",
-      "to_field": "ControlVariableType_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "SignalPort",
       "to_table": "SignalPort",
       "from_field": "ParentPort_ID",
       "to_field": "SignalPort_ID",
@@ -4142,7 +4222,60 @@
       "to_field": "ValueBin_ID",
       "relationship_type": null
     }
-  ]
+  ],
+  "groups": [
+    {
+      "key": "site_facility",
+      "name": "Site & Facility",
+      "color": "#2563eb"
+    },
+    {
+      "key": "equipment",
+      "name": "Equipment & Instruments",
+      "color": "#059669"
+    },
+    {
+      "key": "signal_channel",
+      "name": "Signal / Channel",
+      "color": "#7c3aed"
+    },
+    {
+      "key": "observations",
+      "name": "Observations & Values",
+      "color": "#dc2626"
+    },
+    {
+      "key": "lab",
+      "name": "Lab",
+      "color": "#0891b2"
+    },
+    {
+      "key": "campaign_provenance",
+      "name": "Campaign & Provenance",
+      "color": "#d97706"
+    },
+    {
+      "key": "annotations",
+      "name": "Annotations",
+      "color": "#4d7c0f"
+    },
+    {
+      "key": "control_loops",
+      "name": "Control Loops",
+      "color": "#be123c"
+    },
+    {
+      "key": "reference",
+      "name": "Lookup / Reference",
+      "color": "#475569"
+    }
+  ],
+  "settings": {
+    "default_group_name": "Uncategorized",
+    "default_color": "#6b7280",
+    "view_group_name": "Views",
+    "view_color": "#0284c7"
+  }
 };
 
         // --- Custom HTML Element Definition ---
@@ -4170,6 +4303,12 @@
                 // Check if this is a view
                 if (this.model.get('isView')) {
                     this.div.classList.add('view');
+                }
+
+                // Apply group color as a colored left border accent
+                const _data = this.model.get('isView') ? this.model.get('viewData') : this.model.get('tableData');
+                if (_data && _data.group_color && !this.model.get('isView')) {
+                    this.div.style.borderLeft = `4px solid ${_data.group_color}`;
                 }
 
                 // Prevent paper panning when clicking on the element
@@ -4221,9 +4360,11 @@
                 });
 
                 const badgeHtml = isView ? '<span class="view-badge">VIEW</span>' : '';
+                const headerBg = (!isView && data.group_color) ? data.group_color + '18' : '';
+                const headerStyle = headerBg ? `style="background:${headerBg}"` : '';
 
                 this.div.innerHTML = `
-                    <div class="table-header" onmousedown="startDrag(event, '${this.model.id}')">
+                    <div class="table-header" ${headerStyle} onmousedown="startDrag(event, '${this.model.id}')">
                         <span>${data.label}</span>${badgeHtml}
                         <span class="info-btn" onclick="showTableDetails('${entityJson}', event)">ℹ️</span>
                     </div>
@@ -4425,27 +4566,46 @@
             }
         });
 
-        // --- Auto Layout ---
+        // --- Auto Layout (dagre-based, no dependency on joint.layout.DirectedGraph) ---
         function autoLayout() {
-            joint.layout.DirectedGraph.layout(graph, {
-                dagre: dagre,
-                graphlib: dagre.graphlib,
-                rankDir: 'LR', // Left to Right flow is often better for wide tables
-                nodeSep: 60,
-                rankSep: 120,
-                marginX: 50,
-                marginY: 50
-            });
-            
-            // Force update of HTML elements after layout moves SVG nodes
-            graph.getElements().forEach(el => {
-                // Trigger change event to update div position
-                el.trigger('change:position'); 
-            });
-            
-            paper.scaleContentToFit({ padding: 50, maxScale: 1 });
-            // Update zoom level tracker
-            currentScale = paper.scale().sx;
+            try {
+                // Build a dagre graph from the JointJS graph
+                const g = new dagre.graphlib.Graph();
+                g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 120, marginx: 50, marginy: 50 });
+                g.setDefaultEdgeLabel(function() { return {}; });
+
+                // Add nodes
+                graph.getElements().forEach(function(el) {
+                    const size = el.size();
+                    g.setNode(el.id, { width: size.width, height: size.height });
+                });
+
+                // Add edges
+                graph.getLinks().forEach(function(link) {
+                    const src = link.getSourceElement();
+                    const tgt = link.getTargetElement();
+                    if (src && tgt) { g.setEdge(src.id, tgt.id); }
+                });
+
+                // Run layout
+                dagre.layout(g);
+
+                // Apply positions back to JointJS models
+                g.nodes().forEach(function(nodeId) {
+                    const n = g.node(nodeId);
+                    const el = graph.getCell(nodeId);
+                    if (el && n) {
+                        // dagre positions are center-based; JointJS uses top-left
+                        el.position(n.x - n.width / 2, n.y - n.height / 2);
+                    }
+                });
+
+                paper.scaleContentToFit({ padding: 50, maxScale: 1 });
+                currentScale = paper.scale().sx;
+            } catch (e) {
+                console.error('Auto-layout failed:', e);
+                alert('Auto-layout failed: ' + e.message);
+            }
         }
 
         // Initial Layout
@@ -4662,127 +4822,226 @@
         function exportPNG() {
             closeSidebar();
 
-            // Get the paper element
-            const paperElement = document.getElementById('paper');
-
-            // Calculate the bounding box of all elements
             const bbox = graph.getBBox();
+            if (!bbox || bbox.width === 0) {
+                alert('Nothing to export.');
+                return;
+            }
 
-            // Add some padding
             const padding = 50;
-            const width = bbox.width + (padding * 2);
-            const height = bbox.height + (padding * 2);
+            const width = Math.ceil(bbox.width + padding * 2);
+            const height = Math.ceil(bbox.height + padding * 2);
 
-            // Temporarily adjust view to fit content
             const originalTransform = paper.translate();
             const originalScale = paper.scale();
+            const paperElement = document.getElementById('paper');
+            const oldOverflow = paperElement.style.overflow;
 
-            // Reset to show all content
-            paper.translate(padding - bbox.x, padding - bbox.y);
+            // Reset view so all content fits exactly in [0, width] x [0, height]
             paper.scale(1, 1);
+            paper.translate(padding - bbox.x, padding - bbox.y);
 
-            // Use html2canvas to render
-            html2canvas(paperElement, {
-                backgroundColor: '#f0f2f5',
-                width: width,
-                height: height,
-                scrollX: 0,
-                scrollY: 0,
-                windowWidth: width,
-                windowHeight: height,
-                useCORS: true
-            }).then(canvas => {
-                // Convert canvas to blob and download
-                canvas.toBlob(blob => {
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.download = 'dateaubase_erd.png';
-                    link.href = url;
-                    link.click();
-                    URL.revokeObjectURL(url);
+            // Temporarily allow overflow so html2canvas can read all positioned children
+            paperElement.style.overflow = 'visible';
+
+            // Wait two animation frames for CSS transforms to flush before capture
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    html2canvas(paperElement, {
+                        backgroundColor: '#f0f2f5',
+                        width: width,
+                        height: height,
+                        x: 0,
+                        y: 0,
+                        scrollX: 0,
+                        scrollY: 0,
+                        useCORS: true,
+                        allowTaint: true,
+                        scale: 1
+                    }).then(function(canvas) {
+                        canvas.toBlob(function(blob) {
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.download = 'dateaubase_erd.png';
+                            link.href = url;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                        });
+                        paperElement.style.overflow = oldOverflow;
+                        paper.translate(originalTransform.tx, originalTransform.ty);
+                        paper.scale(originalScale.sx, originalScale.sy);
+                    }).catch(function(err) {
+                        console.error('PNG export error:', err);
+                        alert('PNG export failed. See console for details.');
+                        paperElement.style.overflow = oldOverflow;
+                        paper.translate(originalTransform.tx, originalTransform.ty);
+                        paper.scale(originalScale.sx, originalScale.sy);
+                    });
                 });
-
-                // Restore original view
-                paper.translate(originalTransform.tx, originalTransform.ty);
-                paper.scale(originalScale.sx, originalScale.sy);
-            }).catch(err => {
-                console.error('Error generating PNG:', err);
-                alert('Error generating PNG. See console for details.');
-
-                // Restore original view even on error
-                paper.translate(originalTransform.tx, originalTransform.ty);
-                paper.scale(originalScale.sx, originalScale.sy);
             });
         }
 
         function exportSVG() {
             closeSidebar();
 
-            // Get the SVG element from the paper
-            const svgElement = paper.svg;
-
-            // Clone the SVG to avoid modifying the original
-            const svgClone = svgElement.cloneNode(true);
-
-            // Get bounding box for proper dimensions
             const bbox = graph.getBBox();
+            if (!bbox || bbox.width === 0) {
+                alert('Nothing to export.');
+                return;
+            }
+
             const padding = 50;
+            const NS = 'http://www.w3.org/2000/svg';
 
-            // Set viewBox and dimensions
+            // Start fresh SVG (clone paper SVG for relationship lines)
+            const svgClone = paper.svg.cloneNode(true);
+            svgClone.setAttribute('xmlns', NS);
             svgClone.setAttribute('viewBox', `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + padding * 2} ${bbox.height + padding * 2}`);
-            svgClone.setAttribute('width', bbox.width + padding * 2);
-            svgClone.setAttribute('height', bbox.height + padding * 2);
+            svgClone.setAttribute('width', String(bbox.width + padding * 2));
+            svgClone.setAttribute('height', String(bbox.height + padding * 2));
 
-            // Add background rectangle
-            const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            bgRect.setAttribute('x', bbox.x - padding);
-            bgRect.setAttribute('y', bbox.y - padding);
-            bgRect.setAttribute('width', bbox.width + padding * 2);
-            bgRect.setAttribute('height', bbox.height + padding * 2);
-            bgRect.setAttribute('fill', '#f0f2f5');
-            svgClone.insertBefore(bgRect, svgClone.firstChild);
+            // Background
+            const bg = document.createElementNS(NS, 'rect');
+            bg.setAttribute('x', String(bbox.x - padding));
+            bg.setAttribute('y', String(bbox.y - padding));
+            bg.setAttribute('width', String(bbox.width + padding * 2));
+            bg.setAttribute('height', String(bbox.height + padding * 2));
+            bg.setAttribute('fill', '#f0f2f5');
+            svgClone.insertBefore(bg, svgClone.firstChild);
 
-            // Embed HTML elements as foreignObject
-            const htmlElements = document.querySelectorAll('.html-element');
-            htmlElements.forEach(htmlEl => {
-                const modelId = htmlEl.id;
-                const model = graph.getCell(modelId);
-                if (!model) return;
+            // Helper: create SVG text element
+            function svgText(x, y, txt, opts) {
+                const t = document.createElementNS(NS, 'text');
+                t.setAttribute('x', String(x));
+                t.setAttribute('y', String(y));
+                t.setAttribute('font-family', opts.mono ? 'monospace' : 'Arial, sans-serif');
+                t.setAttribute('font-size', String(opts.size || 12));
+                if (opts.weight) t.setAttribute('font-weight', opts.weight);
+                t.setAttribute('fill', opts.fill || '#334155');
+                if (opts.anchor) t.setAttribute('text-anchor', opts.anchor);
+                t.textContent = String(txt).substring(0, 40); // cap length
+                return t;
+            }
 
-                const bbox = model.getBBox();
+            // Render each table/view as native SVG
+            graph.getElements().forEach(function(model) {
+                const isView = model.get('isView');
+                const data = isView ? model.get('viewData') : model.get('tableData');
+                if (!data) return;
 
-                // Create foreignObject to embed HTML
-                const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-                foreignObject.setAttribute('x', bbox.x);
-                foreignObject.setAttribute('y', bbox.y);
-                foreignObject.setAttribute('width', bbox.width);
-                foreignObject.setAttribute('height', bbox.height);
+                const eb = model.getBBox();
+                const HEADER_H = 40;
+                const ROW_H = 30;
+                const items = isView ? data.columns : data.fields;
+                const groupColor = data.group_color || (isView ? '#0284c7' : '#e2e8f0');
 
-                // Clone the HTML element and its styles
-                const htmlClone = htmlEl.cloneNode(true);
-                htmlClone.style.transform = 'none';
-                htmlClone.style.position = 'relative';
-                htmlClone.style.width = bbox.width + 'px';
-                htmlClone.style.height = bbox.height + 'px';
+                const g = document.createElementNS(NS, 'g');
 
-                foreignObject.appendChild(htmlClone);
-                svgClone.appendChild(foreignObject);
+                // Outer rect
+                const outerRect = document.createElementNS(NS, 'rect');
+                outerRect.setAttribute('x', String(eb.x));
+                outerRect.setAttribute('y', String(eb.y));
+                outerRect.setAttribute('width', String(eb.width));
+                outerRect.setAttribute('height', String(eb.height));
+                outerRect.setAttribute('fill', isView ? '#eff6ff' : '#ffffff');
+                outerRect.setAttribute('stroke', isView ? '#3b82f6' : '#e2e8f0');
+                outerRect.setAttribute('stroke-width', isView ? '2' : '1');
+                outerRect.setAttribute('rx', '8');
+                g.appendChild(outerRect);
+
+                // Header background
+                const headerRect = document.createElementNS(NS, 'rect');
+                headerRect.setAttribute('x', String(eb.x));
+                headerRect.setAttribute('y', String(eb.y));
+                headerRect.setAttribute('width', String(eb.width));
+                headerRect.setAttribute('height', String(HEADER_H));
+                headerRect.setAttribute('fill', isView ? '#dbeafe' : (groupColor + '18'));
+                headerRect.setAttribute('rx', '8');
+                g.appendChild(headerRect);
+                // Square off bottom corners of header
+                const headerFix = document.createElementNS(NS, 'rect');
+                headerFix.setAttribute('x', String(eb.x));
+                headerFix.setAttribute('y', String(eb.y + HEADER_H / 2));
+                headerFix.setAttribute('width', String(eb.width));
+                headerFix.setAttribute('height', String(HEADER_H / 2));
+                headerFix.setAttribute('fill', isView ? '#dbeafe' : (groupColor + '18'));
+                g.appendChild(headerFix);
+
+                // Group accent border (left side)
+                if (!isView) {
+                    const accent = document.createElementNS(NS, 'rect');
+                    accent.setAttribute('x', String(eb.x));
+                    accent.setAttribute('y', String(eb.y));
+                    accent.setAttribute('width', '4');
+                    accent.setAttribute('height', String(eb.height));
+                    accent.setAttribute('fill', groupColor);
+                    accent.setAttribute('rx', '8');
+                    g.appendChild(accent);
+                }
+
+                // Header divider
+                const divider = document.createElementNS(NS, 'line');
+                divider.setAttribute('x1', String(eb.x));
+                divider.setAttribute('y1', String(eb.y + HEADER_H));
+                divider.setAttribute('x2', String(eb.x + eb.width));
+                divider.setAttribute('y2', String(eb.y + HEADER_H));
+                divider.setAttribute('stroke', '#e2e8f0');
+                g.appendChild(divider);
+
+                // Header title
+                g.appendChild(svgText(eb.x + 14, eb.y + 25, data.label, {
+                    size: 13, weight: '600', fill: isView ? '#1e40af' : '#1e293b'
+                }));
+
+                // Rows
+                items.forEach(function(field, idx) {
+                    const rowY = eb.y + HEADER_H + idx * ROW_H;
+
+                    // Row separator
+                    const sep = document.createElementNS(NS, 'line');
+                    sep.setAttribute('x1', String(eb.x));
+                    sep.setAttribute('y1', String(rowY));
+                    sep.setAttribute('x2', String(eb.x + eb.width));
+                    sep.setAttribute('y2', String(rowY));
+                    sep.setAttribute('stroke', '#f1f5f9');
+                    g.appendChild(sep);
+
+                    // PK/FK badge
+                    if (field.is_pk || field.is_fk) {
+                        const badge = field.is_pk ? 'PK' : 'FK';
+                        const badgeColor = field.is_pk ? '#ca8a04' : '#7c3aed';
+                        g.appendChild(svgText(eb.x + 14, rowY + 19, badge, {
+                            size: 9, weight: 'bold', fill: badgeColor
+                        }));
+                    }
+
+                    // Field name
+                    g.appendChild(svgText(eb.x + 32, rowY + 19, field.name, {
+                        size: 11, fill: '#334155'
+                    }));
+
+                    // Field type (right-aligned)
+                    g.appendChild(svgText(eb.x + eb.width - 8, rowY + 19, field.sql_type, {
+                        size: 10, fill: '#64748b', mono: true, anchor: 'end'
+                    }));
+                });
+
+                svgClone.appendChild(g);
             });
 
-            // Serialize SVG to string
             const serializer = new XMLSerializer();
-            let svgString = serializer.serializeToString(svgClone);
-
-            // Add XML declaration and namespaces
-            svgString = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgString;
-
-            // Create blob and download
+            const svgString = '<?xml version="1.0" encoding="UTF-8"?>
+' + serializer.serializeToString(svgClone);
             const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.download = 'dateaubase_erd.svg';
             link.href = url;
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
         
