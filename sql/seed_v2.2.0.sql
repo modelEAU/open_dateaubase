@@ -196,14 +196,15 @@ INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [SamplingPoint_ID],
 INSERT INTO [dbo].[EquipmentEvent] ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart], [EventDateTimeEnd], [PerformedByPerson_ID], [Campaign_ID], [Notes])
 VALUES (1, 1, '2024-01-10T09:00:00', '2024-01-10T11:00:00', 1, 1, N'Pre-deployment calibration using TSS standard solutions');  -- ID 1
 
--- Equipment installation: ISCO-001 at WWTP inlet
-INSERT INTO [dbo].[EquipmentInstallation] ([Equipment_ID], [SamplingPoint_ID], [InstalledDate], [Campaign_ID], [Notes])
-VALUES (1, 1, '2024-01-11T08:00:00', 1, N'Installed for routine inlet monitoring campaign');  -- ID 1
+-- EquipmentInstallation dropped in v3.0.0 (replaced by SignalPortEquipmentHistory / SignalPortLocationHistory)
 
 -- ============================================================
--- TIER 5: Channel
+-- TIER 5+: Channel, Observation, Value, LabAnalysis, Annotation
+-- NOTE: Disabled — Channel now uses SignalPort_ID (v3.0.0) not Equipment_ID.
+--       These inserts need a full rewrite for v3.0.0; the importer creates
+--       its own DAS/SignalPort/Channel rows dynamically via the API.
 -- ============================================================
-
+/*
 -- Channel 1: ISCO-001 TSS (sensor, raw, scalar)
 INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
 VALUES (1, 1, 1, 1, 1);  -- ID 1
@@ -420,5 +421,6 @@ INSERT INTO [dbo].[Annotation] ([Channel_ID], [AnnotationType_ID], [StartTime], 
 VALUES (1, 3, '2024-01-10T09:00:00', '2024-01-10T11:00:00', 1, 1, 1,
         N'Pre-deployment calibration window',
         N'Data during this interval is from calibration, not field measurements.');
+*/
 
-PRINT 'Seed data for v2.2.0 loaded successfully.';
+PRINT 'Seed data for v2.2.0 loaded successfully (Channel/Value/Lab sections disabled pending v3.0.0 update).';
