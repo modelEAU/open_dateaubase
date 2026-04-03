@@ -203,7 +203,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
         # TSDB binary sources
         # ------------------------------------------------------------------
         for tsdb_cfg in settings.tsdb_configs:
-            file_reader_class = get_file_reader(tsdb_cfg.name)
+            file_reader_class = get_file_reader("tsdb")
             mode = tsdb_cfg.mode
 
             for variable in tsdb_cfg.variables:
