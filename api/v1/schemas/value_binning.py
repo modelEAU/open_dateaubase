@@ -44,3 +44,12 @@ class ValueBinningAxisDetail(ValueBinningAxisOut):
     """Output schema with full bin details."""
 
     bins: list[ValueBinItem]
+
+
+class ValueBinningAxisUpdate(BaseModel):
+    """Partial update schema for ValueBinningAxis (PATCH)."""
+
+    name: str | None = None
+    description: str | None = None
+    unit_id: int | None = None
+    bins: list[ValueBinItem] | None = None

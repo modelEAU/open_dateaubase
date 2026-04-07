@@ -10,6 +10,7 @@ from ..schemas.value_binning import (
     ValueBinningAxisIn,
     ValueBinningAxisOut,
     ValueBinningAxisDetail,
+    ValueBinningAxisUpdate,
 )
 
 router = APIRouter()
@@ -48,6 +49,20 @@ def create_binning_axis(body: ValueBinningAxisIn, conn=Depends(get_db)):
     # Remove bins for the response (use base schema)
     axis.pop("bins", None)
     return axis
+
+
+@router.patch("/{axis_id}", response_model=ValueBinningAxisOut)
+def patch_binning_axis(axis_id: int, body: ValueBinningAxisUpdate, conn=Depends(get_db)):
+    """Partial update of a ValueBinningAxis."""
+    updated = value_binning_repository.patch_binning_axis(
+        conn, axis_id, body.model_dump(exclude_unset=True)
+    )
+    if updated is None:
+        raise HTTPException(
+            status_code=404, detail=f"ValueBinningAxis {axis_id} not found."
+        )
+    updated.pop("bins", None)
+    return updated
 
 
 @router.delete("/{axis_id}", status_code=204)

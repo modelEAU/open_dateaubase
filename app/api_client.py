@@ -950,6 +950,17 @@ def delete_binning_axis(axis_id: int) -> None:
     _raise_for_status(r)
 
 
+def update_binning_axis(axis_id: int, data: dict) -> dict:
+    """Partial update of a ValueBinningAxis."""
+    try:
+        with _get_client() as client:
+            r = client.patch(f"/value-binning-axes/{axis_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # SignalPort CRUD
 # ---------------------------------------------------------------------------

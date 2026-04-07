@@ -108,6 +108,58 @@ def insert_binning_axis(conn: pyodbc.Connection, data: dict) -> int:
     return axis_id
 
 
+def patch_binning_axis(conn: pyodbc.Connection, axis_id: int, data: dict) -> dict | None:
+    """Partial update of a ValueBinningAxis. Replaces bins if 'bins' key is present."""
+    if get_binning_axis(conn, axis_id) is None:
+        return None
+
+    cursor = conn.cursor()
+    fields: list[str] = []
+    values: list = []
+
+    if "name" in data:
+        fields.append("[Name]=?")
+        values.append(data["name"])
+    if "description" in data:
+        fields.append("[Description]=?")
+        values.append(data["description"])
+    if "unit_id" in data:
+        fields.append("[Unit_ID]=?")
+        values.append(data["unit_id"])
+
+    bins = data.get("bins")
+    if bins is not None:
+        fields.append("[NumberOfBins]=?")
+        values.append(len(bins))
+
+    if fields:
+        values.append(axis_id)
+        cursor.execute(
+            f"UPDATE [dbo].[ValueBinningAxis] SET {', '.join(fields)} WHERE [ValueBinningAxis_ID]=?",
+            *values,
+        )
+
+    if bins is not None:
+        cursor.execute(
+            "DELETE FROM [dbo].[ValueBin] WHERE ValueBinningAxis_ID=?",
+            axis_id,
+        )
+        for bin_item in bins:
+            cursor.execute(
+                """
+                INSERT INTO [dbo].[ValueBin] (ValueBinningAxis_ID, BinIndex, LowerBound, UpperBound)
+                VALUES (?, ?, ?, ?)
+                """,
+                axis_id,
+                bin_item["bin_index"],
+                bin_item["lower_bound"],
+                bin_item["upper_bound"],
+            )
+
+    conn.commit()
+    return get_binning_axis(conn, axis_id)
+
+
 def delete_binning_axis(conn: pyodbc.Connection, axis_id: int) -> None:
     """Delete a ValueBinningAxis and its bins. Raises ValueError if axis is in use."""
     cursor = conn.cursor()
