@@ -199,59 +199,68 @@ VALUES (1, 1, '2024-01-10T09:00:00', '2024-01-10T11:00:00', 1, 1, N'Pre-deployme
 -- EquipmentInstallation dropped in v3.0.0 (replaced by SignalPortEquipmentHistory / SignalPortLocationHistory)
 
 -- ============================================================
--- TIER 5+: Channel, Observation, Value, LabAnalysis, Annotation
--- NOTE: Disabled — Channel now uses SignalPort_ID (v3.0.0) not Equipment_ID.
---       These inserts need a full rewrite for v3.0.0; the importer creates
---       its own DAS/SignalPort/Channel rows dynamically via the API.
+-- TIER 5+: DataAcquisitionSystem, SignalPort, Channel, Observation, Value, LabAnalysis, Annotation
 -- ============================================================
-/*
+-- ============================================================
+-- TIER 5: DataAcquisitionSystem, SignalPort, Channel
+-- ============================================================
+
+-- DataAcquisitionSystem: Quebec City monitoring network
+INSERT INTO [dbo].[DataAcquisitionSystem] ([Name], [SystemType], [Description])
+VALUES (N'Quebec City Environmental Monitoring', N'SCADA', N'Multi-sensor monitoring network for Quebec City watersheds');  -- ID 1
+
+-- SignalPorts (one per channel; SignalPortType 1=Value, 2=Status)
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'ISCO-001:TSS',    1);  -- ID 1
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'ISCO-001:COD',    1);  -- ID 2
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'YSI-001:pH',      1);  -- ID 3
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'YSI-001:Temp',    1);  -- ID 4
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'MANUAL:TSS-Eff',  1);  -- ID 5
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'SCAN-001:UV-Vis', 1);  -- ID 6
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'CAM-001:Image',   1);  -- ID 7
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'LISST-001:PSD',   1);  -- ID 8
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'FLOWCAM-001:SV',  1);  -- ID 9
+INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'ISCO-001:Status', 2);  -- ID 10
+
 -- Channel 1: ISCO-001 TSS (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
 VALUES (1, 1, 1, 1, 1);  -- ID 1
 
 -- Channel 2: ISCO-001 COD (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (1, 2, 1, 1, 1);  -- ID 2
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (2, 2, 1, 1, 1);  -- ID 2
 
 -- Channel 3: YSI-001 pH (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (2, 3, 1, 1, 1);  -- ID 3
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (3, 3, 1, 1, 1);  -- ID 3
 
 -- Channel 4: YSI-001 Temperature (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (2, 4, 1, 1, 1);  -- ID 4
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (4, 4, 1, 1, 1);  -- ID 4
 
--- Channel 5: effluent TSS — no equipment, manual entry
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (NULL, 1, 3, 1, 1);  -- ID 5
+-- Channel 5: effluent TSS — manual entry
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (5, 1, 3, 1, 1);  -- ID 5
 
--- Channel 6: UV-Vis absorbance vector (no equipment-parameter pair in this demo)
--- Use unique combination to satisfy UQ_Channel_SensorStream
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (NULL, NULL, 1, 1, 2);  -- ID 6
+-- Channel 6: UV-Vis absorbance vector
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (6, NULL, 1, 1, 2);  -- ID 6
 
 -- Channel 7: camera image at CSO outfall
--- Use unique ProcessingDegree_ID to satisfy UQ_Channel_SensorStream
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (NULL, NULL, 1, 2, 4);  -- ID 7 (ProcessingDegree_ID=2)
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (7, NULL, 1, 2, 4);  -- ID 7
 
--- Channel 8: particle size distribution (vector, mg/L)
--- Use unique DataProvenance_ID to satisfy UQ_Channel_SensorStream
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (NULL, NULL, 2, 1, 2);  -- ID 8 (DataProvenance_ID=2)
+-- Channel 8: particle size distribution (vector)
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (8, NULL, 2, 1, 2);  -- ID 8
 
 -- Channel 9: particle size-velocity joint distribution (matrix)
--- Use unique ProcessingDegree_ID to satisfy UQ_Channel_SensorStream
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (NULL, NULL, 1, 3, 3);  -- ID 9 (ProcessingDegree_ID=3)
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (9, NULL, 1, 3, 3);  -- ID 9
 
 -- Channel 10: device-level status stream for ISCO-001
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (NULL, 7, 1, 1, 1);  -- ID 10
-
--- Channel 11: per-channel status stream monitoring Channel 1 (ISCO TSS)
-INSERT INTO [dbo].[Channel] ([Equipment_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [StatusChannel_ID])
-VALUES (NULL, 6, 1, 1, 1, 1);  -- ID 11
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
+VALUES (10, 7, 1, 1, 1);  -- ID 10
+-- (Channel 11 dropped — StatusChannel_ID column removed in v3.0.0)
 
 -- ChannelAxis: link vector/matrix channels to their binning axes
 INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (6, 0, 1);  -- UV-Vis: wavelength axis
@@ -335,10 +344,6 @@ INSERT INTO [dbo].[Value] ([Observation_ID], [Value]) VALUES (SCOPE_IDENTITY(), 
 INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType]) VALUES (10, '2024-01-10T09:00:00', 'Scalar');
 INSERT INTO [dbo].[Value] ([Observation_ID], [Value]) VALUES (SCOPE_IDENTITY(), 4.0);
 
--- Per-channel status for Channel 1 (Channel_ID=11, code 1=Operational)
-INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType]) VALUES (11, '2024-01-11T08:00:00', 'Scalar');
-INSERT INTO [dbo].[Value] ([Observation_ID], [Value]) VALUES (SCOPE_IDENTITY(), 1.0);
-
 -- ============================================================
 -- Vector Values via Observation hub
 -- ============================================================
@@ -421,6 +426,5 @@ INSERT INTO [dbo].[Annotation] ([Channel_ID], [AnnotationType_ID], [StartTime], 
 VALUES (1, 3, '2024-01-10T09:00:00', '2024-01-10T11:00:00', 1, 1, 1,
         N'Pre-deployment calibration window',
         N'Data during this interval is from calibration, not field measurements.');
-*/
 
-PRINT 'Seed data for v2.2.0 loaded successfully (Channel/Value/Lab sections disabled pending v3.0.0 update).';
+PRINT 'Seed data for v2.2.0 loaded successfully.';
