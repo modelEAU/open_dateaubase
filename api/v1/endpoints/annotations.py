@@ -73,6 +73,15 @@ def create_annotation(
 annotations_router = APIRouter()
 
 
+@annotations_router.get("", response_model=AnnotationListResponse)
+def list_annotations(
+    channel_id: int | None = Query(None, description="Filter by channel ID"),
+    conn=Depends(get_db),
+):
+    """List all annotations, optionally filtered by channel."""
+    return annotation_service.list_annotations(conn, channel_id)
+
+
 @annotations_router.get("/recent", response_model=AnnotationListResponse)
 def get_recent_annotations(
     limit: int = Query(20, ge=1, le=100, description="Number of annotations to return"),

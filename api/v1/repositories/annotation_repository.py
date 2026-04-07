@@ -272,6 +272,24 @@ def get_recent_annotations(
 
 
 # ---------------------------------------------------------------------------
+# Query: list all annotations (optional channel filter)
+# ---------------------------------------------------------------------------
+
+def list_annotations(
+    conn: pyodbc.Connection,
+    channel_id: int | None = None,
+) -> list[dict]:
+    where = " WHERE a.[Channel_ID] = ?" if channel_id is not None else ""
+    params: list = [channel_id] if channel_id is not None else []
+    cursor = conn.cursor()
+    cursor.execute(
+        _ANNOTATION_SELECT + where + " ORDER BY a.[StartTime] DESC, a.[Annotation_ID]",
+        *params,
+    )
+    return [_row_to_annotation(row) for row in cursor.fetchall()]
+
+
+# ---------------------------------------------------------------------------
 # Single annotation by ID
 # ---------------------------------------------------------------------------
 

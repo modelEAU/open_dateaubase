@@ -193,6 +193,20 @@ def get_recent_annotations(
     return {"annotations": annotations, "count": len(annotations)}
 
 
+def list_annotations(
+    conn: pyodbc.Connection,
+    channel_id: int | None = None,
+) -> dict:
+    rows = annotation_repository.list_annotations(conn, channel_id)
+    annotations = [_build_annotation_response(r) for r in rows]
+    return {
+        "channel_id": channel_id,
+        "query_range": None,
+        "annotations": annotations,
+        "count": len(annotations),
+    }
+
+
 def get_annotations_by_type(
     conn: pyodbc.Connection,
     type_name: str,
