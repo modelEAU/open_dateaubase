@@ -11,7 +11,13 @@ from __future__ import annotations
 
 import io
 import csv
+import sys
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+_project_root = str(Path(__file__).resolve().parent.parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -32,7 +38,17 @@ from app.api_client import (
     list_equipment_event_types,
     create_equipment_event,
 )
+from app.auth import get_current_user, logout, require_auth
 from app.components.lttb import lttb
+
+require_auth()
+
+with st.sidebar:
+    user = get_current_user()
+    if user:
+        st.write(f"Logged in as: **{user['name']}**")
+    if st.button("Sign out"):
+        logout()
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -645,11 +661,9 @@ def _render_sidebar(
 
         # Load channels filtered by campaign to build equipment & parameter lists
         try:
-            base_ch = list_channels(
-                campaign_id=sel_campaign_id,
-                signal_port_id=sel_sp_id,
-                page_size=1000
-            ).get("items", [])
+            base_ch = list_channels(campaign_id=sel_campaign_id, page_size=1000).get(
+                "items", []
+            )
         except APIError:
             base_ch = []
 
@@ -699,7 +713,9 @@ def _render_sidebar(
         sel_param_id: int | None = param_options[sel_param_name]
 
         # --- Value type filter ---
-        sel_vtype_name = st.selectbox("Value type", list(_VALUE_TYPE_OPTIONS.keys()), key="sidebar_vtype")
+        sel_vtype_name = st.selectbox(
+            "Value type", list(_VALUE_TYPE_OPTIONS.keys()), key="sidebar_vtype"
+        )
         sel_vtype_id: int | None = _VALUE_TYPE_OPTIONS[sel_vtype_name]
 
         # --- Signal Port filter ---
@@ -708,8 +724,15 @@ def _render_sidebar(
         except APIError:
             sp_data = []
         sp_options: dict = {"(all signal ports)": None}
-        sp_options.update({f"{sp.get('das_name')} / {sp.get('tag')}": sp["signal_port_id"] for sp in sp_data})
-        sel_sp_name = st.selectbox("Signal Port", list(sp_options.keys()), key="sidebar_signalport")
+        sp_options.update(
+            {
+                f"{sp.get('das_name')} / {sp.get('tag')}": sp["signal_port_id"]
+                for sp in sp_data
+            }
+        )
+        sel_sp_name = st.selectbox(
+            "Signal Port", list(sp_options.keys()), key="sidebar_signalport"
+        )
         sel_sp_id: int | None = sp_options[sel_sp_name]
 
         # --- Channel list (fully filtered) ---
@@ -720,17 +743,6 @@ def _render_sidebar(
                 parameter_id=sel_param_id,
                 value_type_id=sel_vtype_id,
                 signal_port_id=sel_sp_id,
-                page_size=500,
-            )
-        sel_vtype_id: int | None = _VALUE_TYPE_OPTIONS[sel_vtype_name]
-
-        # --- Channel list (fully filtered) ---
-        try:
-            ch_data = list_channels(
-                campaign_id=sel_campaign_id,
-                equipment_id=sel_eq_id,
-                parameter_id=sel_param_id,
-                value_type_id=sel_vtype_id,
                 page_size=500,
             )
             channels = ch_data.get("items", [])
