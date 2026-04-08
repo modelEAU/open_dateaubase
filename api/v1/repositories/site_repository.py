@@ -9,10 +9,11 @@ def get_all_sites(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT s.[Site_ID], s.[Name], s.[Type], s.[Description],
+        SELECT s.[Site_ID], s.[Name], s.[SiteType_ID], st.[Name] AS SiteTypeName, s.[Description],
                s.[LatitudeWGS84], s.[LongitudeWGS84],
                s.[City], s.[Province], s.[Country]
         FROM [dbo].[Site] s
+        LEFT JOIN [dbo].[SiteType] st ON s.[SiteType_ID] = st.[SiteType_ID]
         ORDER BY s.[Site_ID]
         """
     )
@@ -20,13 +21,14 @@ def get_all_sites(conn: pyodbc.Connection) -> list[dict]:
         {
             "id": row[0],
             "name": row[1],
-            "type": row[2],
-            "description": row[3],
-            "lat_wgs84": row[4],
-            "long_wgs84": row[5],
-            "city": row[6],
-            "province": row[7],
-            "country": row[8],
+            "site_type_id": row[2],
+            "site_type_name": row[3],
+            "description": row[4],
+            "lat_wgs84": row[5],
+            "long_wgs84": row[6],
+            "city": row[7],
+            "province": row[8],
+            "country": row[9],
         }
         for row in cursor.fetchall()
     ]
@@ -36,10 +38,11 @@ def get_site_by_id(conn: pyodbc.Connection, site_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT s.[Site_ID], s.[Name], s.[Type], s.[Description],
+        SELECT s.[Site_ID], s.[Name], s.[SiteType_ID], st.[Name] AS SiteTypeName, s.[Description],
                s.[LatitudeWGS84], s.[LongitudeWGS84],
                s.[City], s.[Province], s.[Country]
         FROM [dbo].[Site] s
+        LEFT JOIN [dbo].[SiteType] st ON s.[SiteType_ID] = st.[SiteType_ID]
         WHERE s.[Site_ID] = ?
         """,
         site_id,
@@ -50,13 +53,14 @@ def get_site_by_id(conn: pyodbc.Connection, site_id: int) -> dict | None:
     return {
         "id": row[0],
         "name": row[1],
-        "type": row[2],
-        "description": row[3],
-        "lat_wgs84": row[4],
-        "long_wgs84": row[5],
-        "city": row[6],
-        "province": row[7],
-        "country": row[8],
+        "site_type_id": row[2],
+        "site_type_name": row[3],
+        "description": row[4],
+        "lat_wgs84": row[5],
+        "long_wgs84": row[6],
+        "city": row[7],
+        "province": row[8],
+        "country": row[9],
     }
 
 
@@ -65,12 +69,12 @@ def insert_site(conn: pyodbc.Connection, data: dict) -> dict:
     cursor.execute(
         """
         INSERT INTO [dbo].[Site]
-            ([Name], [Type], [Description], [LatitudeWGS84], [LongitudeWGS84],
+            ([Name], [SiteType_ID], [Description], [LatitudeWGS84], [LongitudeWGS84],
              [City], [Province], [Country])
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         data["name"],
-        data.get("type"),
+        data.get("site_type_id"),
         data.get("description"),
         data.get("lat_wgs84"),
         data.get("long_wgs84"),
@@ -89,13 +93,13 @@ def update_site(conn: pyodbc.Connection, site_id: int, data: dict) -> dict | Non
     cursor.execute(
         """
         UPDATE [dbo].[Site]
-        SET [Name]=?, [Type]=?, [Description]=?,
+        SET [Name]=?, [SiteType_ID]=?, [Description]=?,
             [LatitudeWGS84]=?, [LongitudeWGS84]=?,
             [City]=?, [Province]=?, [Country]=?
         WHERE [Site_ID]=?
         """,
         data["name"],
-        data.get("type"),
+        data.get("site_type_id"),
         data.get("description"),
         data.get("lat_wgs84"),
         data.get("long_wgs84"),
@@ -132,9 +136,9 @@ def patch_site(conn: pyodbc.Connection, site_id: int, data: dict) -> dict | None
     if "name" in data:
         fields.append("[Name]=?")
         values.append(data["name"])
-    if "type" in data:
-        fields.append("[Type]=?")
-        values.append(data.get("type"))
+    if "site_type_id" in data:
+        fields.append("[SiteType_ID]=?")
+        values.append(data.get("site_type_id"))
     if "description" in data:
         fields.append("[Description]=?")
         values.append(data.get("description"))
@@ -165,6 +169,13 @@ def patch_site(conn: pyodbc.Connection, site_id: int, data: dict) -> dict | None
     )
     conn.commit()
     return get_site_by_id(conn, site_id)
+
+
+def get_all_site_types(conn: pyodbc.Connection) -> list[dict]:
+    """Return all site types for dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT [SiteType_ID], [Name], [Description] FROM [dbo].[SiteType] ORDER BY [Name]")
+    return [{"id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
 
 
 def get_sites_lookup(conn: pyodbc.Connection) -> list[dict]:

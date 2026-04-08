@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: SiteType
+  schema: dbo
+  description: "Lookup table for controlled vocabulary of site types"
+
+  columns:
+    - name: SiteType_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Primary key for the SiteType lookup"
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the site type (e.g. Wastewater Treatment Plant)"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Detailed description of the site type"
+
+  primary_key: [SiteType_ID]

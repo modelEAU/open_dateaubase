@@ -27,6 +27,7 @@ from app.api_client import (
     patch_campaign,
 )
 from app.auth import get_current_user, logout, require_auth
+from app.components.campaign_wizard import render_wizard
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
 
 
@@ -123,6 +124,11 @@ with st.sidebar:
 
 st.title("Campaigns")
 
+# Show wizard instead of normal page when active
+if st.session_state.get("wizard_active"):
+    render_wizard()
+    st.stop()
+
 # Load campaigns, sites, campaign types, equipment, and sampling points
 try:
     with st.spinner("Loading..."):
@@ -198,7 +204,11 @@ def handle_delete_campaign(campaign_id: int) -> None:
 
 
 # Action buttons
-col1, col2, col3 = st.columns([1, 1, 8])
+col1, col2, col3, col_wiz = st.columns([1, 1, 2, 6])
+with col_wiz:
+    if st.button("🪄 Campaign Wizard", type="secondary"):
+        st.session_state.wizard_active = True
+        st.rerun()
 with col1:
     if st.button("➕ New", type="primary"):
         create_form_dialog(

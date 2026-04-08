@@ -12,6 +12,7 @@ from ..schemas.metadata import (
     SiteOut,
     SitePatch,
     SiteLookupOut,
+    SiteTypeOut,
 )
 
 router = APIRouter()
@@ -70,6 +71,12 @@ def patch_site(site_id: int, body: SitePatch, conn=Depends(get_db)):
 def list_sites_lookup(conn=Depends(get_db)):
     """Return lightweight site list for dropdowns (id, name only)."""
     return site_repository.get_sites_lookup(conn)
+
+
+@router.get("/site-types", response_model=list[SiteTypeOut])
+def list_site_types(conn=Depends(get_db)):
+    """Return all site types."""
+    return site_repository.get_all_site_types(conn)
 
 
 @router.get("/{site_id}/sampling-locations", response_model=list[SamplingLocationOut])

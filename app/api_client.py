@@ -124,6 +124,17 @@ def list_sites_lookup() -> list[dict]:
     return r.json()
 
 
+def list_site_types() -> list[dict]:
+    """Return all site types for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/sites/site-types")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Equipment
 # ---------------------------------------------------------------------------

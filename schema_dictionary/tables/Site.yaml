@@ -22,11 +22,13 @@ table:
       max_length: 100
       nullable: true
       description: "Name of the site"
-    - name: Type
-      logical_type: string
-      max_length: 255
+    - name: SiteType_ID
+      logical_type: integer
       nullable: true
-      description: "For example: \"WWTP\", \"River\" or \"Sewer_system\""
+      description: "Type of the site via SiteType lookup"
+      foreign_key:
+        table: SiteType
+        column: SiteType_ID
     - name: Description
       logical_type: text
       nullable: true

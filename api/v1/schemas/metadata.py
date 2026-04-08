@@ -18,7 +18,8 @@ class SamplingLocationOut(BaseModel):
 class SiteOut(BaseModel):
     id: int
     name: str
-    type: str | None
+    site_type_id: int | None
+    site_type_name: str | None
     description: str | None
     lat_wgs84: float | None
     long_wgs84: float | None
@@ -29,7 +30,7 @@ class SiteOut(BaseModel):
 
 class SiteIn(BaseModel):
     name: str
-    type: str | None = None
+    site_type_id: int | None = None
     description: str | None = None
     lat_wgs84: float | None = None
     long_wgs84: float | None = None
@@ -42,7 +43,7 @@ class SitePatch(BaseModel):
     """Partial update schema for Site - all fields optional."""
 
     name: str | None = None
-    type: str | None = None
+    site_type_id: int | None = None
     description: str | None = None
     lat_wgs84: float | None = None
     long_wgs84: float | None = None
@@ -56,6 +57,14 @@ class SiteLookupOut(BaseModel):
 
     site_id: int
     name: str
+
+
+class SiteTypeOut(BaseModel):
+    """Lookup model for SiteType."""
+
+    id: int
+    name: str
+    description: str | None
 
 
 class MetadataOut(BaseModel):

@@ -18,6 +18,7 @@ from app.api_client import (
     delete_site,
     list_sites,
     patch_site,
+    list_site_types,
 )
 from app.auth import get_current_user, logout, require_auth
 from app.components.crud_form import render_form_field
@@ -56,7 +57,14 @@ def _render_create_form() -> None:
         return
 
     name = render_form_field("name", "text", required=True)
-    site_type = render_form_field("type", "text", required=False)
+    
+    # Fetch site types for dropdown
+    site_types = list_site_types()
+    type_options = {t["name"]: t["id"] for t in site_types}
+    type_names = [""] + list(type_options.keys())
+    selected_type_name = st.selectbox("Type", options=type_names, index=0)
+    site_type_id = type_options.get(selected_type_name)
+
     description = render_form_field("description", "textarea", required=False)
 
     st.divider()
@@ -71,7 +79,7 @@ def _render_create_form() -> None:
             try:
                 create_site({
                     "name": name,
-                    "type": site_type or None,
+                    "site_type_id": site_type_id or None,
                     "description": description or None,
                     **location,
                 })
@@ -90,7 +98,20 @@ def _render_edit_form(site: dict) -> None:
         return
 
     name = render_form_field("name", "text", value=site.get("name"), required=True)
-    site_type = render_form_field("type", "text", value=site.get("type"), required=False)
+    
+    site_types = list_site_types()
+    type_options = {t["name"]: t["id"] for t in site_types}
+    type_names = [""] + list(type_options.keys())
+    
+    current_type_name = site.get("site_type_name") or ""
+    try:
+        type_index = type_names.index(current_type_name)
+    except ValueError:
+        type_index = 0
+        
+    selected_type_name = st.selectbox("Type", options=type_names, index=type_index)
+    site_type_id = type_options.get(selected_type_name)
+
     description = render_form_field("description", "textarea", value=site.get("description"), required=False)
 
     st.divider()
@@ -112,7 +133,7 @@ def _render_edit_form(site: dict) -> None:
             try:
                 patch_site(site["id"], {
                     "name": name,
-                    "type": site_type or None,
+                    "site_type_id": site_type_id or None,
                     "description": description or None,
                     **location,
                 })
