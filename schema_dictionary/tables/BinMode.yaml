@@ -1,0 +1,32 @@
+_format_version: "1.0"
+table:
+  name: BinMode
+  schema: dbo
+  description: >
+    Controlled vocabulary defining how bins on a ValueBinningAxis are specified.
+    Each axis declares exactly one mode, and all bins on that axis must conform to it.
+
+  columns:
+    - name: BinMode_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned"
+
+    - name: Name
+      logical_type: string
+      max_length: 30
+      nullable: false
+      description: "Mode name (e.g. 'interval', 'nominal', 'interval_with_nominal')"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this bin mode means"
+
+  primary_key: [BinMode_ID]
+
+  seed_data:
+    - { BinMode_ID: 1, Name: "interval",              Description: "Bins defined by lower and upper bounds only" }
+    - { BinMode_ID: 2, Name: "interval_with_nominal", Description: "Bins defined by bounds plus a nominal center value" }
+    - { BinMode_ID: 3, Name: "nominal",               Description: "Bins defined by a single nominal value only" }

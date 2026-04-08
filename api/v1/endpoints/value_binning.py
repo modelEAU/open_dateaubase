@@ -11,6 +11,8 @@ from ..schemas.value_binning import (
     ValueBinningAxisOut,
     ValueBinningAxisDetail,
     ValueBinningAxisUpdate,
+    ValueBinningAxisResolveRequest,
+    ValueBinningAxisResolveResponse,
 )
 
 router = APIRouter()
@@ -39,6 +41,20 @@ def get_binning_axis(axis_id: int, conn=Depends(get_db)):
     return axis
 
 
+@router.post("/resolve", response_model=ValueBinningAxisResolveResponse, status_code=200)
+def resolve_binning_axis(body: ValueBinningAxisResolveRequest, conn=Depends(get_db)):
+    """Find-or-create a ValueBinningAxis by name + bin fingerprint.
+
+    Returns axis_id and whether it was newly created.
+    HTTP 409 if an axis with the same name exists but bins diverge.
+    """
+    try:
+        result = value_binning_repository.resolve_binning_axis(conn, body.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return result
+
+
 @router.post("", response_model=ValueBinningAxisOut, status_code=201)
 def create_binning_axis(body: ValueBinningAxisIn, conn=Depends(get_db)):
     """Create a new ValueBinningAxis with bins."""
@@ -54,9 +70,12 @@ def create_binning_axis(body: ValueBinningAxisIn, conn=Depends(get_db)):
 @router.patch("/{axis_id}", response_model=ValueBinningAxisOut)
 def patch_binning_axis(axis_id: int, body: ValueBinningAxisUpdate, conn=Depends(get_db)):
     """Partial update of a ValueBinningAxis."""
-    updated = value_binning_repository.patch_binning_axis(
-        conn, axis_id, body.model_dump(exclude_unset=True)
-    )
+    try:
+        updated = value_binning_repository.patch_binning_axis(
+            conn, axis_id, body.model_dump(exclude_unset=True)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if updated is None:
         raise HTTPException(
             status_code=404, detail=f"ValueBinningAxis {axis_id} not found."

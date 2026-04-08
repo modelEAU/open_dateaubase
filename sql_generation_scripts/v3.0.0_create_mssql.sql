@@ -68,6 +68,14 @@ CREATE TABLE [dbo].[Procedures] (
     CONSTRAINT [PK_Procedures] PRIMARY KEY ([Procedure_ID])
 );
 
+CREATE TABLE [dbo].[BinMode] (
+    [BinMode_ID]    INT           NOT NULL,
+    [Name]          NVARCHAR(30)  NOT NULL,
+    [Description]   NVARCHAR(200),
+    CONSTRAINT [PK_BinMode] PRIMARY KEY ([BinMode_ID]),
+    CONSTRAINT [UQ_BinMode_Name] UNIQUE ([Name])
+);
+
 CREATE TABLE [dbo].[ProcessingDegree] (
     [ProcessingDegree_ID] INT NOT NULL,
     [Name] NVARCHAR(50) NOT NULL,
@@ -431,11 +439,19 @@ CREATE TABLE [dbo].[SignalPortLocationHistory] (
     CONSTRAINT [PK_SignalPortLocationHistory] PRIMARY KEY ([SignalPortLocationHistory_ID])
 );
 
+CREATE TABLE [dbo].[SiteType] (
+    [SiteType_ID] INT IDENTITY(1,1) NOT NULL,
+    [Name] NVARCHAR(100) NOT NULL,
+    [Description] NVARCHAR(MAX),
+    CONSTRAINT [PK_SiteType] PRIMARY KEY ([SiteType_ID]),
+    CONSTRAINT [UQ_SiteType_Name] UNIQUE ([Name])
+);
+
 CREATE TABLE [dbo].[Site] (
     [Site_ID] INT IDENTITY(1,1) NOT NULL,
     [Watershed_ID] INT,
     [Name] NVARCHAR(100),
-    [Type] NVARCHAR(255),
+    [SiteType_ID] INT,
     [Description] NVARCHAR(MAX),
     [LatitudeWGS84] FLOAT,
     [LongitudeWGS84] FLOAT,
@@ -467,22 +483,28 @@ CREATE TABLE [dbo].[Value] (
 );
 
 CREATE TABLE [dbo].[ValueBin] (
-    [ValueBin_ID] INT IDENTITY(1,1) NOT NULL,
-    [ValueBinningAxis_ID] INT NOT NULL,
-    [BinIndex] INT NOT NULL,
-    [LowerBound] FLOAT NOT NULL,
-    [UpperBound] FLOAT NOT NULL,
+    [ValueBin_ID]           INT IDENTITY(1,1) NOT NULL,
+    [ValueBinningAxis_ID]   INT NOT NULL,
+    [BinIndex]              INT NOT NULL,
+    [LowerBound]            FLOAT,
+    [UpperBound]            FLOAT,
+    [NominalValue]          FLOAT,
     CONSTRAINT [PK_ValueBin] PRIMARY KEY ([ValueBin_ID]),
     CONSTRAINT [UQ_ValueBin_AxisIndex] UNIQUE ([ValueBinningAxis_ID], [BinIndex]),
-    CONSTRAINT [CK_ValueBin_Bounds] CHECK (UpperBound > LowerBound)
+    CONSTRAINT [CK_ValueBin_BinValues] CHECK (
+        (LowerBound IS NULL) = (UpperBound IS NULL)
+        AND (LowerBound IS NULL OR UpperBound > LowerBound)
+        AND (NominalValue IS NOT NULL OR LowerBound IS NOT NULL)
+    )
 );
 
 CREATE TABLE [dbo].[ValueBinningAxis] (
-    [ValueBinningAxis_ID] INT IDENTITY(1,1) NOT NULL,
-    [Name] NVARCHAR(200) NOT NULL,
-    [Description] NVARCHAR(500),
-    [NumberOfBins] INT NOT NULL,
-    [Unit_ID] INT NOT NULL,
+    [ValueBinningAxis_ID]   INT IDENTITY(1,1) NOT NULL,
+    [Name]                  NVARCHAR(200) NOT NULL,
+    [Description]           NVARCHAR(500),
+    [NumberOfBins]          INT NOT NULL,
+    [Unit_ID]               INT NOT NULL,
+    [BinMode_ID]            INT NOT NULL DEFAULT 1,
     CONSTRAINT [PK_ValueBinningAxis] PRIMARY KEY ([ValueBinningAxis_ID])
 );
 
@@ -654,10 +676,12 @@ ALTER TABLE [dbo].[SignalPortEquipmentHistory] ADD CONSTRAINT [FK_SignalPortEqui
 ALTER TABLE [dbo].[SignalPortLocationHistory] ADD CONSTRAINT [FK_SignalPortLocationHistory_SignalPort] FOREIGN KEY ([SignalPort_ID]) REFERENCES [dbo].[SignalPort] ([SignalPort_ID]);
 ALTER TABLE [dbo].[SignalPortLocationHistory] ADD CONSTRAINT [FK_SignalPortLocationHistory_SamplingPoint] FOREIGN KEY ([SamplingPoint_ID]) REFERENCES [dbo].[SamplingPoint] ([SamplingPoint_ID]);
 ALTER TABLE [dbo].[Site] ADD CONSTRAINT [FK_Site_Watershed] FOREIGN KEY ([Watershed_ID]) REFERENCES [dbo].[Watershed] ([Watershed_ID]);
+ALTER TABLE [dbo].[Site] ADD CONSTRAINT [FK_Site_SiteType] FOREIGN KEY ([SiteType_ID]) REFERENCES [dbo].[SiteType] ([SiteType_ID]);
 ALTER TABLE [dbo].[UrbanCharacteristics] ADD CONSTRAINT [FK_UrbanCharacteristics_Watershed] FOREIGN KEY ([Watershed_ID]) REFERENCES [dbo].[Watershed] ([Watershed_ID]);
 ALTER TABLE [dbo].[Value] ADD CONSTRAINT [FK_Value_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 ALTER TABLE [dbo].[ValueBin] ADD CONSTRAINT [FK_ValueBin_ValueBinningAxis] FOREIGN KEY ([ValueBinningAxis_ID]) REFERENCES [dbo].[ValueBinningAxis] ([ValueBinningAxis_ID]);
 ALTER TABLE [dbo].[ValueBinningAxis] ADD CONSTRAINT [FK_ValueBinningAxis_Unit] FOREIGN KEY ([Unit_ID]) REFERENCES [dbo].[Unit] ([Unit_ID]);
+ALTER TABLE [dbo].[ValueBinningAxis] ADD CONSTRAINT [FK_ValueBinningAxis_BinMode] FOREIGN KEY ([BinMode_ID]) REFERENCES [dbo].[BinMode] ([BinMode_ID]);
 ALTER TABLE [dbo].[ValueImage] ADD CONSTRAINT [FK_ValueImage_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 ALTER TABLE [dbo].[ValueMatrix] ADD CONSTRAINT [FK_ValueMatrix_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 ALTER TABLE [dbo].[ValueMatrix] ADD CONSTRAINT [FK_ValueMatrix_RowValueBin] FOREIGN KEY ([RowValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]);

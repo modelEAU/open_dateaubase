@@ -106,11 +106,11 @@ INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [LowerBound], [
 -- ============================================================
 
 -- Sites (IDs match v1.0.0 seed)
-INSERT INTO [dbo].[Site] ([Watershed_ID], [Name], [Type], [Description], [LatitudeWGS84], [LongitudeWGS84], [StreetNumber], [StreetName], [City], [Province], [Country])
-VALUES (1, N'WWTP Est Inlet', N'Wastewater treatment plant', N'Main inlet of the eastern WWTP', 46.8312, -71.2077, N'500', N'Boulevard des Capucins', N'Quebec', N'Quebec', N'Canada');  -- ID 1
+INSERT INTO [dbo].[Site] ([Watershed_ID], [Name], [SiteType_ID], [Description], [LatitudeWGS84], [LongitudeWGS84], [StreetNumber], [StreetName], [City], [Province], [Country])
+VALUES (1, N'WWTP Est Inlet', 1, N'Main inlet of the eastern WWTP', 46.8312, -71.2077, N'500', N'Boulevard des Capucins', N'Quebec', N'Quebec', N'Canada');  -- ID 1
 
-INSERT INTO [dbo].[Site] ([Watershed_ID], [Name], [Type], [Description], [LatitudeWGS84], [LongitudeWGS84], [StreetNumber], [StreetName], [City], [Province], [Country])
-VALUES (1, N'CSO Outfall 12', N'Combined sewer overflow', N'CSO outfall discharging to Riviere Saint-Charles', 46.8200, -71.2250, N'120', N'Rue du Pont', N'Quebec', N'Quebec', N'Canada');  -- ID 2
+INSERT INTO [dbo].[Site] ([Watershed_ID], [Name], [SiteType_ID], [Description], [LatitudeWGS84], [LongitudeWGS84], [StreetNumber], [StreetName], [City], [Province], [Country])
+VALUES (1, N'CSO Outfall 12', 2, N'CSO outfall discharging to Riviere Saint-Charles', 46.8200, -71.2250, N'120', N'Rue du Pont', N'Quebec', N'Quebec', N'Canada');  -- ID 2
 
 -- Person (adapted from Contact in v1.0.0 seed; IDs preserved)
 INSERT INTO [dbo].[Person] ([LastName], [FirstName], [Company], [Role], [Function], [Email], [Phone], [Linkedin], [Website])
