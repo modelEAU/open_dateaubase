@@ -94,7 +94,7 @@ class PilEAUteSCADASource:
             col_names = list(result.keys())
 
         if not rows:
-            return ValueTable(pd.DataFrame(columns=["Timestamp", "Value"]))
+            return ValueTable(pd.DataFrame(columns=["Timestamp", "Value", "QualityCode"]))
 
         df = pd.DataFrame(rows, columns=col_names)
         df[_DATETIME_COL] = pd.to_datetime(df[_DATETIME_COL])
@@ -106,4 +106,5 @@ class PilEAUteSCADASource:
         )
         df = df.dropna(subset=["Timestamp"])
         df["Value"] = pd.to_numeric(df[_VALUE_COL]) * self.variable.conversion_factor
-        return ValueTable(df[["Timestamp", "Value"]])
+        df["QualityCode"] = None
+        return ValueTable(df[["Timestamp", "Value", "QualityCode"]])

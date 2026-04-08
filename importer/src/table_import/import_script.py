@@ -6,7 +6,13 @@ import yaml
 
 from table_import import config
 from table_import.api_client import DateaubaseClient
-from table_import.data_file import DataCombiner, DataFile, get_file_reader
+from table_import.data_file import (
+    DataCombiner,
+    DataFile,
+    SpectroFile,
+    extract_image_timestamp,
+    get_file_reader,
+)
 from table_import.pilEAUte_scada_source import PilEAUteSCADASource, _build_scada_engine
 from table_import.tables import ValueTable
 
@@ -36,6 +42,7 @@ def build_api_payload(
         {
             "timestamp": unix_seconds_to_iso(row["Timestamp"]),
             "value": row["Value"] * conversion_factor if row["Value"] is not None else None,
+            "quality_code": row.get("QualityCode") if hasattr(row, "get") else None,
         }
         for _, row in filtered.iterrows()
     ]
@@ -319,6 +326,204 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                     label=label,
                     dry_run=dry_run,
                 )
+
+        # ------------------------------------------------------------------
+        # Vector file sources
+        # ------------------------------------------------------------------
+        for vec_cfg in settings.vector_file_configs:
+            _ingest_vector_source(client, vec_cfg, min_unix_ts, dry_run)
+
+        # ------------------------------------------------------------------
+        # Image folder sources
+        # ------------------------------------------------------------------
+        for img_cfg in settings.image_folder_configs:
+            _ingest_image_source(client, img_cfg, min_unix_ts, dry_run)
+
+        # ------------------------------------------------------------------
+        # Matrix file sources (stub — not yet implemented)
+        # ------------------------------------------------------------------
+        for mat_cfg in settings.matrix_file_configs:
+            raise NotImplementedError(
+                f"Matrix file ingestion not yet implemented (config: {mat_cfg.name!r}). "
+                "Add a sample file to importer/test_data/ and implement the reader first."
+            )
+
+
+def _ingest_vector_source(
+    client: DateaubaseClient,
+    vec_cfg: config.TaggedVectorFileConfig,
+    min_unix_ts: float | None,
+    dry_run: bool,
+) -> None:
+    """Process all variables in a tagged vector file config."""
+    for variable in vec_cfg.variables:
+        label = f"{vec_cfg.name}/{variable.name}"
+
+        # 1. Find-or-create binning axis
+        axis_id, created, axis_warnings = client.resolve_binning_axis(axis=variable.axis)
+        if created:
+            print(f"{label}: created binning axis {variable.axis.name!r} → axis_id={axis_id}")
+        for w in axis_warnings:
+            print(f"[WARNING] {label}: {w}")
+
+        # 2. Resolve channel
+        channel_id, ch_warnings = client.resolve_channel(
+            das_name=vec_cfg.das_name,
+            tag=variable.tag,
+            signal_port_type=variable.signal_port_type,
+            parent_tag=variable.parent_tag,
+            parameter_name=variable.parameter_name,
+            unit_name=variable.destination_unit_name,
+            data_provenance_id=variable.data_provenance_id,
+            processing_degree_id=variable.processing_degree_id,
+        )
+        for w in ch_warnings:
+            print(f"[WARNING] {label}: {w}")
+
+        # 3. Watermark
+        last_dt = client.get_last_timestamp(channel_id=channel_id)
+        last_ts = last_dt.timestamp() if last_dt is not None else 0.0
+
+        # 4. Collect observations from all matching files
+        path = PurePath(variable.directory_path)
+        filepaths = [
+            str(path / fname)
+            for fname in os.listdir(str(path))
+            if vec_cfg.file_structure.extension in fname
+        ]
+
+        all_observations: list[dict] = []
+        for fp in filepaths:
+            sf = SpectroFile(fp, vec_cfg.file_structure)
+            last_date = sf.get_last_date()
+            if last_date is not None and last_date.timestamp() <= last_ts:
+                continue  # file entirely before watermark
+            obs = sf.observations(
+                last_unix_ts=last_ts,
+                min_unix_ts=min_unix_ts,
+                bins=variable.axis.bins,
+                status_map=vec_cfg.file_structure.status_map,
+            )
+            all_observations.extend(obs)
+
+        if not all_observations:
+            print(f"No new data for {label}")
+            continue
+
+        # Deduplicate by timestamp (keep first occurrence)
+        seen: set[str] = set()
+        deduped: list[dict] = []
+        for obs in sorted(all_observations, key=lambda o: o["timestamp"]):
+            if obs["timestamp"] not in seen:
+                seen.add(obs["timestamp"])
+                deduped.append(obs)
+
+        if dry_run:
+            print(f"[DRY RUN] {label}: would send {len(deduped)} observations to API")
+            continue
+
+        result = client.ingest_vector_observations(
+            das_name=vec_cfg.das_name,
+            tag=variable.tag,
+            signal_port_type=variable.signal_port_type,
+            parent_tag=variable.parent_tag,
+            parameter_name=variable.parameter_name,
+            unit_name=variable.destination_unit_name,
+            binning_axis_id=axis_id,
+            data_provenance_id=variable.data_provenance_id,
+            processing_degree_id=variable.processing_degree_id,
+            observations=deduped,
+        )
+        print(f"{label}: wrote {result['rows_written']} observations → channel_id={result['channel_id']}")
+
+
+def _ingest_image_source(
+    client: DateaubaseClient,
+    img_cfg: config.TaggedImageFolderConfig | config.TaglessImageFolderConfig,
+    min_unix_ts: float | None,
+    dry_run: bool,
+) -> None:
+    """Process all variables in a tagged or tagless image folder config."""
+    mode = img_cfg.mode
+
+    for variable in img_cfg.variables:
+        label = f"{img_cfg.name}/{variable.name}"
+
+        # 1. Resolve channel
+        if mode == "tagged":
+            channel_id, warnings = client.resolve_channel(
+                das_name=img_cfg.das_name,
+                tag=variable.tag,
+                signal_port_type=variable.signal_port_type,
+                parent_tag=variable.parent_tag,
+                parameter_name=variable.parameter_name,
+                unit_name=variable.destination_unit_name,
+                data_provenance_id=variable.data_provenance_id,
+                processing_degree_id=variable.processing_degree_id,
+            )
+        else:
+            channel_id, warnings = client.resolve_channel_tagless(
+                das_name=img_cfg.das_name,
+                equipment_name=variable.equipment_name,
+                parameter_name=variable.parameter_name,
+                unit_name=variable.destination_unit_name,
+                data_provenance_id=variable.data_provenance_id,
+                processing_degree_id=variable.processing_degree_id,
+            )
+        for w in warnings:
+            print(f"[WARNING] {label}: {w}")
+
+        # 2. Watermark
+        last_dt = client.get_last_timestamp(channel_id=channel_id)
+        last_ts = last_dt.timestamp() if last_dt is not None else 0.0
+
+        # 3. List image files
+        structure = img_cfg.folder_structure
+        extensions = tuple(ext.lower() for ext in structure.extensions)
+        filepaths = [
+            os.path.join(variable.directory_path, fname)
+            for fname in os.listdir(variable.directory_path)
+            if os.path.splitext(fname)[1].lower() in extensions
+        ]
+
+        sent = 0
+        for fp in sorted(filepaths):
+            ts_utc = extract_image_timestamp(fp, structure)
+            if ts_utc is None:
+                print(f"[WARNING] {label}: could not extract timestamp from {fp} — skipped")
+                continue
+
+            unix_ts = ts_utc.timestamp()
+            if unix_ts <= last_ts:
+                continue
+            if min_unix_ts is not None and unix_ts < min_unix_ts:
+                continue
+
+            if dry_run:
+                print(f"[DRY RUN] {label}: would ingest {fp} at {ts_utc.isoformat()}")
+                sent += 1
+                continue
+
+            result = client.ingest_image(
+                das_name=img_cfg.das_name,
+                tag=variable.tag if mode == "tagged" else None,
+                signal_port_type=variable.signal_port_type,
+                equipment_name=variable.equipment_name if mode == "tagless" else None,
+                parameter_name=variable.parameter_name,
+                unit_name=variable.destination_unit_name,
+                timestamp=ts_utc.isoformat(),
+                data_provenance_id=variable.data_provenance_id,
+                processing_degree_id=variable.processing_degree_id,
+                image_path=fp,
+            )
+            print(
+                f"{label}: ingested {os.path.basename(fp)} → "
+                f"channel_id={result['channel_id']} value_image_id={result['value_image_id']}"
+            )
+            sent += 1
+
+        if sent == 0 and not dry_run:
+            print(f"No new images for {label}")
 
 
 def str_to_bool(s: str) -> bool:

@@ -39,8 +39,8 @@ def test_unix_seconds_to_iso_epoch():
 
 
 def _make_df(timestamps: list[float], values: list[float]) -> ValueTable:
-    """Create a minimal ValueTable with Timestamp and Value columns."""
-    df = pd.DataFrame({"Timestamp": timestamps, "Value": values})
+    """Create a minimal ValueTable with Timestamp, Value, and QualityCode columns."""
+    df = pd.DataFrame({"Timestamp": timestamps, "Value": values, "QualityCode": None})
     return ValueTable(df)
 
 

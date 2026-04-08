@@ -68,4 +68,5 @@ class TsdbFile(DataFile):
         df = self.raw_data.copy()
         df["Timestamp"] = df["ticks"].apply(_ticks_to_unix_seconds)
         df["Value"] = df["value"] * self.variable.conversion_factor
-        return ValueTable(df[["Timestamp", "Value"]])
+        df["QualityCode"] = None
+        return ValueTable(df[["Timestamp", "Value", "QualityCode"]])

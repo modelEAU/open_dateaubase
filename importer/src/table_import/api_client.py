@@ -6,6 +6,9 @@ Provides synchronous access to:
 - GET  /api/v1/ingest/last-timestamp           (deduplication watermark, by channel_id)
 - POST /api/v1/ingest/sensor                   (tagged bulk scalar ingest)
 - POST /api/v1/ingest/sensor-tagless           (tagless bulk scalar ingest)
+- POST /api/v1/binning-axes/resolve            (find-or-create binning axis)
+- POST /api/v1/ingest/sensor-vector            (tagged bulk vector ingest)
+- POST /api/v1/ingest/sensor-image             (tagged/tagless image ingest, multipart)
 """
 
 from __future__ import annotations
@@ -14,6 +17,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
+
+from table_import.config import AxisConfig
 
 
 class ApiError(Exception):
@@ -186,3 +191,124 @@ class DateaubaseClient:
             "values": values,
         }
         return self._post("/api/v1/ingest/sensor-tagless", body)
+
+    # ------------------------------------------------------------------
+    # Binning axis find-or-create
+    # ------------------------------------------------------------------
+
+    def resolve_binning_axis(self, *, axis: AxisConfig) -> tuple[int, bool, list[str]]:
+        """POST /api/v1/binning-axes/resolve → (axis_id, created, warnings).
+
+        Raises ApiError on HTTP error (including 409 fingerprint mismatch).
+        """
+        bins_payload = [
+            {
+                "bin_index": i,
+                "lower_bound": b.lower_bound,
+                "upper_bound": b.upper_bound,
+                "nominal_value": b.nominal_value,
+            }
+            for i, b in enumerate(axis.bins)
+        ]
+        body = {
+            "name": axis.name,
+            "description": axis.description,
+            "unit_name": axis.unit_name,
+            "bin_mode": axis.bin_mode,
+            "bins": bins_payload,
+        }
+        payload = self._post("/api/v1/binning-axes/resolve", body)
+        return payload["axis_id"], payload["created"], payload.get("warnings", [])
+
+    # ------------------------------------------------------------------
+    # Vector ingest
+    # ------------------------------------------------------------------
+
+    def ingest_vector_observations(
+        self,
+        *,
+        das_name: str,
+        tag: str,
+        signal_port_type: str = "value",
+        parent_tag: str | None = None,
+        parameter_name: str,
+        unit_name: str,
+        binning_axis_id: int,
+        data_provenance_id: int = 1,
+        processing_degree_id: int = 1,
+        observations: list[dict],
+    ) -> dict:
+        """POST /api/v1/ingest/sensor-vector — tagged bulk vector ingest.
+
+        Each observation: {"timestamp": "<ISO 8601>", "bin_values": list[float|None],
+                           "quality_code": int|None}.
+        Returns IngestResponse dict: {"channel_id": int, "rows_written": int, "warnings": list}.
+        """
+        body = {
+            "das_name": das_name,
+            "tag": tag,
+            "signal_port_type": signal_port_type,
+            "parent_tag": parent_tag,
+            "parameter_name": parameter_name,
+            "unit_name": unit_name,
+            "binning_axis_id": binning_axis_id,
+            "data_provenance_id": data_provenance_id,
+            "processing_degree_id": processing_degree_id,
+            "observations": observations,
+        }
+        return self._post("/api/v1/ingest/sensor-vector", body)
+
+    # ------------------------------------------------------------------
+    # Image ingest (multipart)
+    # ------------------------------------------------------------------
+
+    def _post_multipart(self, path: str, data: dict[str, Any], file_path: str) -> Any:
+        """POST multipart/form-data with a single file field named 'image'."""
+        url = f"{self._base}{path}"
+        with open(file_path, "rb") as fh:
+            import mimetypes
+            mime_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+            import os
+            filename = os.path.basename(file_path)
+            r = self._client.post(
+                url,
+                data=data,
+                files={"image": (filename, fh, mime_type)},
+            )
+        if not r.is_success:
+            raise ApiError("POST", url, r.status_code, r.text)
+        return r.json()
+
+    def ingest_image(
+        self,
+        *,
+        das_name: str,
+        tag: str | None = None,
+        signal_port_type: str = "value",
+        equipment_name: str | None = None,
+        parameter_name: str,
+        unit_name: str,
+        timestamp: str,
+        data_provenance_id: int = 1,
+        processing_degree_id: int = 1,
+        image_path: str,
+    ) -> dict:
+        """POST /api/v1/ingest/sensor-image — image ingest via multipart/form-data.
+
+        Returns ImageIngestResponse: {"channel_id": int, "value_image_id": int,
+                                      "storage_path": str}.
+        """
+        form_data: dict[str, Any] = {
+            "das_name": das_name,
+            "signal_port_type": signal_port_type,
+            "parameter_name": parameter_name,
+            "unit_name": unit_name,
+            "timestamp": timestamp,
+            "data_provenance_id": str(data_provenance_id),
+            "processing_degree_id": str(processing_degree_id),
+        }
+        if tag is not None:
+            form_data["tag"] = tag
+        if equipment_name is not None:
+            form_data["equipment_name"] = equipment_name
+        return self._post_multipart("/api/v1/ingest/sensor-image", form_data, image_path)

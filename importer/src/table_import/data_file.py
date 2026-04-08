@@ -1,18 +1,59 @@
+from __future__ import annotations
+
 import csv
+import math
+import os
 from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass
 from datetime import datetime as dt
+from datetime import timezone
 from typing import Any, List
 
 import numpy as np
 import pandas as pd
 
-from table_import.config import BaseVariable, FileStructure
+from table_import.config import (
+    BaseVariable,
+    BinConfig,
+    FileStructure,
+    ImageFolderStructure,
+    StatusMap,
+    VectorFileStructure,
+)
 from table_import.tables import ValueTable
 
 
 class MissingFileTypeError(Exception):
     pass
+
+
+# ---------------------------------------------------------------------------
+# Quality code helpers
+# ---------------------------------------------------------------------------
+
+
+def _apply_status_map(
+    status_value: str,
+    status_map: StatusMap,
+    label: str = "",
+) -> tuple[bool, int | None]:
+    """Map a status string to (keep, quality_code).
+
+    Returns (True, code) if the row should be ingested, (False, None) to skip.
+    """
+    if status_value in status_map.map:
+        return True, status_map.map[status_value]
+    if status_map.default_quality_code is not None:
+        return True, status_map.default_quality_code
+    # Unmapped and no default → skip
+    if label:
+        print(f"[WARNING] {label}: unmapped status {status_value!r} — row skipped")
+    return False, None
+
+
+# ---------------------------------------------------------------------------
+# Scalar DataFile hierarchy
+# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -37,14 +78,15 @@ class DataFile(ABC):
     def values(self) -> ValueTable:
         """Returns the values present in the file as a ValueTable"""
 
+
 class TextDBFile(DataFile):
     def find_time_col_pos(self, header_row: List[Any], time_col_name: str) -> int:
-            return header_row.index(time_col_name)
+        return header_row.index(time_col_name)
 
-    def get_timestamp_from_row(self, filename:str, structure: FileStructure, row_index: int):
+    def get_timestamp_from_row(self, filename: str, structure: FileStructure, row_index: int):
         with open(filename, "rb") as f:
             raw_bytes = f.read()
-            cleaned_data = raw_bytes.replace(b'\x00', b'')
+            cleaned_data = raw_bytes.replace(b"\x00", b"")
 
         decoded_data = cleaned_data.decode(structure.encoding, errors="ignore")
         rows = list(csv.reader(decoded_data.splitlines(), delimiter=structure.separator))
@@ -57,43 +99,68 @@ class TextDBFile(DataFile):
             self.filepath,
             sep=self.file_structure.separator,
             encoding=self.file_structure.encoding,
-            on_bad_lines='skip',
-            header=self.file_structure.header_row_idx)
+            on_bad_lines="skip",
+            header=self.file_structure.header_row_idx,
+        )
 
     def get_first_date(self) -> pd.Timestamp:
-        return self.get_timestamp_from_row(self.filepath, self.file_structure, self.file_structure.first_valid_row_idx)
+        return self.get_timestamp_from_row(
+            self.filepath, self.file_structure, self.file_structure.first_valid_row_idx
+        )
 
     def get_last_date(self) -> pd.Timestamp:
-        return self.get_timestamp_from_row(self.filepath, self.file_structure, self.file_structure.last_valid_row_idx)
+        return self.get_timestamp_from_row(
+            self.filepath, self.file_structure, self.file_structure.last_valid_row_idx
+        )
 
 
 class RodtoxFile(TextDBFile):
-
     @property
     def values(self) -> ValueTable:
         df = self.raw_data.copy()
         structure = self.file_structure
         variable = self.variable
-        # Remove invalid entries from the data
-        df = df.loc[df[structure.validity_column] == 1]
-        # Only keep rows where the probe sends the matching measurement
-        df = df.loc[df[structure.variable_column] == variable.source_variable_name]
-        # Replace commas by dots so that values are treated as floats instead of strings
-        df[structure.value_column] = df[structure.value_column].replace({',': '.'}, regex=True)
-        # Transform the values from strings into numbers
+
+        # Row selector: keep only rows for this variable (multi-variable files)
+        if structure.variable_column and variable.source_variable_name:
+            df = df.loc[df[structure.variable_column] == variable.source_variable_name]
+
+        # Replace commas by dots so that values are treated as floats
+        df[structure.value_column] = df[structure.value_column].replace({",": "."}, regex=True)
         df[structure.value_column] = pd.to_numeric(df[structure.value_column])
 
-        # Transform the timestamps into machine-readable DateTime objects
-        df[structure.time_column] = pd.to_datetime(df[structure.time_column], format=structure.dt_format, utc=False)
-        df[structure.time_column] = df[structure.time_column].dt.tz_localize(structure.timezone, nonexistent='shift_forward', ambiguous='NaT')
+        # Timestamps
+        df[structure.time_column] = pd.to_datetime(
+            df[structure.time_column], format=structure.dt_format, utc=False
+        )
+        df[structure.time_column] = df[structure.time_column].dt.tz_localize(
+            structure.timezone, nonexistent="shift_forward", ambiguous="NaT"
+        )
         df = df.dropna(subset=[structure.time_column])
         df[structure.time_column] = df[structure.time_column].astype(np.int64) // 1e9
 
-        df = df.rename(columns={
-            structure.time_column: "Timestamp",
-            structure.value_column: "Value",
-        })
-        return ValueTable(df[["Timestamp", "Value"]])
+        # Quality codes via status_map
+        quality_codes: list[int | None] = []
+        keep_mask: list[bool] = []
+        if structure.status_map is not None:
+            for _, row in df.iterrows():
+                status_val = str(row[structure.status_map.column])
+                keep, code = _apply_status_map(status_val, structure.status_map, self.filepath)
+                keep_mask.append(keep)
+                quality_codes.append(code)
+            df = df[keep_mask].copy()
+            df["QualityCode"] = [c for c, k in zip(quality_codes, keep_mask) if k]
+        else:
+            df["QualityCode"] = None
+
+        df = df.rename(
+            columns={
+                structure.time_column: "Timestamp",
+                structure.value_column: "Value",
+            }
+        )
+        cols = ["Timestamp", "Value", "QualityCode"]
+        return ValueTable(df[cols])
 
 
 class AnaproFile(TextDBFile):
@@ -102,25 +169,49 @@ class AnaproFile(TextDBFile):
         df = self.raw_data.copy()
         structure = self.file_structure
         variable = self.variable
+
         clean_names = {col: col.split("]")[0] for col in df.columns}
         for old, new in clean_names.items():
             if "[" in new:
                 clean_names[old] = new + "]"
             if "Temp. " in new:
-                clean_names[old] = 'Temp.'
-
+                clean_names[old] = "Temp."
         df.rename(columns=clean_names, inplace=True)
         df.fillna(0, inplace=True)
-        # Transform the timestamps into machine-readable DateTime objects
-        df[structure.time_column] = pd.to_datetime(df[structure.time_column], format=structure.dt_format, utc=False)
-        df[structure.time_column] = df[structure.time_column].dt.tz_localize(structure.timezone, ambiguous="infer").astype(np.int64) // 1e9
 
-        df = df.rename(columns={
-            structure.time_column: "Timestamp",
-            variable.source_variable_name: "Value",
-        })
+        df[structure.time_column] = pd.to_datetime(
+            df[structure.time_column], format=structure.dt_format, utc=False
+        )
+        df[structure.time_column] = (
+            df[structure.time_column]
+            .dt.tz_localize(structure.timezone, ambiguous="infer")
+            .astype(np.int64)
+            // 1e9
+        )
+
+        # Quality codes via status_map
+        quality_codes: list[int | None] = []
+        keep_mask: list[bool] = []
+        if structure.status_map is not None:
+            for _, row in df.iterrows():
+                status_val = str(row[structure.status_map.column])
+                keep, code = _apply_status_map(status_val, structure.status_map, self.filepath)
+                keep_mask.append(keep)
+                quality_codes.append(code)
+            df = df[keep_mask].copy()
+            df["QualityCode"] = [c for c, k in zip(quality_codes, keep_mask) if k]
+        else:
+            df["QualityCode"] = None
+
+        df = df.rename(
+            columns={
+                structure.time_column: "Timestamp",
+                variable.source_variable_name: "Value",
+            }
+        )
         df["Value"] = df["Value"] * variable.conversion_factor
-        return ValueTable(df[["Timestamp", "Value"]])
+        cols = ["Timestamp", "Value", "QualityCode"]
+        return ValueTable(df[cols])
 
 
 class DataCombiner:
@@ -131,7 +222,7 @@ class DataCombiner:
     @property
     def values(self) -> ValueTable:
         if not self.files:
-            df = pd.DataFrame(columns=["Timestamp", "Value"])
+            df = pd.DataFrame(columns=["Timestamp", "Value", "QualityCode"])
         else:
             dfs = [file.values for file in self.files]
             df = pd.concat(dfs, axis=0)
@@ -140,7 +231,7 @@ class DataCombiner:
             if self.last_db_date:
                 df = df.loc[df["Timestamp"] > self.last_db_date.timestamp()]
             df = df.drop_duplicates(subset=["Timestamp"])
-        return ValueTable(df[["Timestamp", "Value"]])
+        return ValueTable(df[["Timestamp", "Value", "QualityCode"]])
 
     def add_file(self, file: DataFile) -> None:
         if not self.last_db_date:
@@ -157,12 +248,182 @@ class DataCombiner:
     def last_date(self) -> pd.Timestamp:
         return max(file.get_last_date() for file in self.files)
 
+
 def get_file_reader(file_type: str) -> DataFile:
-    if file_type in {'rodtox'}:
+    if file_type in {"rodtox"}:
         return RodtoxFile
-    if file_type in {'anapro'}:
+    if file_type in {"anapro"}:
         return AnaproFile
-    if file_type in {'tsdb'}:
+    if file_type in {"tsdb"}:
         from table_import.tsdb_file import TsdbFile  # lazy import avoids circular dependency
         return TsdbFile
     raise MissingFileTypeError(f"{file_type} has no defined DataFile class.")
+
+
+# ---------------------------------------------------------------------------
+# Vector file reader (spectrophotometry .fp / .par files)
+# ---------------------------------------------------------------------------
+
+
+class SpectroFile:
+    """Reader for tab-separated spectrophotometry files (.fp, .par).
+
+    File format:
+    - ``metadata_rows`` rows before the header (skipped)
+    - 1 header row: dt_column, [status_column], then bin column labels
+    - Data rows: timestamp, [status], float per bin (NaN allowed)
+    """
+
+    def __init__(self, filepath: str, structure: VectorFileStructure) -> None:
+        self.filepath = filepath
+        self.structure = structure
+        self._df: pd.DataFrame | None = None
+
+    def _load(self) -> pd.DataFrame:
+        if self._df is not None:
+            return self._df
+        with open(self.filepath, "rb") as f:
+            raw = f.read().replace(b"\x00", b"")
+        decoded = raw.decode(self.structure.encoding, errors="ignore")
+        self._df = pd.read_csv(
+            pd.io.common.StringIO(decoded),
+            sep=self.structure.separator,
+            header=self.structure.header_row_idx,
+            skiprows=list(range(self.structure.metadata_rows))
+            if self.structure.metadata_rows > 0
+            else None,
+        )
+        return self._df
+
+    def get_last_date(self) -> dt | None:
+        """Return timestamp of last row for watermark pre-filtering."""
+        df = self._load()
+        if df.empty:
+            return None
+        last_raw = df[self.structure.dt_column].iloc[-1]
+        try:
+            ts = dt.strptime(str(last_raw).strip(), self.structure.dt_format)
+            import pytz
+            tz = pytz.timezone(self.structure.timezone)
+            ts = tz.localize(ts)
+            return ts.astimezone(timezone.utc).replace(tzinfo=None)
+        except (ValueError, KeyError):
+            return None
+
+    def observations(
+        self,
+        last_unix_ts: float,
+        min_unix_ts: float | None,
+        bins: list[BinConfig],
+        status_map: StatusMap | None = None,
+    ) -> list[dict]:
+        """Return a list of vector observations filtered by watermark.
+
+        Each observation: {timestamp: ISO 8601 str, bin_values: list[float|None],
+                           quality_code: int|None}
+        """
+        import pytz
+
+        df = self._load()
+        if df.empty:
+            return []
+
+        tz = pytz.timezone(self.structure.timezone)
+        results = []
+
+        for _, row in df.iterrows():
+            # Parse timestamp
+            try:
+                ts_naive = dt.strptime(str(row[self.structure.dt_column]).strip(), self.structure.dt_format)
+            except ValueError:
+                continue
+            ts_local = tz.localize(ts_naive)
+            ts_utc = ts_local.astimezone(timezone.utc)
+            unix_ts = ts_utc.timestamp()
+
+            # Watermark filter
+            if unix_ts <= last_unix_ts:
+                continue
+            if min_unix_ts is not None and unix_ts < min_unix_ts:
+                continue
+
+            # Quality code from status map
+            quality_code: int | None = None
+            if status_map is not None:
+                status_col = status_map.column
+                status_val = str(row.get(status_col, ""))
+                keep, quality_code = _apply_status_map(status_val, status_map, self.filepath)
+                if not keep:
+                    continue
+
+            # Extract bin values
+            bin_values: list[float | None] = []
+            for b in bins:
+                raw_val = row.get(b.source_column)
+                if raw_val is None or (isinstance(raw_val, float) and math.isnan(raw_val)):
+                    bin_values.append(None)
+                else:
+                    try:
+                        bin_values.append(float(raw_val))
+                    except (ValueError, TypeError):
+                        bin_values.append(None)
+
+            results.append(
+                {
+                    "timestamp": ts_utc.isoformat(),
+                    "bin_values": bin_values,
+                    "quality_code": quality_code,
+                }
+            )
+
+        return results
+
+
+# ---------------------------------------------------------------------------
+# Image timestamp extraction
+# ---------------------------------------------------------------------------
+
+
+def extract_image_timestamp(
+    filepath: str,
+    structure: ImageFolderStructure,
+) -> dt | None:
+    """Extract a UTC-aware datetime from an image file.
+
+    Strategy:
+    1. EXIF ``DateTimeOriginal`` (or ``DateTime``) via Pillow.
+    2. Filename stem parsed with ``structure.filename_format`` (strptime).
+    3. Returns None — caller should log a warning and skip the file.
+    """
+    import pytz
+
+    tz = pytz.timezone(structure.timezone)
+
+    # --- Strategy 1: EXIF ---
+    try:
+        from PIL import Image
+        from PIL.ExifTags import TAGS
+
+        with Image.open(filepath) as img:
+            exif_data = img._getexif()  # type: ignore[attr-defined]
+            if exif_data:
+                tag_map = {v: k for k, v in TAGS.items()}
+                for field in ("DateTimeOriginal", "DateTime"):
+                    tag_id = tag_map.get(field)
+                    if tag_id and tag_id in exif_data:
+                        raw = exif_data[tag_id]
+                        ts_naive = dt.strptime(raw, "%Y:%m:%d %H:%M:%S")
+                        return tz.localize(ts_naive).astimezone(timezone.utc)
+    except Exception:
+        pass
+
+    # --- Strategy 2: filename stem ---
+    if structure.filename_format:
+        stem = os.path.splitext(os.path.basename(filepath))[0]
+        try:
+            ts_naive = dt.strptime(stem, structure.filename_format)
+            return tz.localize(ts_naive).astimezone(timezone.utc)
+        except ValueError:
+            pass
+
+    return None

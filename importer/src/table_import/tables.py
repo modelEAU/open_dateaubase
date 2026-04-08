@@ -4,7 +4,7 @@ import pandas as pd
 
 
 class ValueTable(pd.DataFrame):
-    acceptable_columns: List[str] = ["Timestamp", "Value"]
+    acceptable_columns: List[str] = ["Timestamp", "Value", "QualityCode"]
 
     def __init__(self, df: pd.DataFrame) -> None:
         if df is None:
