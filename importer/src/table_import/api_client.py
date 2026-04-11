@@ -6,7 +6,7 @@ Provides synchronous access to:
 - GET  /api/v1/ingest/last-timestamp           (deduplication watermark, by channel_id)
 - POST /api/v1/ingest/sensor                   (tagged bulk scalar ingest)
 - POST /api/v1/ingest/sensor-tagless           (tagless bulk scalar ingest)
-- POST /api/v1/binning-axes/resolve            (find-or-create binning axis)
+- POST /api/v1/value-binning-axes/resolve      (find-or-create binning axis)
 - POST /api/v1/ingest/sensor-vector            (tagged bulk vector ingest)
 - POST /api/v1/ingest/sensor-image             (tagged/tagless image ingest, multipart)
 """
@@ -197,7 +197,7 @@ class DateaubaseClient:
     # ------------------------------------------------------------------
 
     def resolve_binning_axis(self, *, axis: AxisConfig) -> tuple[int, bool, list[str]]:
-        """POST /api/v1/binning-axes/resolve → (axis_id, created, warnings).
+        """POST /api/v1/value-binning-axes/resolve → (axis_id, created, warnings).
 
         Raises ApiError on HTTP error (including 409 fingerprint mismatch).
         """
@@ -217,7 +217,7 @@ class DateaubaseClient:
             "bin_mode": axis.bin_mode,
             "bins": bins_payload,
         }
-        payload = self._post("/api/v1/binning-axes/resolve", body)
+        payload = self._post("/api/v1/value-binning-axes/resolve", body)
         return payload["axis_id"], payload["created"], payload.get("warnings", [])
 
     # ------------------------------------------------------------------

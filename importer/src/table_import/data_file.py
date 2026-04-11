@@ -18,6 +18,7 @@ from table_import.config import (
     FileStructure,
     ImageFolderStructure,
     StatusMap,
+    TimestampSource,
     VectorFileStructure,
 )
 from table_import.tables import ValueTable
@@ -424,6 +425,15 @@ def extract_image_timestamp(
             ts_naive = dt.strptime(stem, structure.filename_format)
             return tz.localize(ts_naive).astimezone(timezone.utc)
         except ValueError:
+            pass
+
+    # --- Strategy 3: file mtime (opt-in via timestamp_source=mtime) ---
+    if structure.timestamp_source == TimestampSource.mtime:
+        try:
+            mtime = os.path.getmtime(filepath)
+            ts_naive = dt.fromtimestamp(mtime)
+            return tz.localize(ts_naive).astimezone(timezone.utc)
+        except Exception:
             pass
 
     return None

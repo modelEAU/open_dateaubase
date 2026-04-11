@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Discriminator, model_validator
@@ -219,12 +220,26 @@ class VectorFileStructure(BaseModel):
     status_map: StatusMap | None = None
 
 
+class TimestampSource(str, Enum):
+    """Controls which timestamp extraction strategies are attempted for image files.
+
+    - ``exif``: EXIF DateTimeOriginal/DateTime → filename stem → return None (default)
+    - ``filename``: filename stem only → return None
+    - ``mtime``: EXIF → filename stem → file mtime (OS modification time)
+    """
+
+    exif = "exif"
+    filename = "filename"
+    mtime = "mtime"
+
+
 class ImageFolderStructure(BaseModel):
     """Structure description for a folder of instrument images."""
 
     extensions: list[str] = [".jpg", ".jpeg", ".png", ".tiff"]
     timezone: str
     filename_format: str | None = None   # strptime applied to full filename stem; used if no EXIF
+    timestamp_source: TimestampSource = TimestampSource.exif
 
 
 class MatrixFileStructure(BaseModel):

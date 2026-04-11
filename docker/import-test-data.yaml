@@ -6,7 +6,6 @@
 
 api_config:
   api_url: "http://api:8000"
-  min_timestamp: "2024-01-01T00:00:00"
 
 file_configs:
   # Tagless CSV import (Rodtox format)
@@ -23,8 +22,10 @@ file_configs:
       timezone: "US/Eastern"
       value_column: "VarValue"
       variable_column: "VarName"
-      validity_column: "Validity"
-      validity_flag: 1
+      status_map:
+        column: "Validity"
+        map:
+          "1": null
       first_valid_row_idx: 1
       last_valid_row_idx: -2
       header_row_idx: 0
@@ -86,3 +87,275 @@ scada_sql_configs:
         conversion_factor: 1.0
         data_provenance_id: 1
         processing_degree_id: 1
+
+vector_file_configs:
+  # Tagged spectrophotometer import (spectro::lyser .fp files from basestation)
+  - name: spectrolyser_basestation
+    mode: tagged
+    das_name: basestation
+    file_structure:
+      extension: ".fp"
+      separator: "\t"
+      encoding: "utf-8"
+      metadata_rows: 0
+      header_row_idx: 1
+      dt_column: "Date/Time"
+      dt_format: "%Y.%m.%d  %H:%M:%S"
+      timezone: "America/Montreal"
+      status_map:
+        column: "Status_0"
+        map:
+          OK: null
+          Failure: 2
+        default_quality_code: 2
+    variables:
+      - name: spectrolyser_basestation_absorbance
+        parameter_name: absorbance
+        source_unit_name: AU
+        destination_unit_name: AU
+        directory_path: "/test-data/basestation"
+        tag: "13230077_10_0x0100_spectro::lyser_INFLUENTV160"
+        axis:
+          name: "UV-vis 200-750nm"
+          description: "UV-Vis absorbance spectrum 200-750 nm at 2.5 nm step (spectro::lyser)"
+          unit_name: nm
+          bin_mode: nominal
+          bins:
+            - {source_column: "200.00", nominal_value: 200.0}
+            - {source_column: "202.50", nominal_value: 202.5}
+            - {source_column: "205.00", nominal_value: 205.0}
+            - {source_column: "207.50", nominal_value: 207.5}
+            - {source_column: "210.00", nominal_value: 210.0}
+            - {source_column: "212.50", nominal_value: 212.5}
+            - {source_column: "215.00", nominal_value: 215.0}
+            - {source_column: "217.50", nominal_value: 217.5}
+            - {source_column: "220.00", nominal_value: 220.0}
+            - {source_column: "222.50", nominal_value: 222.5}
+            - {source_column: "225.00", nominal_value: 225.0}
+            - {source_column: "227.50", nominal_value: 227.5}
+            - {source_column: "230.00", nominal_value: 230.0}
+            - {source_column: "232.50", nominal_value: 232.5}
+            - {source_column: "235.00", nominal_value: 235.0}
+            - {source_column: "237.50", nominal_value: 237.5}
+            - {source_column: "240.00", nominal_value: 240.0}
+            - {source_column: "242.50", nominal_value: 242.5}
+            - {source_column: "245.00", nominal_value: 245.0}
+            - {source_column: "247.50", nominal_value: 247.5}
+            - {source_column: "250.00", nominal_value: 250.0}
+            - {source_column: "252.50", nominal_value: 252.5}
+            - {source_column: "255.00", nominal_value: 255.0}
+            - {source_column: "257.50", nominal_value: 257.5}
+            - {source_column: "260.00", nominal_value: 260.0}
+            - {source_column: "262.50", nominal_value: 262.5}
+            - {source_column: "265.00", nominal_value: 265.0}
+            - {source_column: "267.50", nominal_value: 267.5}
+            - {source_column: "270.00", nominal_value: 270.0}
+            - {source_column: "272.50", nominal_value: 272.5}
+            - {source_column: "275.00", nominal_value: 275.0}
+            - {source_column: "277.50", nominal_value: 277.5}
+            - {source_column: "280.00", nominal_value: 280.0}
+            - {source_column: "282.50", nominal_value: 282.5}
+            - {source_column: "285.00", nominal_value: 285.0}
+            - {source_column: "287.50", nominal_value: 287.5}
+            - {source_column: "290.00", nominal_value: 290.0}
+            - {source_column: "292.50", nominal_value: 292.5}
+            - {source_column: "295.00", nominal_value: 295.0}
+            - {source_column: "297.50", nominal_value: 297.5}
+            - {source_column: "300.00", nominal_value: 300.0}
+            - {source_column: "302.50", nominal_value: 302.5}
+            - {source_column: "305.00", nominal_value: 305.0}
+            - {source_column: "307.50", nominal_value: 307.5}
+            - {source_column: "310.00", nominal_value: 310.0}
+            - {source_column: "312.50", nominal_value: 312.5}
+            - {source_column: "315.00", nominal_value: 315.0}
+            - {source_column: "317.50", nominal_value: 317.5}
+            - {source_column: "320.00", nominal_value: 320.0}
+            - {source_column: "322.50", nominal_value: 322.5}
+            - {source_column: "325.00", nominal_value: 325.0}
+            - {source_column: "327.50", nominal_value: 327.5}
+            - {source_column: "330.00", nominal_value: 330.0}
+            - {source_column: "332.50", nominal_value: 332.5}
+            - {source_column: "335.00", nominal_value: 335.0}
+            - {source_column: "337.50", nominal_value: 337.5}
+            - {source_column: "340.00", nominal_value: 340.0}
+            - {source_column: "342.50", nominal_value: 342.5}
+            - {source_column: "345.00", nominal_value: 345.0}
+            - {source_column: "347.50", nominal_value: 347.5}
+            - {source_column: "350.00", nominal_value: 350.0}
+            - {source_column: "352.50", nominal_value: 352.5}
+            - {source_column: "355.00", nominal_value: 355.0}
+            - {source_column: "357.50", nominal_value: 357.5}
+            - {source_column: "360.00", nominal_value: 360.0}
+            - {source_column: "362.50", nominal_value: 362.5}
+            - {source_column: "365.00", nominal_value: 365.0}
+            - {source_column: "367.50", nominal_value: 367.5}
+            - {source_column: "370.00", nominal_value: 370.0}
+            - {source_column: "372.50", nominal_value: 372.5}
+            - {source_column: "375.00", nominal_value: 375.0}
+            - {source_column: "377.50", nominal_value: 377.5}
+            - {source_column: "380.00", nominal_value: 380.0}
+            - {source_column: "382.50", nominal_value: 382.5}
+            - {source_column: "385.00", nominal_value: 385.0}
+            - {source_column: "387.50", nominal_value: 387.5}
+            - {source_column: "390.00", nominal_value: 390.0}
+            - {source_column: "392.50", nominal_value: 392.5}
+            - {source_column: "395.00", nominal_value: 395.0}
+            - {source_column: "397.50", nominal_value: 397.5}
+            - {source_column: "400.00", nominal_value: 400.0}
+            - {source_column: "402.50", nominal_value: 402.5}
+            - {source_column: "405.00", nominal_value: 405.0}
+            - {source_column: "407.50", nominal_value: 407.5}
+            - {source_column: "410.00", nominal_value: 410.0}
+            - {source_column: "412.50", nominal_value: 412.5}
+            - {source_column: "415.00", nominal_value: 415.0}
+            - {source_column: "417.50", nominal_value: 417.5}
+            - {source_column: "420.00", nominal_value: 420.0}
+            - {source_column: "422.50", nominal_value: 422.5}
+            - {source_column: "425.00", nominal_value: 425.0}
+            - {source_column: "427.50", nominal_value: 427.5}
+            - {source_column: "430.00", nominal_value: 430.0}
+            - {source_column: "432.50", nominal_value: 432.5}
+            - {source_column: "435.00", nominal_value: 435.0}
+            - {source_column: "437.50", nominal_value: 437.5}
+            - {source_column: "440.00", nominal_value: 440.0}
+            - {source_column: "442.50", nominal_value: 442.5}
+            - {source_column: "445.00", nominal_value: 445.0}
+            - {source_column: "447.50", nominal_value: 447.5}
+            - {source_column: "450.00", nominal_value: 450.0}
+            - {source_column: "452.50", nominal_value: 452.5}
+            - {source_column: "455.00", nominal_value: 455.0}
+            - {source_column: "457.50", nominal_value: 457.5}
+            - {source_column: "460.00", nominal_value: 460.0}
+            - {source_column: "462.50", nominal_value: 462.5}
+            - {source_column: "465.00", nominal_value: 465.0}
+            - {source_column: "467.50", nominal_value: 467.5}
+            - {source_column: "470.00", nominal_value: 470.0}
+            - {source_column: "472.50", nominal_value: 472.5}
+            - {source_column: "475.00", nominal_value: 475.0}
+            - {source_column: "477.50", nominal_value: 477.5}
+            - {source_column: "480.00", nominal_value: 480.0}
+            - {source_column: "482.50", nominal_value: 482.5}
+            - {source_column: "485.00", nominal_value: 485.0}
+            - {source_column: "487.50", nominal_value: 487.5}
+            - {source_column: "490.00", nominal_value: 490.0}
+            - {source_column: "492.50", nominal_value: 492.5}
+            - {source_column: "495.00", nominal_value: 495.0}
+            - {source_column: "497.50", nominal_value: 497.5}
+            - {source_column: "500.00", nominal_value: 500.0}
+            - {source_column: "502.50", nominal_value: 502.5}
+            - {source_column: "505.00", nominal_value: 505.0}
+            - {source_column: "507.50", nominal_value: 507.5}
+            - {source_column: "510.00", nominal_value: 510.0}
+            - {source_column: "512.50", nominal_value: 512.5}
+            - {source_column: "515.00", nominal_value: 515.0}
+            - {source_column: "517.50", nominal_value: 517.5}
+            - {source_column: "520.00", nominal_value: 520.0}
+            - {source_column: "522.50", nominal_value: 522.5}
+            - {source_column: "525.00", nominal_value: 525.0}
+            - {source_column: "527.50", nominal_value: 527.5}
+            - {source_column: "530.00", nominal_value: 530.0}
+            - {source_column: "532.50", nominal_value: 532.5}
+            - {source_column: "535.00", nominal_value: 535.0}
+            - {source_column: "537.50", nominal_value: 537.5}
+            - {source_column: "540.00", nominal_value: 540.0}
+            - {source_column: "542.50", nominal_value: 542.5}
+            - {source_column: "545.00", nominal_value: 545.0}
+            - {source_column: "547.50", nominal_value: 547.5}
+            - {source_column: "550.00", nominal_value: 550.0}
+            - {source_column: "552.50", nominal_value: 552.5}
+            - {source_column: "555.00", nominal_value: 555.0}
+            - {source_column: "557.50", nominal_value: 557.5}
+            - {source_column: "560.00", nominal_value: 560.0}
+            - {source_column: "562.50", nominal_value: 562.5}
+            - {source_column: "565.00", nominal_value: 565.0}
+            - {source_column: "567.50", nominal_value: 567.5}
+            - {source_column: "570.00", nominal_value: 570.0}
+            - {source_column: "572.50", nominal_value: 572.5}
+            - {source_column: "575.00", nominal_value: 575.0}
+            - {source_column: "577.50", nominal_value: 577.5}
+            - {source_column: "580.00", nominal_value: 580.0}
+            - {source_column: "582.50", nominal_value: 582.5}
+            - {source_column: "585.00", nominal_value: 585.0}
+            - {source_column: "587.50", nominal_value: 587.5}
+            - {source_column: "590.00", nominal_value: 590.0}
+            - {source_column: "592.50", nominal_value: 592.5}
+            - {source_column: "595.00", nominal_value: 595.0}
+            - {source_column: "597.50", nominal_value: 597.5}
+            - {source_column: "600.00", nominal_value: 600.0}
+            - {source_column: "602.50", nominal_value: 602.5}
+            - {source_column: "605.00", nominal_value: 605.0}
+            - {source_column: "607.50", nominal_value: 607.5}
+            - {source_column: "610.00", nominal_value: 610.0}
+            - {source_column: "612.50", nominal_value: 612.5}
+            - {source_column: "615.00", nominal_value: 615.0}
+            - {source_column: "617.50", nominal_value: 617.5}
+            - {source_column: "620.00", nominal_value: 620.0}
+            - {source_column: "622.50", nominal_value: 622.5}
+            - {source_column: "625.00", nominal_value: 625.0}
+            - {source_column: "627.50", nominal_value: 627.5}
+            - {source_column: "630.00", nominal_value: 630.0}
+            - {source_column: "632.50", nominal_value: 632.5}
+            - {source_column: "635.00", nominal_value: 635.0}
+            - {source_column: "637.50", nominal_value: 637.5}
+            - {source_column: "640.00", nominal_value: 640.0}
+            - {source_column: "642.50", nominal_value: 642.5}
+            - {source_column: "645.00", nominal_value: 645.0}
+            - {source_column: "647.50", nominal_value: 647.5}
+            - {source_column: "650.00", nominal_value: 650.0}
+            - {source_column: "652.50", nominal_value: 652.5}
+            - {source_column: "655.00", nominal_value: 655.0}
+            - {source_column: "657.50", nominal_value: 657.5}
+            - {source_column: "660.00", nominal_value: 660.0}
+            - {source_column: "662.50", nominal_value: 662.5}
+            - {source_column: "665.00", nominal_value: 665.0}
+            - {source_column: "667.50", nominal_value: 667.5}
+            - {source_column: "670.00", nominal_value: 670.0}
+            - {source_column: "672.50", nominal_value: 672.5}
+            - {source_column: "675.00", nominal_value: 675.0}
+            - {source_column: "677.50", nominal_value: 677.5}
+            - {source_column: "680.00", nominal_value: 680.0}
+            - {source_column: "682.50", nominal_value: 682.5}
+            - {source_column: "685.00", nominal_value: 685.0}
+            - {source_column: "687.50", nominal_value: 687.5}
+            - {source_column: "690.00", nominal_value: 690.0}
+            - {source_column: "692.50", nominal_value: 692.5}
+            - {source_column: "695.00", nominal_value: 695.0}
+            - {source_column: "697.50", nominal_value: 697.5}
+            - {source_column: "700.00", nominal_value: 700.0}
+            - {source_column: "702.50", nominal_value: 702.5}
+            - {source_column: "705.00", nominal_value: 705.0}
+            - {source_column: "707.50", nominal_value: 707.5}
+            - {source_column: "710.00", nominal_value: 710.0}
+            - {source_column: "712.50", nominal_value: 712.5}
+            - {source_column: "715.00", nominal_value: 715.0}
+            - {source_column: "717.50", nominal_value: 717.5}
+            - {source_column: "720.00", nominal_value: 720.0}
+            - {source_column: "722.50", nominal_value: 722.5}
+            - {source_column: "725.00", nominal_value: 725.0}
+            - {source_column: "727.50", nominal_value: 727.5}
+            - {source_column: "730.00", nominal_value: 730.0}
+            - {source_column: "732.50", nominal_value: 732.5}
+            - {source_column: "735.00", nominal_value: 735.0}
+            - {source_column: "737.50", nominal_value: 737.5}
+            - {source_column: "740.00", nominal_value: 740.0}
+            - {source_column: "742.50", nominal_value: 742.5}
+            - {source_column: "745.00", nominal_value: 745.0}
+            - {source_column: "747.50", nominal_value: 747.5}
+            - {source_column: "750.00", nominal_value: 750.0}
+
+image_folder_configs:
+  # Tagless image import (felinoscope_2000 — no EXIF datetime, uses file mtime)
+  - name: felinoscope_2000
+    mode: tagless
+    das_name: felinoscope_das
+    folder_structure:
+      extensions: [".jpg", ".jpeg", ".png", ".tiff"]
+      timezone: "America/Montreal"
+      timestamp_source: mtime
+    variables:
+      - name: felinoscope_2000_turbidity_image
+        parameter_name: turbidity_image
+        source_unit_name: "-"
+        destination_unit_name: "-"
+        directory_path: "/test-data/images/felinoscope_2000"
+        equipment_name: felinoscope_2000
