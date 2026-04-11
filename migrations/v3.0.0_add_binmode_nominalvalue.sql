@@ -55,7 +55,7 @@ GO
 
 ALTER TABLE [dbo].[ValueBin]
     ADD CONSTRAINT [CK_ValueBin_BinValues] CHECK (
-        (LowerBound IS NULL) = (UpperBound IS NULL)
+        (LowerBound IS NULL AND UpperBound IS NULL OR LowerBound IS NOT NULL AND UpperBound IS NOT NULL)
         AND (LowerBound IS NULL OR UpperBound > LowerBound)
         AND (NominalValue IS NOT NULL OR LowerBound IS NOT NULL)
     );
