@@ -138,8 +138,6 @@ def render_column_def(col: dict, platform: str) -> str:
             logical = col.get("logical_type", "")
             if logical == "timestamptz" and platform == "mssql":
                 parts.append("DEFAULT SYSDATETIMEOFFSET()")
-            elif logical == "timestamp" and platform == "mssql":
-                parts.append("DEFAULT SYSUTCDATETIME()")
             else:
                 parts.append("DEFAULT CURRENT_TIMESTAMP")
         else:
