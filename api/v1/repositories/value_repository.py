@@ -106,7 +106,7 @@ def get_vector_values(
     cursor.execute(
         f"""
         SELECT o.[Timestamp], vb.[BinIndex], vb.[LowerBound], vb.[UpperBound],
-               vv.[Value], vv.[QualityCode]
+               vb.[NominalValue], vv.[Value], vv.[QualityCode]
         FROM [dbo].[ValueVector] vv
         JOIN [dbo].[Observation] o  ON o.[Observation_ID]  = vv.[Observation_ID]
         JOIN [dbo].[ValueBin]    vb ON vb.[ValueBin_ID]    = vv.[ValueBin_ID]
@@ -121,8 +121,9 @@ def get_vector_values(
             "bin_index": row[1],
             "lower_bound": row[2],
             "upper_bound": row[3],
-            "value": row[4],
-            "quality_code": row[5],
+            "nominal_value": row[4],
+            "value": row[5],
+            "quality_code": row[6],
         }
         for row in cursor.fetchall()
     ]
@@ -146,7 +147,11 @@ def get_matrix_values(
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT o.[Timestamp], rb.[BinIndex] AS RowBinIndex, cb.[BinIndex] AS ColBinIndex,
+        SELECT o.[Timestamp],
+               rb.[BinIndex] AS RowBinIndex, rb.[LowerBound] AS RowLowerBound,
+               rb.[UpperBound] AS RowUpperBound, rb.[NominalValue] AS RowNominalValue,
+               cb.[BinIndex] AS ColBinIndex, cb.[LowerBound] AS ColLowerBound,
+               cb.[UpperBound] AS ColUpperBound, cb.[NominalValue] AS ColNominalValue,
                vm.[Value], vm.[QualityCode]
         FROM [dbo].[ValueMatrix] vm
         JOIN [dbo].[Observation] o  ON o.[Observation_ID]   = vm.[Observation_ID]
@@ -161,9 +166,15 @@ def get_matrix_values(
         {
             "timestamp": row[0],
             "row_bin_index": row[1],
-            "col_bin_index": row[2],
-            "value": row[3],
-            "quality_code": row[4],
+            "row_lower_bound": row[2],
+            "row_upper_bound": row[3],
+            "row_nominal_value": row[4],
+            "col_bin_index": row[5],
+            "col_lower_bound": row[6],
+            "col_upper_bound": row[7],
+            "col_nominal_value": row[8],
+            "value": row[9],
+            "quality_code": row[10],
         }
         for row in cursor.fetchall()
     ]

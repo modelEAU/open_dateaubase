@@ -21,6 +21,8 @@ class ChannelOut(BaseModel):
     processing_degree_name: str | None
     value_type_id: int | None
     value_type_name: str | None
+    unit_id: int | None
+    unit_name: str | None
 
 
 class ChannelIn(BaseModel):

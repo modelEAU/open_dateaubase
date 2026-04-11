@@ -18,7 +18,9 @@ _CHANNEL_SELECT = """
         m.[ProcessingDegree_ID],
         pd.[Name]                    AS ProcessingDegreeName,
         m.[ValueType_ID],
-        vt.[ValueType_Name]
+        vt.[ValueType_Name],
+        m.[Unit_ID],
+        u.[Unit]                     AS UnitName
     FROM [dbo].[Channel] m
     LEFT JOIN [dbo].[SignalPort]              sp  ON sp.[SignalPort_ID]   = m.[SignalPort_ID]
     LEFT JOIN [dbo].[SignalPortEquipmentHistory] seh
@@ -29,6 +31,7 @@ _CHANNEL_SELECT = """
     LEFT JOIN [dbo].[DataProvenance]         dp  ON dp.[DataProvenance_ID] = m.[DataProvenance_ID]
     LEFT JOIN [dbo].[ProcessingDegree]       pd  ON pd.[ProcessingDegree_ID] = m.[ProcessingDegree_ID]
     LEFT JOIN [dbo].[ValueType]              vt  ON vt.[ValueType_ID]    = m.[ValueType_ID]
+    LEFT JOIN [dbo].[Unit]                   u   ON u.[Unit_ID]          = m.[Unit_ID]
 """
 
 _CHANNEL_SELECT_WITH_CAMPAIGN = """
@@ -45,7 +48,9 @@ _CHANNEL_SELECT_WITH_CAMPAIGN = """
         m.[ProcessingDegree_ID],
         pd.[Name]                    AS ProcessingDegreeName,
         m.[ValueType_ID],
-        vt.[ValueType_Name]
+        vt.[ValueType_Name],
+        m.[Unit_ID],
+        u.[Unit]                     AS UnitName
     FROM [dbo].[Channel] m
     LEFT JOIN [dbo].[SignalPort]              sp  ON sp.[SignalPort_ID]   = m.[SignalPort_ID]
     LEFT JOIN [dbo].[SignalPortEquipmentHistory] seh
@@ -56,6 +61,7 @@ _CHANNEL_SELECT_WITH_CAMPAIGN = """
     LEFT JOIN [dbo].[DataProvenance]         dp  ON dp.[DataProvenance_ID] = m.[DataProvenance_ID]
     LEFT JOIN [dbo].[ProcessingDegree]       pd  ON pd.[ProcessingDegree_ID] = m.[ProcessingDegree_ID]
     LEFT JOIN [dbo].[ValueType]              vt  ON vt.[ValueType_ID]    = m.[ValueType_ID]
+    LEFT JOIN [dbo].[Unit]                   u   ON u.[Unit_ID]          = m.[Unit_ID]
     JOIN [dbo].[CampaignEquipment]           ce  ON ce.[Equipment_ID]    = seh.[Equipment_ID]
                                                 AND m.[SignalPort_ID]    = seh.[SignalPort_ID]
                                                 AND seh.[EndTime] IS NULL
@@ -77,6 +83,8 @@ def _row_to_dict(row) -> dict:
         "processing_degree_name": row[10],
         "value_type_id": row[11],
         "value_type_name": row[12],
+        "unit_id": row[13],
+        "unit_name": row[14],
     }
 
 

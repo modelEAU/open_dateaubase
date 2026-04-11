@@ -19,8 +19,9 @@ class VectorValueOut(BaseModel):
 
     timestamp: datetime
     bin_index: int
-    lower_bound: float
-    upper_bound: float
+    lower_bound: float | None
+    upper_bound: float | None
+    nominal_value: float | None
     value: float | None
     quality_code: int | None
 
@@ -30,7 +31,13 @@ class MatrixValueOut(BaseModel):
 
     timestamp: datetime
     row_bin_index: int
+    row_lower_bound: float | None
+    row_upper_bound: float | None
+    row_nominal_value: float | None
     col_bin_index: int
+    col_lower_bound: float | None
+    col_upper_bound: float | None
+    col_nominal_value: float | None
     value: float | None
     quality_code: int | None
 
