@@ -135,15 +135,14 @@ def list_parameters(conn: pyodbc.Connection) -> list[dict]:
     """Return all parameters (full rows)."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Parameter_ID], [Parameter], [Unit_ID], [Description]"
+        "SELECT [Parameter_ID], [Parameter], [Description]"
         " FROM [dbo].[Parameter] ORDER BY [Parameter_ID]"
     )
     return [
         {
             "parameter_id": row[0],
             "parameter_name": row[1],
-            "unit_id": row[2],
-            "description": row[3],
+            "description": row[2],
         }
         for row in cursor.fetchall()
     ]
@@ -152,7 +151,7 @@ def list_parameters(conn: pyodbc.Connection) -> list[dict]:
 def get_parameter_by_id(conn: pyodbc.Connection, param_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Parameter_ID], [Parameter], [Unit_ID], [Description]"
+        "SELECT [Parameter_ID], [Parameter], [Description]"
         " FROM [dbo].[Parameter] WHERE [Parameter_ID]=?",
         param_id,
     )
@@ -162,17 +161,15 @@ def get_parameter_by_id(conn: pyodbc.Connection, param_id: int) -> dict | None:
     return {
         "parameter_id": row[0],
         "parameter_name": row[1],
-        "unit_id": row[2],
-        "description": row[3],
+        "description": row[2],
     }
 
 
 def insert_parameter(conn: pyodbc.Connection, data: dict) -> dict:
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO [dbo].[Parameter] ([Parameter], [Unit_ID], [Description]) VALUES (?, ?, ?)",
+        "INSERT INTO [dbo].[Parameter] ([Parameter], [Description]) VALUES (?, ?)",
         data.get("parameter"),
-        data.get("unit_id"),
         data.get("description"),
     )
     cursor.execute("SELECT @@IDENTITY")
@@ -185,10 +182,9 @@ def update_parameter(conn: pyodbc.Connection, param_id: int, data: dict) -> dict
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE [dbo].[Parameter]"
-        " SET [Parameter]=?, [Unit_ID]=?, [Description]=?"
+        " SET [Parameter]=?, [Description]=?"
         " WHERE [Parameter_ID]=?",
         data.get("parameter"),
-        data.get("unit_id"),
         data.get("description"),
         param_id,
     )

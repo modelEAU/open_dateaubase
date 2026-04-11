@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 import pyodbc
+
+logger = logging.getLogger(__name__)
 
 
 def find_or_create_sensor_metadata(
@@ -22,8 +25,10 @@ def find_or_create_sensor_metadata(
     Uses the UNIQUE sensor stream constraint:
     (SignalPort_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID) WHERE both are NOT NULL.
 
-    On first ingest, a new row is created automatically — no pre-configuration needed.
-    Subsequent calls for the same stream return the existing Channel_ID.
+    On first ingest, a new row is created with Unit_ID stored on the Channel.
+    On subsequent calls for the same stream, the existing Channel_ID is returned.
+    A warning is logged if the caller provides a unit_id that differs from the
+    stored Channel.Unit_ID — the stored value is authoritative.
     """
     cursor = conn.cursor()
     cursor.execute(
@@ -37,8 +42,8 @@ def find_or_create_sensor_metadata(
         )
         INSERT INTO [dbo].[Channel]
             ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID],
-             [ProcessingDegree_ID], [ValueType_ID])
-        VALUES (?, ?, ?, ?, ?)
+             [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         signal_port_id,
         parameter_id,
@@ -49,11 +54,12 @@ def find_or_create_sensor_metadata(
         data_provenance_id,
         processing_degree_id,
         value_type_id,
+        unit_id,
     )
     conn.commit()
     cursor.execute(
         """
-        SELECT [Channel_ID] FROM [dbo].[Channel]
+        SELECT [Channel_ID], [Unit_ID] FROM [dbo].[Channel]
         WHERE [SignalPort_ID] = ?
           AND [Parameter_ID] = ?
           AND [DataProvenance_ID] = ?
@@ -64,7 +70,17 @@ def find_or_create_sensor_metadata(
         data_provenance_id,
         processing_degree_id,
     )
-    return cursor.fetchone()[0]
+    row = cursor.fetchone()
+    channel_id, stored_unit_id = row[0], row[1]
+    if unit_id is not None and stored_unit_id is not None and unit_id != stored_unit_id:
+        logger.warning(
+            "Unit mismatch for Channel %d: stored Unit_ID=%d but caller provided Unit_ID=%d. "
+            "The stored value is authoritative — check your import config.",
+            channel_id,
+            stored_unit_id,
+            unit_id,
+        )
+    return channel_id
 
 
 def find_or_create_derived_metadata(
@@ -83,7 +99,7 @@ def find_or_create_derived_metadata(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ValueType_ID]
+        SELECT [SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ValueType_ID], [Unit_ID]
         FROM [dbo].[Channel]
         WHERE [Channel_ID] = ?
         """,
@@ -95,12 +111,12 @@ def find_or_create_derived_metadata(
             status_code=404,
             detail=f"Source channel {source_channel_id} not found.",
         )
-    signal_port_id, parameter_id, data_provenance_id, value_type_id = row
+    signal_port_id, parameter_id, data_provenance_id, value_type_id, unit_id = row
     return find_or_create_sensor_metadata(
         conn,
         signal_port_id=signal_port_id,
         parameter_id=parameter_id,
-        unit_id=None,
+        unit_id=unit_id,
         data_provenance_id=data_provenance_id,
         processing_degree_id=processing_degree_id,
         value_type_id=value_type_id or 1,

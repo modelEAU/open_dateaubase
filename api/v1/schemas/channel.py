@@ -49,14 +49,12 @@ class ParameterLookupOut(BaseModel):
 
 class ParameterIn(BaseModel):
     parameter: str
-    unit_id: int | None = None
     description: str | None = None
 
 
 class ParameterOut(BaseModel):
     parameter_id: int
     parameter_name: str | None
-    unit_id: int | None
     description: str | None
 
 

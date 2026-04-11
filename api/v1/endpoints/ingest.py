@@ -618,7 +618,8 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
 @router.post("/sensor-image", response_model=ImageIngestResponse, status_code=201)
 def ingest_sensor_image(
     das_name: str = Form(...),
-    tag: str = Form(...),
+    tag: str | None = Form(None),
+    equipment_name: str | None = Form(None),
     signal_port_type: str = Form("value"),
     parameter_name: str = Form(...),
     unit_name: str = Form(...),
@@ -631,9 +632,15 @@ def ingest_sensor_image(
 ):
     """Ingest an image file from a sensor.
 
+    Supports both tagged (tag) and tagless (equipment_name) channel resolution.
     Saves the file to disk and stores metadata in ValueImage table.
     Creates/uses a channel with value_type_id=4 (Image).
     """
+    if tag is None and equipment_name is None:
+        raise HTTPException(
+            status_code=422, detail="Either 'tag' or 'equipment_name' must be provided."
+        )
+
     # 1. Parse timestamp
     try:
         ts = datetime.fromisoformat(timestamp)
@@ -667,15 +674,24 @@ def ingest_sensor_image(
             # Pillow failed — store without metadata
             pass
 
-    # 4. Resolve tag inputs and find/create channel (value_type_id=4 = Image)
-    port_id, param_id, unit_id, _ = _resolve_tag_inputs(
-        conn,
-        das_name=das_name,
-        tag=tag,
-        signal_port_type=signal_port_type,
-        parameter_name=parameter_name,
-        unit_name=unit_name,
-    )
+    # 4. Resolve channel (tagged or tagless) and find/create (value_type_id=4 = Image)
+    if tag is not None:
+        port_id, param_id, unit_id, _ = _resolve_tag_inputs(
+            conn,
+            das_name=das_name,
+            tag=tag,
+            signal_port_type=signal_port_type,
+            parameter_name=parameter_name,
+            unit_name=unit_name,
+        )
+    else:
+        port_id, param_id, unit_id, _ = _resolve_tagless_inputs(
+            conn,
+            das_name=das_name,
+            equipment_name=equipment_name,
+            parameter_name=parameter_name,
+            unit_name=unit_name,
+        )
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
         signal_port_id=port_id,
