@@ -299,8 +299,9 @@ def deactivate_signal_port(conn: pyodbc.Connection, signal_port_id: int) -> bool
         "UPDATE [dbo].[SignalPort] SET [IsActive] = 0 WHERE [SignalPort_ID] = ?",
         signal_port_id,
     )
+    found = cursor.rowcount > 0
     conn.commit()
-    return cursor.rowcount > 0
+    return found
 
 
 # ---------------------------------------------------------------------------
