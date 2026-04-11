@@ -20,8 +20,7 @@ RODTOX_STRUCTURE = FileStructure(
     timezone="US/Eastern",
     value_column="VarValue",
     variable_column="VarName",
-    validity_column="Validity",
-    validity_flag=1,
+    status_map=None,  # test data has Validity=1 on all rows; no filtering needed here
     first_valid_row_idx=1,
     last_valid_row_idx=-2,
     header_row_idx=0,

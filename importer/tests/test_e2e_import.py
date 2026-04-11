@@ -114,8 +114,8 @@ def setup_test_data(db_connection):
     db_connection.commit()
 
     cursor.execute(
-        "INSERT INTO Parameter (Parameter_name, Unit_ID) SELECT ?, Unit_ID FROM Unit WHERE Unit = ?",
-        (TEST_PARAMETER_NAME, TEST_UNIT_NAME),
+        "INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)",
+        (TEST_PARAMETER_NAME,),
     )
     db_connection.commit()
 
@@ -197,8 +197,7 @@ def test_e2e_rodtox_csv_import(api_client, db_connection):
                     timezone="US/Eastern",
                     value_column="VarValue",
                     variable_column="VarName",
-                    validity_column="Validity",
-                    validity_flag=1,
+                    status_map=None,
                     first_valid_row_idx=1,
                     last_valid_row_idx=-2,
                     header_row_idx=0,
@@ -255,8 +254,8 @@ def test_e2e_tsdb_import(api_client, db_connection):
     )
     with pyodbc.connect(conn_str) as conn:
         conn.cursor().execute(
-            "INSERT INTO Parameter (Parameter_name, Unit_ID) SELECT ?, Unit_ID FROM Unit WHERE Unit = ?",
-            (test_param, TEST_UNIT_NAME),
+            "INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)",
+            (test_param,),
         )
         conn.commit()
 
@@ -325,8 +324,8 @@ def test_e2e_scada_sql_import(api_client, db_connection):
     )
     with pyodbc.connect(conn_str) as conn:
         conn.cursor().execute(
-            "INSERT INTO Parameter (Parameter_name, Unit_ID) SELECT ?, Unit_ID FROM Unit WHERE Unit = ?",
-            (test_param, TEST_UNIT_NAME),
+            "INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)",
+            (test_param,),
         )
         conn.commit()
 
@@ -413,8 +412,8 @@ def test_e2e_idempotent_import(api_client, db_connection):
     )
     with pyodbc.connect(conn_str) as conn:
         conn.cursor().execute(
-            "INSERT INTO Parameter (Parameter_name, Unit_ID) SELECT ?, Unit_ID FROM Unit WHERE Unit = ?",
-            (test_param, TEST_UNIT_NAME),
+            "INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)",
+            (test_param,),
         )
         conn.commit()
 
