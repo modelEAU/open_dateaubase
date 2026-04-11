@@ -15,6 +15,18 @@ GO
 :r /migrations/v1.0.0_to_v3.0.0_mssql.sql
 GO
 
+-- Step 2b: Add BinMode vocabulary table and NominalValue to ValueBin
+:r /migrations/v3.0.0_add_binmode_nominalvalue.sql
+GO
+
+-- Step 2c: Add SiteType vocabulary table
+:r /migrations/v3.0.0_add_site_type_mssql.sql
+GO
+
+-- Step 2d: Move Unit_ID from Parameter to Channel
+:r /migrations/v3.0.0_add_channel_unit.sql
+GO
+
 -- Step 3: Load test seed data for the Quebec City monitoring scenario
 :r /sql/seed_v2.2.0.sql
 GO

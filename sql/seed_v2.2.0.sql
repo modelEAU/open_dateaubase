@@ -130,15 +130,16 @@ INSERT INTO [dbo].[Equipment] ([EquipmentModel_ID], [Identifier], [SerialNumber]
 VALUES (3, N'HACH-001', N'SN-2100Q-2020-112', N'modelEAU Lab', N'PLT-2900 Storage', '2020-09-20');  -- ID 3
 
 -- Parameters (IDs 1-5 match v1.0.0 seed; 6-7 are new status parameters)
-INSERT INTO [dbo].[Parameter] ([Unit_ID], [Parameter], [Description]) VALUES (1, N'TSS',         N'Total suspended solids');        -- ID 1
-INSERT INTO [dbo].[Parameter] ([Unit_ID], [Parameter], [Description]) VALUES (1, N'COD',         N'Chemical oxygen demand');        -- ID 2
-INSERT INTO [dbo].[Parameter] ([Unit_ID], [Parameter], [Description]) VALUES (3, N'pH',          N'Hydrogen ion concentration');    -- ID 3
-INSERT INTO [dbo].[Parameter] ([Unit_ID], [Parameter], [Description]) VALUES (4, N'Temperature', N'Water temperature');            -- ID 4
-INSERT INTO [dbo].[Parameter] ([Unit_ID], [Parameter], [Description]) VALUES (5, N'Conductivity',N'Electrical conductivity');      -- ID 5
-INSERT INTO [dbo].[Parameter] ([Unit_ID], [Parameter], [Description])
-VALUES (9, N'Sensor Status', N'Per-channel operational status code. Values reference dbo.SensorStatusCode.');   -- ID 6
-INSERT INTO [dbo].[Parameter] ([Unit_ID], [Parameter], [Description])
-VALUES (9, N'Device Status', N'Overall equipment health status. Values reference dbo.SensorStatusCode.');       -- ID 7
+-- Unit_ID is no longer on Parameter — it lives on Channel instead.
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description]) VALUES (N'TSS',         N'Total suspended solids');        -- ID 1
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description]) VALUES (N'COD',         N'Chemical oxygen demand');        -- ID 2
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description]) VALUES (N'pH',          N'Hydrogen ion concentration');    -- ID 3
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description]) VALUES (N'Temperature', N'Water temperature');            -- ID 4
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description]) VALUES (N'Conductivity',N'Electrical conductivity');      -- ID 5
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
+VALUES (N'Sensor Status', N'Per-channel operational status code. Values reference dbo.SensorStatusCode.');   -- ID 6
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
+VALUES (N'Device Status', N'Overall equipment health status. Values reference dbo.SensorStatusCode.');       -- ID 7
 
 -- Laboratory
 INSERT INTO [dbo].[Laboratory] ([Name], [Site_ID], [Description])
@@ -221,45 +222,45 @@ INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortTy
 INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'FLOWCAM-001:SV',  1);  -- ID 9
 INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'ISCO-001:Status', 2);  -- ID 10
 
--- Channel 1: ISCO-001 TSS (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (1, 1, 1, 1, 1);  -- ID 1
+-- Channel 1: ISCO-001 TSS (sensor, raw, scalar) — mg/L = Unit 1
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (1, 1, 1, 1, 1, 1);  -- ID 1
 
--- Channel 2: ISCO-001 COD (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (2, 2, 1, 1, 1);  -- ID 2
+-- Channel 2: ISCO-001 COD (sensor, raw, scalar) — mg/L = Unit 1
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (2, 2, 1, 1, 1, 1);  -- ID 2
 
--- Channel 3: YSI-001 pH (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (3, 3, 1, 1, 1);  -- ID 3
+-- Channel 3: YSI-001 pH (sensor, raw, scalar) — pH units = Unit 3
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (3, 3, 1, 1, 1, 3);  -- ID 3
 
--- Channel 4: YSI-001 Temperature (sensor, raw, scalar)
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (4, 4, 1, 1, 1);  -- ID 4
+-- Channel 4: YSI-001 Temperature (sensor, raw, scalar) — °C = Unit 4
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (4, 4, 1, 1, 1, 4);  -- ID 4
 
--- Channel 5: effluent TSS — manual entry
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (5, 1, 3, 1, 1);  -- ID 5
+-- Channel 5: effluent TSS — manual entry — mg/L = Unit 1
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (5, 1, 3, 1, 1, 1);  -- ID 5
 
--- Channel 6: UV-Vis absorbance vector
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (6, NULL, 1, 1, 2);  -- ID 6
+-- Channel 6: UV-Vis absorbance vector — no single scalar unit (unit on ValueBinningAxis)
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (6, NULL, 1, 1, 2, NULL);  -- ID 6
 
--- Channel 7: camera image at CSO outfall
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (7, NULL, 1, 2, 4);  -- ID 7
+-- Channel 7: camera image at CSO outfall — no unit
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (7, NULL, 1, 2, 4, NULL);  -- ID 7
 
--- Channel 8: particle size distribution (vector)
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (8, NULL, 2, 1, 2);  -- ID 8
+-- Channel 8: particle size distribution (vector) — no single scalar unit
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (8, NULL, 2, 1, 2, NULL);  -- ID 8
 
--- Channel 9: particle size-velocity joint distribution (matrix)
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (9, NULL, 1, 3, 3);  -- ID 9
+-- Channel 9: particle size-velocity joint distribution (matrix) — no single scalar unit
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (9, NULL, 1, 3, 3, NULL);  -- ID 9
 
--- Channel 10: device-level status stream for ISCO-001
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID])
-VALUES (10, 7, 1, 1, 1);  -- ID 10
+-- Channel 10: device-level status stream for ISCO-001 — Status Code = Unit 9
+INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
+VALUES (10, 7, 1, 1, 1, 9);  -- ID 10
 -- (Channel 11 dropped — StatusChannel_ID column removed in v3.0.0)
 
 -- ChannelAxis: link vector/matrix channels to their binning axes
@@ -268,8 +269,8 @@ INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]
 INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (9, 0, 2);  -- Size-velocity: row=size
 INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (9, 1, 3);  -- Size-velocity: col=velocity
 
--- EquipmentStatusChannel: ISCO-001 device status → Channel 10
-INSERT INTO [dbo].[EquipmentStatusChannel] ([Equipment_ID], [StatusChannel_ID]) VALUES (1, 10);
+-- Note: EquipmentStatusChannel was dropped in v3.0 migration.
+-- Equipment-to-status-channel linkage is now handled via SignalPortEquipmentHistory.
 
 -- ============================================================
 -- TIER 6: Observation + Value Tables (v2.2.0 pattern)

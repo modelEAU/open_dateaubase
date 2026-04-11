@@ -8,11 +8,11 @@ INSERT INTO Unit (Unit) VALUES ('NTU');
 INSERT INTO Unit (Unit) VALUES ('°C');
 GO
 
--- Insert test parameters (using v2.2.0 column name: Parameter, not Parameter_name)
-INSERT INTO Parameter ([Parameter], Unit_ID) VALUES ('Dissolved oxygen', (SELECT Unit_ID FROM Unit WHERE Unit = 'mg/L'));
-INSERT INTO Parameter ([Parameter], Unit_ID) VALUES ('Turbidity', (SELECT Unit_ID FROM Unit WHERE Unit = 'NTU'));
-INSERT INTO Parameter ([Parameter], Unit_ID) VALUES ('Temperature', (SELECT Unit_ID FROM Unit WHERE Unit = '°C'));
-INSERT INTO Parameter ([Parameter], Unit_ID) VALUES ('SCADA Test Value', (SELECT Unit_ID FROM Unit WHERE Unit = 'mg/L'));
+-- Insert test parameters (Unit_ID lives on Channel, not Parameter)
+INSERT INTO Parameter ([Parameter]) VALUES ('Dissolved oxygen');
+INSERT INTO Parameter ([Parameter]) VALUES ('Turbidity');
+INSERT INTO Parameter ([Parameter]) VALUES ('Temperature');
+INSERT INTO Parameter ([Parameter]) VALUES ('SCADA Test Value');
 GO
 
 -- Insert test sites (using v2.2.0 column name: Name, not Site_name)
