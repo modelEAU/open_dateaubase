@@ -1112,7 +1112,8 @@ def _render_image_tab(
             with col_obj:
                 # Checkbox for multi-select
                 is_checked = st.checkbox(
-                    "", value=ts_str in selected_ts, key=f"img_sel_{ts_str}"
+                    "Select", value=ts_str in selected_ts, key=f"img_sel_{ts_str}",
+                    label_visibility="collapsed",
                 )
                 if is_checked and ts_str not in selected_ts:
                     selected_ts.append(ts_str)
