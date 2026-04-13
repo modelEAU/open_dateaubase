@@ -222,6 +222,8 @@ REQUIRED_CHANNEL_FIELDS = {
     "value_type_name",
     "signal_port_id",
     "signal_port_tag",
+    "unit_id",
+    "unit_name",
 }
 
 REQUIRED_PAGINATED_FIELDS = {"items", "total", "page", "page_size", "has_next"}
