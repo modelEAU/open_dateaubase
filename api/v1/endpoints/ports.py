@@ -25,6 +25,7 @@ from api.database import get_db
 from ..repositories import annotation_repository, signal_port_repository, temporal_history_repository
 from ..schemas.common import PaginatedResponse
 from ..schemas.ports import (
+    DasCreateIn,
     DasLookupOut,
     EquipmentAtTimeResponse,
     LocationAtTimeResponse,
@@ -61,6 +62,13 @@ def list_das(conn=Depends(get_db)):
     """Return all DataAcquisitionSystem rows ordered by name."""
     rows = signal_port_repository.list_das(conn)
     return [DasLookupOut(das_id=r["DataAcquisitionSystem_ID"], name=r["Name"]) for r in rows]
+
+
+@router.post("/das", response_model=DasLookupOut, status_code=201)
+def create_das(body: DasCreateIn, conn=Depends(get_db)):
+    """Create a new Data Acquisition System."""
+    result = signal_port_repository.insert_das(conn, body.name)
+    return DasLookupOut(das_id=result["das_id"], name=result["name"])
 
 
 @router.get(

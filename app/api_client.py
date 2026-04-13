@@ -135,6 +135,28 @@ def list_site_types() -> list[dict]:
     return r.json()
 
 
+def list_site_sampling_locations(site_id: int) -> list[dict]:
+    """Return all sampling locations for a site."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/sites/{site_id}/sampling-locations")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_sampling_location(site_id: int, data: dict) -> dict:
+    """Create a new sampling location for a site."""
+    try:
+        with _get_client() as client:
+            r = client.post(f"/sites/{site_id}/sampling-locations", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Equipment
 # ---------------------------------------------------------------------------
@@ -1035,6 +1057,28 @@ def list_das_lookup() -> list[dict]:
     try:
         with _get_client() as client:
             r = client.get("/ports/lookup/das")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_das(data: dict) -> dict:
+    """Create a new Data Acquisition System."""
+    try:
+        with _get_client() as client:
+            r = client.post("/ports/das", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_persons_lookup() -> list[dict]:
+    """Return list of {person_id, label} for dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/persons/lookup")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)

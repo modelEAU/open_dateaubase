@@ -14,10 +14,13 @@ _CAMPAIGN_SELECT = """
         c.[Name],
         c.[Description],
         c.[CampaignStartDateTime],
-        c.[CampaignEndDateTime]
+        c.[CampaignEndDateTime],
+        c.[ResponsiblePerson_ID],
+        CONCAT(p.[FirstName], ' ', p.[LastName]) AS ResponsiblePersonName
     FROM [dbo].[Campaign] c
     LEFT JOIN [dbo].[CampaignType] ct ON ct.[CampaignType_ID] = c.[CampaignType_ID]
     LEFT JOIN [dbo].[Site]         s  ON s.[Site_ID]          = c.[Site_ID]
+    LEFT JOIN [dbo].[Person]       p  ON p.[Person_ID]        = c.[ResponsiblePerson_ID]
 """
 
 
@@ -31,7 +34,9 @@ def _row_to_dict(row) -> dict:
         "name": row[5],
         "description": row[6],
         "start_date": row[7],
-        "end_date": row[8],  # CampaignEndDateTime
+        "end_date": row[8],
+        "responsible_person_id": row[9],
+        "responsible_person_name": row[10],
     }
 
 
@@ -69,14 +74,16 @@ def insert_campaign(conn: pyodbc.Connection, data: dict) -> dict:
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO [dbo].[Campaign]"
-        " ([Name], [CampaignType_ID], [Site_ID], [Description], [CampaignStartDateTime], [CampaignEndDateTime])"
-        " VALUES (?, ?, ?, ?, ?, ?)",
+        " ([Name], [CampaignType_ID], [Site_ID], [Description],"
+        " [CampaignStartDateTime], [CampaignEndDateTime], [ResponsiblePerson_ID])"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
         data.get("name"),
         data.get("campaign_type_id"),
         data.get("site_id"),
         data.get("description"),
         data.get("start_date"),
         data.get("end_date"),
+        data.get("responsible_person_id"),
     )
     cursor.execute("SELECT @@IDENTITY")
     new_id = int(cursor.fetchone()[0])
@@ -91,7 +98,7 @@ def update_campaign(
     cursor.execute(
         "UPDATE [dbo].[Campaign]"
         " SET [Name]=?, [CampaignType_ID]=?, [Site_ID]=?, [Description]=?,"
-        " [CampaignStartDateTime]=?, [CampaignEndDateTime]=?"
+        " [CampaignStartDateTime]=?, [CampaignEndDateTime]=?, [ResponsiblePerson_ID]=?"
         " WHERE [Campaign_ID]=?",
         data.get("name"),
         data.get("campaign_type_id"),
@@ -99,6 +106,7 @@ def update_campaign(
         data.get("description"),
         data.get("start_date"),
         data.get("end_date"),
+        data.get("responsible_person_id"),
         campaign_id,
     )
     conn.commit()
@@ -141,6 +149,9 @@ def patch_campaign(
     if "end_date" in data:
         fields.append("[CampaignEndDateTime]=?")
         values.append(data.get("end_date"))
+    if "responsible_person_id" in data:
+        fields.append("[ResponsiblePerson_ID]=?")
+        values.append(data.get("responsible_person_id"))
 
     if not fields:
         return existing

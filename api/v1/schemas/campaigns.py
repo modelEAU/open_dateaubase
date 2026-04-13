@@ -17,6 +17,8 @@ class CampaignOut(BaseModel):
     description: str | None
     start_date: datetime | None
     end_date: datetime | None
+    responsible_person_id: int | None = None
+    responsible_person_name: str | None = None
 
 
 class CampaignIn(BaseModel):
@@ -26,6 +28,7 @@ class CampaignIn(BaseModel):
     description: str | None = None
     start_date: str | None = None  # ISO datetime string e.g. "2024-06-01T00:00:00"
     end_date: str | None = None
+    responsible_person_id: int | None = None
 
 
 class CampaignPatch(BaseModel):
@@ -37,6 +40,7 @@ class CampaignPatch(BaseModel):
     description: str | None = None
     start_date: str | None = None
     end_date: str | None = None
+    responsible_person_id: int | None = None
 
 
 class CampaignTypeOut(BaseModel):

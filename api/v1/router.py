@@ -22,6 +22,7 @@ from .endpoints.parameters import router as parameters_router
 from .endpoints.ports import router as ports_router
 from .endpoints.value_binning import router as value_binning_router
 from .endpoints.control_loops import router as control_loops_router
+from .endpoints.persons import router as persons_router
 
 router = APIRouter()
 
@@ -49,3 +50,4 @@ router.include_router(
 router.include_router(
     control_loops_router, prefix="/control-loops", tags=["control-loops"]
 )
+router.include_router(persons_router, prefix="/persons", tags=["persons"])

@@ -474,6 +474,19 @@ def list_das(conn: pyodbc.Connection) -> list[dict]:
     return [dict(zip(cols, row)) for row in cursor.fetchall()]
 
 
+def insert_das(conn: pyodbc.Connection, name: str) -> dict:
+    """Create a new DataAcquisitionSystem row and return {das_id, name}."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[DataAcquisitionSystem] ([Name])"
+        " OUTPUT INSERTED.[DataAcquisitionSystem_ID] VALUES (?)",
+        name.strip(),
+    )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return {"das_id": new_id, "name": name.strip()}
+
+
 def list_signal_port_types(conn: pyodbc.Connection) -> list[dict]:
     """Return all SignalPortType rows ordered by ID."""
     cursor = conn.cursor()

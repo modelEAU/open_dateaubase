@@ -131,3 +131,22 @@ def get_data_provenance_by_id(
     if row:
         return {"data_provenance_id": row[0], "data_provenance_name": row[1]}
     return None
+
+
+def get_persons_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return all persons as {person_id, label} for dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Person_ID], [FirstName], [LastName]"
+        " FROM [dbo].[Person]"
+        " ORDER BY [LastName], [FirstName]"
+    )
+    rows = cursor.fetchall()
+    return [
+        {
+            "person_id": row[0],
+            "label": f"{row[1] or ''} {row[2] or ''}".strip() or f"Person {row[0]}",
+        }
+        for row in rows
+    ]
+

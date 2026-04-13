@@ -27,6 +27,10 @@ GO
 :r /migrations/v3.0.0_add_channel_unit.sql
 GO
 
+-- Step 2e: Add ResponsiblePerson_ID to Campaign
+:r /migrations/v3.0.0_add_campaign_responsible_person.sql
+GO
+
 -- Step 3: Load test seed data for the Quebec City monitoring scenario
 :r /sql/seed_v2.2.0.sql
 GO

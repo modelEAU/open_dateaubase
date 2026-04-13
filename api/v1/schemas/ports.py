@@ -156,6 +156,11 @@ class DasLookupOut(BaseModel):
     name: str
 
 
+class DasCreateIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
 class SignalPortTypeLookupOut(BaseModel):
     signal_port_type_id: int
     name: str
