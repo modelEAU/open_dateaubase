@@ -12,16 +12,16 @@ table:
       description: "Link to the SamplingPoint table"
     - name: Site_ID
       logical_type: integer
-      nullable: true
-      description: "A unique ID is generated automatically by the database"
+      nullable: false
+      description: "Site this sampling point belongs to"
       foreign_key:
         table: Site
         column: Site_ID
     - name: SamplingPoint
       logical_type: string
       max_length: 100
-      nullable: true
-      description: "Where the sample was taken. For example: \"Inlet\", \"Outlet\" or \"Upstream\""
+      nullable: false
+      description: "Name of the sampling location. For example: \"Inlet\", \"Outlet\" or \"Upstream\""
     - name: SamplingLocation
       logical_type: string
       max_length: 100
