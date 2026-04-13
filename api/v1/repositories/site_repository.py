@@ -185,6 +185,32 @@ def get_sites_lookup(conn: pyodbc.Connection) -> list[dict]:
     return [{"site_id": row[0], "name": row[1]} for row in cursor.fetchall()]
 
 
+def insert_sampling_location(
+    conn: pyodbc.Connection, site_id: int, data: dict
+) -> dict:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [Description],
+                                           [LatitudeWGS84], [LongitudeWGS84])
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        site_id,
+        data["name"],
+        data.get("description"),
+        data.get("latitude"),
+        data.get("longitude"),
+    )
+    cursor.execute("SELECT @@IDENTITY")
+    new_id = int(cursor.fetchone()[0])
+    conn.commit()
+    rows = get_sampling_locations_for_site(conn, site_id)
+    match = next((r for r in rows if r["id"] == new_id), None)
+    return match or {"id": new_id, "name": data["name"], "description": data.get("description"),
+                     "latitude": data.get("latitude"), "longitude": data.get("longitude"),
+                     "site_id": site_id, "site_name": None}
+
+
 def get_sampling_locations_for_site(
     conn: pyodbc.Connection, site_id: int
 ) -> list[dict]:

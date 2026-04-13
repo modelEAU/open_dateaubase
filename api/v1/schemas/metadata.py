@@ -5,6 +5,13 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
+class SamplingLocationIn(BaseModel):
+    name: str
+    description: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+
+
 class SamplingLocationOut(BaseModel):
     id: int
     name: str
