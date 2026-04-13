@@ -74,7 +74,7 @@ filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
 with filter_col1:
     das_filter_options = [{"id": None, "label": "All"}] + das_options
     selected_das_label = st.selectbox(
-        "DAS",
+        "Data Acquisition System",
         options=[opt["label"] for opt in das_filter_options],
         index=0,
         key="filter_das",
