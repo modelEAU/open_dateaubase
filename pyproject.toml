@@ -31,6 +31,7 @@ api = [
     "uvicorn[standard]>=0.32.0",
     "pyodbc>=5.1",
     "python-dotenv>=1.0.0",
+    "pillow>=10.0.0",
 ]
 app = [
     "streamlit>=1.40",
@@ -58,3 +59,8 @@ open_dateaubase = ["*.json", "dictionary.json"]
 
 [tool.uv.workspace]
 members = ["importer"]
+
+[dependency-groups]
+dev = [
+    "types-pyyaml>=6.0.12.20260408",
+]
