@@ -487,6 +487,46 @@ def insert_das(conn: pyodbc.Connection, name: str) -> dict:
     return {"das_id": new_id, "name": name.strip()}
 
 
+def update_das(
+    conn: pyodbc.Connection, das_id: int, name: str, description: str | None
+) -> dict | None:
+    """Update a DataAcquisitionSystem row and return {das_id, name}, or None if not found."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[DataAcquisitionSystem]"
+            " SET [Name]=?, [Description]=?"
+            " OUTPUT inserted.[DataAcquisitionSystem_ID], inserted.[Name]"
+            " WHERE [DataAcquisitionSystem_ID]=?",
+            name.strip(),
+            description,
+            das_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {"das_id": row[0], "name": row[1]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_das(conn: pyodbc.Connection, das_id: int) -> bool:
+    """Delete a DataAcquisitionSystem row. Returns True if a row was deleted."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[DataAcquisitionSystem] WHERE [DataAcquisitionSystem_ID]=?",
+            das_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def list_signal_port_types(conn: pyodbc.Connection) -> list[dict]:
     """Return all SignalPortType rows ordered by ID."""
     cursor = conn.cursor()

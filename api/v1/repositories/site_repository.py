@@ -178,6 +178,78 @@ def get_all_site_types(conn: pyodbc.Connection) -> list[dict]:
     return [{"id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
 
 
+def get_site_type_by_id(conn: pyodbc.Connection, site_type_id: int) -> dict | None:
+    """Return a single SiteType by ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SiteType_ID], [Name], [Description] FROM [dbo].[SiteType] WHERE [SiteType_ID]=?",
+        site_type_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return {"id": row[0], "name": row[1], "description": row[2]}
+
+
+def insert_site_type(conn: pyodbc.Connection, name: str, description: str | None) -> dict:
+    """Insert a new SiteType row and return it."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[SiteType] ([Name], [Description])"
+            " OUTPUT inserted.[SiteType_ID], inserted.[Name], inserted.[Description]"
+            " VALUES (?, ?)",
+            name,
+            description,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {"id": row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_site_type(
+    conn: pyodbc.Connection, site_type_id: int, name: str, description: str | None
+) -> dict | None:
+    """Update a SiteType row and return it, or None if not found."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[SiteType]"
+            " SET [Name]=?, [Description]=?"
+            " OUTPUT inserted.[SiteType_ID], inserted.[Name], inserted.[Description]"
+            " WHERE [SiteType_ID]=?",
+            name,
+            description,
+            site_type_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {"id": row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_site_type(conn: pyodbc.Connection, site_type_id: int) -> bool:
+    """Delete a SiteType row. Returns True if a row was deleted."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[SiteType] WHERE [SiteType_ID]=?",
+            site_type_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def get_sites_lookup(conn: pyodbc.Connection) -> list[dict]:
     """Return lightweight site list for dropdowns (id, name only)."""
     cursor = conn.cursor()

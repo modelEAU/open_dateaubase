@@ -21,7 +21,12 @@ import logging
 
 from api.config import settings
 from api.database import get_db
-from ..repositories import ingestion_repository, lookup_repository, signal_port_repository, value_repository
+from ..repositories import (
+    ingestion_repository,
+    lookup_repository,
+    signal_port_repository,
+    value_repository,
+)
 from ..schemas.ingestion import (
     ChannelResolveResponse,
     ImageIngestResponse,
@@ -74,12 +79,14 @@ def _resolve_tag_inputs(
     Auto-creates DAS and SignalPort with warnings.
     """
     # --- Validation-only lookups first (no writes) ---
-    spt_id = signal_port_repository.find_signal_port_type_by_name(conn, signal_port_type)
+    spt_id = signal_port_repository.find_signal_port_type_by_name(
+        conn, signal_port_type
+    )
     if spt_id is None:
         raise HTTPException(
             status_code=422,
             detail=f"Unknown signal_port_type {signal_port_type!r}. "
-                   "Valid values: value, status, alarm, uncertainty.",
+            "Valid values: value, status, alarm, uncertainty.",
         )
 
     param_id = signal_port_repository.find_parameter_by_name(conn, parameter_name)
@@ -87,7 +94,7 @@ def _resolve_tag_inputs(
         raise HTTPException(
             status_code=422,
             detail=f"Unknown parameter_name {parameter_name!r}. "
-                   "Add the parameter to the Parameter table before ingesting.",
+            "Add the parameter to the Parameter table before ingesting.",
         )
 
     unit_id = signal_port_repository.find_unit_by_name(conn, unit_name)
@@ -95,7 +102,7 @@ def _resolve_tag_inputs(
         raise HTTPException(
             status_code=422,
             detail=f"Unknown unit_name {unit_name!r}. "
-                   "Add the unit to the Unit table before ingesting.",
+            "Add the unit to the Unit table before ingesting.",
         )
 
     # --- Auto-create writes (warn on new rows) ---
@@ -139,7 +146,7 @@ def _resolve_tagless_inputs(
         raise HTTPException(
             status_code=422,
             detail=f"Unknown parameter_name {parameter_name!r}. "
-                   "Add the parameter to the Parameter table before ingesting.",
+            "Add the parameter to the Parameter table before ingesting.",
         )
 
     unit_id = signal_port_repository.find_unit_by_name(conn, unit_name)
@@ -147,7 +154,7 @@ def _resolve_tagless_inputs(
         raise HTTPException(
             status_code=422,
             detail=f"Unknown unit_name {unit_name!r}. "
-                   "Add the unit to the Unit table before ingesting.",
+            "Add the unit to the Unit table before ingesting.",
         )
 
     # --- Auto-create writes (warn on new rows) ---
@@ -159,8 +166,10 @@ def _resolve_tagless_inputs(
         logger.warning(msg)
         collected_warnings.append(msg)
 
-    equip_id, equip_created = signal_port_repository.find_or_create_equipment_by_identifier(
-        conn, equipment_name
+    equip_id, equip_created = (
+        signal_port_repository.find_or_create_equipment_by_identifier(
+            conn, equipment_name
+        )
     )
     if equip_created:
         msg = (
@@ -241,6 +250,36 @@ def get_laboratories_lookup(conn=Depends(get_db)):
     return lookup_repository.get_laboratories_lookup(conn)
 
 
+@router.post("/lookup/laboratories", status_code=201)
+def create_laboratory(body: dict, conn=Depends(get_db)):
+    """Create a new laboratory."""
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="name field is required")
+    contact_email = body.get("contact_email") or None
+    return lookup_repository.insert_laboratory(conn, name, contact_email)
+
+
+@router.put("/lookup/laboratories/{laboratory_id}")
+def update_laboratory(laboratory_id: int, body: dict, conn=Depends(get_db)):
+    """Update a laboratory."""
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="name field is required")
+    contact_email = body.get("contact_email") or None
+    updated = lookup_repository.update_laboratory(conn, laboratory_id, name, contact_email)
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"Laboratory {laboratory_id} not found.")
+    return updated
+
+
+@router.delete("/lookup/laboratories/{laboratory_id}", status_code=204)
+def delete_laboratory(laboratory_id: int, conn=Depends(get_db)):
+    """Delete a laboratory."""
+    if not lookup_repository.delete_laboratory(conn, laboratory_id):
+        raise HTTPException(status_code=404, detail=f"Laboratory {laboratory_id} not found.")
+
+
 @router.get("/lookup/procedures")
 def get_procedures_lookup(conn=Depends(get_db)):
     """Return procedures list for dropdowns."""
@@ -286,7 +325,9 @@ def get_last_timestamp(
     Used by the table-import CLI for watermark-based deduplication.
     Returns {"last_timestamp": "<ISO 8601>" | null}.
     """
-    ts = ingestion_repository.get_last_timestamp_for_channel(conn, channel_id=channel_id)
+    ts = ingestion_repository.get_last_timestamp_for_channel(
+        conn, channel_id=channel_id
+    )
     return {"last_timestamp": ts.isoformat() if ts is not None else None}
 
 
@@ -336,12 +377,17 @@ def resolve_channel(data: SensorChannelResolveRequest, conn=Depends(get_db)):
         unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
+        value_type_id=data.value_type_id,
     )
     return ChannelResolveResponse(channel_id=channel_id, warnings=warnings)
 
 
-@router.post("/resolve-channel-tagless", response_model=ChannelResolveResponse, status_code=200)
-def resolve_channel_tagless(data: TaglessSensorChannelResolveRequest, conn=Depends(get_db)):
+@router.post(
+    "/resolve-channel-tagless", response_model=ChannelResolveResponse, status_code=200
+)
+def resolve_channel_tagless(
+    data: TaglessSensorChannelResolveRequest, conn=Depends(get_db)
+):
     """Resolve (or create) a tagless sensor channel without writing any values.
 
     Runs the same validation and find-or-create logic as POST /ingest/sensor-tagless steps 1–3,
@@ -362,6 +408,7 @@ def resolve_channel_tagless(data: TaglessSensorChannelResolveRequest, conn=Depen
         unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
+        value_type_id=data.value_type_id,
     )
     return ChannelResolveResponse(channel_id=channel_id, warnings=warnings)
 
@@ -418,7 +465,9 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         [v.model_dump() for v in data.values],
     )
 
-    return IngestResponse(channel_id=channel_id, rows_written=rows, warnings=ingest_warnings)
+    return IngestResponse(
+        channel_id=channel_id, rows_written=rows, warnings=ingest_warnings
+    )
 
 
 @router.post("/sensor-tagless", response_model=IngestResponse, status_code=201)
@@ -460,7 +509,9 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
         [v.model_dump() for v in data.values],
     )
 
-    return IngestResponse(channel_id=channel_id, rows_written=rows, warnings=ingest_warnings)
+    return IngestResponse(
+        channel_id=channel_id, rows_written=rows, warnings=ingest_warnings
+    )
 
 
 @router.post("/lab", response_model=LabIngestResponse, status_code=201)
@@ -574,7 +625,9 @@ def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
     rows = value_repository.insert_vector_values(
         conn, channel_id, data.binning_axis_id, observations
     )
-    return IngestResponse(channel_id=channel_id, rows_written=rows, warnings=ingest_warnings)
+    return IngestResponse(
+        channel_id=channel_id, rows_written=rows, warnings=ingest_warnings
+    )
 
 
 @router.post("/sensor-matrix", response_model=IngestResponse, status_code=201)
@@ -612,7 +665,9 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
     rows = value_repository.insert_matrix_values(
         conn, channel_id, data.row_axis_id, data.col_axis_id, observations
     )
-    return IngestResponse(channel_id=channel_id, rows_written=rows, warnings=ingest_warnings)
+    return IngestResponse(
+        channel_id=channel_id, rows_written=rows, warnings=ingest_warnings
+    )
 
 
 @router.post("/sensor-image", response_model=ImageIngestResponse, status_code=201)
@@ -704,8 +759,8 @@ def ingest_sensor_image(
 
     # 5. Save file to disk
     ts_safe = ts.isoformat().replace(":", "-")
-    rel_path = f"uploads/images/{channel_id}/{ts_safe}.{file_ext}"
-    abs_path = Path(settings.upload_dir).parent / rel_path
+    rel_path = f"images/{channel_id}/{ts_safe}.{file_ext}"
+    abs_path = Path(settings.upload_dir) / str(channel_id) / f"{ts_safe}.{file_ext}"
     abs_path.parent.mkdir(parents=True, exist_ok=True)
     abs_path.write_bytes(image_bytes)
 

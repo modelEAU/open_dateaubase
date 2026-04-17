@@ -71,6 +71,23 @@ def create_das(body: DasCreateIn, conn=Depends(get_db)):
     return DasLookupOut(das_id=result["das_id"], name=result["name"])
 
 
+@router.put("/das/{das_id}", response_model=DasLookupOut)
+def update_das(das_id: int, body: DasCreateIn, conn=Depends(get_db)):
+    """Update a Data Acquisition System."""
+    result = signal_port_repository.update_das(conn, das_id, body.name, body.description)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"DataAcquisitionSystem {das_id} not found.")
+    return DasLookupOut(das_id=result["das_id"], name=result["name"])
+
+
+@router.delete("/das/{das_id}", status_code=204)
+def delete_das(das_id: int, conn=Depends(get_db)):
+    """Delete a Data Acquisition System."""
+    deleted = signal_port_repository.delete_das(conn, das_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"DataAcquisitionSystem {das_id} not found.")
+
+
 @router.get(
     "/lookup/types",
     response_model=list[SignalPortTypeLookupOut],

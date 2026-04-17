@@ -223,6 +223,7 @@ class SensorChannelResolveRequest(BaseModel):
     unit_name: str
     data_provenance_id: int = 1
     processing_degree_id: int = 1
+    value_type_id: int = 1
 
 
 class TaglessSensorChannelResolveRequest(BaseModel):
@@ -234,6 +235,7 @@ class TaglessSensorChannelResolveRequest(BaseModel):
     unit_name: str
     data_provenance_id: int = 1
     processing_degree_id: int = 1
+    value_type_id: int = 1
 
 
 class ChannelResolveResponse(BaseModel):

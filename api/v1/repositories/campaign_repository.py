@@ -296,55 +296,39 @@ def create_campaign_deployment(
     role: str | None,
     notes: str | None,
 ) -> int:
-    """Create a deployment: insert into CampaignEquipment, CampaignSamplingLocation,
-    and EquipmentInstallation atomically. Returns the new Installation_ID.
+    """Link equipment and a sampling point to a campaign.
+
+    Inserts into CampaignEquipment and CampaignSamplingLocation.
+    Returns equipment_id as a stable deployment identifier (EquipmentInstallation
+    was dropped in v3.0.0; location tracking is now via SignalPortLocationHistory).
 
     Raises ValueError if equipment is already deployed in this campaign."""
     cursor = conn.cursor()
 
-    # 1. Get campaign start date for installation
-    cursor.execute(
-        "SELECT [CampaignStartDateTime] FROM [dbo].[Campaign] WHERE [Campaign_ID] = ?",
-        campaign_id,
-    )
-    row = cursor.fetchone()
-    if row is None or row[0] is None:
-        raise ValueError("Campaign has no start date — cannot create installation")
-    installed_date = row[0]
-
-    # 2. Check if equipment is already deployed for this campaign
+    # Check duplicate via CampaignEquipment (the authoritative linkage table)
     cursor.execute(
         """
-        SELECT COUNT(*) FROM [dbo].[EquipmentInstallation]
+        SELECT COUNT(*) FROM [dbo].[CampaignEquipment]
         WHERE [Campaign_ID] = ? AND [Equipment_ID] = ?
         """,
         campaign_id,
         equipment_id,
     )
-    existing_count = cursor.fetchone()[0]
-    if existing_count > 0:
+    if cursor.fetchone()[0] > 0:
         raise ValueError(
             f"Equipment {equipment_id} is already deployed in this campaign"
         )
 
-    # 4. Insert or ignore into CampaignEquipment
     cursor.execute(
         """
-        IF NOT EXISTS (
-            SELECT 1 FROM [dbo].[CampaignEquipment]
-            WHERE [Campaign_ID] = ? AND [Equipment_ID] = ?
-        )
         INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role])
         VALUES (?, ?, ?)
         """,
         campaign_id,
         equipment_id,
-        campaign_id,
-        equipment_id,
         role,
     )
 
-    # 5. Insert or ignore into CampaignSamplingLocation
     cursor.execute(
         """
         IF NOT EXISTS (
@@ -353,33 +337,16 @@ def create_campaign_deployment(
         )
         INSERT INTO [dbo].[CampaignSamplingLocation]
             ([Campaign_ID], [SamplingPoint_ID], [Role])
-        VALUES (?, ?, ?)
+        VALUES (?, ?, NULL)
         """,
         campaign_id,
         sampling_point_id,
         campaign_id,
         sampling_point_id,
-        None,  # No role for sampling location in deployment context
     )
-
-    # 6. Insert into EquipmentInstallation
-    cursor.execute(
-        """
-        INSERT INTO [dbo].[EquipmentInstallation]
-            ([Equipment_ID], [SamplingPoint_ID], [InstalledDate], [Campaign_ID], [Notes])
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        equipment_id,
-        sampling_point_id,
-        installed_date,
-        campaign_id,
-        notes,
-    )
-    cursor.execute("SELECT @@IDENTITY")
-    installation_id = int(cursor.fetchone()[0])
 
     conn.commit()
-    return installation_id
+    return equipment_id
 
 
 def delete_campaign_deployment(

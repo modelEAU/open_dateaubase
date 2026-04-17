@@ -23,6 +23,11 @@ from .endpoints.ports import router as ports_router
 from .endpoints.value_binning import router as value_binning_router
 from .endpoints.control_loops import router as control_loops_router
 from .endpoints.persons import router as persons_router
+from .endpoints.quality_codes import router as quality_codes_router
+from .endpoints.lab_lookup import (
+    sample_types_router,
+    sample_methods_router,
+)
 
 router = APIRouter()
 
@@ -51,3 +56,6 @@ router.include_router(
     control_loops_router, prefix="/control-loops", tags=["control-loops"]
 )
 router.include_router(persons_router, prefix="/persons", tags=["persons"])
+router.include_router(quality_codes_router, prefix="/quality-codes", tags=["quality-codes"])
+router.include_router(sample_types_router, prefix="/sample-types", tags=["sample-types"])
+router.include_router(sample_methods_router, prefix="/sample-methods", tags=["sample-methods"])

@@ -10,17 +10,26 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel
 
 from api.database import get_db
+from ..repositories import annotation_repository
 from ..schemas.annotations import (
     AnnotationCreate,
     AnnotationListResponse,
     AnnotationResponse,
     AnnotationTypeListResponse,
+    AnnotationTypeResponse,
     AnnotationUpdate,
 )
 from ..services import annotation_service
+
+
+class AnnotationTypeIn(BaseModel):
+    name: str
+    description: str | None = None
+    color: str | None = None
 
 # ---------------------------------------------------------------------------
 # Timeseries sub-resource: /timeseries/{channel_id}/annotations
@@ -140,3 +149,48 @@ annotation_types_router = APIRouter()
 def list_annotation_types(conn=Depends(get_db)):
     """List all available annotation types (for UI dropdowns)."""
     return annotation_service.get_annotation_types(conn)
+
+
+@annotation_types_router.post("", response_model=AnnotationTypeResponse, status_code=201)
+def create_annotation_type(body: AnnotationTypeIn, conn=Depends(get_db)):
+    """Create a new AnnotationType."""
+    row = annotation_repository.insert_annotation_type(
+        conn, body.name, body.description, body.color
+    )
+    return AnnotationTypeResponse(
+        id=row["annotation_type_id"],
+        name=row["annotation_type_name"],
+        description=row.get("description"),
+        color=row.get("color"),
+    )
+
+
+@annotation_types_router.put("/{annotation_type_id}", response_model=AnnotationTypeResponse)
+def update_annotation_type(
+    annotation_type_id: int, body: AnnotationTypeIn, conn=Depends(get_db)
+):
+    """Update an existing AnnotationType."""
+    row = annotation_repository.update_annotation_type(
+        conn, annotation_type_id, body.name, body.description, body.color
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=404, detail=f"AnnotationType {annotation_type_id} not found."
+        )
+    return AnnotationTypeResponse(
+        id=row["annotation_type_id"],
+        name=row["annotation_type_name"],
+        description=row.get("description"),
+        color=row.get("color"),
+    )
+
+
+@annotation_types_router.delete("/{annotation_type_id}", status_code=204)
+def delete_annotation_type(annotation_type_id: int, conn=Depends(get_db)):
+    """Delete an AnnotationType by ID."""
+    deleted = annotation_repository.delete_annotation_type(conn, annotation_type_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404, detail=f"AnnotationType {annotation_type_id} not found."
+        )
+    return Response(status_code=204)

@@ -38,8 +38,72 @@ def delete_unit(conn: pyodbc.Connection, unit_id: int) -> bool:
 
 def get_laboratories_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
-    cursor.execute("SELECT Laboratory_ID, Name FROM [dbo].[Laboratory] ORDER BY Name")
-    return [{"laboratory_id": row[0], "name": row[1]} for row in cursor.fetchall()]
+    cursor.execute(
+        "SELECT [Laboratory_ID], [Name], [ContactEmail] FROM [dbo].[Laboratory] ORDER BY [Name]"
+    )
+    return [
+        {"laboratory_id": row[0], "name": row[1], "contact_email": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+def insert_laboratory(conn: pyodbc.Connection, name: str, contact_email: str | None) -> dict:
+    """Insert a new Laboratory row and return it."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[Laboratory] ([Name], [ContactEmail])"
+            " OUTPUT inserted.[Laboratory_ID], inserted.[Name], inserted.[ContactEmail]"
+            " VALUES (?, ?)",
+            name,
+            contact_email,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {"laboratory_id": row[0], "name": row[1], "contact_email": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_laboratory(
+    conn: pyodbc.Connection, laboratory_id: int, name: str, contact_email: str | None
+) -> dict | None:
+    """Update a Laboratory row and return it, or None if not found."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[Laboratory]"
+            " SET [Name]=?, [ContactEmail]=?"
+            " OUTPUT inserted.[Laboratory_ID], inserted.[Name], inserted.[ContactEmail]"
+            " WHERE [Laboratory_ID]=?",
+            name,
+            contact_email,
+            laboratory_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {"laboratory_id": row[0], "name": row[1], "contact_email": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_laboratory(conn: pyodbc.Connection, laboratory_id: int) -> bool:
+    """Delete a Laboratory row. Returns True if a row was deleted."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[Laboratory] WHERE [Laboratory_ID]=?",
+            laboratory_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def get_procedures_lookup(conn: pyodbc.Connection) -> list[dict]:
@@ -149,4 +213,273 @@ def get_persons_lookup(conn: pyodbc.Connection) -> list[dict]:
         }
         for row in rows
     ]
+
+
+def get_all_persons(conn: pyodbc.Connection) -> list[dict]:
+    """Return all persons with full fields."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Person_ID], [FirstName], [LastName], [Email], [Role], [Organization], [Phone]"
+        " FROM [dbo].[Person] ORDER BY [LastName], [FirstName]"
+    )
+    return [
+        {
+            "person_id": row[0],
+            "first_name": row[1],
+            "last_name": row[2],
+            "email": row[3],
+            "role": row[4],
+            "organization": row[5],
+            "phone": row[6],
+        }
+        for row in cursor.fetchall()
+    ]
+
+
+# ---------------------------------------------------------------------------
+# QualityCode
+# ---------------------------------------------------------------------------
+
+
+def get_quality_codes(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [QualityCode_ID], [Name], [Description], [IsUsable]"
+        " FROM [dbo].[QualityCode] ORDER BY [QualityCode_ID]"
+    )
+    return [
+        {
+            "quality_code_id": row[0],
+            "name": row[1],
+            "description": row[2],
+            "is_usable": bool(row[3]),
+        }
+        for row in cursor.fetchall()
+    ]
+
+
+def insert_quality_code(
+    conn: pyodbc.Connection, name: str, description: str | None, is_usable: bool
+) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[QualityCode] ([Name], [Description], [IsUsable])"
+            " OUTPUT inserted.[QualityCode_ID], inserted.[Name],"
+            "        inserted.[Description], inserted.[IsUsable]"
+            " VALUES (?, ?, ?)",
+            name,
+            description,
+            1 if is_usable else 0,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {
+            "quality_code_id": row[0],
+            "name": row[1],
+            "description": row[2],
+            "is_usable": bool(row[3]),
+        }
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_quality_code(
+    conn: pyodbc.Connection,
+    qc_id: int,
+    name: str,
+    description: str | None,
+    is_usable: bool,
+) -> dict | None:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[QualityCode]"
+            " SET [Name]=?, [Description]=?, [IsUsable]=?"
+            " OUTPUT inserted.[QualityCode_ID], inserted.[Name],"
+            "        inserted.[Description], inserted.[IsUsable]"
+            " WHERE [QualityCode_ID]=?",
+            name,
+            description,
+            1 if is_usable else 0,
+            qc_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {
+            "quality_code_id": row[0],
+            "name": row[1],
+            "description": row[2],
+            "is_usable": bool(row[3]),
+        }
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_quality_code(conn: pyodbc.Connection, qc_id: int) -> bool:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[QualityCode] WHERE [QualityCode_ID]=?",
+            qc_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
+# ---------------------------------------------------------------------------
+# SampleType
+# ---------------------------------------------------------------------------
+
+
+def get_sample_types(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SampleType_ID], [Name], [Description]"
+        " FROM [dbo].[SampleType] ORDER BY [Name]"
+    )
+    return [
+        {"sample_type_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+def insert_sample_type(
+    conn: pyodbc.Connection, name: str, description: str | None
+) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[SampleType] ([Name], [Description])"
+            " OUTPUT inserted.[SampleType_ID], inserted.[Name], inserted.[Description]"
+            " VALUES (?, ?)",
+            name,
+            description,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {"sample_type_id": row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_sample_type(
+    conn: pyodbc.Connection, sample_type_id: int, name: str, description: str | None
+) -> dict | None:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[SampleType]"
+            " SET [Name]=?, [Description]=?"
+            " OUTPUT inserted.[SampleType_ID], inserted.[Name], inserted.[Description]"
+            " WHERE [SampleType_ID]=?",
+            name,
+            description,
+            sample_type_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {"sample_type_id": row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_sample_type(conn: pyodbc.Connection, sample_type_id: int) -> bool:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[SampleType] WHERE [SampleType_ID]=?",
+            sample_type_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
+# ---------------------------------------------------------------------------
+# SampleMethod
+# ---------------------------------------------------------------------------
+
+
+def get_sample_methods(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SampleMethod_ID], [Name], [Description]"
+        " FROM [dbo].[SampleMethod] ORDER BY [Name]"
+    )
+    return [
+        {"sample_method_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+def insert_sample_method(
+    conn: pyodbc.Connection, name: str, description: str | None
+) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[SampleMethod] ([Name], [Description])"
+            " OUTPUT inserted.[SampleMethod_ID], inserted.[Name], inserted.[Description]"
+            " VALUES (?, ?)",
+            name,
+            description,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {"sample_method_id": row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_sample_method(
+    conn: pyodbc.Connection, sample_method_id: int, name: str, description: str | None
+) -> dict | None:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[SampleMethod]"
+            " SET [Name]=?, [Description]=?"
+            " OUTPUT inserted.[SampleMethod_ID], inserted.[Name], inserted.[Description]"
+            " WHERE [SampleMethod_ID]=?",
+            name,
+            description,
+            sample_method_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {"sample_method_id": row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_sample_method(conn: pyodbc.Connection, sample_method_id: int) -> bool:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[SampleMethod] WHERE [SampleMethod_ID]=?",
+            sample_method_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
 

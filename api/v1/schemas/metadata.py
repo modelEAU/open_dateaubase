@@ -74,6 +74,46 @@ class SiteTypeOut(BaseModel):
     description: str | None
 
 
+class SiteTypeIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class QualityCodeOut(BaseModel):
+    quality_code_id: int
+    name: str
+    description: str | None
+    is_usable: bool
+
+
+class QualityCodeIn(BaseModel):
+    name: str
+    description: str | None = None
+    is_usable: bool = True
+
+
+class SampleTypeOut(BaseModel):
+    sample_type_id: int
+    name: str
+    description: str | None
+
+
+class SampleTypeIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class SampleMethodOut(BaseModel):
+    sample_method_id: int
+    name: str
+    description: str | None
+
+
+class SampleMethodIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
 class MetadataOut(BaseModel):
     """Full metadata record with all resolved foreign keys."""
 

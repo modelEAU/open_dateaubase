@@ -396,3 +396,86 @@ def delete_annotation(conn: pyodbc.Connection, annotation_id: int) -> bool:
     deleted = cursor.rowcount > 0
     conn.commit()
     return deleted
+
+
+# ---------------------------------------------------------------------------
+# AnnotationType write operations
+# ---------------------------------------------------------------------------
+
+def insert_annotation_type(
+    conn: pyodbc.Connection, name: str, description: str | None, color: str | None = None
+) -> dict:
+    """Insert a new AnnotationType row and return it."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[AnnotationType] ([AnnotationTypeName], [Description], [Color])"
+            " OUTPUT inserted.[AnnotationType_ID], inserted.[AnnotationTypeName],"
+            "        inserted.[Description], inserted.[Color]"
+            " VALUES (?, ?, ?)",
+            name,
+            description,
+            color,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {
+            "annotation_type_id": row[0],
+            "annotation_type_name": row[1],
+            "description": row[2],
+            "color": row[3],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_annotation_type(
+    conn: pyodbc.Connection,
+    annotation_type_id: int,
+    name: str,
+    description: str | None,
+    color: str | None = None,
+) -> dict | None:
+    """Update an AnnotationType row and return it, or None if not found."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[AnnotationType]"
+            " SET [AnnotationTypeName]=?, [Description]=?, [Color]=?"
+            " OUTPUT inserted.[AnnotationType_ID], inserted.[AnnotationTypeName],"
+            "        inserted.[Description], inserted.[Color]"
+            " WHERE [AnnotationType_ID]=?",
+            name,
+            description,
+            color,
+            annotation_type_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {
+            "annotation_type_id": row[0],
+            "annotation_type_name": row[1],
+            "description": row[2],
+            "color": row[3],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_annotation_type(conn: pyodbc.Connection, annotation_type_id: int) -> bool:
+    """Delete an AnnotationType row. Returns True if a row was deleted."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[AnnotationType] WHERE [AnnotationType_ID]=?",
+            annotation_type_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise

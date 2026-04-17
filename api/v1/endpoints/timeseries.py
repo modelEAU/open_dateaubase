@@ -127,14 +127,19 @@ def get_image_file(
     if meta is None:
         raise HTTPException(status_code=404, detail="Image not found")
 
-    # storage_path is relative to the project root (same dir as upload_dir)
-    project_root = Path(settings.upload_dir).parent.parent
-    abs_path = project_root / meta["storage_path"]
+    # storage_path is relative to upload_dir (e.g., "images/{channel_id}/{filename}")
+    abs_path = Path(settings.upload_dir).parent / meta["storage_path"]
     if not abs_path.exists():
         raise HTTPException(status_code=404, detail="Image file not found on disk")
 
     fmt = (meta["image_format"] or "jpeg").lower()
-    media_type_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-                      "tiff": "image/tiff", "bmp": "image/bmp", "gif": "image/gif"}
+    media_type_map = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "tiff": "image/tiff",
+        "bmp": "image/bmp",
+        "gif": "image/gif",
+    }
     media_type = media_type_map.get(fmt, "application/octet-stream")
     return FileResponse(str(abs_path), media_type=media_type)
