@@ -12,6 +12,7 @@ from app.api_client import (
     create_das,
     create_equipment,
     create_equipment_model,
+    create_person,
     create_sampling_location,
     create_signal_port,
     create_site,
@@ -28,6 +29,7 @@ from app.api_client import (
     list_site_types,
     list_sites_lookup,
     register_equipment_at_port,
+    relocate_sensor,
 )
 from app.components.location_picker import render_location_picker
 
@@ -49,11 +51,11 @@ _VALUE_TYPES = [
 
 # Session-state key prefixes that belong to each step (for snapshot/restore)
 _STEP_PREFIXES: dict[int, list[str]] = {
-    0: ["wiz_s0_"],
+    0: ["wiz_s0_", "wiz_s0_person_"],  # Campaign basics + person creation fields
     1: ["wiz_s1_", "wiz_site_"],
-    2: ["wiz_sl_"],
+    2: ["wiz_sl_"],  # Snapshot captures all SL keys including _store
     3: ["wiz_das_"],
-    4: ["wiz_eq_", "wiz_tag_"],
+    4: ["wiz_eq_", "wiz_tag_", "wiz_eq__model_params"],  # Equipment, tags, model params
     5: [],
 }
 
@@ -158,7 +160,16 @@ def _save_snapshot(step: int) -> None:
     prefixes = _STEP_PREFIXES.get(step, [])
     snap: dict = {}
     for key, val in st.session_state.items():
-        if any(key.startswith(p) for p in prefixes):
+        if isinstance(key, str) and any(key.startswith(p) for p in prefixes):
+            # Skip button keys - they can't be restored and cause errors
+            if (
+                key.endswith("_remove")
+                or key.endswith("_remove_confirm")
+                or key.endswith("_remove_yes")
+                or key.endswith("_add")
+                or "_add_" in key
+            ):
+                continue
             snap[key] = val
     st.session_state[f"_snap_s{step}"] = snap
 
@@ -235,12 +246,16 @@ def _model_label(m: dict) -> str:
 def _sl_display_label(sl_wiz_id: int) -> str:
     mode = st.session_state.get(f"wiz_sl_{sl_wiz_id}_mode", "New")
     if mode == "Existing":
+        # Read from _store key which persists across steps
         return (
-            st.session_state.get(f"wiz_sl_{sl_wiz_id}_existing_label")
+            st.session_state.get(f"wiz_sl_{sl_wiz_id}_existing_label_store")
+            or st.session_state.get(f"wiz_sl_{sl_wiz_id}_existing_label")
             or f"Sampling point {sl_wiz_id}"
         )
+    # Read from _store key which persists across steps
     return (
-        st.session_state.get(f"wiz_sl_{sl_wiz_id}_name")
+        st.session_state.get(f"wiz_sl_{sl_wiz_id}_name_store")
+        or st.session_state.get(f"wiz_sl_{sl_wiz_id}_name")
         or f"New sampling point {sl_wiz_id}"
     )
 
@@ -284,7 +299,7 @@ def _step_campaign(lookups: dict) -> None:
     ]
     type_labels = [o["label"] for o in type_opts]
     person_opts: list[dict] = lookups.get("persons", [])
-    person_labels = ["(none)"] + [p["label"] for p in person_opts]
+    person_labels = [p["label"] for p in person_opts]
 
     st.text_input("Campaign name *", key="wiz_s0_name")
     if type_labels:
@@ -294,12 +309,36 @@ def _step_campaign(lookups: dict) -> None:
     st.date_input("Start date", key="wiz_s0_start_date", value=None)
     st.date_input("End date", key="wiz_s0_end_date", value=None)
     st.text_area("Description", key="wiz_s0_description")
-    st.selectbox(
-        "Responsible person",
-        person_labels,
-        key="wiz_s0_responsible_person",
-        help="Optional. Select the person responsible for this campaign.",
+
+    # Responsible person — required
+    person_mode = st.radio(
+        "Responsible person *",
+        ["Select existing", "Create new"],
+        key="wiz_s0_person_mode",
+        horizontal=True,
     )
+    if person_mode == "Select existing":
+        if person_labels:
+            st.selectbox(
+                "Select person *",
+                person_labels,
+                key="wiz_s0_responsible_person",
+            )
+        else:
+            st.info("No persons found. Switch to **Create new** to add one.")
+    else:
+        col_fn, col_ln = st.columns(2)
+        with col_fn:
+            st.text_input("First name", key="wiz_s0_person_first_name")
+        with col_ln:
+            st.text_input("Last name", key="wiz_s0_person_last_name")
+        st.text_input("Email", key="wiz_s0_person_email")
+        st.text_input("Role / function", key="wiz_s0_person_role")
+        col_org, col_ph = st.columns(2)
+        with col_org:
+            st.text_input("Organization", key="wiz_s0_person_organization")
+        with col_ph:
+            st.text_input("Phone", key="wiz_s0_person_phone")
 
     def on_next() -> list[str]:
         errors: list[str] = []
@@ -309,6 +348,18 @@ def _step_campaign(lookups: dict) -> None:
             errors.append("No campaign types available — cannot proceed.")
         elif not st.session_state.get("wiz_s0_campaign_type"):
             errors.append("Campaign type is required.")
+        # Responsible person is mandatory
+        mode = st.session_state.get("wiz_s0_person_mode", "Select existing")
+        if mode == "Select existing":
+            if not person_labels:
+                errors.append("No persons available — switch to Create new.")
+            elif not st.session_state.get("wiz_s0_responsible_person"):
+                errors.append("Responsible person is required.")
+        else:
+            fn = (st.session_state.get("wiz_s0_person_first_name") or "").strip()
+            ln = (st.session_state.get("wiz_s0_person_last_name") or "").strip()
+            if not fn and not ln:
+                errors.append("Person: at least first name or last name is required.")
         return errors
 
     _nav(0, on_next)
@@ -335,7 +386,9 @@ def _step_site(lookups: dict) -> None:
             st.info("No sites found. Switch to **Create new** to add one.")
     else:
         st.text_input("Site name *", key="wiz_s1_site_name")
-        site_type_opts = [{"id": t["id"], "label": t["name"]} for t in lookups["site_types"]]
+        site_type_opts = [
+            {"id": t["id"], "label": t["name"]} for t in lookups["site_types"]
+        ]
         site_type_labels = [""] + [o["label"] for o in site_type_opts]
         st.selectbox(
             "Site type",
@@ -435,14 +488,52 @@ def _step_sampling_locations(lookups: dict) -> None:
 
             if mode == "Existing":
                 sl_labels = [s["name"] for s in existing_site_sls]
+
+                def _sync_existing(sl_id=sl_id):
+                    st.session_state[f"wiz_sl_{sl_id}_existing_label_store"] = (
+                        st.session_state[f"wiz_sl_{sl_id}_existing_label"]
+                    )
+
                 st.selectbox(
                     "Sampling location *",
                     sl_labels,
                     key=f"wiz_sl_{sl_id}_existing_label",
+                    on_change=_sync_existing,
                 )
+                # Initialize store if needed
+                if f"wiz_sl_{sl_id}_existing_label_store" not in st.session_state:
+                    st.session_state[f"wiz_sl_{sl_id}_existing_label_store"] = (
+                        st.session_state.get(f"wiz_sl_{sl_id}_existing_label")
+                    )
             else:
-                st.text_input("Name *", key=f"wiz_sl_{sl_id}_name")
-                st.text_area("Description", key=f"wiz_sl_{sl_id}_description")
+
+                def _sync_name(sl_id=sl_id):
+                    st.session_state[f"wiz_sl_{sl_id}_name_store"] = st.session_state[
+                        f"wiz_sl_{sl_id}_name"
+                    ]
+
+                def _sync_desc(sl_id=sl_id):
+                    st.session_state[f"wiz_sl_{sl_id}_description_store"] = (
+                        st.session_state[f"wiz_sl_{sl_id}_description"]
+                    )
+
+                st.text_input(
+                    "Name *", key=f"wiz_sl_{sl_id}_name", on_change=_sync_name
+                )
+                st.text_area(
+                    "Description",
+                    key=f"wiz_sl_{sl_id}_description",
+                    on_change=_sync_desc,
+                )
+                # Initialize stores if needed
+                if f"wiz_sl_{sl_id}_name_store" not in st.session_state:
+                    st.session_state[f"wiz_sl_{sl_id}_name_store"] = (
+                        st.session_state.get(f"wiz_sl_{sl_id}_name", "")
+                    )
+                if f"wiz_sl_{sl_id}_description_store" not in st.session_state:
+                    st.session_state[f"wiz_sl_{sl_id}_description_store"] = (
+                        st.session_state.get(f"wiz_sl_{sl_id}_description", "")
+                    )
 
     if st.button("➕ Add sampling location", key="wiz_sl_add"):
         new_id: int = st.session_state.wiz_sl_next_id
@@ -451,16 +542,35 @@ def _step_sampling_locations(lookups: dict) -> None:
         st.rerun()
 
     def on_next() -> list[str]:
+        # Sync widget values to store keys before validation
+        for sl_id in st.session_state.wiz_sl_ids:
+            m = st.session_state.get(f"wiz_sl_{sl_id}_mode", "New")
+            if m == "Existing":
+                st.session_state[f"wiz_sl_{sl_id}_existing_label_store"] = (
+                    st.session_state.get(f"wiz_sl_{sl_id}_existing_label", "")
+                )
+            else:
+                st.session_state[f"wiz_sl_{sl_id}_name_store"] = st.session_state.get(
+                    f"wiz_sl_{sl_id}_name", ""
+                )
+                st.session_state[f"wiz_sl_{sl_id}_description_store"] = (
+                    st.session_state.get(f"wiz_sl_{sl_id}_description", "")
+                )
+
         errors: list[str] = []
         for sl_id in st.session_state.wiz_sl_ids:
             m = st.session_state.get(f"wiz_sl_{sl_id}_mode", "New")
             if m == "Existing":
-                if not st.session_state.get(f"wiz_sl_{sl_id}_existing_label"):
+                # Check _store key which persists across steps
+                if not st.session_state.get(f"wiz_sl_{sl_id}_existing_label_store"):
                     errors.append(
                         f"Sampling location {sl_id + 1}: select an existing location."
                     )
             else:
-                if not (st.session_state.get(f"wiz_sl_{sl_id}_name") or "").strip():
+                # Check _store key which persists across steps
+                if not (
+                    st.session_state.get(f"wiz_sl_{sl_id}_name_store") or ""
+                ).strip():
                     errors.append(f"Sampling location {sl_id + 1}: name is required.")
         return errors
 
@@ -569,10 +679,14 @@ def _step_das(lookups: dict) -> None:
 # ---------------------------------------------------------------------------
 # Step 4: Equipment & Tags
 # ---------------------------------------------------------------------------
+# Step 4: Equipment & Tags
+# ---------------------------------------------------------------------------
 
 
 def _step_equipment_and_tags(lookups: dict) -> None:
     _restore_snapshot(4)
+    _restore_snapshot(3)  # DAS labels/names cleaned up by Streamlit after leaving step 3
+    _restore_snapshot(2)  # SL modes cleaned up after leaving step 2
     eq_opts = [
         {"id": e["equipment_id"], "label": e["identifier"]}
         for e in lookups["equipment"]
@@ -605,32 +719,47 @@ def _step_equipment_and_tags(lookups: dict) -> None:
 
     # Sampling location labels from step 2
     sl_wiz_ids: list[int] = st.session_state.wiz_sl_ids
+
+    # Read from _store keys which persist across steps
     sl_named_ids = [
         sl_id
         for sl_id in sl_wiz_ids
         if (
             st.session_state.get(f"wiz_sl_{sl_id}_mode", "New") == "Existing"
-            and st.session_state.get(f"wiz_sl_{sl_id}_existing_label")
+            and st.session_state.get(f"wiz_sl_{sl_id}_existing_label_store")
         )
         or (
             st.session_state.get(f"wiz_sl_{sl_id}_mode", "New") == "New"
-            and (st.session_state.get(f"wiz_sl_{sl_id}_name") or "").strip()
+            and (st.session_state.get(f"wiz_sl_{sl_id}_name_store") or "").strip()
         )
     ]
     sl_labels = [_sl_display_label(sl_id) for sl_id in sl_named_ids]
 
-    st.write("Add equipment and signal port tags for each Data Acquisition System.")
+    st.write(
+        "Add equipment and/or signal port tags for each Data Acquisition System. "
+        "You can add equipment with a sampling location, or standalone tags."
+    )
 
     for das_wiz_id in st.session_state.wiz_das_ids:
         das_label = _das_display_label(das_wiz_id)
         st.markdown(f"### {das_label}")
 
+        # Get equipment for this DAS
         das_eq_ids = [
             eid
             for eid in st.session_state.wiz_eq_ids
             if st.session_state.get(f"wiz_eq_{eid}_das_wiz_id") == das_wiz_id
         ]
 
+        # Get standalone tags for this DAS (not associated with equipment)
+        das_tag_ids = [
+            tid
+            for tid in st.session_state.wiz_tag_ids
+            if st.session_state.get(f"wiz_tag_{tid}_das_wiz_id") == das_wiz_id
+            and st.session_state.get(f"wiz_tag_{tid}_eq_wiz_id") is None
+        ]
+
+        # Render equipment items
         for item_id in das_eq_ids:
             with st.container(border=True):
                 col_title, col_remove = st.columns([6, 1])
@@ -640,11 +769,6 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                     if st.button("✖ Remove", key=f"wiz_eq_{item_id}_remove"):
                         st.session_state.wiz_eq_ids = [
                             i for i in st.session_state.wiz_eq_ids if i != item_id
-                        ]
-                        st.session_state.wiz_tag_ids = [
-                            tid
-                            for tid in st.session_state.wiz_tag_ids
-                            if st.session_state.get(f"wiz_tag_{tid}_eq_wiz_id") != item_id
                         ]
                         st.rerun()
 
@@ -689,128 +813,231 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                         st.text_input(
                             "Model name *", key=f"wiz_eq_{item_id}_model_name_new"
                         )
+                        # Measurable parameters for new equipment model
+                        if param_labels:
+                            st.multiselect(
+                                "Measurable parameters",
+                                param_labels,
+                                key=f"wiz_eq_{item_id}_model_params",
+                                help="Select the parameters this equipment model can measure",
+                            )
                     st.text_input(
                         "Identifier / tag *", key=f"wiz_eq_{item_id}_identifier"
                     )
                     st.text_input("Serial number", key=f"wiz_eq_{item_id}_serial")
 
-                if sl_labels:
-                    st.selectbox(
+                if sl_named_ids:
+                    # Build label->ID mapping for reliable selection
+                    sl_options = {
+                        sl_id: _sl_display_label(sl_id) for sl_id in sl_named_ids
+                    }
+                    sl_index_map = list(sl_options.keys())
+                    sl_label_list = list(sl_options.values())
+
+                    # Ensure ID is always set before rendering selectbox
+                    id_key = f"wiz_eq_{item_id}_sp_id"
+                    current_sl_id = st.session_state.get(id_key)
+                    default_index = 0
+                    if current_sl_id in sl_index_map:
+                        default_index = sl_index_map.index(current_sl_id)
+                    else:
+                        # Initialize with first option and sync immediately
+                        default_index = 0
+                        st.session_state[id_key] = sl_index_map[0]
+
+                    selected_label = st.selectbox(
                         "Sampling location *",
-                        sl_labels,
-                        key=f"wiz_eq_{item_id}_sp",
+                        sl_label_list,
+                        index=default_index,
+                        key=f"wiz_eq_{item_id}_sp_label",
                     )
+                    # Always sync the ID from the selected label
+                    selected_idx = sl_label_list.index(selected_label)
+                    st.session_state[id_key] = sl_index_map[selected_idx]
                 else:
                     st.warning(
                         "No sampling locations defined — go back to step 2 and add"
                         " at least one."
                     )
 
-                # Tags (signal ports) for this equipment
-                st.markdown("**Signal port tags**")
-                eq_tag_ids = [
-                    tid
-                    for tid in st.session_state.wiz_tag_ids
-                    if st.session_state.get(f"wiz_tag_{tid}_eq_wiz_id") == item_id
-                ]
+        # Render standalone tags for this DAS
+        for tid in das_tag_ids:
+            with st.container(border=True):
+                col_t, col_tr = st.columns([6, 1])
+                with col_t:
+                    tag_val = (
+                        st.session_state.get(f"wiz_tag_{tid}_tag") or f"Tag {tid + 1}"
+                    )
+                    st.markdown(f"**Standalone Tag: {tag_val}**")
+                with col_tr:
+                    if st.button("✖", key=f"wiz_tag_{tid}_remove"):
+                        st.session_state.wiz_tag_ids = [
+                            i for i in st.session_state.wiz_tag_ids if i != tid
+                        ]
+                        st.rerun()
 
-                for tid in eq_tag_ids:
-                    with st.container(border=True):
-                        col_t, col_tr = st.columns([6, 1])
-                        with col_t:
-                            tag_val = (
-                                st.session_state.get(f"wiz_tag_{tid}_tag")
-                                or f"Tag {tid + 1}"
+                tag_mode = st.radio(
+                    "Port",
+                    ["Existing", "New"],
+                    key=f"wiz_tag_{tid}_mode",
+                    horizontal=True,
+                )
+
+                if tag_mode == "Existing":
+                    if existing_sp_labels:
+                        st.selectbox(
+                            "Signal port *",
+                            existing_sp_labels,
+                            key=f"wiz_tag_{tid}_existing_label",
+                        )
+                    else:
+                        st.info("No existing signal ports found. Switch to **New**.")
+                else:
+                    st.text_input(
+                        "Tag *",
+                        key=f"wiz_tag_{tid}_tag",
+                        help="Unique identifier within the Data Acquisition"
+                        " System (e.g. AI_01)",
+                    )
+                    if sp_type_labels:
+                        st.selectbox(
+                            "Port type *",
+                            sp_type_labels,
+                            key=f"wiz_tag_{tid}_port_type",
+                        )
+                    else:
+                        st.warning("No signal port types found in the database.")
+                    if param_labels:
+                        st.selectbox(
+                            "Parameter *",
+                            param_labels,
+                            key=f"wiz_tag_{tid}_parameter",
+                        )
+                    else:
+                        st.warning("No parameters found in the database.")
+                    st.selectbox(
+                        "Value type *",
+                        vt_labels,
+                        key=f"wiz_tag_{tid}_value_type",
+                    )
+                    if pd_labels:
+                        _pd_all = ["(none)"] + pd_labels
+                        _pd_key = f"wiz_tag_{tid}_processing_degree"
+                        if _pd_key not in st.session_state:
+                            # Pre-seed "Raw" as default without using index=
+                            # (index= conflicts with session-state restoration)
+                            _raw = next(
+                                (l for l in _pd_all if l.lower() == "raw"),
+                                _pd_all[0],
                             )
-                            st.markdown(f"*{tag_val}*")
-                        with col_tr:
-                            if st.button("✖", key=f"wiz_tag_{tid}_remove"):
-                                st.session_state.wiz_tag_ids = [
-                                    i
-                                    for i in st.session_state.wiz_tag_ids
-                                    if i != tid
-                                ]
-                                st.rerun()
+                            st.session_state[_pd_key] = _raw
+                        st.selectbox(
+                            "Processing degree",
+                            _pd_all,
+                            key=_pd_key,
+                        )
+                    # Standalone tag sampling location
+                    if sl_named_ids:
+                        sl_options = {
+                            sl_id: _sl_display_label(sl_id) for sl_id in sl_named_ids
+                        }
+                        sl_index_map = list(sl_options.keys())
+                        sl_label_list = list(sl_options.values())
 
-                        tag_mode = st.radio(
-                            "Port",
-                            ["New", "Existing"],
-                            key=f"wiz_tag_{tid}_mode",
-                            horizontal=True,
+                        current_tag_sl_id = st.session_state.get(f"wiz_tag_{tid}_sp_id")
+                        tag_default_index = 0
+                        if current_tag_sl_id in sl_index_map:
+                            tag_default_index = sl_index_map.index(current_tag_sl_id)
+                        elif sl_index_map:
+                            # Initialize with first option
+                            tag_default_index = 0
+                            st.session_state[f"wiz_tag_{tid}_sp_id"] = sl_index_map[0]
+
+                        tag_sl_label = st.selectbox(
+                            "Sampling location *",
+                            sl_label_list,
+                            index=tag_default_index,
+                            key=f"wiz_tag_{tid}_sp_label",
+                            help="Select the sampling location for this tag",
+                        )
+                        selected_tag_sl_idx = sl_label_list.index(tag_sl_label)
+                        st.session_state[f"wiz_tag_{tid}_sp_id"] = sl_index_map[
+                            selected_tag_sl_idx
+                        ]
+                    else:
+                        st.warning(
+                            "No sampling locations defined — go back to step 2 and add"
+                            " at least one."
                         )
 
-                        if tag_mode == "Existing":
-                            if existing_sp_labels:
-                                st.selectbox(
-                                    "Signal port *",
-                                    existing_sp_labels,
-                                    key=f"wiz_tag_{tid}_existing_label",
-                                )
-                            else:
-                                st.info(
-                                    "No existing signal ports found. Switch to **New**."
-                                )
-                        else:
-                            st.text_input(
-                                "Tag *",
-                                key=f"wiz_tag_{tid}_tag",
-                                help="Unique identifier within the Data Acquisition"
-                                " System (e.g. AI_01)",
-                            )
-                            if sp_type_labels:
-                                st.selectbox(
-                                    "Port type *",
-                                    sp_type_labels,
-                                    key=f"wiz_tag_{tid}_port_type",
-                                )
-                            else:
-                                st.warning("No signal port types found in the database.")
-                            if param_labels:
-                                st.selectbox(
-                                    "Parameter *",
-                                    param_labels,
-                                    key=f"wiz_tag_{tid}_parameter",
-                                )
-                            else:
-                                st.warning("No parameters found in the database.")
-                            st.selectbox(
-                                "Value type *",
-                                vt_labels,
-                                key=f"wiz_tag_{tid}_value_type",
-                            )
-                            if pd_labels:
-                                st.selectbox(
-                                    "Processing degree",
-                                    ["(none)"] + pd_labels,
-                                    key=f"wiz_tag_{tid}_processing_degree",
-                                )
+        # Add buttons row - mutually exclusive choice
+        col_eq, col_tag = st.columns(2)
+        with col_eq:
+            if st.button(
+                f"➕ Add equipment to {das_label}",
+                key=f"wiz_eq_add_{das_wiz_id}",
+            ):
+                new_eid: int = st.session_state.wiz_eq_next_id
+                st.session_state.wiz_eq_ids = st.session_state.wiz_eq_ids + [new_eid]
+                st.session_state.wiz_eq_next_id += 1
+                st.session_state[f"wiz_eq_{new_eid}_das_wiz_id"] = das_wiz_id
+                st.rerun()
 
-                if st.button("➕ Add tag", key=f"wiz_tag_add_{item_id}"):
-                    new_tid: int = st.session_state.wiz_tag_next_id
-                    st.session_state.wiz_tag_ids = st.session_state.wiz_tag_ids + [
-                        new_tid
-                    ]
-                    st.session_state.wiz_tag_next_id += 1
-                    st.session_state[f"wiz_tag_{new_tid}_eq_wiz_id"] = item_id
-                    st.rerun()
-
-        if st.button(
-            f"➕ Add equipment to {das_label}",
-            key=f"wiz_eq_add_{das_wiz_id}",
-        ):
-            new_eid: int = st.session_state.wiz_eq_next_id
-            st.session_state.wiz_eq_ids = st.session_state.wiz_eq_ids + [new_eid]
-            st.session_state.wiz_eq_next_id += 1
-            st.session_state[f"wiz_eq_{new_eid}_das_wiz_id"] = das_wiz_id
-            st.rerun()
+        with col_tag:
+            if st.button(
+                f"➕ Add standalone tag to {das_label}",
+                key=f"wiz_tag_add_{das_wiz_id}",
+            ):
+                new_tid: int = st.session_state.wiz_tag_next_id
+                st.session_state.wiz_tag_ids = st.session_state.wiz_tag_ids + [new_tid]
+                st.session_state.wiz_tag_next_id += 1
+                st.session_state[f"wiz_tag_{new_tid}_das_wiz_id"] = das_wiz_id
+                # Explicitly set eq_wiz_id to None for standalone tags
+                st.session_state[f"wiz_tag_{new_tid}_eq_wiz_id"] = None
+                st.rerun()
 
         st.divider()
 
     def on_next() -> list[str]:
+        # Sync equipment sampling location selections before validation
+        for eid in st.session_state.wiz_eq_ids:
+            label_key = f"wiz_eq_{eid}_sp_label"
+            id_key = f"wiz_eq_{eid}_sp_id"
+            # If label exists, sync from label->ID; if not but ID exists with no label,
+            # derive label from ID to ensure consistency
+            if label_key in st.session_state:
+                selected_label = st.session_state[label_key]
+                for sl_id in sl_named_ids:
+                    if _sl_display_label(sl_id) == selected_label:
+                        st.session_state[id_key] = sl_id
+                        break
+            elif id_key not in st.session_state and sl_named_ids:
+                # Neither label nor ID set - default to first sampling location
+                st.session_state[id_key] = sl_named_ids[0]
+
+        # Sync tag sampling location selections
+        for tid in st.session_state.wiz_tag_ids:
+            label_key = f"wiz_tag_{tid}_sp_label"
+            id_key = f"wiz_tag_{tid}_sp_id"
+            if label_key in st.session_state:
+                selected_label = st.session_state[label_key]
+                for sl_id in sl_named_ids:
+                    if _sl_display_label(sl_id) == selected_label:
+                        st.session_state[id_key] = sl_id
+                        break
+            elif id_key not in st.session_state and sl_named_ids:
+                # Neither label nor ID set - default to first sampling location
+                st.session_state[id_key] = sl_named_ids[0]
+
         errors: list[str] = []
         cur_eq_ids: list[int] = st.session_state.wiz_eq_ids
-        if not cur_eq_ids:
-            errors.append("Add at least one piece of equipment.")
+        cur_tag_ids: list[int] = st.session_state.wiz_tag_ids
+
+        # At least one equipment OR tag is required
+        if not cur_eq_ids and not cur_tag_ids:
+            errors.append("Add at least one piece of equipment or one tag.")
+
+        # Validate equipment
         for eid in cur_eq_ids:
             m = st.session_state.get(f"wiz_eq_{eid}_mode", "Existing")
             if m == "Existing":
@@ -834,37 +1061,44 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                             f"Equipment {_eq_display_label(eid)}: model name is"
                             " required."
                         )
-                if not (
-                    st.session_state.get(f"wiz_eq_{eid}_identifier") or ""
-                ).strip():
+                if not (st.session_state.get(f"wiz_eq_{eid}_identifier") or "").strip():
                     errors.append(
                         f"Equipment {_eq_display_label(eid)}: identifier is required."
                     )
-            if sl_labels and not st.session_state.get(f"wiz_eq_{eid}_sp"):
+            if sl_named_ids and st.session_state.get(f"wiz_eq_{eid}_sp_id") is None:
                 errors.append(
                     f"Equipment {_eq_display_label(eid)}: sampling location is"
                     " required."
                 )
-        if not sl_labels and cur_eq_ids:
+
+        if not sl_named_ids and cur_eq_ids:
             errors.append(
                 "Define at least one sampling location in step 2 before adding"
                 " equipment."
             )
 
-        for tid in st.session_state.wiz_tag_ids:
+        # Validate standalone tags
+        for tid in cur_tag_ids:
             tmode = st.session_state.get(f"wiz_tag_{tid}_mode", "New")
             if tmode == "Existing":
                 if not st.session_state.get(f"wiz_tag_{tid}_existing_label"):
                     errors.append(f"Tag {tid + 1}: select an existing signal port.")
             else:
-                if not (
-                    st.session_state.get(f"wiz_tag_{tid}_tag") or ""
-                ).strip():
+                if not (st.session_state.get(f"wiz_tag_{tid}_tag") or "").strip():
                     errors.append(f"Tag {tid + 1}: tag string is required.")
                 if not st.session_state.get(f"wiz_tag_{tid}_port_type"):
                     errors.append(f"Tag {tid + 1}: port type is required.")
                 if not st.session_state.get(f"wiz_tag_{tid}_parameter"):
                     errors.append(f"Tag {tid + 1}: parameter is required.")
+                # Standalone tags require sampling location
+                if sl_named_ids and st.session_state.get(f"wiz_tag_{tid}_sp_id") is None:
+                    errors.append(f"Tag {tid + 1}: sampling location is required.")
+
+        if not sl_named_ids and cur_tag_ids:
+            errors.append(
+                "Define at least one sampling location in step 2 before adding tags."
+            )
+
         return errors
 
     _nav(4, on_next)
@@ -876,6 +1110,12 @@ def _step_equipment_and_tags(lookups: dict) -> None:
 
 
 def _step_review(lookups: dict) -> None:
+    # Widget keys from previous steps are cleaned up by Streamlit once those
+    # widgets stop being rendered.  Restore all step snapshots so we can read
+    # every field that was captured when the user clicked "Next" on each step.
+    for s in range(5):
+        _restore_snapshot(s)
+
     st.write(
         "Review the entities below. Click **Confirm & Create** to write everything "
         "to the database in one go."
@@ -888,7 +1128,17 @@ def _step_review(lookups: dict) -> None:
         start = st.session_state.get("wiz_s0_start_date") or "—"
         end = st.session_state.get("wiz_s0_end_date") or "—"
         desc = st.session_state.get("wiz_s0_description") or "—"
-        resp = st.session_state.get("wiz_s0_responsible_person") or "—"
+        person_mode = st.session_state.get("wiz_s0_person_mode", "Select existing")
+        if person_mode == "Select existing":
+            resp = st.session_state.get("wiz_s0_responsible_person") or "—"
+        else:
+            first = st.session_state.get("wiz_s0_person_first_name") or ""
+            last = st.session_state.get("wiz_s0_person_last_name") or ""
+            role_v = st.session_state.get("wiz_s0_person_role") or ""
+            org_v = st.session_state.get("wiz_s0_person_organization") or ""
+            name_part = f"{first} {last}".strip() or "—"
+            extra = ", ".join(p for p in [role_v, org_v] if p)
+            resp = f"(New: {name_part}{f' — {extra}' if extra else ''})"
         st.markdown(
             f"**Name:** {name}  \n**Type:** {type_label}  \n"
             f"**Start:** {start}  \n**End:** {end}  \n**Description:** {desc}  \n"
@@ -934,9 +1184,7 @@ def _step_review(lookups: dict) -> None:
 
     # Data Acquisition Systems
     das_ids: list[int] = st.session_state.wiz_das_ids
-    with st.expander(
-        f"Data Acquisition Systems ({len(das_ids)} items)", expanded=True
-    ):
+    with st.expander(f"Data Acquisition Systems ({len(das_ids)} items)", expanded=True):
         new_das = [
             d
             for d in das_ids
@@ -972,11 +1220,10 @@ def _step_review(lookups: dict) -> None:
         if new_eq:
             st.markdown("**Will be created:**")
             for eid in new_eq:
-                sp = st.session_state.get(f"wiz_eq_{eid}_sp") or "(none)"
+                sp_wid = st.session_state.get(f"wiz_eq_{eid}_sp_id")
+                sp = _sl_display_label(sp_wid) if sp_wid is not None else "(none)"
                 das_wid = st.session_state.get(f"wiz_eq_{eid}_das_wiz_id")
-                das_lbl = (
-                    _das_display_label(das_wid) if das_wid is not None else "?"
-                )
+                das_lbl = _das_display_label(das_wid) if das_wid is not None else "?"
                 st.markdown(
                     f"- **{_eq_display_label(eid)}** (Data Acquisition System:"
                     f" {das_lbl}, sampling point: {sp})"
@@ -984,12 +1231,11 @@ def _step_review(lookups: dict) -> None:
         if exist_eq:
             st.markdown("**Already exists / will be linked:**")
             for eid in exist_eq:
-                sp = st.session_state.get(f"wiz_eq_{eid}_sp") or "(none)"
-                st.markdown(
-                    f"- **{_eq_display_label(eid)}** (sampling point: {sp})"
-                )
+                sp_wid = st.session_state.get(f"wiz_eq_{eid}_sp_id")
+                sp = _sl_display_label(sp_wid) if sp_wid is not None else "(none)"
+                st.markdown(f"- **{_eq_display_label(eid)}** (sampling point: {sp})")
 
-    # Tags
+    # Tags (standalone signal ports)
     tag_ids: list[int] = st.session_state.wiz_tag_ids
     with st.expander(f"Signal Port Tags ({len(tag_ids)} items)", expanded=True):
         new_tags = [
@@ -1009,17 +1255,15 @@ def _step_review(lookups: dict) -> None:
                 ptype = st.session_state.get(f"wiz_tag_{tid}_port_type", "—")
                 param = st.session_state.get(f"wiz_tag_{tid}_parameter", "—")
                 vt = st.session_state.get(f"wiz_tag_{tid}_value_type", "—")
-                eq_wid = st.session_state.get(f"wiz_tag_{tid}_eq_wiz_id")
-                eq_lbl = _eq_display_label(eq_wid) if eq_wid is not None else "?"
+                sp_wid = st.session_state.get(f"wiz_tag_{tid}_sp_id")
+                sp_lbl = _sl_display_label(sp_wid) if sp_wid is not None else "?"
                 st.markdown(
-                    f"- `{tag_str}` ({ptype}, {param}, {vt}) on *{eq_lbl}*"
+                    f"- `{tag_str}` ({ptype}, {param}, {vt}) at sampling point: {sp_lbl}"
                 )
         if exist_tags:
             st.markdown("**Already exists / will be linked:**")
             for tid in exist_tags:
-                sp_lbl = st.session_state.get(
-                    f"wiz_tag_{tid}_existing_label", "—"
-                )
+                sp_lbl = st.session_state.get(f"wiz_tag_{tid}_existing_label", "—")
                 st.markdown(f"- {sp_lbl}")
         if not tag_ids:
             st.caption("No signal port tags defined.")
@@ -1042,9 +1286,14 @@ def _step_review(lookups: dict) -> None:
 
 def _execute_creates(lookups: dict) -> list[str]:
     """Create all entities in dependency order. Returns list of error strings."""
+    # Ensure all step snapshots are restored; Streamlit removes widget keys
+    # when their step is not rendered, so we need the captured values here.
+    for s in range(5):
+        _restore_snapshot(s)
+
     errors: list[str] = []
-    eq_id_map: dict[int, int] = {}   # wiz_eq_id  → DB equipment_id
-    sl_id_map: dict[int, int] = {}   # wiz_sl_id  → DB SamplingPoint_ID
+    eq_id_map: dict[int, int] = {}  # wiz_eq_id  → DB equipment_id
+    sl_id_map: dict[int, int] = {}  # wiz_sl_id  → DB SamplingPoint_ID
     das_id_map: dict[int, int] = {}  # wiz_das_id → DB DAS_ID
 
     type_opts = [
@@ -1102,7 +1351,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                     "country": st.session_state.get("wiz_site_country_input") or None,
                 }
             )
-            campaign_site_id: int | None = site["site_id"]
+            campaign_site_id: int | None = site["id"]
         except APIError as e:
             errors.append(f"Site creation failed: {e.message}")
             return errors
@@ -1123,19 +1372,17 @@ def _execute_creates(lookups: dict) -> list[str]:
     for sl_wiz_id in st.session_state.get("wiz_sl_ids", []):
         sl_mode = st.session_state.get(f"wiz_sl_{sl_wiz_id}_mode", "New")
         if sl_mode == "Existing":
-            label = st.session_state.get(f"wiz_sl_{sl_wiz_id}_existing_label")
-            match = next(
-                (s for s in existing_site_sls if s["name"] == label), None
-            )
+            # Use _store key which persists across steps
+            label = st.session_state.get(f"wiz_sl_{sl_wiz_id}_existing_label_store")
+            match = next((s for s in existing_site_sls if s["name"] == label), None)
             if match:
                 sl_id_map[sl_wiz_id] = match["id"]
             else:
-                errors.append(
-                    f"Sampling location '{label}': could not resolve ID."
-                )
+                errors.append(f"Sampling location '{label}': could not resolve ID.")
         else:
+            # Use _store key which persists across steps
             name = (
-                st.session_state.get(f"wiz_sl_{sl_wiz_id}_name") or ""
+                st.session_state.get(f"wiz_sl_{sl_wiz_id}_name_store") or ""
             ).strip()
             if name and campaign_site_id is not None:
                 try:
@@ -1144,7 +1391,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                         {
                             "name": name,
                             "description": st.session_state.get(
-                                f"wiz_sl_{sl_wiz_id}_description"
+                                f"wiz_sl_{sl_wiz_id}_description_store"
                             )
                             or None,
                             "latitude": None,
@@ -1158,17 +1405,42 @@ def _execute_creates(lookups: dict) -> list[str]:
     if errors:
         return errors
 
-    # 3. Create campaign (with responsible_person_id)
+    # 3. Create person if needed, then create campaign
     start_date = st.session_state.get("wiz_s0_start_date")
     end_date = st.session_state.get("wiz_s0_end_date")
-    resp_label = st.session_state.get("wiz_s0_responsible_person")
+    person_mode = st.session_state.get("wiz_s0_person_mode", "Select existing")
     responsible_person_id: int | None = None
-    if resp_label and resp_label != "(none)":
-        matched_person = next(
-            (p for p in person_opts if p["label"] == resp_label), None
-        )
-        if matched_person:
-            responsible_person_id = matched_person["person_id"]
+    if person_mode == "Create new":
+        first_name = st.session_state.get("wiz_s0_person_first_name") or None
+        last_name = st.session_state.get("wiz_s0_person_last_name") or None
+        email = st.session_state.get("wiz_s0_person_email") or None
+        role = st.session_state.get("wiz_s0_person_role") or None
+        organization = st.session_state.get("wiz_s0_person_organization") or None
+        phone = st.session_state.get("wiz_s0_person_phone") or None
+        if first_name or last_name:
+            try:
+                new_person = create_person(
+                    {
+                        "first_name": first_name,
+                        "last_name": last_name,
+                        "email": email,
+                        "role": role,
+                        "organization": organization,
+                        "phone": phone,
+                    }
+                )
+                responsible_person_id = new_person["person_id"]
+            except APIError as e:
+                errors.append(f"Person creation failed: {e.message}")
+                return errors
+    else:
+        resp_label = st.session_state.get("wiz_s0_responsible_person")
+        if resp_label:
+            matched_person = next(
+                (p for p in person_opts if p["label"] == resp_label), None
+            )
+            if matched_person:
+                responsible_person_id = matched_person["person_id"]
     try:
         campaign = create_campaign(
             {
@@ -1208,9 +1480,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                 new_das_obj = create_das({"name": das_name})
                 actual_das_id = new_das_obj["das_id"]
             except APIError as e:
-                errors.append(
-                    f"Data Acquisition System '{das_name}': {e.message}"
-                )
+                errors.append(f"Data Acquisition System '{das_name}': {e.message}")
                 continue
         das_id_map[das_wiz_id] = actual_das_id
 
@@ -1258,13 +1528,9 @@ def _execute_creates(lookups: dict) -> list[str]:
                 eq = create_equipment(
                     {
                         "model_id": resolved_model_id,
-                        "identifier": st.session_state.get(
-                            f"wiz_eq_{eid}_identifier"
-                        )
+                        "identifier": st.session_state.get(f"wiz_eq_{eid}_identifier")
                         or None,
-                        "serial_number": st.session_state.get(
-                            f"wiz_eq_{eid}_serial"
-                        )
+                        "serial_number": st.session_state.get(f"wiz_eq_{eid}_serial")
                         or None,
                     }
                 )
@@ -1274,30 +1540,16 @@ def _execute_creates(lookups: dict) -> list[str]:
                 continue
 
         if actual_eq_id is None:
-            errors.append(
-                f"Equipment {_eq_display_label(eid)}: could not resolve ID."
-            )
+            errors.append(f"Equipment {_eq_display_label(eid)}: could not resolve ID.")
             continue
 
         eq_id_map[eid] = actual_eq_id
 
-        # Resolve sampling point
-        sp_label = st.session_state.get(f"wiz_eq_{eid}_sp")
-        sampling_point_id: int | None = None
-        if sp_label and sp_label != "(none)":
-            matched_wiz_sl_id = next(
-                (
-                    sl_id
-                    for sl_id in st.session_state.wiz_sl_ids
-                    if _sl_display_label(sl_id) == sp_label
-                ),
-                None,
-            )
-            sampling_point_id = (
-                sl_id_map.get(matched_wiz_sl_id)
-                if matched_wiz_sl_id is not None
-                else None
-            )
+        # Resolve sampling point using stored wizard ID (not label)
+        sp_wiz_id = st.session_state.get(f"wiz_eq_{eid}_sp_id")
+        sampling_point_id: int | None = (
+            sl_id_map.get(sp_wiz_id) if sp_wiz_id is not None else None
+        )
 
         if sampling_point_id is None:
             errors.append(
@@ -1314,9 +1566,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                 },
             )
         except APIError as e:
-            errors.append(
-                f"Deployment for {_eq_display_label(eid)}: {e.message}"
-            )
+            errors.append(f"Deployment for {_eq_display_label(eid)}: {e.message}")
 
     if errors:
         return errors
@@ -1326,14 +1576,15 @@ def _execute_creates(lookups: dict) -> list[str]:
         eq_wiz_id = st.session_state.get(f"wiz_tag_{tid}_eq_wiz_id")
         actual_eq_id = eq_id_map.get(eq_wiz_id) if eq_wiz_id is not None else None
 
-        das_wiz_id = (
-            st.session_state.get(f"wiz_eq_{eq_wiz_id}_das_wiz_id")
-            if eq_wiz_id is not None
-            else None
-        )
-        actual_das_id = (
-            das_id_map.get(das_wiz_id) if das_wiz_id is not None else None
-        )
+        # Get DAS: either from equipment (if associated) or directly from tag
+        if eq_wiz_id is not None:
+            # Tag is associated with equipment
+            das_wiz_id = st.session_state.get(f"wiz_eq_{eq_wiz_id}_das_wiz_id")
+        else:
+            # Standalone tag - get DAS directly from tag
+            das_wiz_id = st.session_state.get(f"wiz_tag_{tid}_das_wiz_id")
+
+        actual_das_id = das_id_map.get(das_wiz_id) if das_wiz_id is not None else None
 
         tag_mode = st.session_state.get(f"wiz_tag_{tid}_mode", "New")
         signal_port_id: int | None = None
@@ -1365,7 +1616,7 @@ def _execute_creates(lookups: dict) -> list[str]:
             errors.append(f"Tag {tid + 1}: could not resolve signal port.")
             continue
 
-        # Register equipment at port
+        # Register equipment at port (only if tag is associated with equipment)
         if actual_eq_id is not None:
             try:
                 register_equipment_at_port(
@@ -1398,5 +1649,51 @@ def _execute_creates(lookups: dict) -> list[str]:
         except APIError as e:
             tag_str = st.session_state.get(f"wiz_tag_{tid}_tag", f"tag {tid + 1}")
             errors.append(f"Channel for '{tag_str}': {e.message}")
+            continue
+
+        # Set sampling location for standalone tags (tags not associated with equipment)
+        # For equipment-associated tags, the location comes from the equipment deployment
+        if eq_wiz_id is None:
+            # Standalone tag - set its sampling location via relocate_sensor
+            tag_sp_wiz_id = st.session_state.get(f"wiz_tag_{tid}_sp_id")
+            if tag_sp_wiz_id is not None:
+                tag_sampling_point_id = sl_id_map.get(tag_sp_wiz_id)
+                if tag_sampling_point_id is not None:
+                    try:
+                        from datetime import datetime
+
+                        relocate_sensor(
+                            signal_port_id,
+                            tag_sampling_point_id,
+                            datetime.now().isoformat(),
+                            notes="Initial location set by campaign wizard",
+                        )
+                    except APIError as e:
+                        tag_str = st.session_state.get(
+                            f"wiz_tag_{tid}_tag", f"tag {tid + 1}"
+                        )
+                        errors.append(f"Tag '{tag_str}' location setup: {e.message}")
+        else:
+            # Tag associated with equipment - relocate if tag has different location
+            tag_sp_wiz_id = st.session_state.get(f"wiz_tag_{tid}_sp_id")
+            eq_sp_wiz_id = st.session_state.get(f"wiz_eq_{eq_wiz_id}_sp_id")
+            if tag_sp_wiz_id is not None and tag_sp_wiz_id != eq_sp_wiz_id:
+                # Tag has a different sampling location than equipment
+                tag_sampling_point_id = sl_id_map.get(tag_sp_wiz_id)
+                if tag_sampling_point_id is not None:
+                    try:
+                        from datetime import datetime
+
+                        relocate_sensor(
+                            signal_port_id,
+                            tag_sampling_point_id,
+                            datetime.now().isoformat(),
+                            notes="Initial location set by campaign wizard",
+                        )
+                    except APIError as e:
+                        tag_str = st.session_state.get(
+                            f"wiz_tag_{tid}_tag", f"tag {tid + 1}"
+                        )
+                        errors.append(f"Tag '{tag_str}' relocation: {e.message}")
 
     return errors
