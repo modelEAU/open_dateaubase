@@ -56,6 +56,8 @@ def render_form_field(
         if date_val is None:
             return None
         return datetime.datetime.combine(date_val, time_val)
+    elif field_type == "checkbox":
+        return st.checkbox(label, value=bool(value), help=help_text)
     elif field_type == "textarea":
         return st.text_area(label, value=value or "", help=help_text)
     else:  # text
@@ -66,6 +68,8 @@ def validate_required_fields(data: dict, required_fields: list[str]) -> list[str
     """Return list of validation errors for missing required fields."""
     errors = []
     for field in required_fields:
-        if not data.get(field):
+        value = data.get(field)
+        # Booleans are always valid; only flag empty strings and None
+        if value is None or (isinstance(value, str) and not value.strip()):
             errors.append(f"{field} is required")
     return errors
