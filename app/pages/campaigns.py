@@ -26,7 +26,6 @@ from app.api_client import (
     list_sites_lookup,
     patch_campaign,
 )
-from app.auth import get_current_user, logout, require_auth
 from app.components.campaign_wizard import render_wizard
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
 
@@ -113,14 +112,7 @@ def add_deployment_dialog(
                 st.error(f"Failed to create deployment: {e.message}")
 
 
-require_auth()
 
-with st.sidebar:
-    user = get_current_user()
-    if user:
-        st.write(f"Logged in as: **{user['name']}**")
-    if st.button("Sign out"):
-        logout()
 
 st.title("Campaigns")
 
@@ -346,15 +338,14 @@ if selected_campaign is not None:
             ):
                 if selected_deploy_idx is not None:
                     deploy_row = deploy_df.iloc[selected_deploy_idx]
-                    equipment_id = int(deploy_row["equipment_id"])
-                    sampling_point_id = (
-                        int(deploy_row["sampling_point_id"])
-                        if pd.notna(deploy_row["sampling_point_id"])
+                    installation_id = (
+                        int(deploy_row["installation_id"])
+                        if pd.notna(deploy_row.get("installation_id"))
                         else None
                     )
-                    if sampling_point_id is None:
+                    if installation_id is None:
                         st.warning(
-                            "Cannot remove deployment: missing sampling point ID"
+                            "Cannot remove deployment: missing installation ID"
                         )
                     else:
                         confirm_msg = f"Remove deployment of **{deploy_row.get('equipment_identifier', 'Unknown')}** at **{deploy_row.get('sampling_point_name', 'Unknown')}**?"
@@ -362,10 +353,7 @@ if selected_campaign is not None:
                             try:
                                 delete_campaign_deployment(
                                     selected_campaign_id,
-                                    {
-                                        "equipment_id": equipment_id,
-                                        "sampling_point_id": sampling_point_id,
-                                    },
+                                    installation_id,
                                 )
                                 st.success("Deployment removed successfully!")
                                 st.rerun()

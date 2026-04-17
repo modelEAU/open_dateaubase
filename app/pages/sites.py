@@ -20,18 +20,10 @@ from app.api_client import (
     patch_site,
     list_site_types,
 )
-from app.auth import get_current_user, logout, require_auth
 from app.components.crud_form import render_form_field
 from app.components.location_picker import render_location_picker, _clear_location_state
 
-require_auth()
 
-with st.sidebar:
-    user = get_current_user()
-    if user:
-        st.write(f"Logged in as: **{user['name']}**")
-    if st.button("Sign out"):
-        logout()
 
 # --- Session state init ---
 if "sites_mode" not in st.session_state:

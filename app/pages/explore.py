@@ -38,17 +38,9 @@ from app.api_client import (
     list_equipment_event_types,
     create_equipment_event,
 )
-from app.auth import get_current_user, logout, require_auth
 from app.components.lttb import lttb
 
-require_auth()
 
-with st.sidebar:
-    user = get_current_user()
-    if user:
-        st.write(f"Logged in as: **{user['name']}**")
-    if st.button("Sign out"):
-        logout()
 
 # ---------------------------------------------------------------------------
 # Constants

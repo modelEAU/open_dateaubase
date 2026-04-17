@@ -22,17 +22,9 @@ from app.api_client import (
     list_signal_ports,
     update_channel,
 )
-from app.auth import get_current_user, logout, require_auth
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
 
-require_auth()
 
-with st.sidebar:
-    user = get_current_user()
-    if user:
-        st.write(f"Logged in as: **{user['name']}**")
-    if st.button("Sign out"):
-        logout()
 
 st.title("Channels")
 

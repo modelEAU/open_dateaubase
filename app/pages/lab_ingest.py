@@ -25,16 +25,8 @@ from app.api_client import (
     list_sampling_points_lookup,
     list_units_lookup,
 )
-from app.auth import get_current_user, logout, require_auth
 
-require_auth()
 
-with st.sidebar:
-    user = get_current_user()
-    if user:
-        st.write(f"Logged in as: **{user['name']}**")
-    if st.button("Sign out"):
-        logout()
 
 st.title("Lab Analysis Ingest")
 st.markdown(
