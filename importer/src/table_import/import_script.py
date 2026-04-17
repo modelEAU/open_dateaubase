@@ -41,7 +41,9 @@ def build_api_payload(
     return [
         {
             "timestamp": unix_seconds_to_iso(row["Timestamp"]),
-            "value": row["Value"] * conversion_factor if row["Value"] is not None else None,
+            "value": row["Value"] * conversion_factor
+            if row["Value"] is not None
+            else None,
             "quality_code": row.get("QualityCode") if hasattr(row, "get") else None,
         }
         for _, row in filtered.iterrows()
@@ -91,7 +93,9 @@ def ingest_via_api(
             processing_degree_id=processing_degree_id,
             values=payload,
         )
-    print(f"{label}: wrote {result['rows_written']} rows → channel_id={result['channel_id']}")
+    print(
+        f"{label}: wrote {result['rows_written']} rows → channel_id={result['channel_id']}"
+    )
 
 
 def _get_file_values(
@@ -108,9 +112,7 @@ def _get_file_values(
         if file_structure.extension in x
     ]
     # Convert Unix float to naive UTC datetime for DataCombiner compatibility
-    last_date = (
-        datetime.utcfromtimestamp(last_unix_ts) if last_unix_ts > 0 else None
-    )
+    last_date = datetime.utcfromtimestamp(last_unix_ts) if last_unix_ts > 0 else None
     combiner = DataCombiner(last_date=last_date)
     for filepath in filepaths:
         file_obj = file_reader_class(
@@ -137,9 +139,11 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
 
     min_unix_ts: float | None = None
     if api_conf.min_timestamp:
-        min_unix_ts = datetime.fromisoformat(api_conf.min_timestamp).replace(
-            tzinfo=timezone.utc
-        ).timestamp()
+        min_unix_ts = (
+            datetime.fromisoformat(api_conf.min_timestamp)
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
+        )
 
     with DateaubaseClient(api_conf.api_url) as client:
         # ------------------------------------------------------------------
@@ -179,12 +183,16 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                 last_dt = client.get_last_timestamp(channel_id=channel_id)
                 last_ts = last_dt.timestamp() if last_dt is not None else 0.0
 
-                data = _get_file_values(variable, file_structure, file_reader_class, last_ts)
+                data = _get_file_values(
+                    variable, file_structure, file_reader_class, last_ts
+                )
                 if data.empty:
                     print(f"No new data for {label}")
                     continue
 
-                payload = build_api_payload(data, last_ts, min_unix_ts, variable.conversion_factor)
+                payload = build_api_payload(
+                    data, last_ts, min_unix_ts, variable.conversion_factor
+                )
                 if not payload:
                     print(f"No new data for {label} after filtering")
                     continue
@@ -194,9 +202,13 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                     mode=mode,
                     das_name=file_cfg.das_name,
                     tag=variable.tag if mode == "tagged" else None,
-                    signal_port_type=variable.signal_port_type if mode == "tagged" else "value",
+                    signal_port_type=variable.signal_port_type
+                    if mode == "tagged"
+                    else "value",
                     parent_tag=variable.parent_tag if mode == "tagged" else None,
-                    equipment_name=variable.equipment_name if mode == "tagless" else None,
+                    equipment_name=variable.equipment_name
+                    if mode == "tagless"
+                    else None,
                     parameter_name=variable.parameter_name,
                     unit_name=variable.destination_unit_name,
                     data_provenance_id=variable.data_provenance_id,
@@ -242,12 +254,16 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                 last_dt = client.get_last_timestamp(channel_id=channel_id)
                 last_ts = last_dt.timestamp() if last_dt is not None else 0.0
 
-                data = _get_file_values(variable, tsdb_cfg.tsdb_structure, file_reader_class, last_ts)
+                data = _get_file_values(
+                    variable, tsdb_cfg.tsdb_structure, file_reader_class, last_ts
+                )
                 if data.empty:
                     print(f"No new data for {label}")
                     continue
 
-                payload = build_api_payload(data, last_ts, min_unix_ts, variable.conversion_factor)
+                payload = build_api_payload(
+                    data, last_ts, min_unix_ts, variable.conversion_factor
+                )
                 if not payload:
                     print(f"No new data for {label} after filtering")
                     continue
@@ -257,9 +273,13 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                     mode=mode,
                     das_name=tsdb_cfg.das_name,
                     tag=variable.tag if mode == "tagged" else None,
-                    signal_port_type=variable.signal_port_type if mode == "tagged" else "value",
+                    signal_port_type=variable.signal_port_type
+                    if mode == "tagged"
+                    else "value",
                     parent_tag=variable.parent_tag if mode == "tagged" else None,
-                    equipment_name=variable.equipment_name if mode == "tagless" else None,
+                    equipment_name=variable.equipment_name
+                    if mode == "tagless"
+                    else None,
                     parameter_name=variable.parameter_name,
                     unit_name=variable.destination_unit_name,
                     data_provenance_id=variable.data_provenance_id,
@@ -305,7 +325,9 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                     print(f"No new data for {label}")
                     continue
 
-                payload = build_api_payload(data, last_ts, min_unix_ts, variable.conversion_factor)
+                payload = build_api_payload(
+                    data, last_ts, min_unix_ts, variable.conversion_factor
+                )
                 if not payload:
                     print(f"No new data for {label} after filtering")
                     continue
@@ -360,9 +382,13 @@ def _ingest_vector_source(
         label = f"{vec_cfg.name}/{variable.name}"
 
         # 1. Find-or-create binning axis
-        axis_id, created, axis_warnings = client.resolve_binning_axis(axis=variable.axis)
+        axis_id, created, axis_warnings = client.resolve_binning_axis(
+            axis=variable.axis
+        )
         if created:
-            print(f"{label}: created binning axis {variable.axis.name!r} → axis_id={axis_id}")
+            print(
+                f"{label}: created binning axis {variable.axis.name!r} → axis_id={axis_id}"
+            )
         for w in axis_warnings:
             print(f"[WARNING] {label}: {w}")
 
@@ -434,7 +460,9 @@ def _ingest_vector_source(
             processing_degree_id=variable.processing_degree_id,
             observations=deduped,
         )
-        print(f"{label}: wrote {result['rows_written']} observations → channel_id={result['channel_id']}")
+        print(
+            f"{label}: wrote {result['rows_written']} observations → channel_id={result['channel_id']}"
+        )
 
 
 def _ingest_image_source(
@@ -449,7 +477,7 @@ def _ingest_image_source(
     for variable in img_cfg.variables:
         label = f"{img_cfg.name}/{variable.name}"
 
-        # 1. Resolve channel
+        # 1. Resolve channel (value_type_id=4 for Image channels)
         if mode == "tagged":
             channel_id, warnings = client.resolve_channel(
                 das_name=img_cfg.das_name,
@@ -460,6 +488,7 @@ def _ingest_image_source(
                 unit_name=variable.destination_unit_name,
                 data_provenance_id=variable.data_provenance_id,
                 processing_degree_id=variable.processing_degree_id,
+                value_type_id=4,
             )
         else:
             channel_id, warnings = client.resolve_channel_tagless(
@@ -469,6 +498,7 @@ def _ingest_image_source(
                 unit_name=variable.destination_unit_name,
                 data_provenance_id=variable.data_provenance_id,
                 processing_degree_id=variable.processing_degree_id,
+                value_type_id=4,
             )
         for w in warnings:
             print(f"[WARNING] {label}: {w}")
@@ -490,7 +520,9 @@ def _ingest_image_source(
         for fp in sorted(filepaths):
             ts_utc = extract_image_timestamp(fp, structure)
             if ts_utc is None:
-                print(f"[WARNING] {label}: could not extract timestamp from {fp} — skipped")
+                print(
+                    f"[WARNING] {label}: could not extract timestamp from {fp} — skipped"
+                )
                 continue
 
             unix_ts = ts_utc.timestamp()

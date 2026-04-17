@@ -78,6 +78,7 @@ class DateaubaseClient:
         unit_name: str,
         data_provenance_id: int = 1,
         processing_degree_id: int = 1,
+        value_type_id: int = 1,
     ) -> tuple[int, list[str]]:
         """POST /api/v1/ingest/resolve-channel → (channel_id, warnings)."""
         body = {
@@ -89,6 +90,7 @@ class DateaubaseClient:
             "unit_name": unit_name,
             "data_provenance_id": data_provenance_id,
             "processing_degree_id": processing_degree_id,
+            "value_type_id": value_type_id,
         }
         payload = self._post("/api/v1/ingest/resolve-channel", body)
         return payload["channel_id"], payload.get("warnings", [])
@@ -102,6 +104,7 @@ class DateaubaseClient:
         unit_name: str,
         data_provenance_id: int = 1,
         processing_degree_id: int = 1,
+        value_type_id: int = 1,
     ) -> tuple[int, list[str]]:
         """POST /api/v1/ingest/resolve-channel-tagless → (channel_id, warnings)."""
         body = {
@@ -111,6 +114,7 @@ class DateaubaseClient:
             "unit_name": unit_name,
             "data_provenance_id": data_provenance_id,
             "processing_degree_id": processing_degree_id,
+            "value_type_id": value_type_id,
         }
         payload = self._post("/api/v1/ingest/resolve-channel-tagless", body)
         return payload["channel_id"], payload.get("warnings", [])
@@ -267,8 +271,10 @@ class DateaubaseClient:
         url = f"{self._base}{path}"
         with open(file_path, "rb") as fh:
             import mimetypes
+
             mime_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
             import os
+
             filename = os.path.basename(file_path)
             r = self._client.post(
                 url,
@@ -311,4 +317,6 @@ class DateaubaseClient:
             form_data["tag"] = tag
         if equipment_name is not None:
             form_data["equipment_name"] = equipment_name
-        return self._post_multipart("/api/v1/ingest/sensor-image", form_data, image_path)
+        return self._post_multipart(
+            "/api/v1/ingest/sensor-image", form_data, image_path
+        )
