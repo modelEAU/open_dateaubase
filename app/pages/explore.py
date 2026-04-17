@@ -1242,7 +1242,6 @@ def _render_image_tab(
 
 
 def main() -> None:
-    st.set_page_config(page_title="Data Explorer", layout="wide")
     st.title("Data Explorer")
 
     _init_state()
