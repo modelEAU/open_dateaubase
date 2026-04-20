@@ -117,6 +117,90 @@ class SampleMethodIn(BaseModel):
     description: str | None = None
 
 
+class BinModeOut(BaseModel):
+    bin_mode_id: int
+    name: str
+    description: str | None
+
+
+class SignalPortTypeOut(BaseModel):
+    signal_port_type_id: int
+    name: str
+    description: str | None
+
+
+class ProcessingDegreeOut(BaseModel):
+    processing_degree_id: int
+    name: str
+
+
+class CampaignTypeIn(BaseModel):
+    name: str
+
+
+class EquipmentEventTypeOut(BaseModel):
+    equipment_event_type_id: int
+    name: str
+
+
+class EquipmentEventTypeIn(BaseModel):
+    name: str
+
+
+class PurposeOut(BaseModel):
+    purpose_id: int
+    name: str | None
+    description: str | None
+
+
+class PurposeIn(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class ProcedureOut(BaseModel):
+    procedure_id: int
+    procedure_name: str | None
+    procedure_type: str | None
+    description: str | None
+    procedure_location: str | None
+
+
+class ProcedureIn(BaseModel):
+    procedure_name: str | None = None
+    procedure_type: str | None = None
+    description: str | None = None
+    procedure_location: str | None = None
+
+
+class ProjectOut(BaseModel):
+    project_id: int
+    name: str | None
+    description: str | None
+
+
+class ProjectIn(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class WatershedOut(BaseModel):
+    watershed_id: int
+    name: str | None
+    description: str | None
+    surface_area: float | None
+    concentration_time: int | None
+    impervious_surface: float | None
+
+
+class WatershedIn(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    surface_area: float | None = None
+    concentration_time: int | None = None
+    impervious_surface: float | None = None
+
+
 class MetadataOut(BaseModel):
     """Full metadata record with all resolved foreign keys."""
 
