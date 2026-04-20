@@ -617,6 +617,17 @@ def get_channel_timeseries(
     return r.json()
 
 
+def get_channel_stats(channel_id: int) -> dict:
+    """Fetch min/max timestamp and observation count for a channel (no data rows)."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/timeseries/{channel_id}/stats")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 def get_channel_thumbnail(channel_id: int, timestamp: str) -> bytes:
     """Fetch the JPEG thumbnail bytes for an image channel entry."""
     try:
@@ -637,6 +648,48 @@ def get_channel_image(channel_id: int, timestamp: str) -> bytes:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.content
+
+
+# ---------------------------------------------------------------------------
+# Sampling point pictures
+# ---------------------------------------------------------------------------
+
+
+def get_sampling_point_picture(site_id: int, sp_id: int) -> bytes:
+    """Fetch the reference photo bytes for a sampling location."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/sites/{site_id}/sampling-locations/{sp_id}/picture")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.content
+
+
+def upload_sampling_point_picture(
+    site_id: int, sp_id: int, file_bytes: bytes, filename: str
+) -> dict:
+    """Upload or replace the reference photo for a sampling location."""
+    try:
+        with _get_client() as client:
+            r = client.post(
+                f"/sites/{site_id}/sampling-locations/{sp_id}/picture",
+                files={"picture": (filename, file_bytes)},
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_sampling_point_picture(site_id: int, sp_id: int) -> None:
+    """Delete the reference photo for a sampling location."""
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/sites/{site_id}/sampling-locations/{sp_id}/picture")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
 
 
 # ---------------------------------------------------------------------------
@@ -1088,6 +1141,7 @@ def list_signal_ports(
     das_id: int | None = None,
     is_active: bool | None = None,
     signal_port_type_id: int | None = None,
+    equipment_id: int | None = None,
     page: int = 1,
     page_size: int = 100,
 ) -> dict:
@@ -1098,6 +1152,8 @@ def list_signal_ports(
         params["is_active"] = is_active
     if signal_port_type_id is not None:
         params["signal_port_type_id"] = signal_port_type_id
+    if equipment_id is not None:
+        params["equipment_id"] = equipment_id
     try:
         with _get_client() as client:
             r = client.get("/ports", params=params)
@@ -1483,6 +1539,29 @@ def delete_quality_code(qc_id: int) -> None:
     _raise_for_status(r)
 
 
+def bulk_set_quality_code(
+    channel_id: int,
+    start_time: str,
+    end_time: str,
+    quality_code_id: int,
+) -> dict:
+    """Set a quality code on all value rows in [start_time, end_time] for a channel."""
+    try:
+        with _get_client() as client:
+            r = client.patch(
+                f"/timeseries/{channel_id}/quality-code",
+                json={
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "quality_code_id": quality_code_id,
+                },
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # SampleType
 # ---------------------------------------------------------------------------
@@ -1566,6 +1645,127 @@ def delete_sample_method(sample_method_id: int) -> None:
     try:
         with _get_client() as client:
             r = client.delete(f"/sample-methods/{sample_method_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# ProcessUnit
+# ---------------------------------------------------------------------------
+
+
+def list_process_unit_types() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/process-unit-types")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_process_unit_type(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/process-unit-types", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_process_unit_type(process_unit_type_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/process-unit-types/{process_unit_type_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_process_unit_type(process_unit_type_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/process-unit-types/{process_unit_type_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+def list_process_units(site_id: int | None = None, tree: bool = False) -> list[dict]:
+    params: dict = {}
+    if site_id is not None:
+        params["site_id"] = site_id
+    if tree:
+        params["tree"] = "true"
+    try:
+        with _get_client() as client:
+            r = client.get("/process-units", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_process_unit(process_unit_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/process-units/{process_unit_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_process_units_lookup(site_id: int | None = None) -> list[dict]:
+    params: dict = {}
+    if site_id is not None:
+        params["site_id"] = site_id
+    try:
+        with _get_client() as client:
+            r = client.get("/process-units/lookup", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_process_unit(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/process-units", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_process_unit(process_unit_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/process-units/{process_unit_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def patch_process_unit(process_unit_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.patch(f"/process-units/{process_unit_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_process_unit(process_unit_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/process-units/{process_unit_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)

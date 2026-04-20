@@ -21,8 +21,9 @@ COPY importer/pyproject.toml ./importer/pyproject.toml
 # Install app dependencies (streamlit, httpx, plotly — no pyodbc)
 RUN uv sync --package open-dateaubase --extra app
 
-# Copy app source
+# Copy app source and schema dictionary (used by schema_registry at runtime)
 COPY app/ ./app/
+COPY schema_dictionary/ ./schema_dictionary/
 
 ENV PATH="/app/.venv/bin:$PATH"
 

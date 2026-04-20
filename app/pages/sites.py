@@ -19,7 +19,11 @@ from app.api_client import (
     list_sites,
     patch_site,
     list_site_types,
+    get_sampling_point_picture,
+    upload_sampling_point_picture,
+    delete_sampling_point_picture,
 )
+from app.api_client import list_site_sampling_locations
 from app.components.crud_form import render_form_field
 from app.components.location_picker import render_location_picker, _clear_location_state
 
@@ -81,6 +85,60 @@ def _render_create_form() -> None:
                 st.error(f"Failed to create site: {e.message}")
 
 
+# ── SAMPLING LOCATIONS PHOTO PANEL ───────────────────────────────────────────
+
+def _render_sampling_locations(site_id: int) -> None:
+    try:
+        locations = list_site_sampling_locations(site_id)
+    except APIError as e:
+        st.error(f"Cannot load sampling locations: {e.message}")
+        return
+
+    if not locations:
+        st.info("No sampling locations found for this site.")
+        return
+
+    for sp in locations:
+        sp_id = sp["id"]
+        with st.expander(f"{sp['name']} (ID {sp_id})", expanded=False):
+            col_img, col_controls = st.columns([2, 3])
+
+            with col_img:
+                if sp.get("picture_path"):
+                    try:
+                        img_bytes = get_sampling_point_picture(site_id, sp_id)
+                        st.image(img_bytes, width=200)
+                    except APIError:
+                        st.caption("Photo unavailable.")
+                else:
+                    st.caption("No photo.")
+
+            with col_controls:
+                uploaded = st.file_uploader(
+                    "Upload photo",
+                    type=["jpg", "jpeg", "png"],
+                    key=f"sp_upload_{sp_id}",
+                )
+                if uploaded is not None:
+                    try:
+                        upload_sampling_point_picture(
+                            site_id, sp_id, uploaded.read(), uploaded.name
+                        )
+                        st.success("Photo uploaded.")
+                        st.rerun()
+                    except APIError as e:
+                        st.error(f"Upload failed: {e.message}")
+
+                if sp.get("picture_path"):
+                    if st.button("Remove photo", key=f"sp_delete_{sp_id}"):
+                        try:
+                            delete_sampling_point_picture(site_id, sp_id)
+                            st.success("Photo removed.")
+                            st.rerun()
+                        except APIError as e:
+                            st.error(f"Delete failed: {e.message}")
+
+
 # ── EDIT FORM ─────────────────────────────────────────────────────────────────
 
 def _render_edit_form(site: dict) -> None:
@@ -133,6 +191,10 @@ def _render_edit_form(site: dict) -> None:
                 _go_table()
             except APIError as e:
                 st.error(f"Failed to update site: {e.message}")
+
+    st.divider()
+    st.subheader("Sampling Locations")
+    _render_sampling_locations(site["id"])
 
 
 # ── TABLE VIEW ────────────────────────────────────────────────────────────────

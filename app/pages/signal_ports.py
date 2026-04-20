@@ -55,7 +55,7 @@ equipment_options = [
     {"id": e["equipment_id"], "label": e["identifier"]} for e in equipment_lookup
 ]
 sampling_point_options = [
-    {"id": sp["sampling_point_id"], "label": sp["name"]}
+    {"id": sp["sampling_point_id"], "label": sp["label"]}
     for sp in sampling_points_lookup
 ]
 

@@ -21,14 +21,6 @@ st.set_page_config(page_title=settings.APP_TITLE, page_icon="💧", layout="wide
 
 require_auth()
 
-# Shared sidebar: user info + sign-out across all pages
-with st.sidebar:
-    user = get_current_user()
-    if user:
-        st.write(f"Logged in as: **{user['name']}**")
-    if st.button("Sign out"):
-        logout()
-
 
 def _home() -> None:
     st.header("open_datEAUbase")
@@ -103,4 +95,13 @@ pg = st.navigation(
         ],
     }
 )
+
+# Persistent sidebar content — added after st.navigation() per Streamlit ≥1.41 requirement
+with st.sidebar:
+    user = get_current_user()
+    if user:
+        st.write(f"Logged in as: **{user['name']}**")
+    if st.button("Sign out"):
+        logout()
+
 pg.run()

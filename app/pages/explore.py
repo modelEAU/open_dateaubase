@@ -5,6 +5,13 @@ Supports multi-series visualization and extraction for all four value types:
   Vector  — 2D heatmap (time × bin, color = value) with optional 3D toggle
   Matrix  — time-slice heatmap OR row/col slice line chart
   Image   — thumbnail gallery with fullscreen dialog and multi-select actions
+
+Layout (issue #16):
+  - Top bar: title left, time range + mode toggle right
+  - Channel picker panel (collapsible, main content area) with bidirectional
+    cross-filtering across Equipment / Parameter / Value Type
+  - Active series chips row below picker
+  - Visualization area: dynamic tabs only for types present in active channels
 """
 
 from __future__ import annotations
@@ -25,6 +32,8 @@ import streamlit as st
 
 from app.api_client import (
     APIError,
+    bulk_set_quality_code,
+    get_channel_stats,
     get_channel_timeseries,
     get_channel_thumbnail,
     get_channel_image,
@@ -34,12 +43,11 @@ from app.api_client import (
     list_equipment_lookup,
     list_parameters_lookup,
     list_channels,
-    list_signal_ports,
     list_equipment_event_types,
+    list_quality_codes,
     create_equipment_event,
 )
 from app.components.lttb import lttb
-
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +58,13 @@ VALUE_TYPE_SCALAR = 1
 VALUE_TYPE_VECTOR = 2
 VALUE_TYPE_MATRIX = 3
 VALUE_TYPE_IMAGE = 4
+
+VALUE_TYPE_NAMES = {
+    VALUE_TYPE_SCALAR: "Scalar",
+    VALUE_TYPE_VECTOR: "Vector",
+    VALUE_TYPE_MATRIX: "Matrix",
+    VALUE_TYPE_IMAGE: "Image",
+}
 
 QUALITY_COLORS = {
     1: "#2ecc71",  # Accepted — green
@@ -63,6 +78,15 @@ DEFAULT_QUALITY_COLOR = "#aaaaaa"
 
 VIZ_MAX_POINTS = 1000
 
+_VALUE_TYPE_OPTIONS: dict[str, int | None] = {
+    "(all types)": None,
+    "Scalar": VALUE_TYPE_SCALAR,
+    "Vector": VALUE_TYPE_VECTOR,
+    "Matrix": VALUE_TYPE_MATRIX,
+    "Image": VALUE_TYPE_IMAGE,
+}
+
+
 # ---------------------------------------------------------------------------
 # Session state helpers
 # ---------------------------------------------------------------------------
@@ -71,6 +95,7 @@ VIZ_MAX_POINTS = 1000
 def _init_state() -> None:
     defaults: dict = {
         "explore_active_channels": [],  # list[int]
+        "explore_channel_meta": {},     # channel_id -> channel dict (cached lookup)
         "explore_start": date.today() - timedelta(days=30),
         "explore_end": date.today(),
         "explore_mode": "viz",
@@ -78,6 +103,7 @@ def _init_state() -> None:
         "explore_annotations": {},  # channel_id → list[dict]
         "explore_eq_events": {},  # equipment_id → list[dict]
         "explore_selected_points": {},  # Plotly selection result
+        "explore_channel_stats": {},     # channel_id -> stats dict (cached)
         "explore_selected_images": [],  # list[str] timestamps
         "explore_image_detail_ch": None,
         "explore_image_detail_ts": None,
@@ -86,6 +112,12 @@ def _init_state() -> None:
         "_ann_channel_id": None,
         "_ann_start": None,
         "_ann_end": None,
+        # Picker filter state — kept in session state so cross-filter changes
+        # don't cause rerun loops from widget key collisions.
+        "picker_campaign_id": None,
+        "picker_eq_id": None,
+        "picker_param_id": None,
+        "picker_vtype_id": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -175,6 +207,77 @@ def _load_equipment_events(equipment_id: int) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Cross-filtering helpers
+# ---------------------------------------------------------------------------
+
+
+def _fetch_channels_for_filters(
+    campaign_id: int | None,
+    equipment_id: int | None,
+    parameter_id: int | None,
+    value_type_id: int | None,
+) -> list[dict]:
+    """Return channel items matching ALL supplied filters (None = no filter)."""
+    try:
+        result = list_channels(
+            campaign_id=campaign_id,
+            equipment_id=equipment_id,
+            parameter_id=parameter_id,
+            value_type_id=value_type_id,
+            page_size=1000,
+        )
+        return result.get("items", [])
+    except APIError:
+        return []
+
+
+def _derive_available_options(
+    channels: list[dict],
+    equipment_lookup: list[dict],
+    parameters_lookup: list[dict],
+) -> tuple[dict[str, int | None], dict[str, int | None], dict[str, int | None]]:
+    """Derive available Equipment, Parameter, and Value Type options from a channel list.
+
+    Returns three {label: id} dicts with a leading "all" sentinel entry.
+    """
+    eq_ids = {c["equipment_id"] for c in channels if c.get("equipment_id") is not None}
+    param_ids = {c["parameter_id"] for c in channels if c.get("parameter_id") is not None}
+    vtype_ids = {c["value_type_id"] for c in channels if c.get("value_type_id") is not None}
+
+    eq_opts: dict[str, int | None] = {"(all equipment)": None}
+    eq_opts.update(
+        {
+            e.get("identifier", str(e["equipment_id"])): e["equipment_id"]
+            for e in equipment_lookup
+            if e["equipment_id"] in eq_ids
+        }
+    )
+
+    param_opts: dict[str, int | None] = {"(all parameters)": None}
+    param_opts.update(
+        {
+            p.get("parameter_name", str(p["parameter_id"])): p["parameter_id"]
+            for p in parameters_lookup
+            if p["parameter_id"] in param_ids
+        }
+    )
+
+    vtype_opts: dict[str, int | None] = {"(all types)": None}
+    for vt_id in sorted(vtype_ids):
+        name = VALUE_TYPE_NAMES.get(vt_id, str(vt_id))
+        vtype_opts[name] = vt_id
+
+    return eq_opts, param_opts, vtype_opts
+
+
+def _channel_label(ch: dict) -> str:
+    eq = ch.get("equipment_identifier") or f"EQ-{ch.get('equipment_id', '?')}"
+    param = ch.get("parameter_name") or f"P-{ch.get('parameter_id', '?')}"
+    vtype = ch.get("value_type_name") or VALUE_TYPE_NAMES.get(ch.get("value_type_id"), "?")
+    return f"CH-{ch['channel_id']}: {eq} / {param} [{vtype}]"
+
+
+# ---------------------------------------------------------------------------
 # Chart builders
 # ---------------------------------------------------------------------------
 
@@ -191,7 +294,6 @@ def _build_scalar_figure(
     """
     fig = go.Figure()
     overlay_rows: list[dict] = []
-    units_seen: set[str] = set()
 
     palette = [
         "#1f77b4",
@@ -523,58 +625,130 @@ def _build_matrix_slice_line(data: dict, axis: str, bin_idx: int) -> go.Figure:
 # ---------------------------------------------------------------------------
 
 
-@st.dialog("Create Annotation", width="large")
+@st.dialog("Annotate / Quality Flag", width="large")
 def _annotation_dialog(
     channel_ids: list[int],
     start_time: str | None,
     end_time: str | None,
     annotation_types: list[dict],
 ) -> None:
-    st.markdown(
-        "Fill in the annotation details. Time range is pre-filled from your selection."
-    )
+    tab_ann, tab_qc = st.tabs(["Annotation", "Quality Flag"])
 
-    type_options = {at["name"]: at["id"] for at in annotation_types}
-    sel_type_name = st.selectbox("Annotation type *", list(type_options.keys()))
-
-    col1, col2 = st.columns(2)
-    with col1:
-        t_start = st.text_input(
-            "Start time (ISO)",
-            value=start_time or datetime.now(timezone.utc).isoformat(),
+    # ------------------------------------------------------------------
+    # Tab 1: Annotation
+    # ------------------------------------------------------------------
+    with tab_ann:
+        st.markdown(
+            "Fill in the annotation details. Time range is pre-filled from your selection."
         )
-    with col2:
-        t_end = st.text_input("End time (ISO, optional)", value=end_time or "")
 
-    title = st.text_input("Title (optional)")
-    comment = st.text_area("Comment (optional)")
+        type_options = {at["name"]: at["id"] for at in annotation_types}
+        sel_type_name = st.selectbox("Annotation type *", list(type_options.keys()))
 
-    if st.button("Save Annotation", type="primary"):
-        payload = {
-            "annotation_type": type_options[sel_type_name],
-            "start_time": t_start,
-            "end_time": t_end or None,
-            "title": title or None,
-            "comment": comment or None,
-        }
-        errors = []
-        from app.api_client import _get_client, _raise_for_status, APIError
-        import httpx
+        col1, col2 = st.columns(2)
+        with col1:
+            t_start = st.text_input(
+                "Start time (ISO)",
+                value=start_time or datetime.now(timezone.utc).isoformat(),
+                key="ann_start",
+            )
+        with col2:
+            t_end = st.text_input(
+                "End time (ISO, optional)", value=end_time or "", key="ann_end"
+            )
 
-        for ch_id in channel_ids:
-            try:
-                with _get_client() as client:
-                    r = client.post(f"/timeseries/{ch_id}/annotations", json=payload)
-                _raise_for_status(r)
-            except (APIError, Exception) as e:
-                errors.append(f"CH-{ch_id}: {e}")
+        title = st.text_input("Title (optional)")
+        comment = st.text_area("Comment (optional)")
 
-        if errors:
-            st.error("Some annotations failed:\n" + "\n".join(errors))
+        if st.button("Save Annotation", type="primary", key="btn_save_ann"):
+            payload = {
+                "annotation_type": type_options[sel_type_name],
+                "start_time": t_start,
+                "end_time": t_end or None,
+                "title": title or None,
+                "comment": comment or None,
+            }
+            errors = []
+            from app.api_client import _get_client, _raise_for_status
+
+            for ch_id in channel_ids:
+                try:
+                    with _get_client() as client:
+                        r = client.post(
+                            f"/timeseries/{ch_id}/annotations", json=payload
+                        )
+                    _raise_for_status(r)
+                except (APIError, Exception) as e:
+                    errors.append(f"CH-{ch_id}: {e}")
+
+            if errors:
+                st.error("Some annotations failed:\n" + "\n".join(errors))
+            else:
+                st.success(f"Annotation saved for {len(channel_ids)} channel(s).")
+                _invalidate_data_cache()
+                st.rerun()
+
+    # ------------------------------------------------------------------
+    # Tab 2: Quality Flag
+    # ------------------------------------------------------------------
+    with tab_qc:
+        st.markdown(
+            "Apply a quality code to all data points in the selected time range."
+        )
+
+        try:
+            qc_list = list_quality_codes()
+        except APIError:
+            qc_list = []
+
+        if not qc_list:
+            st.warning("No quality codes available.")
         else:
-            st.success(f"Annotation saved for {len(channel_ids)} channel(s).")
-            _invalidate_data_cache()
-            st.rerun()
+            qc_options = {
+                f"{qc['name']} ({'usable' if qc.get('is_usable') else 'non-usable'})": qc["quality_code_id"]
+                for qc in qc_list
+            }
+
+            sel_qc_label = st.selectbox("Quality code *", list(qc_options.keys()), key="qc_sel")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                qc_start = st.text_input(
+                    "Start time (ISO)",
+                    value=start_time or datetime.now(timezone.utc).isoformat(),
+                    key="qc_start",
+                )
+            with col2:
+                qc_end = st.text_input(
+                    "End time (ISO)",
+                    value=end_time or datetime.now(timezone.utc).isoformat(),
+                    key="qc_end",
+                )
+
+            if st.button("Apply Quality Code", type="primary", key="btn_apply_qc"):
+                errors = []
+                total_updated = 0
+                for ch_id in channel_ids:
+                    try:
+                        result = bulk_set_quality_code(
+                            channel_id=ch_id,
+                            start_time=qc_start,
+                            end_time=qc_end,
+                            quality_code_id=qc_options[sel_qc_label],
+                        )
+                        total_updated += result.get("updated_count", 0)
+                    except APIError as e:
+                        errors.append(f"CH-{ch_id}: {e.message}")
+
+                if errors:
+                    st.error("Some channels failed:\n" + "\n".join(errors))
+                else:
+                    st.success(
+                        f"Quality code applied to {total_updated} row(s) across "
+                        f"{len(channel_ids)} channel(s)."
+                    )
+                    _invalidate_data_cache()
+                    st.rerun()
 
 
 @st.dialog("Create Equipment Event", width="large")
@@ -679,239 +853,340 @@ def _flat_scalar_rows(channel_ids: list[int], channel_meta: dict) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Sidebar
+# Top bar (title + time range + mode toggle)
 # ---------------------------------------------------------------------------
 
 
-_VALUE_TYPE_OPTIONS = {
-    "(all types)": None,
-    "Scalar": 1,
-    "Vector": 2,
-    "Matrix": 3,
-    "Image": 4,
-}
+def _render_top_bar() -> None:
+    """Render the full-width top bar: title left, controls right."""
+    title_col, spacer_col, controls_col = st.columns([3, 1, 4])
+
+    with title_col:
+        st.title("Data Explorer")
+
+    with controls_col:
+        date_a, date_b, mode_col = st.columns([2, 2, 2])
+        with date_a:
+            new_start = st.date_input(
+                "From",
+                value=st.session_state.explore_start,
+                key="date_from",
+                label_visibility="collapsed",
+            )
+            st.caption("From")
+        with date_b:
+            new_end = st.date_input(
+                "To",
+                value=st.session_state.explore_end,
+                key="date_to",
+                label_visibility="collapsed",
+            )
+            st.caption("To")
+        with mode_col:
+            mode_val = st.radio(
+                "Mode",
+                options=["Viz", "Extract"],
+                index=0 if st.session_state.explore_mode == "viz" else 1,
+                key="mode_radio",
+                horizontal=True,
+            )
+            st.session_state.explore_mode = "viz" if mode_val == "Viz" else "extract"
+
+        # Apply time range changes immediately
+        if (
+            new_start != st.session_state.explore_start
+            or new_end != st.session_state.explore_end
+        ):
+            st.session_state.explore_start = new_start
+            st.session_state.explore_end = new_end
+            _invalidate_data_cache()
+            st.rerun()
 
 
-def _render_sidebar(
+# ---------------------------------------------------------------------------
+# Channel picker panel (main content area, bidirectional cross-filtering)
+# ---------------------------------------------------------------------------
+
+
+def _render_channel_picker(
     campaigns: list[dict],
-    equipment: list[dict],
-    parameters: list[dict],
+    equipment_lookup: list[dict],
+    parameters_lookup: list[dict],
 ) -> None:
-    with st.sidebar:
-        st.header("Channel selector")
+    """Render the collapsible channel picker with bidirectional cross-filtering."""
 
-        # --- Campaign filter ---
-        campaign_options: dict = {"(all campaigns)": None}
-        campaign_options.update(
+    with st.expander("Channel Picker", expanded=True):
+        # --- Optional campaign filter ---
+        campaign_opts: dict[str, int | None] = {"(all campaigns)": None}
+        campaign_opts.update(
             {c.get("name", str(c["campaign_id"])): c["campaign_id"] for c in campaigns}
         )
-        sel_campaign_name = st.selectbox(
-            "Campaign", list(campaign_options.keys()), key="sidebar_campaign"
+        campaign_labels = list(campaign_opts.keys())
+        current_campaign_id = st.session_state.picker_campaign_id
+        current_campaign_label = next(
+            (lbl for lbl, v in campaign_opts.items() if v == current_campaign_id),
+            campaign_labels[0],
         )
-        sel_campaign_id: int | None = campaign_options[sel_campaign_name]
+        sel_campaign_label = st.selectbox(
+            "Campaign (optional)",
+            campaign_labels,
+            index=campaign_labels.index(current_campaign_label),
+            key="picker_campaign_select",
+        )
+        new_campaign_id = campaign_opts[sel_campaign_label]
+        if new_campaign_id != st.session_state.picker_campaign_id:
+            st.session_state.picker_campaign_id = new_campaign_id
+            # Reset downstream filters when campaign changes
+            st.session_state.picker_eq_id = None
+            st.session_state.picker_param_id = None
+            st.session_state.picker_vtype_id = None
+            st.rerun()
 
-        # Load channels filtered by campaign to build equipment & parameter lists
-        try:
-            base_ch = list_channels(campaign_id=sel_campaign_id, page_size=1000).get(
-                "items", []
+        st.divider()
+
+        # --- Fetch channels matching current filter combination ---
+        # For cross-filtering: when deriving available options for dimension X,
+        # we query with all OTHER filters active (not X itself).
+        current_eq = st.session_state.picker_eq_id
+        current_param = st.session_state.picker_param_id
+        current_vtype = st.session_state.picker_vtype_id
+        campaign_id = st.session_state.picker_campaign_id
+
+        # Channels matching all three filters (used for the channel selectbox)
+        matched_channels = _fetch_channels_for_filters(
+            campaign_id, current_eq, current_param, current_vtype
+        )
+
+        # Available equipment: fix param + vtype, query without eq filter
+        channels_for_eq = _fetch_channels_for_filters(
+            campaign_id, None, current_param, current_vtype
+        )
+        # Available parameters: fix eq + vtype, query without param filter
+        channels_for_param = _fetch_channels_for_filters(
+            campaign_id, current_eq, None, current_vtype
+        )
+        # Available value types: fix eq + param, query without vtype filter
+        channels_for_vtype = _fetch_channels_for_filters(
+            campaign_id, current_eq, current_param, None
+        )
+
+        eq_opts, _, _ = _derive_available_options(
+            channels_for_eq, equipment_lookup, parameters_lookup
+        )
+        _, param_opts, _ = _derive_available_options(
+            channels_for_param, equipment_lookup, parameters_lookup
+        )
+        _, _, vtype_opts = _derive_available_options(
+            channels_for_vtype, equipment_lookup, parameters_lookup
+        )
+
+        # --- Three filter dropdowns in a row ---
+        eq_col, param_col, vtype_col = st.columns(3)
+
+        with eq_col:
+            eq_labels = list(eq_opts.keys())
+            current_eq_label = next(
+                (lbl for lbl, v in eq_opts.items() if v == current_eq),
+                eq_labels[0],
             )
-        except APIError:
-            base_ch = []
-
-        # --- Equipment filter (restricted to campaign's equipment) ---
-        eq_ids_in_campaign = {
-            c["equipment_id"] for c in base_ch if c.get("equipment_id") is not None
-        }
-        filtered_eq = (
-            [e for e in equipment if e["equipment_id"] in eq_ids_in_campaign]
-            if sel_campaign_id
-            else equipment
-        )
-        eq_options: dict = {"(all equipment)": None}
-        eq_options.update(
-            {
-                e.get("identifier", str(e["equipment_id"])): e["equipment_id"]
-                for e in filtered_eq
-            }
-        )
-        sel_eq_name = st.selectbox(
-            "Equipment", list(eq_options.keys()), key="sidebar_equip"
-        )
-        sel_eq_id: int | None = eq_options[sel_eq_name]
-
-        # --- Parameter filter (restricted to campaign+equipment channels) ---
-        param_ids_available = {
-            c["parameter_id"]
-            for c in base_ch
-            if c.get("parameter_id") is not None
-            and (sel_eq_id is None or c.get("equipment_id") == sel_eq_id)
-        }
-        filtered_params = (
-            [p for p in parameters if p["parameter_id"] in param_ids_available]
-            if base_ch
-            else parameters
-        )
-        param_options: dict = {"(all parameters)": None}
-        param_options.update(
-            {
-                p.get("parameter_name", str(p["parameter_id"])): p["parameter_id"]
-                for p in filtered_params
-            }
-        )
-        sel_param_name = st.selectbox(
-            "Parameter", list(param_options.keys()), key="sidebar_param"
-        )
-        sel_param_id: int | None = param_options[sel_param_name]
-
-        # --- Value type filter ---
-        sel_vtype_name = st.selectbox(
-            "Value type", list(_VALUE_TYPE_OPTIONS.keys()), key="sidebar_vtype"
-        )
-        sel_vtype_id: int | None = _VALUE_TYPE_OPTIONS[sel_vtype_name]
-
-        # --- Signal Port filter ---
-        try:
-            sp_data = list_signal_ports(page_size=500).get("items", [])
-        except APIError:
-            sp_data = []
-        sp_options: dict = {"(all signal ports)": None}
-        sp_options.update(
-            {
-                f"{sp.get('das_name')} / {sp.get('tag')}": sp["signal_port_id"]
-                for sp in sp_data
-            }
-        )
-        sel_sp_name = st.selectbox(
-            "Signal Port", list(sp_options.keys()), key="sidebar_signalport"
-        )
-        sel_sp_id: int | None = sp_options[sel_sp_name]
-
-        # --- Channel list (fully filtered) ---
-        try:
-            ch_data = list_channels(
-                campaign_id=sel_campaign_id,
-                equipment_id=sel_eq_id,
-                parameter_id=sel_param_id,
-                value_type_id=sel_vtype_id,
-                signal_port_id=sel_sp_id,
-                page_size=500,
+            sel_eq_label = st.selectbox(
+                "Equipment",
+                eq_labels,
+                index=eq_labels.index(current_eq_label),
+                key="picker_eq_select",
             )
-            channels = ch_data.get("items", [])
-        except APIError as e:
-            st.error(f"Cannot load channels: {e.message}")
-            channels = []
+            new_eq_id = eq_opts[sel_eq_label]
+            if new_eq_id != current_eq:
+                st.session_state.picker_eq_id = new_eq_id
+                st.rerun()
 
-        if channels:
-            ch_options = {
-                f"CH-{c['channel_id']}: {c.get('equipment_identifier', '?')} / {c.get('parameter_name', '?')} [{c.get('value_type_name', '?')}]": c[
-                    "channel_id"
-                ]
-                for c in channels
-            }
-            sel_ch_label = st.selectbox(
-                "Channel", list(ch_options.keys()), key="sidebar_chan"
+        with param_col:
+            param_labels = list(param_opts.keys())
+            current_param_label = next(
+                (lbl for lbl, v in param_opts.items() if v == current_param),
+                param_labels[0],
             )
-            sel_ch_id = ch_options[sel_ch_label]
-        else:
-            st.caption("No channels match the current filters.")
+            sel_param_label = st.selectbox(
+                "Parameter",
+                param_labels,
+                index=param_labels.index(current_param_label),
+                key="picker_param_select",
+            )
+            new_param_id = param_opts[sel_param_label]
+            if new_param_id != current_param:
+                st.session_state.picker_param_id = new_param_id
+                st.rerun()
+
+        with vtype_col:
+            vtype_labels = list(vtype_opts.keys())
+            current_vtype_label = next(
+                (lbl for lbl, v in vtype_opts.items() if v == current_vtype),
+                vtype_labels[0],
+            )
+            sel_vtype_label = st.selectbox(
+                "Value Type",
+                vtype_labels,
+                index=vtype_labels.index(current_vtype_label),
+                key="picker_vtype_select",
+            )
+            new_vtype_id = vtype_opts[sel_vtype_label]
+            if new_vtype_id != current_vtype:
+                st.session_state.picker_vtype_id = new_vtype_id
+                st.rerun()
+
+        st.divider()
+
+        # --- Channel selectbox + Add button ---
+        if not matched_channels:
+            st.warning("No channels match the current filters.")
             sel_ch_id = None
+        else:
+            ch_label_map = {_channel_label(c): c["channel_id"] for c in matched_channels}
+            ch_labels = list(ch_label_map.keys())
+            sel_ch_label = st.selectbox(
+                "Matching channels",
+                ch_labels,
+                key="picker_chan_select",
+            )
+            sel_ch_id = ch_label_map[sel_ch_label]
 
-        if st.button("+ Add to plot", type="primary", disabled=sel_ch_id is None):
+        add_disabled = sel_ch_id is None
+        if st.button(
+            "+ Add to plot",
+            type="primary",
+            disabled=add_disabled,
+            key="picker_add_btn",
+        ):
             active = st.session_state.explore_active_channels
             if sel_ch_id not in active:
                 active.append(sel_ch_id)
+                # Cache the channel meta immediately from the matched list
+                ch_record = next(
+                    (c for c in matched_channels if c["channel_id"] == sel_ch_id), None
+                )
+                if ch_record:
+                    st.session_state.explore_channel_meta[sel_ch_id] = ch_record
                 _invalidate_data_cache()
                 st.rerun()
             else:
                 st.info("Channel already in plot.")
 
-        st.divider()
-
-        # Active series list
-        active = st.session_state.explore_active_channels
-        if active:
-            st.subheader("Active series")
-            to_remove = []
-            for ch_id in active:
-                # Find channel info
-                meta = next((c for c in channels if c["channel_id"] == ch_id), None)
-                if meta is None:
-                    label = f"CH-{ch_id}"
-                else:
-                    label = f"CH-{ch_id}: {meta.get('equipment_identifier', '?')} / {meta.get('parameter_name', '?')}"
-                col_a, col_b = st.columns([4, 1])
-                with col_a:
-                    st.caption(label)
-                with col_b:
-                    if st.button("x", key=f"rm_{ch_id}"):
-                        to_remove.append(ch_id)
-            for ch_id in to_remove:
-                st.session_state.explore_active_channels.remove(ch_id)
-                _invalidate_data_cache()
-                st.rerun()
-        else:
-            st.caption("No channels selected. Use the selector above.")
-
-        st.divider()
-
-        # Time range
-        st.subheader("Time range")
-        new_start = st.date_input(
-            "From", value=st.session_state.explore_start, key="date_from"
-        )
-        new_end = st.date_input("To", value=st.session_state.explore_end, key="date_to")
-        if st.button("Apply time range"):
-            if (
-                new_start != st.session_state.explore_start
-                or new_end != st.session_state.explore_end
-            ):
-                st.session_state.explore_start = new_start
-                st.session_state.explore_end = new_end
-                _invalidate_data_cache()
-                st.rerun()
-
-        st.divider()
-
-        # Mode toggle
-        st.subheader("Mode")
-        mode = st.radio(
-            "Data mode",
-            options=["Visualization (downsampled)", "Extraction (raw)"],
-            index=0 if st.session_state.explore_mode == "viz" else 1,
-            key="mode_radio",
-            label_visibility="collapsed",
-        )
-        st.session_state.explore_mode = "viz" if "Visualization" in mode else "extract"
-
 
 # ---------------------------------------------------------------------------
-# Tab renderers
+# Active series chips row
 # ---------------------------------------------------------------------------
 
 
-def _render_scalar_tab(
-    active_channels: list[int], channel_meta: dict, annotation_types: list[dict]
-) -> None:
-    if not active_channels:
-        st.info("Add scalar channels from the sidebar to begin.")
+def _fetch_channel_stats(ch_id: int, meta: dict) -> dict | None:
+    """Lazily fetch and cache stats for a channel. Returns None on failure."""
+    cache = st.session_state.explore_channel_stats
+    if ch_id not in cache:
+        try:
+            cache[ch_id] = get_channel_stats(ch_id)
+        except APIError:
+            cache[ch_id] = None
+    return cache[ch_id]
+
+
+def _render_active_chips(channel_meta: dict[int, dict]) -> None:
+    """Render active channels as a vertically growing list with range info and quick-select buttons."""
+    active = st.session_state.explore_active_channels
+
+    if not active:
+        st.caption("No series added yet — use the picker above.")
         return
 
+    to_remove: list[int] = []
+    range_update: tuple[date, date] | None = None
+
+    # Header row
+    cols = st.columns([4, 2, 2, 1, 1, 1])
+    cols[0].caption("**Channel**")
+    cols[1].caption("**First value**")
+    cols[2].caption("**Last value**")
+
+    for ch_id in active:
+        meta = channel_meta.get(ch_id, {})
+        eq = meta.get("equipment_identifier") or "EQ-?"
+        param = meta.get("parameter_name") or "P-?"
+        vtype_id = meta.get("value_type_id")
+        vtype = VALUE_TYPE_NAMES.get(vtype_id, "?") if vtype_id else "?"
+        label = f"CH-{ch_id}: {eq} / {param} [{vtype}]"
+
+        stats = _fetch_channel_stats(ch_id, meta)
+        min_ts = stats["min_timestamp"] if stats else None
+        max_ts = stats["max_timestamp"] if stats else None
+
+        min_str = str(min_ts)[:10] if min_ts else "—"
+        max_str = str(max_ts)[:10] if max_ts else "—"
+
+        with st.container(border=True):
+            name_col, min_col, max_col, all_col, last7_col, rm_col = st.columns(
+                [4, 2, 2, 1, 1, 1]
+            )
+            name_col.markdown(label)
+            min_col.markdown(min_str)
+            max_col.markdown(max_str)
+
+            if all_col.button("Plot all", key=f"all_{ch_id}", disabled=not min_ts):
+                range_update = (
+                    min_ts.date() if hasattr(min_ts, "date") else date.fromisoformat(str(min_ts)[:10]),
+                    max_ts.date() if hasattr(max_ts, "date") else date.fromisoformat(str(max_ts)[:10]),
+                )
+
+            if last7_col.button("Last 7d", key=f"last7_{ch_id}", disabled=not max_ts):
+                end = max_ts.date() if hasattr(max_ts, "date") else date.fromisoformat(str(max_ts)[:10])
+                range_update = (end - timedelta(days=7), end)
+
+            if rm_col.button("✕", key=f"rm_{ch_id}", help="Remove channel"):
+                to_remove.append(ch_id)
+
+    for ch_id in to_remove:
+        st.session_state.explore_active_channels.remove(ch_id)
+        st.session_state.explore_channel_meta.pop(ch_id, None)
+        st.session_state.explore_channel_stats.pop(ch_id, None)
+        _invalidate_data_cache()
+        st.rerun()
+
+    if range_update is not None:
+        start, end = range_update
+        st.session_state.explore_start = start
+        st.session_state.explore_end = end
+        # Keep the date_input widgets in sync so the top bar doesn't override us on rerun
+        st.session_state["date_from"] = start
+        st.session_state["date_to"] = end
+        _invalidate_data_cache()
+        st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Visualization renderers (unchanged logic, reorganized into functions)
+# ---------------------------------------------------------------------------
+
+
+def _render_scalar_view(
+    active_channels: list[int],
+    channel_meta: dict[int, dict],
+    annotation_types: list[dict],
+    equipment: list[dict],
+    event_types: list[dict],
+) -> None:
     scalar_channels = [
         ch
         for ch in active_channels
         if channel_meta.get(ch, {}).get("value_type_id") in (None, VALUE_TYPE_SCALAR)
     ]
     if not scalar_channels:
-        st.info("None of the active channels have scalar data (value_type = 1).")
+        st.info("No scalar channels in the active series.")
         return
 
     mode = st.session_state.explore_mode
     if mode == "viz":
         st.caption(
-            f"Visualization mode: up to {VIZ_MAX_POINTS} points per series (LTTB downsampled)."
+            f"Visualization mode — up to {VIZ_MAX_POINTS} points per series (LTTB downsampled)."
         )
     else:
-        st.caption("Extraction mode: full raw data displayed.")
+        st.caption("Extraction mode — full raw data displayed.")
 
     fig, overlay_rows = _build_scalar_figure(scalar_channels, channel_meta, mode)
     selection = st.plotly_chart(
@@ -929,10 +1204,10 @@ def _render_scalar_tab(
 
     if selected_pts:
         st.markdown(
-            f"**{len(selected_pts)} points selected** across {len({p.get('curve_number') for p in selected_pts})} series."
+            f"**{len(selected_pts)} points selected** across "
+            f"{len({p.get('curve_number') for p in selected_pts})} series."
         )
 
-        # Determine time range of selection
         sel_times = [p.get("x") for p in selected_pts if p.get("x")]
         t_start_sel = min(sel_times) if sel_times else None
         t_end_sel = max(sel_times) if sel_times else None
@@ -986,8 +1261,10 @@ def _render_scalar_tab(
         )
 
 
-def _render_vector_tab(
-    active_channels: list[int], channel_meta: dict, annotation_types: list[dict]
+def _render_vector_view(
+    active_channels: list[int],
+    channel_meta: dict[int, dict],
+    annotation_types: list[dict],
 ) -> None:
     vector_channels = [
         ch
@@ -995,7 +1272,7 @@ def _render_vector_tab(
         if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_VECTOR
     ]
     if not vector_channels:
-        st.info("Add vector channels (value_type = 2) from the sidebar.")
+        st.info("No vector channels in the active series.")
         return
 
     ch_options = {
@@ -1021,7 +1298,6 @@ def _render_vector_tab(
     fig = _build_vector_heatmap(data, as_3d=as_3d)
     st.plotly_chart(fig, use_container_width=True, key="vector_chart")
 
-    # Annotation creation for vector
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Create Annotation", key="vec_ann_btn"):
@@ -1034,7 +1310,6 @@ def _render_vector_tab(
                 annotation_types=annotation_types,
             )
 
-    # Download
     st.divider()
     df = pd.DataFrame(rows)
     csv_bytes = df.to_csv(index=False).encode()
@@ -1046,14 +1321,17 @@ def _render_vector_tab(
     )
 
 
-def _render_matrix_tab(active_channels: list[int], channel_meta: dict) -> None:
+def _render_matrix_view(
+    active_channels: list[int],
+    channel_meta: dict[int, dict],
+) -> None:
     matrix_channels = [
         ch
         for ch in active_channels
         if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_MATRIX
     ]
     if not matrix_channels:
-        st.info("Add matrix channels (value_type = 3) from the sidebar.")
+        st.info("No matrix channels in the active series.")
         return
 
     ch_options = {
@@ -1108,7 +1386,6 @@ def _render_matrix_tab(active_channels: list[int], channel_meta: dict) -> None:
         fig = _build_matrix_slice_line(data, "col", sel_col)
         st.plotly_chart(fig, use_container_width=True, key="matrix_col_chart")
 
-    # Download
     st.divider()
     csv_bytes = df.to_csv(index=False).encode()
     st.download_button(
@@ -1119,9 +1396,9 @@ def _render_matrix_tab(active_channels: list[int], channel_meta: dict) -> None:
     )
 
 
-def _render_image_tab(
+def _render_image_view(
     active_channels: list[int],
-    channel_meta: dict,
+    channel_meta: dict[int, dict],
     annotation_types: list[dict],
     equipment: list[dict],
     event_types: list[dict],
@@ -1132,7 +1409,7 @@ def _render_image_tab(
         if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_IMAGE
     ]
     if not image_channels:
-        st.info("Add image channels (value_type = 4) from the sidebar.")
+        st.info("No image channels in the active series.")
         return
 
     ch_options = {
@@ -1154,10 +1431,8 @@ def _render_image_tab(
 
     st.markdown(f"**{len(rows)} image(s)** in range. Click to view full size.")
 
-    # Multi-select state
     selected_ts = st.session_state.explore_selected_images
 
-    # Gallery grid — 4 columns
     cols_per_row = 4
     for row_start in range(0, len(rows), cols_per_row):
         chunk = rows[row_start : row_start + cols_per_row]
@@ -1165,9 +1440,10 @@ def _render_image_tab(
         for col_obj, img_meta in zip(cols, chunk):
             ts_str = str(img_meta.get("timestamp", ""))
             with col_obj:
-                # Checkbox for multi-select
                 is_checked = st.checkbox(
-                    "Select", value=ts_str in selected_ts, key=f"img_sel_{ts_str}",
+                    "Select",
+                    value=ts_str in selected_ts,
+                    key=f"img_sel_{ts_str}",
                     label_visibility="collapsed",
                 )
                 if is_checked and ts_str not in selected_ts:
@@ -1175,23 +1451,20 @@ def _render_image_tab(
                 elif not is_checked and ts_str in selected_ts:
                     selected_ts.remove(ts_str)
 
-                # Thumbnail
                 try:
                     thumb = get_channel_thumbnail(ch_id, ts_str)
                     st.image(thumb, caption=ts_str[:16], use_container_width=True)
                 except APIError:
                     st.caption(
-                        f"[{img_meta.get('image_width', '?')}×{img_meta.get('image_height', '?')}]"
+                        f"[{img_meta.get('image_width', '?')}x{img_meta.get('image_height', '?')}]"
                     )
                     st.caption(ts_str[:16])
 
-                # View full size
                 if st.button("View", key=f"view_{ts_str}"):
                     st.session_state.explore_image_detail_ch = ch_id
                     st.session_state.explore_image_detail_ts = ts_str
                     st.rerun()
 
-    # Open fullscreen dialog if requested
     if st.session_state.explore_image_detail_ch is not None:
         _image_viewer_dialog(
             channel_id=st.session_state.explore_image_detail_ch,
@@ -1201,7 +1474,6 @@ def _render_image_tab(
         st.session_state.explore_image_detail_ch = None
         st.session_state.explore_image_detail_ts = None
 
-    # Multi-select action bar
     st.divider()
     if selected_ts:
         st.markdown(f"**{len(selected_ts)} image(s) selected.**")
@@ -1225,7 +1497,6 @@ def _render_image_tab(
     else:
         st.caption("Check image thumbnails above to select them for bulk actions.")
 
-    # Download image list
     img_df = pd.DataFrame(rows)
     csv_bytes = img_df.to_csv(index=False).encode()
     st.download_button(
@@ -1237,16 +1508,91 @@ def _render_image_tab(
 
 
 # ---------------------------------------------------------------------------
+# Dynamic visualization area
+# ---------------------------------------------------------------------------
+
+
+def _render_visualization_area(
+    active_channels: list[int],
+    channel_meta: dict[int, dict],
+    annotation_types: list[dict],
+    equipment: list[dict],
+    event_types: list[dict],
+) -> None:
+    """Show visualization tabs only for value types present in active channels.
+
+    If all active channels are the same type, skip the tab bar entirely.
+    """
+    if not active_channels:
+        st.info(
+            "No series added yet. Use the Channel Picker above to find and add channels to your plot."
+        )
+        return
+
+    # Determine which value types are represented
+    types_present: list[int] = []
+    for ch_id in active_channels:
+        vt = channel_meta.get(ch_id, {}).get("value_type_id")
+        if vt is not None and vt not in types_present:
+            types_present.append(vt)
+    # Preserve natural order scalar < vector < matrix < image
+    types_present.sort()
+
+    render_map = {
+        VALUE_TYPE_SCALAR: lambda: _render_scalar_view(
+            active_channels, channel_meta, annotation_types, equipment, event_types
+        ),
+        VALUE_TYPE_VECTOR: lambda: _render_vector_view(
+            active_channels, channel_meta, annotation_types
+        ),
+        VALUE_TYPE_MATRIX: lambda: _render_matrix_view(active_channels, channel_meta),
+        VALUE_TYPE_IMAGE: lambda: _render_image_view(
+            active_channels, channel_meta, annotation_types, equipment, event_types
+        ),
+    }
+
+    if len(types_present) == 0:
+        # Channel meta not fully loaded yet — fall back to trying all types
+        for fn in render_map.values():
+            fn()
+        return
+
+    if len(types_present) == 1:
+        # Single type: no tabs needed
+        render_map[types_present[0]]()
+        return
+
+    # Multiple types: show only relevant tabs
+    tab_names = [VALUE_TYPE_NAMES[vt] for vt in types_present]
+    tabs = st.tabs(tab_names)
+    for tab, vt in zip(tabs, types_present):
+        with tab:
+            render_map[vt]()
+
+
+# ---------------------------------------------------------------------------
+# Sidebar (minimal)
+# ---------------------------------------------------------------------------
+
+
+def _render_sidebar_minimal() -> None:
+    with st.sidebar:
+        st.markdown(
+            "**Data Explorer** lets you visualize and extract time-series data "
+            "across all sensor types. Use the picker in the main area to add channels, "
+            "then explore your data below."
+        )
+
+
+# ---------------------------------------------------------------------------
 # Main page
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    st.title("Data Explorer")
-
     _init_state()
 
-    # Load lookup data
+    # Load lookup data once
     try:
         campaigns = list_campaigns_lookup()
         equipment = list_equipment_lookup()
@@ -1265,22 +1611,43 @@ def main() -> None:
     except APIError:
         event_types = []
 
-    _render_sidebar(campaigns, equipment, parameters)
+    _render_sidebar_minimal()
 
-    active_channels = st.session_state.explore_active_channels
+    # --- Top bar ---
+    _render_top_bar()
 
-    # Build channel meta map for all active channels
-    channel_meta: dict[int, dict] = {}
-    if active_channels:
+    st.divider()
+
+    # --- Channel picker (main content area) ---
+    _render_channel_picker(campaigns, equipment, parameters)
+
+    st.divider()
+
+    # --- Build channel_meta for all active channels ---
+    active_channels: list[int] = st.session_state.explore_active_channels
+    # Start from cached meta accumulated during add operations
+    channel_meta: dict[int, dict] = dict(st.session_state.explore_channel_meta)
+
+    # Fill any gaps (e.g. after page reload) by fetching from API
+    missing = [ch for ch in active_channels if ch not in channel_meta]
+    if missing:
         try:
-            all_ch_data = list_channels(page_size=1000)
+            all_ch_data = list_channels(page_size=2000)
             for ch in all_ch_data.get("items", []):
-                if ch["channel_id"] in active_channels:
-                    channel_meta[ch["channel_id"]] = ch
+                ch_id = ch["channel_id"]
+                if ch_id in active_channels:
+                    channel_meta[ch_id] = ch
+                    # Persist back to session cache
+                    st.session_state.explore_channel_meta[ch_id] = ch
         except APIError:
             pass
 
-    # Equipment event dialog (triggered from scalar tab)
+    # --- Active series chips ---
+    _render_active_chips(channel_meta)
+
+    st.divider()
+
+    # --- Equipment event dialog (triggered from scalar view) ---
     if st.session_state._show_event_dialog:
         st.session_state._show_event_dialog = False
         _equipment_event_dialog(
@@ -1290,24 +1657,10 @@ def main() -> None:
             event_type_options=event_types,
         )
 
-    # Main tabs
-    tab_scalar, tab_vector, tab_matrix, tab_image = st.tabs(
-        ["Scalar", "Vector", "Matrix", "Image"]
+    # --- Visualization area ---
+    _render_visualization_area(
+        active_channels, channel_meta, annotation_types, equipment, event_types
     )
-
-    with tab_scalar:
-        _render_scalar_tab(active_channels, channel_meta, annotation_types)
-
-    with tab_vector:
-        _render_vector_tab(active_channels, channel_meta, annotation_types)
-
-    with tab_matrix:
-        _render_matrix_tab(active_channels, channel_meta)
-
-    with tab_image:
-        _render_image_tab(
-            active_channels, channel_meta, annotation_types, equipment, event_types
-        )
 
 
 main()

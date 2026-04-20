@@ -63,10 +63,10 @@ def render_crud_page(
         st.stop()
         return
 
-    col_new, col_edit, col_del, _ = st.columns([1, 1, 1, 7])
+    col_new, col_edit, col_del, _ = st.columns([2, 2, 2, 6])
 
     with col_new:
-        if create_fn and st.button("➕ New", type="primary"):
+        if create_fn and st.button("➕ New", type="primary", use_container_width=True):
             create_form_dialog(
                 fields=resolved_fields,
                 on_submit=lambda data: _handle_create(create_fn, data, title),
@@ -100,7 +100,7 @@ def render_crud_page(
     item_label = selected.get(label_field, "") if selected else ""
 
     with col_edit:
-        if update_fn and st.button("✏️ Edit", disabled=selected is None):
+        if update_fn and st.button("✏️ Edit", disabled=selected is None, use_container_width=True):
             if selected:
                 edit_form_dialog(
                     item_data=selected,
@@ -112,7 +112,7 @@ def render_crud_page(
                 )
 
     with col_del:
-        if delete_fn and st.button("🗑️ Delete", disabled=selected is None, type="secondary"):
+        if delete_fn and st.button("🗑️ Delete", disabled=selected is None, type="secondary", use_container_width=True):
             if selected:
                 try:
                     delete_fn(selected[pk_field])
