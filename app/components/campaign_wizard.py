@@ -13,6 +13,7 @@ from app.api_client import (
     create_equipment,
     create_equipment_model,
     create_person,
+    create_process_unit,
     create_sampling_location,
     create_signal_port,
     create_site,
@@ -528,27 +529,29 @@ def _step_sampling_locations(lookups: dict) -> None:
                     on_change=_sync_desc,
                 )
 
-                # Process unit selector
-                pu_opts = [{"id": None, "label": "— none —"}] + [
-                    {"id": p["process_unit_id"], "label": p["name"]}
-                    for p in lookups.get("process_units", [])
-                ]
-                pu_labels = [o["label"] for o in pu_opts]
-
-                def _sync_pu(sl_id=sl_id):
-                    st.session_state[f"wiz_sl_{sl_id}_process_unit_store"] = (
-                        st.session_state.get(f"wiz_sl_{sl_id}_process_unit")
-                    )
-
-                st.selectbox(
+                # Process unit — Existing or New
+                pu_mode = st.radio(
                     "Process unit",
-                    pu_labels,
-                    key=f"wiz_sl_{sl_id}_process_unit",
-                    on_change=_sync_pu,
+                    ["None", "Existing", "New"],
+                    key=f"wiz_sl_{sl_id}_pu_mode",
+                    horizontal=True,
                 )
-                if f"wiz_sl_{sl_id}_process_unit_store" not in st.session_state:
-                    st.session_state[f"wiz_sl_{sl_id}_process_unit_store"] = (
-                        st.session_state.get(f"wiz_sl_{sl_id}_process_unit")
+                if pu_mode == "Existing":
+                    pu_opts = lookups.get("process_units", [])
+                    if pu_opts:
+                        st.selectbox(
+                            "Select process unit *",
+                            [p["name"] for p in pu_opts],
+                            key=f"wiz_sl_{sl_id}_pu_existing",
+                        )
+                    else:
+                        st.info("No process units found. Switch to **New**.")
+                elif pu_mode == "New":
+                    st.text_input("Process unit name *", key=f"wiz_sl_{sl_id}_pu_name")
+                    st.text_input(
+                        "Tag *",
+                        key=f"wiz_sl_{sl_id}_pu_tag",
+                        help="Short identifier, e.g. PU-001",
                     )
 
                 # Initialize stores if needed
@@ -592,9 +595,12 @@ def _step_sampling_locations(lookups: dict) -> None:
                         f"Sampling location {sl_id + 1}: select an existing location."
                     )
             else:
-                st.session_state[f"wiz_sl_{sl_id}_process_unit_store"] = (
-                    st.session_state.get(f"wiz_sl_{sl_id}_process_unit")
-                )
+                pu_mode = st.session_state.get(f"wiz_sl_{sl_id}_pu_mode", "None")
+                if pu_mode == "New":
+                    if not (st.session_state.get(f"wiz_sl_{sl_id}_pu_name") or "").strip():
+                        errors.append(f"Sampling location {sl_id + 1}: process unit name is required.")
+                    if not (st.session_state.get(f"wiz_sl_{sl_id}_pu_tag") or "").strip():
+                        errors.append(f"Sampling location {sl_id + 1}: process unit tag is required.")
                 if not (
                     st.session_state.get(f"wiz_sl_{sl_id}_name_store") or ""
                 ).strip():
@@ -1413,14 +1419,23 @@ def _execute_creates(lookups: dict) -> list[str]:
             ).strip()
             if name and campaign_site_id is not None:
                 try:
-                    pu_label = st.session_state.get(
-                        f"wiz_sl_{sl_wiz_id}_process_unit_store"
-                    )
-                    pu_opts = lookups.get("process_units", [])
-                    pu_id = next(
-                        (p["process_unit_id"] for p in pu_opts if p["name"] == pu_label),
-                        None,
-                    )
+                    pu_mode = st.session_state.get(f"wiz_sl_{sl_wiz_id}_pu_mode", "None")
+                    pu_id = None
+                    if pu_mode == "Existing":
+                        pu_label = st.session_state.get(f"wiz_sl_{sl_wiz_id}_pu_existing")
+                        pu_id = next(
+                            (p["process_unit_id"] for p in lookups.get("process_units", []) if p["name"] == pu_label),
+                            None,
+                        )
+                    elif pu_mode == "New" and campaign_site_id is not None:
+                        pu_name = (st.session_state.get(f"wiz_sl_{sl_wiz_id}_pu_name") or "").strip()
+                        pu_tag = (st.session_state.get(f"wiz_sl_{sl_wiz_id}_pu_tag") or "").strip()
+                        if pu_name and pu_tag:
+                            try:
+                                new_pu = create_process_unit({"site_id": campaign_site_id, "name": pu_name, "tag": pu_tag})
+                                pu_id = new_pu["id"]
+                            except APIError as e:
+                                errors.append(f"Process unit '{pu_name}': {e.message}")
                     sl = create_sampling_location(
                         campaign_site_id,
                         {
