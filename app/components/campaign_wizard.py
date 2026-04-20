@@ -554,6 +554,13 @@ def _step_sampling_locations(lookups: dict) -> None:
                         help="Short identifier, e.g. PU-001",
                     )
 
+                st.file_uploader(
+                    "Photo (optional)",
+                    type=["jpg", "jpeg", "png"],
+                    key=f"wiz_sl_{sl_id}_photo",
+                    help="Reference photo of the sampling location",
+                )
+
                 # Initialize stores if needed
                 if f"wiz_sl_{sl_id}_name_store" not in st.session_state:
                     st.session_state[f"wiz_sl_{sl_id}_name_store"] = (
@@ -1450,6 +1457,15 @@ def _execute_creates(lookups: dict) -> list[str]:
                         },
                     )
                     sl_id_map[sl_wiz_id] = sl["id"]
+                    photo_file = st.session_state.get(f"wiz_sl_{sl_wiz_id}_photo")
+                    if photo_file is not None:
+                        try:
+                            from app.api_client import upload_sampling_point_picture
+                            upload_sampling_point_picture(
+                                campaign_site_id, sl["id"], photo_file.read(), photo_file.name
+                            )
+                        except APIError:
+                            errors.append(f"Photo for '{name}' could not be uploaded (location was created).")
                 except APIError as e:
                     errors.append(f"Sampling location '{name}': {e.message}")
 

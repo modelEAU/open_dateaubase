@@ -1769,3 +1769,292 @@ def delete_process_unit(process_unit_id: int) -> None:
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# CampaignType
+# ---------------------------------------------------------------------------
+
+
+def create_campaign_type(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/campaigns/types", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_campaign_type(campaign_type_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/campaigns/types/{campaign_type_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_campaign_type(campaign_type_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/campaigns/types/{campaign_type_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# BinMode (read-only)
+# ---------------------------------------------------------------------------
+
+
+def list_bin_modes() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/value-binning-axes/bin-modes")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+# ---------------------------------------------------------------------------
+# SignalPortType (read-only, full detail)
+# ---------------------------------------------------------------------------
+
+
+def list_signal_port_types() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/ports/types")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+# ---------------------------------------------------------------------------
+# ProcessingDegree (read-only)
+# ---------------------------------------------------------------------------
+
+
+def list_processing_degrees() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/processing-degrees")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+# ---------------------------------------------------------------------------
+# EquipmentEventType CRUD (list already exists above at /equipment/event-types)
+# ---------------------------------------------------------------------------
+
+
+def create_equipment_event_type(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/equipment/event-types", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_equipment_event_type(event_type_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/equipment/event-types/{event_type_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_equipment_event_type(event_type_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/equipment/event-types/{event_type_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# Purpose
+# ---------------------------------------------------------------------------
+
+
+def list_purposes() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/purposes")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_purpose(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/vocab/purposes", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_purpose(purpose_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/vocab/purposes/{purpose_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_purpose(purpose_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/vocab/purposes/{purpose_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# Procedures
+# ---------------------------------------------------------------------------
+
+
+def list_procedures() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/procedures")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_procedure(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/vocab/procedures", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_procedure(procedure_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/vocab/procedures/{procedure_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_procedure(procedure_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/vocab/procedures/{procedure_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# Project
+# ---------------------------------------------------------------------------
+
+
+def list_projects() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/projects")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_project(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/vocab/projects", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_project(project_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/vocab/projects/{project_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_project(project_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/vocab/projects/{project_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# Watershed
+# ---------------------------------------------------------------------------
+
+
+def list_watersheds() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/watersheds")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_watershed(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/vocab/watersheds", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_watershed(watershed_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/vocab/watersheds/{watershed_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_watershed(watershed_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/vocab/watersheds/{watershed_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
