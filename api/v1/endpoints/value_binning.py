@@ -5,7 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.database import get_db
-from ..repositories import value_binning_repository
+from ..repositories import lookup_repository, value_binning_repository
+from ..schemas.metadata import BinModeOut
 from ..schemas.value_binning import (
     ValueBinningAxisIn,
     ValueBinningAxisOut,
@@ -16,6 +17,12 @@ from ..schemas.value_binning import (
 )
 
 router = APIRouter()
+
+
+@router.get("/bin-modes", response_model=list[BinModeOut])
+def list_bin_modes(conn=Depends(get_db)):
+    """Return all BinMode vocabulary entries."""
+    return lookup_repository.get_bin_modes(conn)
 
 
 @router.get("", response_model=list[ValueBinningAxisOut])

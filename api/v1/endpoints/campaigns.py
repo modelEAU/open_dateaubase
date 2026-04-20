@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from api.database import get_db
 from ..repositories import campaign_repository
+from ..repositories import lookup_repository
 from ..schemas.campaigns import (
     CampaignContextOut,
     CampaignIn,
@@ -16,6 +17,7 @@ from ..schemas.campaigns import (
     DeploymentCreateOut,
     DeploymentOut,
 )
+from ..schemas.metadata import CampaignTypeIn
 
 router = APIRouter()
 
@@ -80,6 +82,26 @@ def get_campaigns_lookup(conn=Depends(get_db)):
 def list_campaign_types(conn=Depends(get_db)):
     """Return all campaign types for dropdowns."""
     return campaign_repository.get_campaign_types(conn)
+
+
+@router.post("/types", response_model=CampaignTypeOut, status_code=201)
+def create_campaign_type(body: CampaignTypeIn, conn=Depends(get_db)):
+    return lookup_repository.insert_campaign_type(conn, body.name)
+
+
+@router.put("/types/{campaign_type_id}", response_model=CampaignTypeOut)
+def update_campaign_type(campaign_type_id: int, body: CampaignTypeIn, conn=Depends(get_db)):
+    updated = lookup_repository.update_campaign_type(conn, campaign_type_id, body.name)
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"CampaignType {campaign_type_id} not found.")
+    return updated
+
+
+@router.delete("/types/{campaign_type_id}", status_code=204)
+def delete_campaign_type(campaign_type_id: int, conn=Depends(get_db)):
+    deleted = lookup_repository.delete_campaign_type(conn, campaign_type_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"CampaignType {campaign_type_id} not found.")
 
 
 @router.get("/{campaign_id}", response_model=CampaignOut)

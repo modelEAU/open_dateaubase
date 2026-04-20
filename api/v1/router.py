@@ -32,6 +32,7 @@ from .endpoints.process_units import (
     process_unit_types_router,
     process_units_router,
 )
+from .endpoints.vocab import router as vocab_router
 
 router = APIRouter()
 
@@ -67,3 +68,4 @@ router.include_router(
     process_unit_types_router, prefix="/process-unit-types", tags=["process-units"]
 )
 router.include_router(process_units_router, prefix="/process-units", tags=["process-units"])
+router.include_router(vocab_router, prefix="/vocab", tags=["vocabulary"])

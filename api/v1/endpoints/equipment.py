@@ -22,6 +22,7 @@ from ..schemas.equipment import (
     EquipmentEventCreate,
     EquipmentEventOut,
 )
+from ..schemas.metadata import EquipmentEventTypeIn
 
 router = APIRouter()
 
@@ -119,6 +120,26 @@ def list_equipment_lookup(conn=Depends(get_db)):
 def list_equipment_event_types(conn=Depends(get_db)):
     """Return all EquipmentEventType values for dropdowns."""
     return equipment_repository.get_equipment_event_types(conn)
+
+
+@router.post("/event-types", response_model=EquipmentEventTypeOut, status_code=201)
+def create_equipment_event_type(body: EquipmentEventTypeIn, conn=Depends(get_db)):
+    return equipment_repository.insert_equipment_event_type(conn, body.name)
+
+
+@router.put("/event-types/{event_type_id}", response_model=EquipmentEventTypeOut)
+def update_equipment_event_type(event_type_id: int, body: EquipmentEventTypeIn, conn=Depends(get_db)):
+    updated = equipment_repository.update_equipment_event_type(conn, event_type_id, body.name)
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"EquipmentEventType {event_type_id} not found.")
+    return updated
+
+
+@router.delete("/event-types/{event_type_id}", status_code=204)
+def delete_equipment_event_type(event_type_id: int, conn=Depends(get_db)):
+    deleted = equipment_repository.delete_equipment_event_type(conn, event_type_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"EquipmentEventType {event_type_id} not found.")
 
 
 @router.post("/events", response_model=EquipmentEventOut, status_code=201)

@@ -354,6 +354,58 @@ def get_equipment_event_types(conn: pyodbc.Connection) -> list[dict]:
     return [{"event_type_id": row[0], "event_type_name": row[1]} for row in cursor.fetchall()]
 
 
+def insert_equipment_event_type(conn: pyodbc.Connection, name: str) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[EquipmentEventType] ([EquipmentEventType_Name])"
+            " OUTPUT inserted.[EquipmentEventType_ID], inserted.[EquipmentEventType_Name]"
+            " VALUES (?)",
+            name,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {"event_type_id": row[0], "event_type_name": row[1]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_equipment_event_type(conn: pyodbc.Connection, event_type_id: int, name: str) -> dict | None:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[EquipmentEventType]"
+            " SET [EquipmentEventType_Name]=?"
+            " OUTPUT inserted.[EquipmentEventType_ID], inserted.[EquipmentEventType_Name]"
+            " WHERE [EquipmentEventType_ID]=?",
+            name,
+            event_type_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {"event_type_id": row[0], "event_type_name": row[1]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_equipment_event_type(conn: pyodbc.Connection, event_type_id: int) -> bool:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[EquipmentEventType] WHERE [EquipmentEventType_ID]=?",
+            event_type_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
     """Insert a new EquipmentEvent row and return the created record."""
     cursor = conn.cursor()

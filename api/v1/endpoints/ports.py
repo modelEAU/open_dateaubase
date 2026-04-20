@@ -22,8 +22,9 @@ import pyodbc
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
-from ..repositories import annotation_repository, signal_port_repository, temporal_history_repository
+from ..repositories import annotation_repository, lookup_repository, signal_port_repository, temporal_history_repository
 from ..schemas.common import PaginatedResponse
+from ..schemas.metadata import SignalPortTypeOut
 from ..schemas.ports import (
     DasCreateIn,
     DasLookupOut,
@@ -86,6 +87,12 @@ def delete_das(das_id: int, conn=Depends(get_db)):
     deleted = signal_port_repository.delete_das(conn, das_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"DataAcquisitionSystem {das_id} not found.")
+
+
+@router.get("/types", response_model=list[SignalPortTypeOut])
+def list_signal_port_types_detail(conn=Depends(get_db)):
+    """Return all SignalPortTypes with full detail (name + description)."""
+    return lookup_repository.get_signal_port_types(conn)
 
 
 @router.get(
