@@ -92,6 +92,8 @@ pg = st.navigation(
             st.Page(str(_pages / "sample_types.py"), title="Sample Types"),
             st.Page(str(_pages / "sample_methods.py"), title="Sample Methods"),
             st.Page(str(_pages / "persons.py"), title="Persons"),
+            st.Page(str(_pages / "process_units.py"), title="Process Units"),
+            st.Page(str(_pages / "equipment_move.py"), title="Equipment Move"),
         ],
     }
 )

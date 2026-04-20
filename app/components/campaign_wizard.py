@@ -28,6 +28,7 @@ from app.api_client import (
     list_site_sampling_locations,
     list_site_types,
     list_sites_lookup,
+    list_process_units_lookup,
     register_equipment_at_port,
     relocate_sensor,
 )
@@ -144,6 +145,7 @@ def _load_lookups() -> dict | None:
             "signal_port_types": list_signal_port_types_lookup(),
             "signal_ports_flat": signal_ports_flat,
             "persons": list_persons_lookup(),
+            "process_units": list_process_units_lookup(),
         }
     except APIError as e:
         st.error(f"Failed to load lookup data: {e.message}")
@@ -525,6 +527,30 @@ def _step_sampling_locations(lookups: dict) -> None:
                     key=f"wiz_sl_{sl_id}_description",
                     on_change=_sync_desc,
                 )
+
+                # Process unit selector
+                pu_opts = [{"id": None, "label": "— none —"}] + [
+                    {"id": p["process_unit_id"], "label": p["name"]}
+                    for p in lookups.get("process_units", [])
+                ]
+                pu_labels = [o["label"] for o in pu_opts]
+
+                def _sync_pu(sl_id=sl_id):
+                    st.session_state[f"wiz_sl_{sl_id}_process_unit_store"] = (
+                        st.session_state.get(f"wiz_sl_{sl_id}_process_unit")
+                    )
+
+                st.selectbox(
+                    "Process unit",
+                    pu_labels,
+                    key=f"wiz_sl_{sl_id}_process_unit",
+                    on_change=_sync_pu,
+                )
+                if f"wiz_sl_{sl_id}_process_unit_store" not in st.session_state:
+                    st.session_state[f"wiz_sl_{sl_id}_process_unit_store"] = (
+                        st.session_state.get(f"wiz_sl_{sl_id}_process_unit")
+                    )
+
                 # Initialize stores if needed
                 if f"wiz_sl_{sl_id}_name_store" not in st.session_state:
                     st.session_state[f"wiz_sl_{sl_id}_name_store"] = (
@@ -561,13 +587,14 @@ def _step_sampling_locations(lookups: dict) -> None:
         for sl_id in st.session_state.wiz_sl_ids:
             m = st.session_state.get(f"wiz_sl_{sl_id}_mode", "New")
             if m == "Existing":
-                # Check _store key which persists across steps
                 if not st.session_state.get(f"wiz_sl_{sl_id}_existing_label_store"):
                     errors.append(
                         f"Sampling location {sl_id + 1}: select an existing location."
                     )
             else:
-                # Check _store key which persists across steps
+                st.session_state[f"wiz_sl_{sl_id}_process_unit_store"] = (
+                    st.session_state.get(f"wiz_sl_{sl_id}_process_unit")
+                )
                 if not (
                     st.session_state.get(f"wiz_sl_{sl_id}_name_store") or ""
                 ).strip():
@@ -1386,6 +1413,14 @@ def _execute_creates(lookups: dict) -> list[str]:
             ).strip()
             if name and campaign_site_id is not None:
                 try:
+                    pu_label = st.session_state.get(
+                        f"wiz_sl_{sl_wiz_id}_process_unit_store"
+                    )
+                    pu_opts = lookups.get("process_units", [])
+                    pu_id = next(
+                        (p["process_unit_id"] for p in pu_opts if p["name"] == pu_label),
+                        None,
+                    )
                     sl = create_sampling_location(
                         campaign_site_id,
                         {
@@ -1396,6 +1431,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                             or None,
                             "latitude": None,
                             "longitude": None,
+                            "process_unit_id": pu_id,
                         },
                     )
                     sl_id_map[sl_wiz_id] = sl["id"]
