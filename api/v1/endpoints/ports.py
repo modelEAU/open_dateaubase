@@ -128,6 +128,7 @@ def list_ports(
     das_id: int | None = Query(default=None, description="Filter by DataAcquisitionSystem_ID"),
     is_active: bool | None = Query(default=None, description="Filter by IsActive flag"),
     signal_port_type_id: int | None = Query(default=None, description="Filter by SignalPortType_ID"),
+    equipment_id: int | None = Query(default=None, description="Filter by active Equipment_ID"),
     page: int = Query(default=1, ge=1, description="1-based page number"),
     page_size: int = Query(default=100, ge=1, le=1000, description="Rows per page"),
     conn=Depends(get_db),
@@ -138,6 +139,7 @@ def list_ports(
         das_id=das_id,
         is_active=is_active,
         signal_port_type_id=signal_port_type_id,
+        equipment_id=equipment_id,
         page=page,
         page_size=page_size,
     )

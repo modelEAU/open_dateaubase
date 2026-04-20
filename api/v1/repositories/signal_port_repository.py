@@ -333,6 +333,7 @@ def list_signal_ports(
     das_id: int | None = None,
     is_active: bool | None = None,
     signal_port_type_id: int | None = None,
+    equipment_id: int | None = None,
     page: int = 1,
     page_size: int = 100,
 ) -> tuple[list[dict], int]:
@@ -353,6 +354,16 @@ def list_signal_ports(
     if signal_port_type_id is not None:
         where_clauses.append("sp.[SignalPortType_ID] = ?")
         params.append(signal_port_type_id)
+    if equipment_id is not None:
+        where_clauses.append(
+            "EXISTS ("
+            "  SELECT 1 FROM [dbo].[SignalPortEquipmentHistory] speh"
+            "  WHERE speh.[SignalPort_ID] = sp.[SignalPort_ID]"
+            "    AND speh.[Equipment_ID] = ?"
+            "    AND speh.[EndTime] IS NULL"
+            ")"
+        )
+        params.append(equipment_id)
 
     where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
