@@ -12,5 +12,5 @@ ALTER TABLE [dbo].[SamplingPoint] ADD [PicturePath] NVARCHAR(500) NULL;
 GO
 
 INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])
-VALUES (N'3.0.2', N'Replace SamplingPoint.Pictures BLOB with PicturePath NVARCHAR(500)');
+VALUES (N'3.0.3', N'Replace SamplingPoint.Pictures BLOB with PicturePath NVARCHAR(500)');
 GO

@@ -9,5 +9,5 @@ GO
 ALTER TABLE [dbo].[SamplingPoint] ADD [Pictures] VARBINARY(MAX) NULL;
 GO
 
-DELETE FROM [dbo].[SchemaVersion] WHERE [Version] = N'3.0.2';
+DELETE FROM [dbo].[SchemaVersion] WHERE [Version] = N'3.0.3';
 GO
