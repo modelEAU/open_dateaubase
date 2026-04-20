@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
+from pathlib import Path
 
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi.responses import FileResponse, Response
+
+from api.config import settings
 from api.database import get_db
 from ..repositories import site_repository
 from ..schemas.metadata import (
@@ -125,3 +130,75 @@ def create_sampling_location(
     if site is None:
         raise HTTPException(status_code=404, detail=f"Site {site_id} not found.")
     return site_repository.insert_sampling_location(conn, site_id, body.model_dump())
+
+
+_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png"}
+_MEDIA_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png"}
+
+
+@router.post("/{site_id}/sampling-locations/{sp_id}/picture", status_code=200)
+def upload_sampling_location_picture(
+    site_id: int, sp_id: int, picture: UploadFile, conn=Depends(get_db)
+):
+    """Upload or replace the reference photo for a sampling location."""
+    ext = (picture.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=422, detail="Only jpg, jpeg, or png files are accepted.")
+
+    # Fetch existing record to delete old file if present
+    rows = site_repository.get_sampling_locations_for_site(conn, site_id)
+    sp = next((r for r in rows if r["id"] == sp_id), None)
+    if sp is None:
+        raise HTTPException(status_code=404, detail=f"Sampling location {sp_id} not found.")
+
+    if sp.get("picture_path"):
+        old_file = Path(settings.upload_base_dir) / sp["picture_path"]
+        old_file.unlink(missing_ok=True)
+
+    filename = f"{sp_id}_{uuid.uuid4().hex}.{ext}"
+    relative_path = f"sampling_points/{filename}"
+    abs_path = Path(settings.upload_base_dir) / relative_path
+    abs_path.write_bytes(picture.file.read())
+
+    site_repository.update_sampling_location_picture(conn, sp_id, relative_path)
+    return {"picture_path": relative_path}
+
+
+@router.get("/{site_id}/sampling-locations/{sp_id}/picture")
+def get_sampling_location_picture(site_id: int, sp_id: int, conn=Depends(get_db)):
+    """Return the reference photo for a sampling location."""
+    rows = site_repository.get_sampling_locations_for_site(conn, site_id)
+    sp = next((r for r in rows if r["id"] == sp_id), None)
+    if sp is None:
+        raise HTTPException(status_code=404, detail=f"Sampling location {sp_id} not found.")
+
+    picture_path = sp.get("picture_path")
+    if not picture_path:
+        raise HTTPException(status_code=404, detail="No picture set for this sampling location.")
+
+    abs_path = Path(settings.upload_base_dir) / picture_path
+    if not abs_path.exists():
+        raise HTTPException(status_code=404, detail="Picture file not found on disk.")
+
+    ext = picture_path.rsplit(".", 1)[-1].lower()
+    media_type = _MEDIA_TYPES.get(ext, "application/octet-stream")
+    return FileResponse(str(abs_path), media_type=media_type)
+
+
+@router.delete("/{site_id}/sampling-locations/{sp_id}/picture", status_code=204)
+def delete_sampling_location_picture(site_id: int, sp_id: int, conn=Depends(get_db)):
+    """Delete the reference photo for a sampling location."""
+    rows = site_repository.get_sampling_locations_for_site(conn, site_id)
+    sp = next((r for r in rows if r["id"] == sp_id), None)
+    if sp is None:
+        raise HTTPException(status_code=404, detail=f"Sampling location {sp_id} not found.")
+
+    picture_path = sp.get("picture_path")
+    if not picture_path:
+        raise HTTPException(status_code=404, detail="No picture set for this sampling location.")
+
+    abs_path = Path(settings.upload_base_dir) / picture_path
+    abs_path.unlink(missing_ok=True)
+
+    site_repository.update_sampling_location_picture(conn, sp_id, None)
+    return Response(status_code=204)

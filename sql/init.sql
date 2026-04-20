@@ -29,6 +29,19 @@ GO
 
 -- Step 2e: Add ResponsiblePerson_ID to Campaign
 :r /migrations/v3.0.0_add_campaign_responsible_person.sql
+:r /migrations/v3.0.0_add_description_to_lookup_tables.sql
+GO
+
+-- Step 2f: Add QualityCode column to dbo.Value (scalar)
+:r /migrations/v3.0.0_add_quality_code_to_scalar_value.sql
+GO
+
+-- Step 2g: Add ProcessUnitType lookup and ProcessUnit hierarchy
+:r /migrations/v3.0.0_add_process_unit.sql
+GO
+
+-- Step 2h: Replace SamplingPoint.Pictures BLOB with filesystem PicturePath
+:r /migrations/v3.0.0_sampling_point_picture_path.sql
 GO
 
 -- Step 3: Load test seed data for the Quebec City monitoring scenario

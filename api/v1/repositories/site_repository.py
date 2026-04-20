@@ -264,23 +264,31 @@ def insert_sampling_location(
     cursor.execute(
         """
         INSERT INTO [dbo].[SamplingPoint] ([Site_ID], [SamplingPoint], [Description],
-                                           [LatitudeWGS84], [LongitudeWGS84])
-        VALUES (?, ?, ?, ?, ?)
+                                           [LatitudeWGS84], [LongitudeWGS84], [ProcessUnit_ID])
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         site_id,
         data["name"],
         data.get("description"),
         data.get("latitude"),
         data.get("longitude"),
+        data.get("process_unit_id"),
     )
     cursor.execute("SELECT @@IDENTITY")
     new_id = int(cursor.fetchone()[0])
     conn.commit()
     rows = get_sampling_locations_for_site(conn, site_id)
     match = next((r for r in rows if r["id"] == new_id), None)
-    return match or {"id": new_id, "name": data["name"], "description": data.get("description"),
-                     "latitude": data.get("latitude"), "longitude": data.get("longitude"),
-                     "site_id": site_id, "site_name": None}
+    return match or {
+        "id": new_id,
+        "name": data["name"],
+        "description": data.get("description"),
+        "latitude": data.get("latitude"),
+        "longitude": data.get("longitude"),
+        "site_id": site_id,
+        "site_name": None,
+        "process_unit_id": data.get("process_unit_id"),
+    }
 
 
 def get_sampling_locations_for_site(
@@ -290,7 +298,8 @@ def get_sampling_locations_for_site(
     cursor.execute(
         """
         SELECT sp.[SamplingPoint_ID], sp.[SamplingPoint], sp.[Description],
-               sp.[LatitudeWGS84], sp.[LongitudeWGS84], sp.[Site_ID], s.[Name] AS SiteName
+               sp.[LatitudeWGS84], sp.[LongitudeWGS84], sp.[Site_ID], s.[Name] AS SiteName,
+               sp.[ProcessUnit_ID], sp.[PicturePath]
         FROM [dbo].[SamplingPoint] sp
         LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
         WHERE sp.[Site_ID] = ?
@@ -307,6 +316,20 @@ def get_sampling_locations_for_site(
             "longitude": row[4],
             "site_id": row[5],
             "site_name": row[6],
+            "process_unit_id": row[7],
+            "picture_path": row[8],
         }
         for row in cursor.fetchall()
     ]
+
+
+def update_sampling_location_picture(
+    conn: pyodbc.Connection, sp_id: int, path: str | None
+) -> None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[SamplingPoint] SET [PicturePath]=? WHERE [SamplingPoint_ID]=?",
+        path,
+        sp_id,
+    )
+    conn.commit()

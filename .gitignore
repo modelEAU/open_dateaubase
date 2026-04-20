@@ -43,5 +43,9 @@ Thumbs.db
 # archive files
 .archive
 
+# Uploaded files — keep directory stubs but ignore content
+uploads/**/*
+!uploads/**/.gitkeep
+
 # Compiled documentation site
 site

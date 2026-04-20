@@ -39,10 +39,11 @@ table:
       logical_type: text
       nullable: true
       description: "Description of the sampling point"
-    - name: Pictures
-      logical_type: # TODO: unmapped SQL type: BLOB
+    - name: PicturePath
+      logical_type: string
+      max_length: 500
       nullable: true
-      description: "Picture of the site"
+      description: "Relative path to the sampling point reference photo on disk (e.g. sampling_points/42_abc123.jpg)"
     - name: ValidFrom
       logical_type: timestamp
       precision: 7

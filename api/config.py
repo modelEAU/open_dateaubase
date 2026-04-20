@@ -35,5 +35,9 @@ class Settings:
 
     upload_dir: str = "./uploads/images"
 
+    @property
+    def upload_base_dir(self) -> str:
+        return str(Path(self.upload_dir).parent)
+
 
 settings = Settings()

@@ -10,6 +10,7 @@ class SamplingLocationIn(BaseModel):
     description: str | None = None
     latitude: float | None = None
     longitude: float | None = None
+    process_unit_id: int | None = None
 
 
 class SamplingLocationOut(BaseModel):
@@ -20,6 +21,8 @@ class SamplingLocationOut(BaseModel):
     longitude: float | None
     site_id: int | None
     site_name: str | None
+    process_unit_id: int | None = None
+    picture_path: str | None = None
 
 
 class SiteOut(BaseModel):
