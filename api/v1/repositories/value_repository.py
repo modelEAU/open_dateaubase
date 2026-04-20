@@ -9,7 +9,7 @@ ValueType_ID mapping (from schema seed data):
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pyodbc
 
@@ -17,6 +17,18 @@ _VALUE_TYPE_SCALAR = 1
 _VALUE_TYPE_VECTOR = 2
 _VALUE_TYPE_MATRIX = 3
 _VALUE_TYPE_IMAGE = 4
+
+
+def _utc_naive(dt: datetime) -> datetime:
+    """Convert any datetime to a naive UTC datetime for MSSQL DATETIME2 columns.
+
+    MSSQL DATETIME2 has no timezone concept. Passing a tz-aware Python datetime
+    to pyodbc with MSSQL ODBC 18 can produce incorrect stored values. We always
+    convert to UTC then strip tzinfo so the stored value is unambiguously UTC.
+    """
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def get_scalar_values(
@@ -73,7 +85,7 @@ def get_scalar_values(
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT o.[Timestamp], v.[Value]
+        SELECT o.[Timestamp], v.[Value], v.[QualityCode]
         FROM [dbo].[Value] v
         JOIN [dbo].[Observation] o ON o.[Observation_ID] = v.[Observation_ID]
         {where}
@@ -82,7 +94,7 @@ def get_scalar_values(
         *params,
     )
     return [
-        {"timestamp": row[0], "value": row[1], "quality_code": None}
+        {"timestamp": row[0], "value": row[1], "quality_code": row[2]}
         for row in cursor.fetchall()
     ]
 
@@ -306,14 +318,15 @@ def insert_scalar_values(
             VALUES (?, ?, 'Scalar')
             """,
             channel_id,
-            v["timestamp"],
+            _utc_naive(v["timestamp"]),
         )
         obs_id: int = cursor.fetchone()[0]
         # Step 2: insert scalar payload
         cursor.execute(
-            "INSERT INTO [dbo].[Value] ([Observation_ID], [Value]) VALUES (?, ?)",
+            "INSERT INTO [dbo].[Value] ([Observation_ID], [Value], [QualityCode]) VALUES (?, ?, ?)",
             obs_id,
             v["value"],
+            v.get("quality_code"),
         )
     conn.commit()
     return len(values)
@@ -357,7 +370,7 @@ def insert_vector_values(
             VALUES (?, ?, 'Vector')
             """,
             channel_id,
-            timestamp,
+            _utc_naive(timestamp),
         )
         obs_id: int = cursor.fetchone()[0]
 
@@ -430,7 +443,7 @@ def insert_matrix_values(
             VALUES (?, ?, 'Matrix')
             """,
             channel_id,
-            obs["timestamp"],
+            _utc_naive(obs["timestamp"]),
         )
         obs_id: int = cursor.fetchone()[0]
 
@@ -482,7 +495,7 @@ def insert_image_value(
         VALUES (?, ?, 'Image')
         """,
         channel_id,
-        timestamp,
+        _utc_naive(timestamp),
     )
     obs_id: int = cursor.fetchone()[0]
     # Step 2: insert image payload
@@ -506,3 +519,101 @@ def insert_image_value(
     )
     conn.commit()
     return obs_id
+
+
+_BULK_QC_SQL: dict[int, str] = {
+    _VALUE_TYPE_SCALAR: """
+        UPDATE v
+        SET    v.[QualityCode] = ?
+        FROM   [dbo].[Value] v
+        JOIN   [dbo].[Observation] o ON o.[Observation_ID] = v.[Observation_ID]
+        WHERE  o.[Channel_ID] = ?
+          AND  o.[Timestamp] >= ?
+          AND  o.[Timestamp] <= ?
+    """,
+    _VALUE_TYPE_VECTOR: """
+        UPDATE vv
+        SET    vv.[QualityCode] = ?
+        FROM   [dbo].[ValueVector] vv
+        JOIN   [dbo].[Observation] o ON o.[Observation_ID] = vv.[Observation_ID]
+        WHERE  o.[Channel_ID] = ?
+          AND  o.[Timestamp] >= ?
+          AND  o.[Timestamp] <= ?
+    """,
+    _VALUE_TYPE_MATRIX: """
+        UPDATE vm
+        SET    vm.[QualityCode] = ?
+        FROM   [dbo].[ValueMatrix] vm
+        JOIN   [dbo].[Observation] o ON o.[Observation_ID] = vm.[Observation_ID]
+        WHERE  o.[Channel_ID] = ?
+          AND  o.[Timestamp] >= ?
+          AND  o.[Timestamp] <= ?
+    """,
+    _VALUE_TYPE_IMAGE: """
+        UPDATE vi
+        SET    vi.[QualityCode] = ?
+        FROM   [dbo].[ValueImage] vi
+        JOIN   [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
+        WHERE  o.[Channel_ID] = ?
+          AND  o.[Timestamp] >= ?
+          AND  o.[Timestamp] <= ?
+    """,
+}
+
+
+_STATS_TABLE = {
+    _VALUE_TYPE_SCALAR: "[dbo].[Value]",
+    _VALUE_TYPE_VECTOR: "[dbo].[ValueVector]",
+    _VALUE_TYPE_MATRIX: "[dbo].[ValueMatrix]",
+    _VALUE_TYPE_IMAGE: "[dbo].[ValueImage]",
+}
+
+
+def get_channel_stats(
+    conn: pyodbc.Connection,
+    channel_id: int,
+    value_type_id: int,
+) -> dict:
+    """Return min/max timestamp and observation count for a channel without loading data."""
+    vt = value_type_id if value_type_id in _STATS_TABLE else _VALUE_TYPE_SCALAR
+    # Vector/matrix have multiple rows per observation; COUNT DISTINCT gives measurement count.
+    table = _STATS_TABLE[vt]
+    cursor = conn.cursor()
+    cursor.execute(
+        f"""
+        SELECT MIN(o.[Timestamp]), MAX(o.[Timestamp]),
+               COUNT(DISTINCT o.[Observation_ID])
+        FROM {table} v
+        JOIN [dbo].[Observation] o ON o.[Observation_ID] = v.[Observation_ID]
+        WHERE o.[Channel_ID] = ?
+        """,
+        channel_id,
+    )
+    row = cursor.fetchone()
+    return {
+        "channel_id": channel_id,
+        "min_timestamp": row[0],
+        "max_timestamp": row[1],
+        "row_count": row[2] or 0,
+    }
+
+
+def bulk_set_quality_code(
+    conn: pyodbc.Connection,
+    channel_id: int,
+    value_type_id: int,
+    from_dt: datetime,
+    to_dt: datetime,
+    quality_code: int,
+) -> int:
+    """Set QualityCode on all value rows for a channel within [from_dt, to_dt].
+
+    For vector/matrix types every payload row per matched observation is updated
+    (one QualityCode stored on each bin row).  Returns the row count updated.
+    """
+    vt = value_type_id if value_type_id in _BULK_QC_SQL else _VALUE_TYPE_SCALAR
+    cursor = conn.cursor()
+    cursor.execute(_BULK_QC_SQL[vt], quality_code, channel_id, from_dt, to_dt)
+    updated = cursor.rowcount
+    conn.commit()
+    return updated

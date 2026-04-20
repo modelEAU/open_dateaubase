@@ -17,4 +17,8 @@ table:
       logical_type: float64
       nullable: true
       description: "Measured scalar value"
+    - name: QualityCode
+      logical_type: integer
+      nullable: true
+      description: "Quality flag for this scalar measurement (references QualityCode.QualityCode_ID)"
   primary_key: [Observation_ID]

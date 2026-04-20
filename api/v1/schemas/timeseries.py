@@ -5,7 +5,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class QualityCodePatch(BaseModel):
+    start_time: datetime = Field(description="Start of range (inclusive, ISO 8601)")
+    end_time: datetime = Field(description="End of range (inclusive, ISO 8601)")
+    quality_code_id: int = Field(description="QualityCode_ID to apply to all matching rows")
+
+
+class BulkQualityCodeResult(BaseModel):
+    updated_count: int
 
 
 class ScalarValueOut(BaseModel):

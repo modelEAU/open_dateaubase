@@ -10,7 +10,7 @@ from fastapi.responses import Response, FileResponse
 
 from api.config import settings
 from api.database import get_db
-from ..schemas.timeseries import TimeseriesOut
+from ..schemas.timeseries import TimeseriesOut, QualityCodePatch, BulkQualityCodeResult
 from ..schemas.sensor_status import (
     TimeSeriesOut as TimeSeriesOutWithStatus,
     StatusInterval,
@@ -18,7 +18,7 @@ from ..schemas.sensor_status import (
 from ..services import timeseries_service
 from ..services.sensor_status_service import SensorStatusService
 from ..repositories.sensor_status_repository import SensorStatusRepository
-from ..repositories import value_repository
+from ..repositories import value_repository, channel_repository
 
 router = APIRouter()
 
@@ -62,6 +62,19 @@ def get_timeseries(
     return result
 
 
+@router.get("/{channel_id}/stats")
+def get_channel_stats(
+    channel_id: int,
+    conn=Depends(get_db),
+):
+    """Return min/max timestamp and observation count without loading data rows."""
+    channel = channel_repository.get_channel_by_id(conn, channel_id)
+    if channel is None:
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
+    value_type_id = channel.get("value_type_id") or 1
+    return value_repository.get_channel_stats(conn, channel_id, value_type_id)
+
+
 @router.get("/{channel_id}/full-context")
 def get_full_context(
     channel_id: int,
@@ -91,6 +104,28 @@ def get_timeseries_by_context(
         from_dt=from_dt,
         to_dt=to_dt,
     )
+
+
+@router.patch("/{channel_id}/quality-code", response_model=BulkQualityCodeResult)
+def bulk_set_quality_code(
+    channel_id: int,
+    body: QualityCodePatch,
+    conn=Depends(get_db),
+):
+    """Bulk-assign a quality code to all value rows for a channel within a time range."""
+    channel = channel_repository.get_channel_by_id(conn, channel_id)
+    if channel is None:
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
+
+    updated = value_repository.bulk_set_quality_code(
+        conn,
+        channel_id=channel_id,
+        value_type_id=channel.get("value_type_id") or 1,
+        from_dt=body.start_time,
+        to_dt=body.end_time,
+        quality_code=body.quality_code_id,
+    )
+    return {"updated_count": updated}
 
 
 @router.get("/{channel_id}/thumbnail/{timestamp}")
@@ -127,8 +162,8 @@ def get_image_file(
     if meta is None:
         raise HTTPException(status_code=404, detail="Image not found")
 
-    # storage_path is relative to upload_dir (e.g., "images/{channel_id}/{filename}")
-    abs_path = Path(settings.upload_dir).parent / meta["storage_path"]
+    # storage_path is relative to upload_base_dir (e.g., "images/{channel_id}/{filename}")
+    abs_path = Path(settings.upload_base_dir) / meta["storage_path"]
     if not abs_path.exists():
         raise HTTPException(status_code=404, detail="Image file not found on disk")
 
