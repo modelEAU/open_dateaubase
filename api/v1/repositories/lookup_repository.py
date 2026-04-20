@@ -39,53 +39,55 @@ def delete_unit(conn: pyodbc.Connection, unit_id: int) -> bool:
 def get_laboratories_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Laboratory_ID], [Name], [ContactEmail] FROM [dbo].[Laboratory] ORDER BY [Name]"
+        "SELECT [Laboratory_ID], [Name], [Site_ID], [Description] FROM [dbo].[Laboratory] ORDER BY [Name]"
     )
     return [
-        {"laboratory_id": row[0], "name": row[1], "contact_email": row[2]}
+        {"laboratory_id": row[0], "name": row[1], "site_id": row[2], "description": row[3]}
         for row in cursor.fetchall()
     ]
 
 
-def insert_laboratory(conn: pyodbc.Connection, name: str, contact_email: str | None) -> dict:
+def insert_laboratory(conn: pyodbc.Connection, name: str, site_id: int | None = None, description: str | None = None) -> dict:
     """Insert a new Laboratory row and return it."""
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO [dbo].[Laboratory] ([Name], [ContactEmail])"
-            " OUTPUT inserted.[Laboratory_ID], inserted.[Name], inserted.[ContactEmail]"
-            " VALUES (?, ?)",
+            "INSERT INTO [dbo].[Laboratory] ([Name], [Site_ID], [Description])"
+            " OUTPUT inserted.[Laboratory_ID], inserted.[Name], inserted.[Site_ID], inserted.[Description]"
+            " VALUES (?, ?, ?)",
             name,
-            contact_email,
+            site_id,
+            description,
         )
         row = cursor.fetchone()
         conn.commit()
-        return {"laboratory_id": row[0], "name": row[1], "contact_email": row[2]}
+        return {"laboratory_id": row[0], "name": row[1], "site_id": row[2], "description": row[3]}
     except Exception:
         conn.rollback()
         raise
 
 
 def update_laboratory(
-    conn: pyodbc.Connection, laboratory_id: int, name: str, contact_email: str | None
+    conn: pyodbc.Connection, laboratory_id: int, name: str, site_id: int | None = None, description: str | None = None
 ) -> dict | None:
     """Update a Laboratory row and return it, or None if not found."""
     cursor = conn.cursor()
     try:
         cursor.execute(
             "UPDATE [dbo].[Laboratory]"
-            " SET [Name]=?, [ContactEmail]=?"
-            " OUTPUT inserted.[Laboratory_ID], inserted.[Name], inserted.[ContactEmail]"
+            " SET [Name]=?, [Site_ID]=?, [Description]=?"
+            " OUTPUT inserted.[Laboratory_ID], inserted.[Name], inserted.[Site_ID], inserted.[Description]"
             " WHERE [Laboratory_ID]=?",
             name,
-            contact_email,
+            site_id,
+            description,
             laboratory_id,
         )
         row = cursor.fetchone()
         conn.commit()
         if row is None:
             return None
-        return {"laboratory_id": row[0], "name": row[1], "contact_email": row[2]}
+        return {"laboratory_id": row[0], "name": row[1], "site_id": row[2], "description": row[3]}
     except Exception:
         conn.rollback()
         raise
@@ -219,7 +221,7 @@ def get_all_persons(conn: pyodbc.Connection) -> list[dict]:
     """Return all persons with full fields."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Person_ID], [FirstName], [LastName], [Email], [Role], [Organization], [Phone]"
+        "SELECT [Person_ID], [FirstName], [LastName], [Email], [Role], [Company], [Phone]"
         " FROM [dbo].[Person] ORDER BY [LastName], [FirstName]"
     )
     return [
@@ -229,7 +231,7 @@ def get_all_persons(conn: pyodbc.Connection) -> list[dict]:
             "last_name": row[2],
             "email": row[3],
             "role": row[4],
-            "organization": row[5],
+            "company": row[5],
             "phone": row[6],
         }
         for row in cursor.fetchall()

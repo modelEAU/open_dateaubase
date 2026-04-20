@@ -14,7 +14,7 @@ class PersonIn(BaseModel):
     last_name: str | None = None
     email: str | None = None
     role: str | None = None
-    organization: str | None = None
+    company: str | None = None
     phone: str | None = None
 
 
@@ -29,7 +29,7 @@ class PersonOut(BaseModel):
     last_name: str | None = None
     email: str | None = None
     role: str | None = None
-    organization: str | None = None
+    company: str | None = None
     phone: str | None = None
 
 
@@ -55,16 +55,16 @@ def create_person(data: PersonIn, conn=Depends(get_db)):
     try:
         cursor.execute(
             "INSERT INTO [dbo].[Person]"
-            " ([FirstName], [LastName], [Email], [Role], [Organization], [Phone])"
+            " ([FirstName], [LastName], [Email], [Role], [Company], [Phone])"
             " OUTPUT"
             "  inserted.[Person_ID], inserted.[FirstName], inserted.[LastName],"
-            "  inserted.[Email], inserted.[Role], inserted.[Organization], inserted.[Phone]"
+            "  inserted.[Email], inserted.[Role], inserted.[Company], inserted.[Phone]"
             " VALUES (?, ?, ?, ?, ?, ?)",
             data.first_name,
             data.last_name,
             data.email,
             data.role,
-            data.organization,
+            data.company,
             data.phone,
         )
         row = cursor.fetchone()
@@ -75,7 +75,7 @@ def create_person(data: PersonIn, conn=Depends(get_db)):
             last_name=row[2],
             email=row[3],
             role=row[4],
-            organization=row[5],
+            company=row[5],
             phone=row[6],
         )
     except Exception as e:
@@ -90,16 +90,16 @@ def update_person(person_id: int, data: PersonIn, conn=Depends(get_db)):
     try:
         cursor.execute(
             "UPDATE [dbo].[Person]"
-            " SET [FirstName]=?, [LastName]=?, [Email]=?, [Role]=?, [Organization]=?, [Phone]=?"
+            " SET [FirstName]=?, [LastName]=?, [Email]=?, [Role]=?, [Company]=?, [Phone]=?"
             " OUTPUT"
             "  inserted.[Person_ID], inserted.[FirstName], inserted.[LastName],"
-            "  inserted.[Email], inserted.[Role], inserted.[Organization], inserted.[Phone]"
+            "  inserted.[Email], inserted.[Role], inserted.[Company], inserted.[Phone]"
             " WHERE [Person_ID]=?",
             data.first_name,
             data.last_name,
             data.email,
             data.role,
-            data.organization,
+            data.company,
             data.phone,
             person_id,
         )
@@ -113,7 +113,7 @@ def update_person(person_id: int, data: PersonIn, conn=Depends(get_db)):
             last_name=row[2],
             email=row[3],
             role=row[4],
-            organization=row[5],
+            company=row[5],
             phone=row[6],
         )
     except HTTPException:

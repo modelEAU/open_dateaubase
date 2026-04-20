@@ -256,8 +256,9 @@ def create_laboratory(body: dict, conn=Depends(get_db)):
     name = (body.get("name") or "").strip()
     if not name:
         raise HTTPException(status_code=422, detail="name field is required")
-    contact_email = body.get("contact_email") or None
-    return lookup_repository.insert_laboratory(conn, name, contact_email)
+    site_id = body.get("site_id") or None
+    description = body.get("description") or None
+    return lookup_repository.insert_laboratory(conn, name, site_id, description)
 
 
 @router.put("/lookup/laboratories/{laboratory_id}")
@@ -266,8 +267,9 @@ def update_laboratory(laboratory_id: int, body: dict, conn=Depends(get_db)):
     name = (body.get("name") or "").strip()
     if not name:
         raise HTTPException(status_code=422, detail="name field is required")
-    contact_email = body.get("contact_email") or None
-    updated = lookup_repository.update_laboratory(conn, laboratory_id, name, contact_email)
+    site_id = body.get("site_id") or None
+    description = body.get("description") or None
+    updated = lookup_repository.update_laboratory(conn, laboratory_id, name, site_id, description)
     if updated is None:
         raise HTTPException(status_code=404, detail=f"Laboratory {laboratory_id} not found.")
     return updated
