@@ -1,0 +1,41 @@
+_format_version: "1.0"
+table:
+  name: ProcessUnitType
+  schema: dbo
+  description: "Lookup table for controlled vocabulary of process unit types (e.g. Reactor, Pipe, Clarifier)"
+
+  columns:
+    - name: ProcessUnitType_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Primary key for the ProcessUnitType lookup"
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the process unit type (e.g. Reactor, Pipe, Clarifier)"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Detailed description of the process unit type"
+
+  primary_key: [ProcessUnitType_ID]
+
+  constraints:
+    - type: unique
+      columns: [Name]
+      name: UQ_ProcessUnitType_Name
+
+  seed_values:
+    - Area
+    - Zone
+    - Tank
+    - Reactor
+    - Pipe
+    - Pump
+    - Valve
+    - Clarifier
+    - Basin
+    - Blower
+    - Other

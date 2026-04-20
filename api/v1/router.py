@@ -28,6 +28,10 @@ from .endpoints.lab_lookup import (
     sample_types_router,
     sample_methods_router,
 )
+from .endpoints.process_units import (
+    process_unit_types_router,
+    process_units_router,
+)
 
 router = APIRouter()
 
@@ -59,3 +63,7 @@ router.include_router(persons_router, prefix="/persons", tags=["persons"])
 router.include_router(quality_codes_router, prefix="/quality-codes", tags=["quality-codes"])
 router.include_router(sample_types_router, prefix="/sample-types", tags=["sample-types"])
 router.include_router(sample_methods_router, prefix="/sample-methods", tags=["sample-methods"])
+router.include_router(
+    process_unit_types_router, prefix="/process-unit-types", tags=["process-units"]
+)
+router.include_router(process_units_router, prefix="/process-units", tags=["process-units"])

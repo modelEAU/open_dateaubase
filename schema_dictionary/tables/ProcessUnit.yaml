@@ -1,0 +1,58 @@
+_format_version: "1.0"
+table:
+  name: ProcessUnit
+  schema: dbo
+  description: >
+    Self-referential, site-scoped hierarchy of functional process locations.
+    Each unit carries a stable P&ID-style Tag unique per site. Used to structure
+    sampling points within process facilities (WWTPs, pilot plants) without
+    breaking field campaigns that rely on free-text SamplingLocation fields.
+
+  columns:
+    - name: ProcessUnit_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Primary key for the ProcessUnit"
+    - name: Site_ID
+      logical_type: integer
+      nullable: false
+      description: "Foreign key to Site — scopes the unit to a single site"
+      foreign_key:
+        table: Site
+        column: Site_ID
+    - name: Tag
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site."
+    - name: Name
+      logical_type: string
+      max_length: 255
+      nullable: false
+      description: "Human-readable name for the process unit"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Optional description of the process unit's role or function"
+    - name: ProcessUnitType_ID
+      logical_type: integer
+      nullable: true
+      description: "Foreign key to ProcessUnitType lookup"
+      foreign_key:
+        table: ProcessUnitType
+        column: ProcessUnitType_ID
+    - name: Parent_ID
+      logical_type: integer
+      nullable: true
+      description: "Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree"
+      foreign_key:
+        table: ProcessUnit
+        column: ProcessUnit_ID
+
+  primary_key: [ProcessUnit_ID]
+
+  constraints:
+    - type: unique
+      columns: [Site_ID, Tag]
+      name: UQ_ProcessUnit_SiteTag
