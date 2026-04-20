@@ -28,6 +28,7 @@ hooks:
 
 nav:
   - Home: index.md
+  - Getting Started: getting-started.md
   - Contributing:
     - The Dictionary: contributing/dictionary.md
     - Schema Dictionary Format: architecture/schema_dictionary_format.md
