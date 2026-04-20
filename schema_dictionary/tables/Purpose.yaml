@@ -1,0 +1,23 @@
+_format_version: "1.0"
+table:
+  name: Purpose
+  schema: dbo
+  description: "General-purpose controlled vocabulary for tagging campaigns, datasets, or other entities with an intent or objective."
+
+  columns:
+    - name: Purpose_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Name of the purpose (e.g. Compliance Monitoring, Research)"
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Description of the purpose"
+
+  primary_key: [Purpose_ID]
