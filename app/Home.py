@@ -14,12 +14,11 @@ if _project_root not in sys.path:
 import streamlit as st
 
 from app.api_client import APIError, get_health
-from app.auth import get_current_user, logout, require_auth
+from app.auth import get_current_user, logout
+from app.auth import _show_login_page as _login
 from app.config import settings
 
 st.set_page_config(page_title=settings.APP_TITLE, page_icon="💧", layout="wide")
-
-require_auth()
 
 
 def _home() -> None:
@@ -59,6 +58,12 @@ def _home() -> None:
 
 
 _pages = Path(__file__).parent / "pages"
+_user = get_current_user()
+
+if not _user:
+    pg = st.navigation({"": [st.Page(_login, title="Home", icon="🏠")]})
+    pg.run()
+    st.stop()
 
 pg = st.navigation(
     {

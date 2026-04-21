@@ -80,7 +80,7 @@ def render_crud_page(
     selected: dict | None = None
 
     if items:
-        df = pd.DataFrame(items)
+        df = pd.DataFrame(items).sort_values(pk_field).reset_index(drop=True)
         sel = st.dataframe(
             df,
             use_container_width=True,
