@@ -4,10 +4,14 @@ table:
   schema: dbo
   description: >
     Invariant descriptor for a measurement stream (sensor channel).
-    Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree)
-    combination. A Channel is created once and never changes — equipment swaps and
-    sensor relocations are tracked on the SignalPort via SignalPortEquipmentHistory and
-    SignalPortLocationHistory, leaving the Channel_ID stable.
+    Each row is identified by a unique
+    (SignalInterface, TagName, Parameter, DataProvenance, ProcessingDegree)
+    combination. A Channel is created once and never changes — equipment
+    swaps and sensor relocations are tracked on the physical Equipment via
+    EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID
+    stable. The specific SignalInterfacePort carrying the stream is
+    optional at ingest time and can be backfilled later via
+    ChannelPortHistory (and the denormalised SignalInterfacePort_ID below).
     Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
 
   columns:
@@ -17,16 +21,59 @@ table:
       identity: true
       description: "Surrogate primary key"
 
-    - name: SignalPort_ID
+    - name: SignalInterface_ID
       logical_type: integer
       nullable: false
       description: >
-        The SignalPort (stable signal identity) that this measurement stream belongs to.
-        Replaces Equipment_ID — equipment that produces data is tracked via
-        SignalPortEquipmentHistory, allowing probes to be swapped without breaking the Channel.
+        The SignalInterface (PLC, SCADA, basestation, ...) that publishes
+        this tag. The anchor for ingest: observations are routed by
+        (SignalInterface_ID, TagName).
       foreign_key:
-        table: SignalPort
-        column: SignalPort_ID
+        table: SignalInterface
+        column: SignalInterface_ID
+
+    - name: TagName
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: >
+        Tag string as published by the SignalInterface
+        (case-preserved; lookups are case-insensitive trimmed). For
+        direct-connect interfaces a synthetic tag such as
+        "{equipment_identifier}/{parameter_name}" is auto-generated.
+
+    - name: SignalInterfacePort_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        Current physical port (if known) this Channel is gated through.
+        Denormalised from the active ChannelPortHistory row for query
+        convenience. NULL when the wiring has not yet been traced.
+      foreign_key:
+        table: SignalInterfacePort
+        column: SignalInterfacePort_ID
+
+    - name: ParentChannel_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        For sub-signal Channels (Status, Alarm, Uncertainty), points to the
+        parent Value Channel. NULL for primary value channels and unlinked
+        channels. Self-FK.
+      foreign_key:
+        table: Channel
+        column: Channel_ID
+
+    - name: ChannelRole_ID
+      logical_type: integer
+      nullable: false
+      default: 1
+      description: >
+        Kind of information this Channel carries (1=Value, 2=Status,
+        3=Alarm, 4=Uncertainty). Replaces the former SignalPortType role.
+      foreign_key:
+        table: ChannelRole
+        column: ChannelRole_ID
 
     - name: Parameter_ID
       logical_type: integer
@@ -81,11 +128,15 @@ table:
 
   indexes:
     - name: UQ_Channel_SignalStream
-      columns: [SignalPort_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID]
+      columns: [SignalInterface_ID, TagName, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID]
       unique: true
       description: >
         Guarantees at most one Channel row per signal stream.
         Filtered: WHERE Parameter_ID IS NOT NULL.
         Enables the self-configuring INSERT-if-not-exists ingestion pattern.
+    - name: IX_Channel_ParentChannel
+      columns: [ParentChannel_ID]
+      unique: false
+      description: "Supports sub-signal lookups (Status/Alarm/Uncertainty for a given value channel)"
 
   primary_key: [Channel_ID]

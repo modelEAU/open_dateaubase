@@ -1,0 +1,67 @@
+_format_version: "1.0"
+table:
+  name: ChannelPortHistory
+  schema: dbo
+  description: >
+    Temporal record of which SignalInterfacePort (if any) a given Channel is
+    gated through over time. Needed to model multiplexers like TresCON,
+    where a single physical port on the parent interface emits a sequence of
+    distinct streams distinguished by a gating discipline (round-robin, tag
+    mapping, etc.). Also used for backfill: when a Channel is created with
+    no port known, a row with NULL SignalInterfacePort_ID opens; when the
+    wire is later traced, that row is closed and a new row with the port is
+    opened. At most one row per Channel may have ValidTo IS NULL.
+
+  columns:
+    - name: ChannelPortHistory_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Channel_ID
+      logical_type: integer
+      nullable: false
+      description: "The Channel whose port gating is recorded here"
+      foreign_key:
+        table: Channel
+        column: Channel_ID
+
+    - name: SignalInterfacePort_ID
+      logical_type: integer
+      nullable: true
+      description: "Port the Channel is gated through (NULL when untraced)"
+      foreign_key:
+        table: SignalInterfacePort
+        column: SignalInterfacePort_ID
+
+    - name: ValidFrom
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC datetime when this port gating started"
+
+    - name: ValidTo
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "UTC datetime when this port gating ended. NULL = currently gated."
+
+    - name: GatingNote
+      logical_type: text
+      nullable: true
+      description: >
+        Free-text description of the gating discipline (e.g.
+        'TresCON round-robin slot 2', 'selected when DigitalIn3 high').
+
+  indexes:
+    - name: UQ_ChannelPortHistory_ActiveRow
+      columns: [Channel_ID]
+      unique: true
+      description: "At most one active (ValidTo IS NULL) gating row per channel. Filtered index."
+    - name: IX_ChannelPortHistory_Port
+      columns: [SignalInterfacePort_ID, ValidFrom]
+      unique: false
+      description: "Supports port-at-time reverse lookups for mux diagnostics"
+
+  primary_key: [ChannelPortHistory_ID]

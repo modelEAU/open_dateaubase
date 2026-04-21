@@ -3,10 +3,10 @@ view:
   name: vw_ChannelStatus
   schema: dbo
   description: >
-    Per-channel sensor status view. A status channel is a Channel whose SignalPort
-    has SignalPortType=Status and a non-null ParentPort_ID pointing to the measured
-    value port. Navigates via SignalPort sub-signal relationship — replaces the
-    StatusChannel_ID column from v2.x.
+    Per-channel sensor status view. A status channel is a Channel whose
+    ChannelRole = Status and whose ParentChannel_ID points at the measured
+    value Channel. The equipment behind the value channel is resolved via
+    the new EquipmentWiringHistory table (v4.0.0).
   columns:
     - name: StatusChannelID
       sql_data_type: INT
@@ -16,7 +16,7 @@ view:
       description: "Channel_ID of the measurement channel this status describes"
     - name: EquipmentID
       sql_data_type: INT
-      description: "Equipment ID of the currently-linked sensor (NULL if no active history row)"
+      description: "Equipment ID currently wired to the measurement channel (NULL if unresolved)"
     - name: EquipmentName
       sql_data_type: NVARCHAR(200)
       description: "Identifier of the currently-linked equipment"
@@ -31,23 +31,26 @@ view:
       description: "Raw integer status code stored in the status Channel's Value rows"
   view_definition: |
     SELECT
-        statusC.[Channel_ID]        AS StatusChannelID,
-        valueC.[Channel_ID]         AS MeasurementChannelID,
-        e.[Equipment_ID]            AS EquipmentID,
-        e.[Identifier]              AS EquipmentName,
-        p.[Parameter]               AS MeasurementParameter,
+        statusC.[Channel_ID]      AS StatusChannelID,
+        valueC.[Channel_ID]       AS MeasurementChannelID,
+        e.[Equipment_ID]          AS EquipmentID,
+        e.[Identifier]            AS EquipmentName,
+        p.[Parameter]             AS MeasurementParameter,
         o.[Timestamp],
-        CAST(v.[Value] AS INT)      AS StatusCodeID
+        CAST(v.[Value] AS INT)    AS StatusCodeID
     FROM [dbo].[Value] v
-    JOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]
-    JOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]
-    JOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]
-    JOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]
-    JOIN [dbo].[SignalPort]                valueP   ON valueP.[SignalPort_ID]  = statusP.[ParentPort_ID]
-    JOIN [dbo].[Channel]                   valueC   ON valueC.[SignalPort_ID]  = valueP.[SignalPort_ID]
-    JOIN [dbo].[Parameter]                 p        ON p.[Parameter_ID]        = valueC.[Parameter_ID]
-    LEFT JOIN [dbo].[SignalPortEquipmentHistory] peh  ON peh.[SignalPort_ID]     = valueP.[SignalPort_ID]
-                                                      AND peh.[EndTime]          IS NULL
-    LEFT JOIN [dbo].[Equipment]            e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
-    WHERE spt.[Name] = N'Status'
-      AND statusP.[ParentPort_ID] IS NOT NULL
+    JOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]
+    JOIN [dbo].[Channel]       statusC ON statusC.[Channel_ID] = o.[Channel_ID]
+    JOIN [dbo].[ChannelRole]   role    ON role.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+    JOIN [dbo].[Channel]       valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]
+    JOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]
+    LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
+           ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]
+          AND (
+               ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]
+               OR valueC.[SignalInterfacePort_ID] IS NULL
+              )
+          AND ewh.[ValidTo] IS NULL
+    LEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]
+    WHERE role.[Name] = N'Status'
+      AND statusC.[ParentChannel_ID] IS NOT NULL

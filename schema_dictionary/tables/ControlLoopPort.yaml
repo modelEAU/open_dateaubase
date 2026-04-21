@@ -3,10 +3,14 @@ table:
   name: ControlLoopPort
   schema: dbo
   description: >
-    Association between a ControlLoop and its SignalPorts, with an explicit role for
-    each port. The unique constraint ensures each port appears at most once per loop.
-    Cascade control is modelled by using the same SignalPort_ID in two different loops
-    with different roles (ManipulatedVariable in outer, SetPoint in inner).
+    Association between a ControlLoop and its participating Channels, with
+    an explicit role for each channel. The unique constraint ensures each
+    channel appears at most once per loop. Cascade control is modelled by
+    using the same Channel_ID in two different loops with different roles
+    (ManipulatedVariable in outer, SetPoint in inner).
+    (v3.0.0 used SignalPort_ID; v4.0.0 switches to Channel_ID so that
+    control-loop participation is resolved through the same Channel
+    abstraction ingest uses.)
 
   columns:
     - name: ControlLoopPort_ID
@@ -23,26 +27,26 @@ table:
         table: ControlLoop
         column: ControlLoop_ID
 
-    - name: SignalPort_ID
+    - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "The port participating in this control loop"
+      description: "The Channel participating in this control loop"
       foreign_key:
-        table: SignalPort
-        column: SignalPort_ID
+        table: Channel
+        column: Channel_ID
 
     - name: ControlLoopPortRole_ID
       logical_type: integer
       nullable: false
-      description: "The functional role of this port within the loop"
+      description: "The functional role of this channel within the loop"
       foreign_key:
         table: ControlLoopPortRole
         column: ControlLoopPortRole_ID
 
   indexes:
-    - name: UQ_ControlLoopPort_LoopPort
-      columns: [ControlLoop_ID, SignalPort_ID]
+    - name: UQ_ControlLoopPort_LoopChannel
+      columns: [ControlLoop_ID, Channel_ID]
       unique: true
-      description: "Each port appears at most once per control loop"
+      description: "Each channel appears at most once per control loop"
 
   primary_key: [ControlLoopPort_ID]

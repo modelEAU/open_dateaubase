@@ -1,0 +1,39 @@
+_format_version: "1.0"
+table:
+  name: SignalInterfacePortKind
+  schema: dbo
+  description: >
+    Controlled vocabulary describing the physical nature of a
+    SignalInterfacePort (analog input, digital output, serial link, etc.).
+    This is *not* the same as the kind of information carried — that is
+    ChannelRole (Value / Status / Alarm / Uncertainty).
+
+  columns:
+    - name: SignalInterfacePortKind_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Short name for this port kind"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this port kind means physically"
+
+  primary_key: [SignalInterfacePortKind_ID]
+
+  seed_data:
+    - { SignalInterfacePortKind_ID: 1, Name: "AnalogIn",   Description: "Analog input (4-20 mA, 0-10 V, etc.)" }
+    - { SignalInterfacePortKind_ID: 2, Name: "AnalogOut",  Description: "Analog output to a field device" }
+    - { SignalInterfacePortKind_ID: 3, Name: "DigitalIn",  Description: "Discrete digital input" }
+    - { SignalInterfacePortKind_ID: 4, Name: "DigitalOut", Description: "Discrete digital output" }
+    - { SignalInterfacePortKind_ID: 5, Name: "Serial",     Description: "Serial fieldbus link (RS-232/485, Modbus, Profibus)" }
+    - { SignalInterfacePortKind_ID: 6, Name: "Network",    Description: "Ethernet/IP or other network-based port" }
+    - { SignalInterfacePortKind_ID: 7, Name: "Virtual",    Description: "Logical port with no dedicated physical terminal (e.g. multiplexed sub-channel)" }
+    - { SignalInterfacePortKind_ID: 8, Name: "Unknown",    Description: "Physical kind not yet traced" }

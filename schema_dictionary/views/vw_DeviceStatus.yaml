@@ -3,9 +3,10 @@ view:
   name: vw_DeviceStatus
   schema: dbo
   description: >
-    Device-level status view. Finds status channels by following the currently-active
-    SignalPortEquipmentHistory row for each equipment, then filtering for ports with
-    SignalPortType=Status. Replaces the EquipmentStatusChannel junction table from v2.x.
+    Device-level status view. Finds status channels through the v4.0.0
+    SignalInterface + EquipmentWiringHistory chain: a status Channel
+    (ChannelRole = Status) inherits its equipment from the parent value
+    Channel's current wiring. Replaces the port-centric v3.0.0 join.
   columns:
     - name: StatusChannelID
       sql_data_type: INT
@@ -24,17 +25,22 @@ view:
       description: "Raw integer status code stored in the status Channel's Value rows"
   view_definition: |
     SELECT
-        statusC.[Channel_ID]        AS StatusChannelID,
-        e.[Equipment_ID]            AS EquipmentID,
-        e.[Identifier]              AS EquipmentName,
+        statusC.[Channel_ID]       AS StatusChannelID,
+        e.[Equipment_ID]           AS EquipmentID,
+        e.[Identifier]             AS EquipmentName,
         o.[Timestamp],
-        CAST(v.[Value] AS INT)      AS StatusCodeID
+        CAST(v.[Value] AS INT)     AS StatusCodeID
     FROM [dbo].[Value] v
-    JOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]
-    JOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]
-    JOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]
-    JOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]
-    JOIN [dbo].[SignalPortEquipmentHistory]  peh      ON peh.[SignalPort_ID]     = statusP.[SignalPort_ID]
-                                                     AND peh.[EndTime]          IS NULL
-    JOIN [dbo].[Equipment]                 e        ON e.[Equipment_ID]        = peh.[Equipment_ID]
-    WHERE spt.[Name] = N'Status'
+    JOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]
+    JOIN [dbo].[Channel]      statusC ON statusC.[Channel_ID] = o.[Channel_ID]
+    JOIN [dbo].[ChannelRole]  role    ON role.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+    JOIN [dbo].[Channel]      valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]
+    JOIN [dbo].[EquipmentWiringHistory] ewh
+           ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]
+          AND (
+               ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]
+               OR valueC.[SignalInterfacePort_ID] IS NULL
+              )
+          AND ewh.[ValidTo] IS NULL
+    JOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]
+    WHERE role.[Name] = N'Status'

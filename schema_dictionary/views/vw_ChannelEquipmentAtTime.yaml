@@ -1,0 +1,72 @@
+_format_version: "1.0"
+view:
+  name: vw_ChannelEquipmentAtTime
+  schema: dbo
+  description: >
+    Resolves, for every Observation, which physical Equipment was wired to
+    the Channel at the time of the observation. Walks
+    EquipmentWiringHistory by matching SignalInterface_ID (and, when the
+    Channel's port is known, SignalInterfacePort_ID) and bracketing
+    (ValidFrom, ValidTo]. When a Channel has no port recorded and multiple
+    Equipment share the interface at the same time, EquipmentID is NULL
+    and Resolution = 'ambiguous'.
+  columns:
+    - name: ObservationID
+      sql_data_type: BIGINT
+      description: "Observation row"
+    - name: ChannelID
+      sql_data_type: INT
+      description: "Channel this observation belongs to"
+    - name: Timestamp
+      sql_data_type: DATETIME2(7)
+      description: "Observation timestamp used for resolution"
+    - name: EquipmentID
+      sql_data_type: INT
+      description: "Equipment wired at this time (NULL if unresolved / ambiguous)"
+    - name: EquipmentName
+      sql_data_type: NVARCHAR(200)
+      description: "Identifier of the resolved equipment"
+    - name: Resolution
+      sql_data_type: NVARCHAR(20)
+      description: "'resolved' | 'unlinked' | 'ambiguous'"
+  view_definition: |
+    WITH channel_wiring AS (
+        SELECT
+            o.[Observation_ID] AS ObservationID,
+            c.[Channel_ID]     AS ChannelID,
+            o.[Timestamp]      AS Timestamp,
+            c.[SignalInterface_ID],
+            c.[SignalInterfacePort_ID],
+            ewh.[Equipment_ID] AS EquipmentID,
+            ROW_NUMBER() OVER (
+                PARTITION BY o.[Observation_ID]
+                ORDER BY
+                    CASE WHEN ewh.[SignalInterfacePort_ID] IS NOT NULL THEN 0 ELSE 1 END,
+                    ewh.[ValidFrom] DESC
+            ) AS rn,
+            COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count
+        FROM [dbo].[Observation] o
+        JOIN [dbo].[Channel] c                      ON c.[Channel_ID]           = o.[Channel_ID]
+        LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+                                                    AND (
+                                                         ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]
+                                                         OR (ewh.[SignalInterfacePort_ID] IS NULL AND c.[SignalInterfacePort_ID] IS NULL)
+                                                         OR c.[SignalInterfacePort_ID] IS NULL
+                                                        )
+                                                    AND ewh.[ValidFrom] <= o.[Timestamp]
+                                                    AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] > o.[Timestamp])
+    )
+    SELECT
+        cw.ObservationID,
+        cw.ChannelID,
+        cw.Timestamp,
+        CASE WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN NULL ELSE cw.EquipmentID END AS EquipmentID,
+        e.[Identifier]     AS EquipmentName,
+        CASE
+            WHEN cw.EquipmentID IS NULL AND cw.match_count = 0 THEN N'unlinked'
+            WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN N'ambiguous'
+            ELSE N'resolved'
+        END AS Resolution
+    FROM channel_wiring cw
+    LEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = cw.EquipmentID
+    WHERE cw.rn = 1

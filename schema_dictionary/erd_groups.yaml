@@ -23,18 +23,22 @@ groups:
       - EquipmentModelHasProcedures
       - EquipmentEvent
       - EquipmentEventType
+      - EquipmentWiringHistory
+      - EquipmentLocationHistory
       - DataAcquisitionSystem
 
   signal_channel:
     name: Signal / Channel
     color: "#7c3aed"
     tables:
-      - SignalPort
-      - SignalPortType
-      - SignalPortEquipmentHistory
-      - SignalPortLocationHistory
+      - SignalInterface
+      - SignalInterfaceType
+      - SignalInterfacePort
+      - SignalInterfacePortKind
       - Channel
       - ChannelAxis
+      - ChannelPortHistory
+      - ChannelRole
       - ProcessingDegree
       - ValueType
 

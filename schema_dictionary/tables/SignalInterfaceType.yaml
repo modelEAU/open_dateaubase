@@ -1,0 +1,38 @@
+_format_version: "1.0"
+table:
+  name: SignalInterfaceType
+  schema: dbo
+  description: >
+    Controlled vocabulary for the kind of signal interface sitting between
+    Equipment and DataAcquisitionSystem (e.g. PLC, SCADA multiplexer,
+    direct-connect basestation, IQ Sensor bus). Classifies a SignalInterface
+    for UI grouping and routing logic; does not affect how values are stored.
+
+  columns:
+    - name: SignalInterfaceType_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Short name for this interface type"
+
+    - name: Description
+      logical_type: string
+      max_length: 300
+      nullable: true
+      description: "Explanation of this interface type"
+
+  primary_key: [SignalInterfaceType_ID]
+
+  seed_data:
+    - { SignalInterfaceType_ID: 1, Name: "PLC",            Description: "Programmable Logic Controller exposing tags (e.g. Logix5000)" }
+    - { SignalInterfaceType_ID: 2, Name: "SCADA",          Description: "SCADA / HMI system publishing tag strings (e.g. Wonderware, Ignition)" }
+    - { SignalInterfaceType_ID: 3, Name: "Basestation",    Description: "Vendor basestation or sensor hub relaying one or more probes" }
+    - { SignalInterfaceType_ID: 4, Name: "IQSensorBus",    Description: "Hach/WTW IQ Sensor Net or similar multi-probe sensor bus" }
+    - { SignalInterfaceType_ID: 5, Name: "DirectConnect",  Description: "Single-sensor direct serial/analog link — no upstream controller" }
+    - { SignalInterfaceType_ID: 6, Name: "Multiplexer",    Description: "Physical multiplexer (e.g. TresCON) where one port relays many streams" }
+    - { SignalInterfaceType_ID: 7, Name: "GatewayOther",   Description: "Other gateway/bridge device not covered by the categories above" }

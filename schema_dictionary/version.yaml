@@ -1,3 +1,16 @@
-schema_version: "3.0.0"
-description: "SignalPort abstraction: Channel.Equipment_ID replaced by SignalPort_ID. New tables: DataAcquisitionSystem, SignalPort, SignalPortType, ControlVariableType, SignalPortLocationHistory, SignalPortEquipmentHistory, ControlLoop, ControlLoopPort, ControlLoopPortRole, ControlLoopApplication. Dropped: EquipmentInstallation, EquipmentStatusChannel."
-date: "2026-03-30"
+schema_version: "4.0.0"
+description: >
+  SignalInterface redesign. SignalPort, SignalPortType,
+  SignalPortEquipmentHistory, SignalPortLocationHistory are removed.
+  New first-class tables: SignalInterface, SignalInterfaceType,
+  SignalInterfacePort, SignalInterfacePortKind, EquipmentWiringHistory,
+  EquipmentLocationHistory, ChannelPortHistory, ChannelRole.
+  Channel keeps its name and gains SignalInterface_ID, TagName,
+  SignalInterfacePort_ID (nullable), ParentChannel_ID, ChannelRole_ID —
+  replacing the old SignalPort_ID column. ControlLoopPort now references
+  Channel_ID instead of SignalPort_ID. Views vw_ChannelStatus,
+  vw_DeviceStatus rewritten; vw_ChannelEquipmentAtTime,
+  vw_ChannelLocationAtTime added. Location history now lives on
+  Equipment (not on the port), absorbing the retired EquipmentInstallation
+  table.
+date: "2026-04-21"

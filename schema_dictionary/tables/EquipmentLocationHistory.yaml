@@ -1,0 +1,71 @@
+_format_version: "1.0"
+table:
+  name: EquipmentLocationHistory
+  schema: dbo
+  description: >
+    Temporal record of where a piece of Equipment is physically installed
+    (which SamplingPoint). Independent from EquipmentWiringHistory: a probe
+    can be relocated without changing its wiring, and vice versa.
+    Absorbs the former EquipmentInstallation role and the location aspect
+    of SignalPortLocationHistory. At most one row per Equipment may have
+    ValidTo IS NULL (the equipment's current location).
+
+  columns:
+    - name: EquipmentLocationHistory_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Equipment_ID
+      logical_type: integer
+      nullable: false
+      description: "The physical instrument whose location is recorded here"
+      foreign_key:
+        table: Equipment
+        column: Equipment_ID
+
+    - name: SamplingPoint_ID
+      logical_type: integer
+      nullable: false
+      description: "Sampling location where this equipment is installed during this period"
+      foreign_key:
+        table: SamplingPoint
+        column: SamplingPoint_ID
+
+    - name: ValidFrom
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC datetime when the equipment started measuring at this location"
+
+    - name: ValidTo
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "UTC datetime when the equipment left this location. NULL = currently installed."
+
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign during which this deployment occurred (if applicable)"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+
+    - name: Notes
+      logical_type: text
+      nullable: true
+      description: "Free-text notes about the deployment or relocation"
+
+  indexes:
+    - name: UQ_EquipmentLocationHistory_ActiveRow
+      columns: [Equipment_ID]
+      unique: true
+      description: "At most one active (ValidTo IS NULL) location row per equipment. Filtered index."
+    - name: IX_EquipmentLocationHistory_SamplingPoint
+      columns: [SamplingPoint_ID, ValidFrom]
+      unique: false
+      description: "Supports 'what equipment was here when' queries"
+
+  primary_key: [EquipmentLocationHistory_ID]

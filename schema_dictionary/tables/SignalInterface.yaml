@@ -1,0 +1,77 @@
+_format_version: "1.0"
+table:
+  name: SignalInterface
+  schema: dbo
+  description: >
+    Physical or logical device that sits between field Equipment (sensors,
+    actuators) and a DataAcquisitionSystem. Examples: a Logix5000 PLC, a
+    Hach SC1000 controller, an IQ Sensor Net bus, a monEAU/TresCON
+    basestation. A SignalInterface owns one or more SignalInterfacePorts and
+    is the stable anchor that Channels reference via tag name — so tags keep
+    working when the wiring to individual Equipment changes.
+
+  columns:
+    - name: SignalInterface_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: DataAcquisitionSystem_ID
+      logical_type: integer
+      nullable: false
+      description: "The DAS that reads data from this interface"
+      foreign_key:
+        table: DataAcquisitionSystem
+        column: DataAcquisitionSystem_ID
+
+    - name: SignalInterfaceType_ID
+      logical_type: integer
+      nullable: false
+      description: "Classification of this interface (PLC, SCADA, Basestation, ...)"
+      foreign_key:
+        table: SignalInterfaceType
+        column: SignalInterfaceType_ID
+
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable unique name of this interface (e.g. 'hedi_plc', 'sc1000_primary')"
+
+    - name: Make
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Manufacturer (e.g. 'Rockwell', 'Hach', 'WTW')"
+
+    - name: Model
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Model designation (e.g. 'Logix5000', 'SC1000', 'TresCON')"
+
+    - name: SerialNumber
+      logical_type: string
+      max_length: 100
+      nullable: true
+      description: "Serial number if known"
+
+    - name: Description
+      logical_type: text
+      nullable: true
+      description: "Free-text notes about this interface"
+
+    - name: IsActive
+      logical_type: boolean
+      nullable: false
+      default: true
+      description: "Whether this interface is currently in service"
+
+  indexes:
+    - name: UQ_SignalInterface_DAS_Name
+      columns: [DataAcquisitionSystem_ID, Name]
+      unique: true
+      description: "One interface per name per DAS"
+
+  primary_key: [SignalInterface_ID]

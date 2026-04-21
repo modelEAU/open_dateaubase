@@ -1,0 +1,41 @@
+_format_version: "1.0"
+view:
+  name: vw_ChannelLocationAtTime
+  schema: dbo
+  description: >
+    Resolves the SamplingPoint a Channel was sampling at the time of each
+    Observation, by composing vw_ChannelEquipmentAtTime with
+    EquipmentLocationHistory. When equipment cannot be resolved (ambiguous
+    or unlinked wiring), SamplingPointID is NULL.
+  columns:
+    - name: ObservationID
+      sql_data_type: BIGINT
+      description: "Observation row"
+    - name: ChannelID
+      sql_data_type: INT
+      description: "Channel this observation belongs to"
+    - name: Timestamp
+      sql_data_type: DATETIME2(7)
+      description: "Observation timestamp used for resolution"
+    - name: EquipmentID
+      sql_data_type: INT
+      description: "Equipment resolved at this time (NULL if unresolved)"
+    - name: SamplingPointID
+      sql_data_type: INT
+      description: "SamplingPoint where the equipment was installed at this time"
+    - name: SamplingPointName
+      sql_data_type: NVARCHAR(200)
+      description: "Name of the SamplingPoint"
+  view_definition: |
+    SELECT
+        cea.ObservationID,
+        cea.ChannelID,
+        cea.Timestamp,
+        cea.EquipmentID,
+        elh.[SamplingPoint_ID] AS SamplingPointID,
+        sp.[Name]              AS SamplingPointName
+    FROM [dbo].[vw_ChannelEquipmentAtTime] cea
+    LEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID
+                                                  AND elh.[ValidFrom]   <= cea.Timestamp
+                                                  AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > cea.Timestamp)
+    LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
