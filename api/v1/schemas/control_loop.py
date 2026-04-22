@@ -38,13 +38,13 @@ class ControlLoopOut(BaseModel):
 
 
 class ControlLoopPortAddRequest(BaseModel):
-    """Associate a SignalPort with a loop.
+    """Associate a Channel with a loop.
 
     Provide either ``role_id`` (int) or ``role_name`` (string matching a
     ControlLoopPortRole.Name). If both are given, ``role_id`` takes precedence.
     """
 
-    signal_port_id: int
+    channel_id: int
     role_id: int | None = None
     role_name: str | None = None
 
@@ -52,7 +52,7 @@ class ControlLoopPortAddRequest(BaseModel):
 class ControlLoopPortOut(BaseModel):
     control_loop_port_id: int
     control_loop_id: int
-    signal_port_id: int
+    channel_id: int
     role_id: int
     role_name: str
 
