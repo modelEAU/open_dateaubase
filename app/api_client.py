@@ -1374,6 +1374,61 @@ def get_location_at_port(signal_port_id: int, at: str) -> dict:
     return r.json()
 
 
+# ---------------------------------------------------------------------------
+# Equipment move (v4.0.0 — EquipmentWiringHistory / EquipmentLocationHistory)
+# ---------------------------------------------------------------------------
+
+
+def register_equipment_at_interface(equipment_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/equipment/{equipment_id}/register-interface", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def rewire_equipment(equipment_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/equipment/{equipment_id}/rewire", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def relocate_equipment(equipment_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/equipment/{equipment_id}/relocate", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_wiring_at_time(equipment_id: int, at: str) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/equipment/{equipment_id}/wiring-at", params={"at": at})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_location_at_time(equipment_id: int, at: str) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/equipment/{equipment_id}/location-at", params={"at": at})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 def get_sub_signals(signal_port_id: int) -> dict:
     try:
         with _get_client() as client:
