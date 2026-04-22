@@ -80,22 +80,22 @@ def get_control_loop(conn: pyodbc.Connection, loop_id: int) -> dict | None:
 def add_loop_port(
     conn: pyodbc.Connection,
     loop_id: int,
-    signal_port_id: int,
+    channel_id: int,
     role_id: int,
 ) -> int:
-    """Associate a SignalPort with a ControlLoop via a role.
+    """Associate a Channel with a ControlLoop via a role.
 
     Returns ControlLoopPort_ID.
-    Raises pyodbc.IntegrityError if (ControlLoop_ID, SignalPort_ID) already exists.
+    Raises pyodbc.IntegrityError if (ControlLoop_ID, Channel_ID) already exists.
     """
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO [dbo].[ControlLoopPort]"
-        "    ([ControlLoop_ID], [SignalPort_ID], [ControlLoopPortRole_ID])"
+        "    ([ControlLoop_ID], [Channel_ID], [ControlLoopPortRole_ID])"
         " OUTPUT INSERTED.[ControlLoopPort_ID]"
         " VALUES (?, ?, ?)",
         loop_id,
-        signal_port_id,
+        channel_id,
         role_id,
     )
     new_id: int = cursor.fetchone()[0]
@@ -111,7 +111,7 @@ def get_loop_ports(conn: pyodbc.Connection, loop_id: int) -> list[dict]:
         SELECT
             lp.[ControlLoopPort_ID],
             lp.[ControlLoop_ID],
-            lp.[SignalPort_ID],
+            lp.[Channel_ID],
             lp.[ControlLoopPortRole_ID],
             r.[Name] AS [role_name]
         FROM [dbo].[ControlLoopPort] lp

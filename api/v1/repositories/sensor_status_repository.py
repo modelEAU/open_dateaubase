@@ -7,15 +7,13 @@ import pyodbc
 
 # Sub-query fragment: given a measurement channel_id (?), find the Channel_ID of its
 # Status sub-signal channel.  Used as an inline scalar subquery.
+# New schema: Status channels are linked via ParentChannel_ID + ChannelRole.Name = 'Status'
 _STATUS_CHANNEL_FOR_MEASUREMENT = """
     (SELECT sc.[Channel_ID]
      FROM   [dbo].[Channel]       sc
-     JOIN   [dbo].[SignalPort]    sp  ON sp.[SignalPort_ID]  = sc.[SignalPort_ID]
-     JOIN   [dbo].[SignalPortType] spt ON spt.[SignalPortType_ID] = sp.[SignalPortType_ID]
-     WHERE  sp.[ParentPort_ID] = (
-                SELECT c2.[SignalPort_ID] FROM [dbo].[Channel] c2 WHERE c2.[Channel_ID] = ?
-            )
-       AND  spt.[Name] = N'Status')
+     JOIN   [dbo].[ChannelRole]   cr  ON cr.[ChannelRole_ID]  = sc.[ChannelRole_ID]
+     WHERE  sc.[ParentChannel_ID] = ?
+       AND  cr.[Name] = N'Status')
 """
 
 
@@ -49,9 +47,7 @@ class SensorStatusRepository:
             for row in rows
         ]
 
-    def get_current_channel_status(
-        self, measurement_channel_id: int
-    ) -> Optional[dict]:
+    def get_current_channel_status(self, measurement_channel_id: int) -> Optional[dict]:
         """Get the current status for a measurement channel (Query 1)."""
         cursor = self.conn.cursor()
         cursor.execute(
@@ -159,6 +155,7 @@ class SensorStatusRepository:
     ) -> list[dict]:
         """Get device-level status transitions in a time range."""
         cursor = self.conn.cursor()
+        # Device status: join through EquipmentWiringHistory -> Channel -> Status sub-channel
         cursor.execute(
             """
             SELECT
@@ -167,16 +164,21 @@ class SensorStatusRepository:
                 sc.StatusName AS status_name,
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity
-            FROM [dbo].[SignalPortEquipmentHistory] peh
-            JOIN [dbo].[SignalPort]    statusP ON statusP.[SignalPort_ID]   = peh.[SignalPort_ID]
-            JOIN [dbo].[SignalPortType] spt    ON spt.[SignalPortType_ID]   = statusP.[SignalPortType_ID]
-            JOIN [dbo].[Channel]       statusC ON statusC.[SignalPort_ID]   = statusP.[SignalPort_ID]
-            JOIN [dbo].[Observation]   o       ON o.[Channel_ID]            = statusC.[Channel_ID]
-            JOIN [dbo].[Value]         v       ON v.[Observation_ID]        = o.[Observation_ID]
-            JOIN [dbo].[SensorStatusCode] sc   ON sc.StatusCodeID           = CAST(v.Value AS INT)
-            WHERE peh.[Equipment_ID] = ?
-              AND peh.[EndTime] IS NULL
-              AND spt.[Name] = N'Status'
+            FROM [dbo].[EquipmentWiringHistory] ewh
+            JOIN [dbo].[Channel]        valueC ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+                                            AND (
+                                                valueC.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
+                                                OR (valueC.[SignalInterfacePort_ID] IS NULL AND ewh.[SignalInterfacePort_ID] IS NULL)
+                                                OR ewh.[SignalInterfacePort_ID] IS NULL
+                                            )
+            JOIN [dbo].[Channel]        statusC ON statusC.[ParentChannel_ID] = valueC.[Channel_ID]
+            JOIN [dbo].[ChannelRole]    cr      ON cr.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+                                               AND cr.[Name] = N'Status'
+            JOIN [dbo].[Observation]   o       ON o.[Channel_ID] = statusC.[Channel_ID]
+            JOIN [dbo].[Value]         v       ON v.[Observation_ID] = o.[Observation_ID]
+            JOIN [dbo].[SensorStatusCode] sc   ON sc.StatusCodeID = CAST(v.Value AS INT)
+            WHERE ewh.[Equipment_ID] = ?
+              AND ewh.[ValidTo] IS NULL
               AND o.[Timestamp] BETWEEN ? AND ?
             ORDER BY o.[Timestamp]
             """,
@@ -285,14 +287,17 @@ class SensorStatusRepository:
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity,
                 latestStatus.[Timestamp] AS status_since
-            FROM [dbo].[SignalPortEquipmentHistory] peh
-            JOIN [dbo].[SignalPort]     valueP  ON valueP.[SignalPort_ID]  = peh.[SignalPort_ID]
-            JOIN [dbo].[Channel]        valueC  ON valueC.[SignalPort_ID]  = valueP.[SignalPort_ID]
+            FROM [dbo].[EquipmentWiringHistory] ewh
+            JOIN [dbo].[Channel]        valueC  ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+                                              AND (
+                                                  valueC.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
+                                                  OR (valueC.[SignalInterfacePort_ID] IS NULL AND ewh.[SignalInterfacePort_ID] IS NULL)
+                                                  OR ewh.[SignalInterfacePort_ID] IS NULL
+                                              )
             JOIN [dbo].[Parameter]      p       ON p.[Parameter_ID]        = valueC.[Parameter_ID]
-            JOIN [dbo].[SignalPort]     statusP ON statusP.[ParentPort_ID] = valueP.[SignalPort_ID]
-            JOIN [dbo].[SignalPortType] spt     ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]
-                                              AND spt.[Name] = N'Status'
-            JOIN [dbo].[Channel]        statusC ON statusC.[SignalPort_ID] = statusP.[SignalPort_ID]
+            JOIN [dbo].[Channel]        statusC ON statusC.[ParentChannel_ID] = valueC.[Channel_ID]
+            JOIN [dbo].[ChannelRole]    cr      ON cr.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+                                               AND cr.[Name] = N'Status'
             CROSS APPLY (
                 SELECT TOP 1 o.[Timestamp], v.Value
                 FROM [dbo].[Observation] o
@@ -301,8 +306,8 @@ class SensorStatusRepository:
                 ORDER BY o.[Timestamp] DESC
             ) latestStatus
             JOIN dbo.SensorStatusCode sc ON sc.StatusCodeID = CAST(latestStatus.Value AS INT)
-            WHERE peh.[Equipment_ID] = ?
-              AND peh.[EndTime] IS NULL
+            WHERE ewh.[Equipment_ID] = ?
+              AND ewh.[ValidTo] IS NULL
             ORDER BY p.[Parameter]
             """,
             equipment_id,
@@ -334,16 +339,21 @@ class SensorStatusRepository:
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity,
                 o.[Timestamp] AS status_since
-            FROM [dbo].[SignalPortEquipmentHistory] peh
-            JOIN [dbo].[SignalPort]    statusP ON statusP.[SignalPort_ID]   = peh.[SignalPort_ID]
-            JOIN [dbo].[SignalPortType] spt    ON spt.[SignalPortType_ID]   = statusP.[SignalPortType_ID]
-            JOIN [dbo].[Channel]       statusC ON statusC.[SignalPort_ID]   = statusP.[SignalPort_ID]
-            JOIN [dbo].[Observation]   o       ON o.[Channel_ID]            = statusC.[Channel_ID]
-            JOIN [dbo].[Value]         v       ON v.[Observation_ID]        = o.[Observation_ID]
-            JOIN [dbo].[SensorStatusCode] sc   ON sc.StatusCodeID           = CAST(v.Value AS INT)
-            WHERE peh.[Equipment_ID] = ?
-              AND peh.[EndTime] IS NULL
-              AND spt.[Name] = N'Status'
+            FROM [dbo].[EquipmentWiringHistory] ewh
+            JOIN [dbo].[Channel]        valueC  ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+                                              AND (
+                                                  valueC.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
+                                                  OR (valueC.[SignalInterfacePort_ID] IS NULL AND ewh.[SignalInterfacePort_ID] IS NULL)
+                                                  OR ewh.[SignalInterfacePort_ID] IS NULL
+                                              )
+            JOIN [dbo].[Channel]        statusC ON statusC.[ParentChannel_ID] = valueC.[Channel_ID]
+            JOIN [dbo].[ChannelRole]    cr      ON cr.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+                                               AND cr.[Name] = N'Status'
+            JOIN [dbo].[Observation]   o       ON o.[Channel_ID] = statusC.[Channel_ID]
+            JOIN [dbo].[Value]         v       ON v.[Observation_ID] = o.[Observation_ID]
+            JOIN [dbo].[SensorStatusCode] sc   ON sc.StatusCodeID = CAST(v.Value AS INT)
+            WHERE ewh.[Equipment_ID] = ?
+              AND ewh.[ValidTo] IS NULL
             ORDER BY o.[Timestamp] DESC
             """,
             equipment_id,
@@ -392,11 +402,16 @@ class SensorStatusRepository:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            SELECT peh.[Equipment_ID]
+            SELECT ewh.[Equipment_ID]
             FROM [dbo].[Channel] c
-            JOIN [dbo].[SignalPortEquipmentHistory] peh
-              ON peh.[SignalPort_ID] = c.[SignalPort_ID]
-             AND peh.[EndTime] IS NULL
+            JOIN [dbo].[EquipmentWiringHistory] ewh
+              ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+             AND (
+                 ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]
+                 OR (ewh.[SignalInterfacePort_ID] IS NULL AND c.[SignalInterfacePort_ID] IS NULL)
+                 OR c.[SignalInterfacePort_ID] IS NULL
+             )
+             AND ewh.[ValidTo] IS NULL
             WHERE c.[Channel_ID] = ?
             """,
             channel_id,

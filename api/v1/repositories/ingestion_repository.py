@@ -13,17 +13,20 @@ logger = logging.getLogger(__name__)
 def find_or_create_sensor_metadata(
     conn: pyodbc.Connection,
     *,
-    signal_port_id: int,
+    signal_interface_id: int,
+    tag_name: str,
     parameter_id: int,
     unit_id: int | None = None,
     data_provenance_id: int,
     processing_degree_id: int,
     value_type_id: int = 1,
+    parent_channel_id: int | None = None,
+    channel_role_id: int = 1,
 ) -> int:
     """Find or create a Channel row for a sensor stream. Returns Channel_ID.
 
     Uses the UNIQUE sensor stream constraint:
-    (SignalPort_ID, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID) WHERE both are NOT NULL.
+    (SignalInterface_ID, TagName, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID).
 
     On first ingest, a new row is created with Unit_ID stored on the Channel.
     On subsequent calls for the same stream, the existing Channel_ID is returned.
@@ -35,37 +38,44 @@ def find_or_create_sensor_metadata(
         """
         IF NOT EXISTS (
             SELECT 1 FROM [dbo].[Channel]
-            WHERE [SignalPort_ID] = ?
+            WHERE [SignalInterface_ID] = ?
+              AND [TagName] = ?
               AND [Parameter_ID] = ?
               AND [DataProvenance_ID] = ?
               AND [ProcessingDegree_ID] = ?
         )
         INSERT INTO [dbo].[Channel]
-            ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID],
-             [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-        VALUES (?, ?, ?, ?, ?, ?)
+            ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenance_ID],
+             [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ParentChannel_ID], [ChannelRole_ID])
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        signal_port_id,
+        signal_interface_id,
+        tag_name,
         parameter_id,
         data_provenance_id,
         processing_degree_id,
-        signal_port_id,
+        signal_interface_id,
+        tag_name,
         parameter_id,
         data_provenance_id,
         processing_degree_id,
         value_type_id,
         unit_id,
+        parent_channel_id,
+        channel_role_id,
     )
     conn.commit()
     cursor.execute(
         """
         SELECT [Channel_ID], [Unit_ID] FROM [dbo].[Channel]
-        WHERE [SignalPort_ID] = ?
+        WHERE [SignalInterface_ID] = ?
+          AND [TagName] = ?
           AND [Parameter_ID] = ?
           AND [DataProvenance_ID] = ?
           AND [ProcessingDegree_ID] = ?
         """,
-        signal_port_id,
+        signal_interface_id,
+        tag_name,
         parameter_id,
         data_provenance_id,
         processing_degree_id,
@@ -91,15 +101,17 @@ def find_or_create_derived_metadata(
 ) -> int:
     """Find or create a Channel row for a processed output stream.
 
-    Clones identity fields (Equipment, Parameter, Unit, DataProvenance, ValueType)
+    Clones identity fields (SignalInterface_ID, TagName, Parameter, Unit, DataProvenance, ValueType)
     from the source Channel row and applies the new ProcessingDegree_ID.
+    The new channel becomes a child of the source channel (ParentChannel_ID).
     """
     from fastapi import HTTPException
 
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ValueType_ID], [Unit_ID]
+        SELECT [SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenance_ID],
+               [ValueType_ID], [Unit_ID]
         FROM [dbo].[Channel]
         WHERE [Channel_ID] = ?
         """,
@@ -111,10 +123,18 @@ def find_or_create_derived_metadata(
             status_code=404,
             detail=f"Source channel {source_channel_id} not found.",
         )
-    signal_port_id, parameter_id, data_provenance_id, value_type_id, unit_id = row
+    (
+        signal_interface_id,
+        tag_name,
+        parameter_id,
+        data_provenance_id,
+        value_type_id,
+        unit_id,
+    ) = row
     return find_or_create_sensor_metadata(
         conn,
-        signal_port_id=signal_port_id,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
         parameter_id=parameter_id,
         unit_id=unit_id,
         data_provenance_id=data_provenance_id,

@@ -42,12 +42,22 @@ def get_laboratories_lookup(conn: pyodbc.Connection) -> list[dict]:
         "SELECT [Laboratory_ID], [Name], [Site_ID], [Description] FROM [dbo].[Laboratory] ORDER BY [Name]"
     )
     return [
-        {"laboratory_id": row[0], "name": row[1], "site_id": row[2], "description": row[3]}
+        {
+            "laboratory_id": row[0],
+            "name": row[1],
+            "site_id": row[2],
+            "description": row[3],
+        }
         for row in cursor.fetchall()
     ]
 
 
-def insert_laboratory(conn: pyodbc.Connection, name: str, site_id: int | None = None, description: str | None = None) -> dict:
+def insert_laboratory(
+    conn: pyodbc.Connection,
+    name: str,
+    site_id: int | None = None,
+    description: str | None = None,
+) -> dict:
     """Insert a new Laboratory row and return it."""
     cursor = conn.cursor()
     try:
@@ -61,14 +71,23 @@ def insert_laboratory(conn: pyodbc.Connection, name: str, site_id: int | None = 
         )
         row = cursor.fetchone()
         conn.commit()
-        return {"laboratory_id": row[0], "name": row[1], "site_id": row[2], "description": row[3]}
+        return {
+            "laboratory_id": row[0],
+            "name": row[1],
+            "site_id": row[2],
+            "description": row[3],
+        }
     except Exception:
         conn.rollback()
         raise
 
 
 def update_laboratory(
-    conn: pyodbc.Connection, laboratory_id: int, name: str, site_id: int | None = None, description: str | None = None
+    conn: pyodbc.Connection,
+    laboratory_id: int,
+    name: str,
+    site_id: int | None = None,
+    description: str | None = None,
 ) -> dict | None:
     """Update a Laboratory row and return it, or None if not found."""
     cursor = conn.cursor()
@@ -87,7 +106,12 @@ def update_laboratory(
         conn.commit()
         if row is None:
             return None
-        return {"laboratory_id": row[0], "name": row[1], "site_id": row[2], "description": row[3]}
+        return {
+            "laboratory_id": row[0],
+            "name": row[1],
+            "site_id": row[2],
+            "description": row[3],
+        }
     except Exception:
         conn.rollback()
         raise
@@ -496,22 +520,130 @@ def get_bin_modes(conn: pyodbc.Connection) -> list[dict]:
     cursor.execute(
         "SELECT [BinMode_ID], [Name], [Description] FROM [dbo].[BinMode] ORDER BY [BinMode_ID]"
     )
-    return [{"bin_mode_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
+    return [
+        {"bin_mode_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
 
 
 # ---------------------------------------------------------------------------
-# SignalPortType (read-only — fixed seeded IDs)
+# SignalInterfaceType
 # ---------------------------------------------------------------------------
 
 
-def get_signal_port_types(conn: pyodbc.Connection) -> list[dict]:
+def get_signal_interface_types(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [SignalPortType_ID], [Name], [Description]"
-        " FROM [dbo].[SignalPortType] ORDER BY [SignalPortType_ID]"
+        "SELECT [SignalInterfaceType_ID], [Name], [Description]"
+        " FROM [dbo].[SignalInterfaceType] ORDER BY [SignalInterfaceType_ID]"
     )
     return [
-        {"signal_port_type_id": row[0], "name": row[1], "description": row[2]}
+        {"signal_interface_type_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+def insert_signal_interface_type(
+    conn: pyodbc.Connection, name: str, description: str | None
+) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[SignalInterfaceType] ([Name], [Description])"
+            " OUTPUT inserted.[SignalInterfaceType_ID], inserted.[Name], inserted.[Description]"
+            " VALUES (?, ?)",
+            name,
+            description,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {
+            "signal_interface_type_id": row[0],
+            "name": row[1],
+            "description": row[2],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_signal_interface_type(
+    conn: pyodbc.Connection,
+    signal_interface_type_id: int,
+    name: str,
+    description: str | None,
+) -> dict | None:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[SignalInterfaceType]"
+            " SET [Name]=?, [Description]=?"
+            " OUTPUT inserted.[SignalInterfaceType_ID], inserted.[Name], inserted.[Description]"
+            " WHERE [SignalInterfaceType_ID]=?",
+            name,
+            description,
+            signal_interface_type_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {
+            "signal_interface_type_id": row[0],
+            "name": row[1],
+            "description": row[2],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_signal_interface_type(
+    conn: pyodbc.Connection, signal_interface_type_id: int
+) -> bool:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[SignalInterfaceType] WHERE [SignalInterfaceType_ID]=?",
+            signal_interface_type_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
+# ---------------------------------------------------------------------------
+# SignalInterfacePortKind (read-only — fixed seeded IDs)
+# ---------------------------------------------------------------------------
+
+
+def get_signal_interface_port_kinds(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SignalInterfacePortKind_ID], [Name], [Description]"
+        " FROM [dbo].[SignalInterfacePortKind] ORDER BY [SignalInterfacePortKind_ID]"
+    )
+    return [
+        {"signal_interface_port_kind_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+# ---------------------------------------------------------------------------
+# ChannelRole (read-only — fixed seeded IDs)
+# ---------------------------------------------------------------------------
+
+
+def get_channel_roles(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [ChannelRole_ID], [Name], [Description]"
+        " FROM [dbo].[ChannelRole] ORDER BY [ChannelRole_ID]"
+    )
+    return [
+        {"channel_role_id": row[0], "name": row[1], "description": row[2]}
         for row in cursor.fetchall()
     ]
 
@@ -526,7 +658,9 @@ def get_processing_degrees(conn: pyodbc.Connection) -> list[dict]:
     cursor.execute(
         "SELECT [ProcessingDegree_ID], [Name] FROM [dbo].[ProcessingDegree] ORDER BY [ProcessingDegree_ID]"
     )
-    return [{"processing_degree_id": row[0], "name": row[1]} for row in cursor.fetchall()]
+    return [
+        {"processing_degree_id": row[0], "name": row[1]} for row in cursor.fetchall()
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -551,7 +685,9 @@ def insert_campaign_type(conn: pyodbc.Connection, name: str) -> dict:
         raise
 
 
-def update_campaign_type(conn: pyodbc.Connection, campaign_type_id: int, name: str) -> dict | None:
+def update_campaign_type(
+    conn: pyodbc.Connection, campaign_type_id: int, name: str
+) -> dict | None:
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -597,7 +733,9 @@ def get_equipment_event_types(conn: pyodbc.Connection) -> list[dict]:
         "SELECT [EquipmentEventType_ID], [EquipmentEventType_Name]"
         " FROM [dbo].[EquipmentEventType] ORDER BY [EquipmentEventType_ID]"
     )
-    return [{"equipment_event_type_id": row[0], "name": row[1]} for row in cursor.fetchall()]
+    return [
+        {"equipment_event_type_id": row[0], "name": row[1]} for row in cursor.fetchall()
+    ]
 
 
 def insert_equipment_event_type(conn: pyodbc.Connection, name: str) -> dict:
@@ -640,7 +778,9 @@ def update_equipment_event_type(
         raise
 
 
-def delete_equipment_event_type(conn: pyodbc.Connection, equipment_event_type_id: int) -> bool:
+def delete_equipment_event_type(
+    conn: pyodbc.Connection, equipment_event_type_id: int
+) -> bool:
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -664,10 +804,15 @@ def get_purposes(conn: pyodbc.Connection) -> list[dict]:
     cursor.execute(
         "SELECT [Purpose_ID], [Purpose], [Description] FROM [dbo].[Purpose] ORDER BY [Purpose_ID]"
     )
-    return [{"purpose_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
+    return [
+        {"purpose_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
 
 
-def insert_purpose(conn: pyodbc.Connection, name: str | None, description: str | None) -> dict:
+def insert_purpose(
+    conn: pyodbc.Connection, name: str | None, description: str | None
+) -> dict:
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -818,7 +963,9 @@ def update_procedure(
 def delete_procedure(conn: pyodbc.Connection, procedure_id: int) -> bool:
     cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM [dbo].[Procedures] WHERE [Procedure_ID]=?", procedure_id)
+        cursor.execute(
+            "DELETE FROM [dbo].[Procedures] WHERE [Procedure_ID]=?", procedure_id
+        )
         conn.commit()
         return cursor.rowcount > 0
     except Exception:
@@ -836,10 +983,15 @@ def get_projects(conn: pyodbc.Connection) -> list[dict]:
     cursor.execute(
         "SELECT [Project_ID], [name], [Description] FROM [dbo].[Project] ORDER BY [name]"
     )
-    return [{"project_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
+    return [
+        {"project_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
 
 
-def insert_project(conn: pyodbc.Connection, name: str | None, description: str | None) -> dict:
+def insert_project(
+    conn: pyodbc.Connection, name: str | None, description: str | None
+) -> dict:
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -999,10 +1151,11 @@ def update_watershed(
 def delete_watershed(conn: pyodbc.Connection, watershed_id: int) -> bool:
     cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM [dbo].[Watershed] WHERE [Watershed_ID]=?", watershed_id)
+        cursor.execute(
+            "DELETE FROM [dbo].[Watershed] WHERE [Watershed_ID]=?", watershed_id
+        )
         conn.commit()
         return cursor.rowcount > 0
     except Exception:
         conn.rollback()
         raise
-

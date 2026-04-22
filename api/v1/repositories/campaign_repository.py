@@ -300,7 +300,7 @@ def create_campaign_deployment(
 
     Inserts into CampaignEquipment and CampaignSamplingLocation.
     Returns equipment_id as a stable deployment identifier (EquipmentInstallation
-    was dropped in v3.0.0; location tracking is now via SignalPortLocationHistory).
+    was dropped in v3.0.0; location tracking is now via EquipmentLocationHistory).
 
     Raises ValueError if equipment is already deployed in this campaign."""
     cursor = conn.cursor()

@@ -77,6 +77,45 @@ def find_unit_by_name(conn: pyodbc.Connection, name: str) -> int | None:
     return row[0] if row else None
 
 
+def find_signal_interface_by_name(conn: pyodbc.Connection, name: str) -> int | None:
+    """Return SignalInterface_ID for *name* (case-insensitive, trimmed). None if not found."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SignalInterface_ID] FROM [dbo].[SignalInterface]"
+        " WHERE LOWER(LTRIM(RTRIM([Name]))) = ?",
+        name.strip().lower(),
+    )
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def find_signal_interface_by_das_and_name(
+    conn: pyodbc.Connection, das_id: int, name: str
+) -> int | None:
+    """Return SignalInterface_ID for *(das_id, name)* (case-insensitive, trimmed). None if not found."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SignalInterface_ID] FROM [dbo].[SignalInterface]"
+        " WHERE [DataAcquisitionSystem_ID] = ?"
+        "   AND LOWER(LTRIM(RTRIM([Name]))) = ?",
+        das_id,
+        name.strip().lower(),
+    )
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def get_first_signal_interface_type_id(conn: pyodbc.Connection) -> int | None:
+    """Return the smallest SignalInterfaceType_ID as a fallback default."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT TOP 1 [SignalInterfaceType_ID] FROM [dbo].[SignalInterfaceType]"
+        " ORDER BY [SignalInterfaceType_ID]"
+    )
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
 # ---------------------------------------------------------------------------
 # Find-or-create helpers (auto-create with warning on miss)
 # ---------------------------------------------------------------------------
@@ -243,6 +282,26 @@ def find_or_create_equipment_by_identifier(
 # ---------------------------------------------------------------------------
 # Equipment wiring history
 # ---------------------------------------------------------------------------
+
+
+def find_active_equipment_wiring(
+    conn: pyodbc.Connection,
+    equipment_id: int,
+) -> tuple[int, int | None] | None:
+    """Return the active (ValidTo IS NULL) wiring for an equipment.
+
+    Returns ``(signal_interface_id, signal_interface_port_id)`` or None
+    if no active wiring exists.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SignalInterface_ID], [SignalInterfacePort_ID]"
+        " FROM [dbo].[EquipmentWiringHistory]"
+        " WHERE [Equipment_ID] = ? AND [ValidTo] IS NULL",
+        equipment_id,
+    )
+    row = cursor.fetchone()
+    return (row[0], row[1]) if row else None
 
 
 def open_equipment_wiring_history(
@@ -739,6 +798,111 @@ def list_signal_interface_port_kinds(conn: pyodbc.Connection) -> list[dict]:
         {"signal_interface_port_kind_id": row[0], "name": row[1], "description": row[2]}
         for row in cursor.fetchall()
     ]
+
+
+# ---------------------------------------------------------------------------
+# Delete helpers
+# ---------------------------------------------------------------------------
+
+
+def delete_signal_interface(conn: pyodbc.Connection, signal_interface_id: int) -> bool:
+    """Delete a SignalInterface row. Returns True if a row was deleted."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[SignalInterface] WHERE [SignalInterface_ID]=?",
+            signal_interface_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_signal_interface_port(
+    conn: pyodbc.Connection, signal_interface_port_id: int
+) -> bool:
+    """Delete a SignalInterfacePort row. Returns True if a row was deleted."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[SignalInterfacePort] WHERE [SignalInterfacePort_ID]=?",
+            signal_interface_port_id,
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
+# ---------------------------------------------------------------------------
+# Ingest compatibility stubs (deprecated — will be removed in Phase 5)
+# ---------------------------------------------------------------------------
+
+
+def find_signal_port_type_by_name(conn: pyodbc.Connection, name: str) -> int | None:
+    """Deprecated stub — maps to ChannelRole lookup for backward compatibility.
+
+    Old signal_port_type values (value, status, alarm, uncertainty) now map
+    to ChannelRole names.
+    """
+    return find_channel_role_by_name(conn, name)
+
+
+def find_or_create_signal_port(
+    conn: pyodbc.Connection,
+    das_id: int,
+    tag: str,
+    signal_port_type_id: int,
+) -> tuple[int, bool]:
+    """Deprecated stub."""
+    raise NotImplementedError(
+        "find_or_create_signal_port is deprecated. Use find_or_create_signal_interface_port."
+    )
+
+
+def find_signal_port_by_tag(
+    conn: pyodbc.Connection, das_id: int, tag: str
+) -> int | None:
+    """Deprecated stub."""
+    raise NotImplementedError(
+        "find_signal_port_by_tag is deprecated. SignalPort table has been removed."
+    )
+
+
+def set_parent_port(conn: pyodbc.Connection, port_id: int, parent_port_id: int) -> None:
+    """Deprecated stub."""
+    raise NotImplementedError(
+        "set_parent_port is deprecated. Use ParentChannel_ID on Channel instead."
+    )
+
+
+def open_port_equipment_history(
+    conn: pyodbc.Connection, port_id: int, equipment_id: int
+) -> int:
+    """Deprecated stub."""
+    raise NotImplementedError(
+        "open_port_equipment_history is deprecated. Use open_equipment_wiring_history."
+    )
+
+
+def deactivate_signal_port(conn: pyodbc.Connection, signal_port_id: int) -> bool:
+    """Deprecated stub."""
+    raise NotImplementedError(
+        "deactivate_signal_port is deprecated. SignalPort table has been removed."
+    )
+
+
+def generate_tagless_tag(equipment_identifier: str, parameter_name: str) -> str:
+    """Deprecated alias for generate_tagless_tagname."""
+    return generate_tagless_tagname(equipment_identifier, parameter_name)
+
+
+# ---------------------------------------------------------------------------
+# Lookup tables (read-only — fixed seeded IDs)
+# ---------------------------------------------------------------------------
 
 
 def list_channel_roles(conn: pyodbc.Connection) -> list[dict]:

@@ -10,6 +10,7 @@ import pyodbc
 # AnnotationType queries
 # ---------------------------------------------------------------------------
 
+
 def get_annotation_types(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
@@ -30,7 +31,9 @@ def get_annotation_types(conn: pyodbc.Connection) -> list[dict]:
     ]
 
 
-def get_annotation_type_by_id(conn: pyodbc.Connection, annotation_type_id: int) -> dict | None:
+def get_annotation_type_by_id(
+    conn: pyodbc.Connection, annotation_type_id: int
+) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -75,6 +78,7 @@ def get_annotation_type_by_name(conn: pyodbc.Connection, name: str) -> dict | No
 # ---------------------------------------------------------------------------
 # Full annotation row → dict (reused by several queries)
 # ---------------------------------------------------------------------------
+
 
 def _row_to_annotation(row) -> dict:
     return {
@@ -129,6 +133,7 @@ _ANNOTATION_SELECT = """
 # Query 1: Annotations overlapping a time range for a single Channel entry
 # ---------------------------------------------------------------------------
 
+
 def get_annotations_for_timeseries(
     conn: pyodbc.Connection,
     channel_id: int,
@@ -158,6 +163,7 @@ def get_annotations_for_timeseries(
 # ---------------------------------------------------------------------------
 # Query 2: Annotations of a given type across all series in a time range
 # ---------------------------------------------------------------------------
+
 
 def get_annotations_by_type(
     conn: pyodbc.Connection,
@@ -217,6 +223,7 @@ def get_annotations_by_type(
 # Query 3: Recent annotations (dashboard feed)
 # ---------------------------------------------------------------------------
 
+
 def get_recent_annotations(
     conn: pyodbc.Connection,
     limit: int = 20,
@@ -275,6 +282,7 @@ def get_recent_annotations(
 # Query: list all annotations (optional channel filter)
 # ---------------------------------------------------------------------------
 
+
 def list_annotations(
     conn: pyodbc.Connection,
     channel_id: int | None = None,
@@ -293,6 +301,7 @@ def list_annotations(
 # Single annotation by ID
 # ---------------------------------------------------------------------------
 
+
 def get_annotation_by_id(conn: pyodbc.Connection, annotation_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
@@ -306,6 +315,7 @@ def get_annotation_by_id(conn: pyodbc.Connection, annotation_id: int) -> dict | 
 # ---------------------------------------------------------------------------
 # Query 4: Insert annotation
 # ---------------------------------------------------------------------------
+
 
 def create_annotation(
     conn: pyodbc.Connection,
@@ -331,9 +341,15 @@ def create_annotation(
         OUTPUT INSERTED.[Annotation_ID], INSERTED.[CreatedDateTime]
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        channel_id, annotation_type_id, start_time, end_time,
-        author_person_id, campaign_id, equipment_event_id,
-        title, comment,
+        channel_id,
+        annotation_type_id,
+        start_time,
+        end_time,
+        author_person_id,
+        campaign_id,
+        equipment_event_id,
+        title,
+        comment,
     )
     row = cursor.fetchone()
     conn.commit()
@@ -343,6 +359,7 @@ def create_annotation(
 # ---------------------------------------------------------------------------
 # Query 5: Update annotation
 # ---------------------------------------------------------------------------
+
 
 def update_annotation(
     conn: pyodbc.Connection,
@@ -387,6 +404,7 @@ def update_annotation(
 # Query 6: Delete annotation
 # ---------------------------------------------------------------------------
 
+
 def delete_annotation(conn: pyodbc.Connection, annotation_id: int) -> bool:
     cursor = conn.cursor()
     cursor.execute(
@@ -402,8 +420,12 @@ def delete_annotation(conn: pyodbc.Connection, annotation_id: int) -> bool:
 # AnnotationType write operations
 # ---------------------------------------------------------------------------
 
+
 def insert_annotation_type(
-    conn: pyodbc.Connection, name: str, description: str | None, color: str | None = None
+    conn: pyodbc.Connection,
+    name: str,
+    description: str | None,
+    color: str | None = None,
 ) -> dict:
     """Insert a new AnnotationType row and return it."""
     cursor = conn.cursor()
@@ -479,3 +501,34 @@ def delete_annotation_type(conn: pyodbc.Connection, annotation_type_id: int) -> 
     except Exception:
         conn.rollback()
         raise
+
+
+def create_equipment_move_annotations(
+    conn: pyodbc.Connection,
+    *,
+    channel_ids: list[int],
+    annotation_type_id: int,
+    title: str,
+    comment: str,
+    start_time: datetime,
+) -> list[int]:
+    """Create annotations on multiple channels for an equipment move.
+
+    Returns the list of created Annotation_IDs.
+    """
+    annotation_ids: list[int] = []
+    for channel_id in channel_ids:
+        result = create_annotation(
+            conn,
+            channel_id=channel_id,
+            annotation_type_id=annotation_type_id,
+            start_time=start_time,
+            end_time=None,
+            author_person_id=None,
+            campaign_id=None,
+            equipment_event_id=None,
+            title=title,
+            comment=comment,
+        )
+        annotation_ids.append(result["annotation_id"])
+    return annotation_ids
