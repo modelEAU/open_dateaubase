@@ -1,86 +1,113 @@
 # Table Import
 
-A utility that lets you import plain-text tabular data into the dat*EAU*base.
+A utility that imports sensor, vector, and image data into the open_datEAUbase via its REST API.
 
 ## Installation
 
 ```bash
-# create a virtual environment
-python virtualenv ./env
-
-# activate the vurtual environment
-# on mac
-source ./env/bin/activate
-
-# on windows
-./env/Scripts/activate.bat
-
-pip install -r requirements.txt
+# from the importer/ directory
+uv sync
 ```
 
-## Running the script
+## Usage
+
+The entry point exposes two subcommands.
+
+### import — ingest sensor data from a YAML config
 
 ```bash
-python src/table_import/import_module.py --config /path/to/config.yaml
+uv run table-import import --config /path/to/config.yaml
+uv run table-import import --config /path/to/config.yaml --dry-run
+uv run table-import import --config /path/to/config.yaml --min-timestamp 2024-01-01T00:00:00
 ```
 
-## Setting up the YAML configuration file
+`--dry-run` resolves each channel via the API (auto-creating DAS and SignalInterface if absent)
+but skips file loading and all write calls.  Use it to validate a new config against a running
+database without ingesting any data.
 
-This YAML configuration file is designed for setting up and running an import job into the dat*EAU*base database using the import_script.py script. Paths should be specified relative to the script’s location on the file system. Below is a detailed description of the structure and elements within this configuration file:
+### l5x — load a Logix5000 L5X export
 
-### Root Elements
+```bash
+uv run table-import l5x FILE.L5X --signal-interface <name> [--das-name <name>] [--dry-run]
+```
 
-1. database_config: Contains settings related to the database connection.
-2. file_configs: Contains configurations for files to be processed.
+Parses an Allen-Bradley L5X archive, creates the SignalInterface + ports + channels in the
+database, and opens ChannelPortHistory rows.  `--dry-run` prints the planned creates without
+writing anything.
 
-### database_config Section
+Example:
 
-- database_name: The name of the database to connect to (dateaubase2020).
-- credentials_path: Relative path to the file containing database credentials (../../login.txt).
-- local_url: Local URL for the database connection (GCI-PR-DATEAU02\DATEAUBASE).
-- remote_url: Remote URL for the database connection (132.203.190.77\DATEAUBASE).
+```bash
+uv run table-import l5x modelEAU_Hedi_Latest260323.L5X \
+    --signal-interface hedi_plc \
+    --dry-run
+```
 
-### file_configs Section
+## YAML configuration
 
-This section is a list of file configurations. Each configuration includes details about the file structure and the variables within the file. Here is the structure of each configuration:
+### Root structure
 
-- name: Name of the configuration (anapro).
-- file_structure: Defines the structure of the file to be processed.
-- extension: File extension (e.g., .par).
-- separator: Field separator (e.g., "\t" for tab-separated values).
-- encoding: File encoding (e.g., ISO-8859-1).
-- dt_format: Date and time format (e.g., "%Y.%m.%d  %H:%M:%S").
-- time_column: Name of the column containing date/time information (Date/Time).
-- timezone: Timezone of the date/time information (US/Eastern).
-- value_column: Name of the column containing the values (if applicable).
-- variable_column: Name of the column containing variable names (if applicable).
-- validity_column: Name of the column containing validity flags (if applicable).
-- validity_flag: Value of the validity flag indicating valid data (0).
-- first_valid_row_idx: Index of the first row with valid data (2).
-- last_valid_row_idx: Index of the last row with valid data (-1).
-- header_row_idx: Index of the header row (1).
-- variables: List of variables to be processed from the file.
-- Each variable includes the following properties:
-- name: Name of the variable (e.g., NH4-N).
-- directory_path: Path to the directory containing the file (Z:/s-canV5.0/Results/INFLPC2).
-- variable_name: Name of the variable as it appears in the file (e.g., NH4-N [mg/L]).
-- metadata_id: Metadata identifier for the variable (1).
-- scaling_factor: Factor to scale the variable values (0.001).
-
-### Example
-
-Below is an example configuration for a variable:
 ```yaml
-- name: NH4-N
-  directory_path: Z:/s-canV5.0/Results/INFLPC2
-  variable_name: NH4-N [mg/L]
-  metadata_id: 1
-  scaling_factor: 0.001
+api_config:
+  api_url: http://localhost:8000/api/v1
+  min_timestamp: "2024-01-01T00:00:00"   # optional global cutoff
+
+file_configs: [...]            # tagged or tagless CSV/text files
+tsdb_configs: [...]            # WTW TSDB binary files
+scada_sql_configs: [...]       # PilEAUte SCADA SQLite/SQL Server
+vector_file_configs: [...]     # spectrophotometry / distribution files
+image_folder_configs: [...]    # inline camera image folders
 ```
 
-## Notes
+### Signal Interface field
 
-- Ensure all paths are correctly specified relative to the location of the Import.py script.
-- Customize the database_config and file_configs sections to match your specific setup and data files.
+Every source-level config (under `file_configs`, `tsdb_configs`, etc.) accepts an optional
+`signal_interface_name` field at its root, alongside `das_name`:
 
-This structure provides a flexible and detailed way to configure data import jobs, making it easy to adapt to various data sources and formats.
+```yaml
+file_configs:
+- name: my_sensor
+  mode: tagged
+  das_name: my_das           # DataAcquisitionSystem — the software/hardware that logs data
+  signal_interface_name: my_si  # SignalInterface — the physical instrument bus or port
+  ...
+```
+
+**When to set it:**
+
+- Each config file typically describes one signal interface (one probe bus, one PLC, one
+  SCADA station).  Set `signal_interface_name` to uniquely identify that interface.
+- If omitted, the server infers the SignalInterface from the DAS name and tag (legacy mode).
+
+See [configs/examples/](configs/examples/) for three worked examples illustrating the three
+common forcing cases.
+
+### Per-variable fields (common)
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | str | Unique label for this variable in logs |
+| `parameter_name` | str | Must match a `Parameter` row in the database |
+| `source_unit_name` | str | Unit label of the raw source data (documentation only) |
+| `destination_unit_name` | str | Must match a `Unit` row in the database |
+| `directory_path` | str | Path to the folder containing data files |
+| `tag` | str | TagName used to resolve/create the Channel (tagged mode) |
+| `equipment_name` | str | Equipment Identifier (tagless mode) |
+| `signal_port_type` | str | `value` (default), `status`, `alarm`, or `uncertainty` |
+| `conversion_factor` | float | Multiply raw values before ingest (default 1.0) |
+
+## Example configs
+
+Three examples are provided under [configs/examples/](configs/examples/):
+
+| File | DAS | Signal Interface | Pattern |
+| --- | --- | --- | --- |
+| `monEAU_iqsensor.yaml` | `monEAU_box` | `iqsensor_net_bus` | IQSensor Net digital bus, one SI per bus |
+| `sc1000_via_plc.yaml` | `hedi_plc` | `sc1000_ammonium` | Hach SC1000 read via PLC; SI = controller unit |
+| `logix5000_direct.yaml` | `hedi_plc` | `hedi_plc` | PLC is the interface; DAS == SI name |
+
+Validate any example against a running database:
+
+```bash
+uv run table-import import --config configs/examples/monEAU_iqsensor.yaml --dry-run
+```

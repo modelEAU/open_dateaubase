@@ -1,0 +1,49 @@
+# Example: IQSensor Net bus connected to the monEAU acquisition box.
+#
+# The IQSensor Net is a digital bus that chains up to 8 WTW probes.
+# Each probe exposes readings as tagged columns in a CSV export from the box.
+# signal_interface_name identifies the bus as a named SignalInterface distinct
+# from the DAS (the box itself) so multiple buses can share the same DAS.
+#
+# Run with --dry-run to validate config + auto-create the SignalInterface:
+#   uv run table-import import --config configs/examples/monEAU_iqsensor.yaml --dry-run
+api_config:
+  api_url: http://localhost:8000/api/v1
+
+file_configs:
+- name: monEAU_iqsensor
+  mode: tagged
+  das_name: monEAU_box
+  signal_interface_name: iqsensor_net_bus
+  file_structure:
+    extension: .csv
+    separator: ","
+    encoding: utf-8
+    dt_format: '%Y-%m-%d %H:%M:%S'
+    time_column: Timestamp
+    value_column: Value
+    timezone: America/Montreal
+    first_valid_row_idx: 1
+    last_valid_row_idx: -1
+    header_row_idx: 0
+  variables:
+  - name: iqsensor_ph
+    parameter_name: pH
+    source_unit_name: pH units
+    destination_unit_name: pH units
+    directory_path: data/monEAU/iqsensor
+    tag: IQ_PROBE1_PH
+
+  - name: iqsensor_do
+    parameter_name: Dissolved oxygen
+    source_unit_name: mg/L
+    destination_unit_name: mg/L
+    directory_path: data/monEAU/iqsensor
+    tag: IQ_PROBE2_DO
+
+  - name: iqsensor_turbidity
+    parameter_name: Turbidity
+    source_unit_name: NTU
+    destination_unit_name: NTU
+    directory_path: data/monEAU/iqsensor
+    tag: IQ_PROBE3_TURB

@@ -185,6 +185,10 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                 for w in warnings:
                     print(f"[WARNING] {label}: {w}")
 
+                if dry_run:
+                    print(f"[DRY RUN] {label}: channel_id={channel_id}, would load from {variable.directory_path!r}")
+                    continue
+
                 last_dt = client.get_last_timestamp(channel_id=channel_id)
                 last_ts = last_dt.timestamp() if last_dt is not None else 0.0
 
@@ -259,6 +263,10 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                 for w in warnings:
                     print(f"[WARNING] {label}: {w}")
 
+                if dry_run:
+                    print(f"[DRY RUN] {label}: channel_id={channel_id}, would load from {variable.directory_path!r}")
+                    continue
+
                 last_dt = client.get_last_timestamp(channel_id=channel_id)
                 last_ts = last_dt.timestamp() if last_dt is not None else 0.0
 
@@ -320,6 +328,10 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                 )
                 for w in warnings:
                     print(f"[WARNING] {label}: {w}")
+
+                if dry_run:
+                    print(f"[DRY RUN] {label}: channel_id={channel_id}, would query SCADA SQL")
+                    continue
 
                 last_dt = client.get_last_timestamp(channel_id=channel_id)
                 last_ts = last_dt.timestamp() if last_dt is not None else 0.0
@@ -417,6 +429,10 @@ def _ingest_vector_source(
         )
         for w in ch_warnings:
             print(f"[WARNING] {label}: {w}")
+
+        if dry_run:
+            print(f"[DRY RUN] {label}: channel_id={channel_id}, would load vector files from {variable.directory_path!r}")
+            continue
 
         # 3. Watermark
         last_dt = client.get_last_timestamp(channel_id=channel_id)
@@ -517,6 +533,10 @@ def _ingest_image_source(
             )
         for w in warnings:
             print(f"[WARNING] {label}: {w}")
+
+        if dry_run:
+            print(f"[DRY RUN] {label}: channel_id={channel_id}, would scan image folder {variable.directory_path!r}")
+            continue
 
         # 2. Watermark
         last_dt = client.get_last_timestamp(channel_id=channel_id)
