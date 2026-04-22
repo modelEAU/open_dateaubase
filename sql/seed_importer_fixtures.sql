@@ -35,6 +35,9 @@ VALUES (N'absorbance', N'UV-Vis spectral absorbance (per-wavelength vector)');  
 INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
 VALUES (N'turbidity_image', N'Inline turbidity image from felinoscope camera');  -- ID 11
 
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
+VALUES (N'Ammonium-N', N'Ammonium nitrogen concentration (NH4-N)');  -- ID 12
+
 -- Equipment (auto IDs; resolved by Identifier name in the importer)
 INSERT INTO [dbo].[Equipment] ([EquipmentModel_ID], [Identifier], [SerialNumber], [Owner], [StorageLocation], [PurchaseDate])
 VALUES (4, N'Rodtox-001', N'SN-R300-2023-001', N'modelEAU Lab', NULL, '2023-01-01');
