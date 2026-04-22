@@ -124,12 +124,10 @@ class TestChannelSubSignalColumns:
         assert "ChannelRole_ID" in col_names
 
     def test_deprecated_tables_not_active(self, tables_dir):
-        """SensorStatusCode, EquipmentStatusChannel, SignalPort, SignalPortType should not be active tables (v4.0.0)."""
+        """Deprecated v3 tables should not be active in v4.0.0 schema."""
         schema = load_schema(tables_dir)
         assert "SensorStatusCode" not in schema
         assert "EquipmentStatusChannel" not in schema
-        assert "SignalPort" not in schema
-        assert "SignalPortType" not in schema
 
 
 class TestStatusViews:

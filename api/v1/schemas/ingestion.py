@@ -18,7 +18,7 @@ class SensorIngestRequest(BaseModel):
 
     das_name: str
     tag: str
-    signal_port_type: str = "value"
+    channel_role: str = "value"
     parent_tag: str | None = None
     parameter_name: str
     unit_name: str
@@ -136,7 +136,7 @@ class VectorObservation(BaseModel):
 class VectorSensorIngestRequest(BaseModel):
     das_name: str
     tag: str
-    signal_port_type: str = "value"
+    channel_role: str = "value"
     parameter_name: str
     unit_name: str
     binning_axis_id: int
@@ -163,7 +163,7 @@ class MatrixObservation(BaseModel):
 class MatrixSensorIngestRequest(BaseModel):
     das_name: str
     tag: str
-    signal_port_type: str = "value"
+    channel_role: str = "value"
     parameter_name: str
     unit_name: str
     row_axis_id: int
@@ -191,7 +191,7 @@ class MatrixSensorIngestRequest(BaseModel):
 class TaglessSensorIngestRequest(BaseModel):
     """Ingest raw sensor data from a direct-connect station (no SCADA tag name).
 
-    A synthetic SignalPort tag is auto-generated as
+    A synthetic tag is auto-generated as
     ``"{equipment_name}/{parameter_name}"`` (lowercased, trimmed).
     This tag is deterministic and stable across repeated runs.
     """
@@ -217,7 +217,7 @@ class SensorChannelResolveRequest(BaseModel):
 
     das_name: str
     tag: str
-    signal_port_type: str = "value"
+    channel_role: str = "value"
     parent_tag: str | None = None
     parameter_name: str
     unit_name: str
@@ -243,6 +243,6 @@ class ChannelResolveResponse(BaseModel):
     warnings: list[str] = []
 
 
-class SignalPortDeactivateResponse(BaseModel):
-    signal_port_id: int
+class ChannelDeactivateResponse(BaseModel):
+    channel_id: int
     deactivated: bool

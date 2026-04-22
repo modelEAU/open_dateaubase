@@ -1,7 +1,7 @@
 """Contract tests for resolve-channel endpoints.
 
 Covers both tagged (/resolve-channel) and tagless (/resolve-channel-tagless):
-- 422 for unknown signal_port_type / parameter / unit -- fired before any DB write
+- 422 for unknown channel_role / parameter / unit -- fired before any DB write
 - 200 happy path returns {channel_id, warnings}
 - Warnings present when DAS or SignalInterface auto-created
 - No data is written (value_repository never called)
@@ -27,7 +27,7 @@ _VAL_REPO = "api.v1.endpoints.ingest.value_repository"
 _TAGGED_PAYLOAD = {
     "das_name": "PlantSCADA",
     "tag": "TIT-101",
-    "signal_port_type": "value",
+    "channel_role": "value",
     "parameter_name": "temperature",
     "unit_name": "degC",
     "data_provenance_id": 1,
@@ -144,8 +144,8 @@ def _patch_tagless_resolved(
 
 
 class TestTaggedValidationErrors:
-    def test_unknown_signal_port_type_returns_422(self, client, mock_conn):
-        payload = {**_TAGGED_PAYLOAD, "signal_port_type": "not_a_type"}
+    def test_unknown_channel_role_returns_422(self, client, mock_conn):
+        payload = {**_TAGGED_PAYLOAD, "channel_role": "not_a_type"}
         with (
             patch(f"{_REPO}.find_channel_role_by_name", return_value=None),
             patch(f"{_REPO}.find_parameter_by_name") as mock_param,
@@ -157,7 +157,7 @@ class TestTaggedValidationErrors:
             resp = client.post("/api/v1/ingest/resolve-channel", json=payload)
 
         assert resp.status_code == 422
-        assert "signal_port_type" in resp.json()["detail"].lower()
+        assert "channel_role" in resp.json()["detail"].lower()
         mock_param.assert_not_called()
         mock_unit.assert_not_called()
         mock_das.assert_not_called()

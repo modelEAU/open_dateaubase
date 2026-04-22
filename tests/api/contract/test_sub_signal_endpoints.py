@@ -58,7 +58,7 @@ def client():
 _BASE_SENSOR_PAYLOAD = {
     "das_name": "PlantSCADA",
     "tag": "TIT-101.status",
-    "signal_port_type": "status",
+    "channel_role": "status",
     "parameter_name": "temperature",
     "unit_name": "degC",
     "data_provenance_id": 1,

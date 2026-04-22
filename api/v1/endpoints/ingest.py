@@ -69,23 +69,23 @@ def _resolve_tag_inputs(
     conn,
     das_name: str,
     tag: str,
-    signal_port_type: str,
+    channel_role: str,
     parameter_name: str,
     unit_name: str,
 ) -> tuple[int, str, int, int, int, list[str]]:
     """Validate names and resolve to IDs.  Returns (signal_interface_id, tag_name, parameter_id, unit_id, channel_role_id, warnings).
 
-    Raises HTTP 422 for unrecognised signal_port_type, parameter, or unit — *before* any DB writes.
+    Raises HTTP 422 for unrecognised channel_role, parameter, or unit — *before* any DB writes.
     Auto-creates DAS and SignalInterface with warnings.
     """
     # --- Validation-only lookups first (no writes) ---
     channel_role_id = signal_interface_repository.find_channel_role_by_name(
-        conn, signal_port_type
+        conn, channel_role
     )
     if channel_role_id is None:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown signal_port_type {signal_port_type!r}. "
+            detail=f"Unknown channel_role {channel_role!r}. "
             "Valid values: value, status, alarm, uncertainty.",
         )
 
@@ -419,7 +419,7 @@ def resolve_channel(data: SensorChannelResolveRequest, conn=Depends(get_db)):
         conn,
         das_name=data.das_name,
         tag=data.tag,
-        signal_port_type=data.signal_port_type,
+        channel_role=data.channel_role,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )
@@ -531,7 +531,7 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         conn,
         das_name=data.das_name,
         tag=data.tag,
-        signal_port_type=data.signal_port_type,
+        channel_role=data.channel_role,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )
@@ -742,7 +742,7 @@ def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
         conn,
         das_name=data.das_name,
         tag=data.tag,
-        signal_port_type=data.signal_port_type,
+        channel_role=data.channel_role,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )
@@ -788,7 +788,7 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
         conn,
         das_name=data.das_name,
         tag=data.tag,
-        signal_port_type=data.signal_port_type,
+        channel_role=data.channel_role,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )
@@ -824,7 +824,7 @@ def ingest_sensor_image(
     das_name: str = Form(...),
     tag: str | None = Form(None),
     equipment_name: str | None = Form(None),
-    signal_port_type: str = Form("value"),
+    channel_role: str = Form("value"),
     parameter_name: str = Form(...),
     unit_name: str = Form(...),
     timestamp: str = Form(...),  # ISO datetime string
@@ -891,7 +891,7 @@ def ingest_sensor_image(
             conn,
             das_name=das_name,
             tag=tag,
-            signal_port_type=signal_port_type,
+            channel_role=channel_role,
             parameter_name=parameter_name,
             unit_name=unit_name,
         )

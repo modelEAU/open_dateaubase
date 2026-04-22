@@ -871,7 +871,7 @@ class TestObservationAwareIngest:
                 json={
                     "das_name": "PlantSCADA",
                     "tag": "TIT-101",
-                    "signal_port_type": "value",
+                    "channel_role": "value",
                     "parameter_name": "temperature",
                     "unit_name": "degC",
                     "data_provenance_id": 1,
