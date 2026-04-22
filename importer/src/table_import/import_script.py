@@ -66,6 +66,7 @@ def ingest_via_api(
     payload: list[dict],
     label: str,
     dry_run: bool = False,
+    signal_interface_name: str | None = None,
 ) -> None:
     """Send payload to the appropriate ingest endpoint and log the result."""
     if dry_run:
@@ -82,6 +83,7 @@ def ingest_via_api(
             data_provenance_id=data_provenance_id,
             processing_degree_id=processing_degree_id,
             values=payload,
+            signal_interface_name=signal_interface_name,
         )
     else:
         result = client.ingest_sensor_values_tagless(
@@ -92,6 +94,7 @@ def ingest_via_api(
             data_provenance_id=data_provenance_id,
             processing_degree_id=processing_degree_id,
             values=payload,
+            signal_interface_name=signal_interface_name,
         )
     print(
         f"{label}: wrote {result['rows_written']} rows → channel_id={result['channel_id']}"
@@ -167,6 +170,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                         unit_name=variable.destination_unit_name,
                         data_provenance_id=variable.data_provenance_id,
                         processing_degree_id=variable.processing_degree_id,
+                        signal_interface_name=file_cfg.signal_interface_name,
                     )
                 else:
                     channel_id, warnings = client.resolve_channel_tagless(
@@ -176,6 +180,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                         unit_name=variable.destination_unit_name,
                         data_provenance_id=variable.data_provenance_id,
                         processing_degree_id=variable.processing_degree_id,
+                        signal_interface_name=file_cfg.signal_interface_name,
                     )
                 for w in warnings:
                     print(f"[WARNING] {label}: {w}")
@@ -216,6 +221,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                     payload=payload,
                     label=label,
                     dry_run=dry_run,
+                    signal_interface_name=file_cfg.signal_interface_name,
                 )
 
         # ------------------------------------------------------------------
@@ -238,6 +244,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                         unit_name=variable.destination_unit_name,
                         data_provenance_id=variable.data_provenance_id,
                         processing_degree_id=variable.processing_degree_id,
+                        signal_interface_name=tsdb_cfg.signal_interface_name,
                     )
                 else:
                     channel_id, warnings = client.resolve_channel_tagless(
@@ -247,6 +254,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                         unit_name=variable.destination_unit_name,
                         data_provenance_id=variable.data_provenance_id,
                         processing_degree_id=variable.processing_degree_id,
+                        signal_interface_name=tsdb_cfg.signal_interface_name,
                     )
                 for w in warnings:
                     print(f"[WARNING] {label}: {w}")
@@ -287,6 +295,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                     payload=payload,
                     label=label,
                     dry_run=dry_run,
+                    signal_interface_name=tsdb_cfg.signal_interface_name,
                 )
 
         # ------------------------------------------------------------------
@@ -307,6 +316,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                     unit_name=variable.destination_unit_name,
                     data_provenance_id=variable.data_provenance_id,
                     processing_degree_id=variable.processing_degree_id,
+                    signal_interface_name=scada_cfg.signal_interface_name,
                 )
                 for w in warnings:
                     print(f"[WARNING] {label}: {w}")
@@ -347,6 +357,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                     payload=payload,
                     label=label,
                     dry_run=dry_run,
+                    signal_interface_name=scada_cfg.signal_interface_name,
                 )
 
         # ------------------------------------------------------------------
@@ -402,6 +413,7 @@ def _ingest_vector_source(
             unit_name=variable.destination_unit_name,
             data_provenance_id=variable.data_provenance_id,
             processing_degree_id=variable.processing_degree_id,
+            signal_interface_name=vec_cfg.signal_interface_name,
         )
         for w in ch_warnings:
             print(f"[WARNING] {label}: {w}")
@@ -459,6 +471,7 @@ def _ingest_vector_source(
             data_provenance_id=variable.data_provenance_id,
             processing_degree_id=variable.processing_degree_id,
             observations=deduped,
+            signal_interface_name=vec_cfg.signal_interface_name,
         )
         print(
             f"{label}: wrote {result['rows_written']} observations → channel_id={result['channel_id']}"
@@ -489,6 +502,7 @@ def _ingest_image_source(
                 data_provenance_id=variable.data_provenance_id,
                 processing_degree_id=variable.processing_degree_id,
                 value_type_id=4,
+                signal_interface_name=img_cfg.signal_interface_name,
             )
         else:
             channel_id, warnings = client.resolve_channel_tagless(
@@ -499,6 +513,7 @@ def _ingest_image_source(
                 data_provenance_id=variable.data_provenance_id,
                 processing_degree_id=variable.processing_degree_id,
                 value_type_id=4,
+                signal_interface_name=img_cfg.signal_interface_name,
             )
         for w in warnings:
             print(f"[WARNING] {label}: {w}")
@@ -547,6 +562,7 @@ def _ingest_image_source(
                 data_provenance_id=variable.data_provenance_id,
                 processing_degree_id=variable.processing_degree_id,
                 image_path=fp,
+                signal_interface_name=img_cfg.signal_interface_name,
             )
             print(
                 f"{label}: ingested {os.path.basename(fp)} → "

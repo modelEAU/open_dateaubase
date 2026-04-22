@@ -1,14 +1,18 @@
 """HTTP client for the open_datEAUbase REST API.
 
 Provides synchronous access to:
-- POST /api/v1/ingest/resolve-channel          (tagged — channel pre-resolution)
-- POST /api/v1/ingest/resolve-channel-tagless  (tagless — channel pre-resolution)
-- GET  /api/v1/ingest/last-timestamp           (deduplication watermark, by channel_id)
-- POST /api/v1/ingest/sensor                   (tagged bulk scalar ingest)
-- POST /api/v1/ingest/sensor-tagless           (tagless bulk scalar ingest)
-- POST /api/v1/value-binning-axes/resolve      (find-or-create binning axis)
-- POST /api/v1/ingest/sensor-vector            (tagged bulk vector ingest)
-- POST /api/v1/ingest/sensor-image             (tagged/tagless image ingest, multipart)
+- POST /api/v1/ingest/resolve-channel              (tagged — channel pre-resolution)
+- POST /api/v1/ingest/resolve-channel-tagless      (tagless — channel pre-resolution)
+- GET  /api/v1/ingest/last-timestamp               (deduplication watermark, by channel_id)
+- POST /api/v1/ingest/sensor                       (tagged bulk scalar ingest)
+- POST /api/v1/ingest/sensor-tagless               (tagless bulk scalar ingest)
+- POST /api/v1/value-binning-axes/resolve          (find-or-create binning axis)
+- POST /api/v1/ingest/sensor-vector                (tagged bulk vector ingest)
+- POST /api/v1/ingest/sensor-image                 (tagged/tagless image ingest, multipart)
+- POST /api/v1/signal-interfaces/provision         (find-or-create SI by name)
+- POST /api/v1/signal-interface-ports/provision    (find-or-create port by name)
+- POST /api/v1/channels/provision                  (find-or-create channel by name)
+- POST /api/v1/channels/{id}/port-history          (open ChannelPortHistory row)
 """
 
 from __future__ import annotations
@@ -79,9 +83,10 @@ class DateaubaseClient:
         data_provenance_id: int = 1,
         processing_degree_id: int = 1,
         value_type_id: int = 1,
+        signal_interface_name: str | None = None,
     ) -> tuple[int, list[str]]:
         """POST /api/v1/ingest/resolve-channel → (channel_id, warnings)."""
-        body = {
+        body: dict[str, Any] = {
             "das_name": das_name,
             "tag": tag,
             "signal_port_type": signal_port_type,
@@ -92,6 +97,8 @@ class DateaubaseClient:
             "processing_degree_id": processing_degree_id,
             "value_type_id": value_type_id,
         }
+        if signal_interface_name is not None:
+            body["signal_interface_name"] = signal_interface_name
         payload = self._post("/api/v1/ingest/resolve-channel", body)
         return payload["channel_id"], payload.get("warnings", [])
 
@@ -105,9 +112,10 @@ class DateaubaseClient:
         data_provenance_id: int = 1,
         processing_degree_id: int = 1,
         value_type_id: int = 1,
+        signal_interface_name: str | None = None,
     ) -> tuple[int, list[str]]:
         """POST /api/v1/ingest/resolve-channel-tagless → (channel_id, warnings)."""
-        body = {
+        body: dict[str, Any] = {
             "das_name": das_name,
             "equipment_name": equipment_name,
             "parameter_name": parameter_name,
@@ -116,6 +124,8 @@ class DateaubaseClient:
             "processing_degree_id": processing_degree_id,
             "value_type_id": value_type_id,
         }
+        if signal_interface_name is not None:
+            body["signal_interface_name"] = signal_interface_name
         payload = self._post("/api/v1/ingest/resolve-channel-tagless", body)
         return payload["channel_id"], payload.get("warnings", [])
 
@@ -150,13 +160,14 @@ class DateaubaseClient:
         data_provenance_id: int = 1,
         processing_degree_id: int = 1,
         values: list[dict],
+        signal_interface_name: str | None = None,
     ) -> dict:
         """POST /api/v1/ingest/sensor — tagged bulk scalar ingest.
 
         Each item in values: {"timestamp": "<ISO 8601>", "value": float}.
         Returns IngestResponse dict: {"channel_id": int, "rows_written": int, "warnings": list}.
         """
-        body = {
+        body: dict[str, Any] = {
             "das_name": das_name,
             "tag": tag,
             "signal_port_type": signal_port_type,
@@ -167,6 +178,8 @@ class DateaubaseClient:
             "processing_degree_id": processing_degree_id,
             "values": values,
         }
+        if signal_interface_name is not None:
+            body["signal_interface_name"] = signal_interface_name
         return self._post("/api/v1/ingest/sensor", body)
 
     def ingest_sensor_values_tagless(
@@ -179,13 +192,14 @@ class DateaubaseClient:
         data_provenance_id: int = 1,
         processing_degree_id: int = 1,
         values: list[dict],
+        signal_interface_name: str | None = None,
     ) -> dict:
         """POST /api/v1/ingest/sensor-tagless — tagless bulk scalar ingest.
 
         Each item in values: {"timestamp": "<ISO 8601>", "value": float}.
         Returns IngestResponse dict: {"channel_id": int, "rows_written": int, "warnings": list}.
         """
-        body = {
+        body: dict[str, Any] = {
             "das_name": das_name,
             "equipment_name": equipment_name,
             "parameter_name": parameter_name,
@@ -194,6 +208,8 @@ class DateaubaseClient:
             "processing_degree_id": processing_degree_id,
             "values": values,
         }
+        if signal_interface_name is not None:
+            body["signal_interface_name"] = signal_interface_name
         return self._post("/api/v1/ingest/sensor-tagless", body)
 
     # ------------------------------------------------------------------
@@ -241,6 +257,7 @@ class DateaubaseClient:
         data_provenance_id: int = 1,
         processing_degree_id: int = 1,
         observations: list[dict],
+        signal_interface_name: str | None = None,
     ) -> dict:
         """POST /api/v1/ingest/sensor-vector — tagged bulk vector ingest.
 
@@ -248,7 +265,7 @@ class DateaubaseClient:
                            "quality_code": int|None}.
         Returns IngestResponse dict: {"channel_id": int, "rows_written": int, "warnings": list}.
         """
-        body = {
+        body: dict[str, Any] = {
             "das_name": das_name,
             "tag": tag,
             "signal_port_type": signal_port_type,
@@ -260,6 +277,8 @@ class DateaubaseClient:
             "processing_degree_id": processing_degree_id,
             "observations": observations,
         }
+        if signal_interface_name is not None:
+            body["signal_interface_name"] = signal_interface_name
         return self._post("/api/v1/ingest/sensor-vector", body)
 
     # ------------------------------------------------------------------
@@ -298,6 +317,7 @@ class DateaubaseClient:
         data_provenance_id: int = 1,
         processing_degree_id: int = 1,
         image_path: str,
+        signal_interface_name: str | None = None,
     ) -> dict:
         """POST /api/v1/ingest/sensor-image — image ingest via multipart/form-data.
 
@@ -317,6 +337,106 @@ class DateaubaseClient:
             form_data["tag"] = tag
         if equipment_name is not None:
             form_data["equipment_name"] = equipment_name
+        if signal_interface_name is not None:
+            form_data["signal_interface_name"] = signal_interface_name
         return self._post_multipart(
             "/api/v1/ingest/sensor-image", form_data, image_path
         )
+
+    # ------------------------------------------------------------------
+    # L5X loader — find-or-create primitives
+    # ------------------------------------------------------------------
+
+    def create_signal_interface(
+        self,
+        *,
+        das_name: str,
+        name: str,
+        type_name: str,
+        make: str | None = None,
+        model: str | None = None,
+        description: str | None = None,
+    ) -> int:
+        """POST /api/v1/signal-interfaces/provision → signal_interface_id."""
+        body: dict[str, Any] = {"das_name": das_name, "name": name, "type_name": type_name}
+        if make is not None:
+            body["make"] = make
+        if model is not None:
+            body["model"] = model
+        if description is not None:
+            body["description"] = description
+        payload = self._post("/api/v1/signal-interfaces/provision", body)
+        return payload["signal_interface_id"]
+
+    def create_signal_interface_port(
+        self,
+        *,
+        signal_interface_id: int,
+        port_identifier: str,
+        kind_name: str,
+        description: str | None = None,
+    ) -> int:
+        """POST /api/v1/signal-interface-ports/provision → signal_interface_port_id."""
+        body: dict[str, Any] = {
+            "signal_interface_id": signal_interface_id,
+            "port_identifier": port_identifier,
+            "kind_name": kind_name,
+        }
+        if description is not None:
+            body["description"] = description
+        payload = self._post("/api/v1/signal-interface-ports/provision", body)
+        return payload["signal_interface_port_id"]
+
+    def create_channel(
+        self,
+        *,
+        signal_interface_id: int,
+        tag_name: str,
+        parameter_name: str | None = None,
+        unit_name: str | None = None,
+        signal_interface_port_id: int | None = None,
+        parent_channel_id: int | None = None,
+        channel_role: str = "value",
+        data_provenance_id: int | None = None,
+        processing_degree_id: int | None = None,
+        value_type_id: int | None = None,
+    ) -> int:
+        """POST /api/v1/channels/provision → channel_id."""
+        body: dict[str, Any] = {
+            "signal_interface_id": signal_interface_id,
+            "tag_name": tag_name,
+            "channel_role": channel_role,
+        }
+        if parameter_name is not None:
+            body["parameter_name"] = parameter_name
+        if unit_name is not None:
+            body["unit_name"] = unit_name
+        if signal_interface_port_id is not None:
+            body["signal_interface_port_id"] = signal_interface_port_id
+        if parent_channel_id is not None:
+            body["parent_channel_id"] = parent_channel_id
+        if data_provenance_id is not None:
+            body["data_provenance_id"] = data_provenance_id
+        if processing_degree_id is not None:
+            body["processing_degree_id"] = processing_degree_id
+        if value_type_id is not None:
+            body["value_type_id"] = value_type_id
+        payload = self._post("/api/v1/channels/provision", body)
+        return payload["channel_id"]
+
+    def open_channel_port_history(
+        self,
+        *,
+        channel_id: int,
+        port_id: int | None = None,
+        valid_from: str,
+        gating_note: str | None = None,
+    ) -> int:
+        """POST /api/v1/channels/{channel_id}/port-history → channel_port_history_id."""
+        body: dict[str, Any] = {"valid_from": valid_from}
+        if port_id is not None:
+            body["signal_interface_port_id"] = port_id
+        if gating_note is not None:
+            body["gating_note"] = gating_note
+        payload = self._post(f"/api/v1/channels/{channel_id}/port-history", body)
+        return payload["channel_port_history_id"]

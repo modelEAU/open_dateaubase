@@ -176,3 +176,170 @@ def test_api_error_raised_on_422(client):
             unit_name="degC",
         )
     assert exc_info.value.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# signal_interface_name passthrough
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_resolve_channel_passes_signal_interface_name(client):
+    route = respx.post(f"{BASE}/api/v1/ingest/resolve-channel").mock(
+        return_value=Response(200, json={"channel_id": 1, "warnings": []})
+    )
+    client.resolve_channel(
+        das_name="DAS-1",
+        tag="TIT-101",
+        parameter_name="temperature",
+        unit_name="degC",
+        signal_interface_name="my_plc",
+    )
+    assert route.called
+    sent = route.calls[0].request
+    import json
+    body = json.loads(sent.content)
+    assert body["signal_interface_name"] == "my_plc"
+
+
+@respx.mock
+def test_resolve_channel_omits_signal_interface_name_when_none(client):
+    route = respx.post(f"{BASE}/api/v1/ingest/resolve-channel").mock(
+        return_value=Response(200, json={"channel_id": 1, "warnings": []})
+    )
+    client.resolve_channel(
+        das_name="DAS-1",
+        tag="TIT-101",
+        parameter_name="temperature",
+        unit_name="degC",
+    )
+    import json
+    body = json.loads(route.calls[0].request.content)
+    assert "signal_interface_name" not in body
+
+
+# ---------------------------------------------------------------------------
+# create_signal_interface
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_create_signal_interface_returns_id(client):
+    respx.post(f"{BASE}/api/v1/signal-interfaces/provision").mock(
+        return_value=Response(201, json={"signal_interface_id": 10, "name": "plc_1"})
+    )
+    si_id = client.create_signal_interface(
+        das_name="plant_das",
+        name="plc_1",
+        type_name="PLC",
+    )
+    assert si_id == 10
+
+
+@respx.mock
+def test_create_signal_interface_passes_optional_fields(client):
+    route = respx.post(f"{BASE}/api/v1/signal-interfaces/provision").mock(
+        return_value=Response(201, json={"signal_interface_id": 11, "name": "plc_2"})
+    )
+    client.create_signal_interface(
+        das_name="plant_das",
+        name="plc_2",
+        type_name="PLC",
+        make="Siemens",
+        model="S7-1200",
+        description="Main PLC",
+    )
+    import json
+    body = json.loads(route.calls[0].request.content)
+    assert body["make"] == "Siemens"
+    assert body["model"] == "S7-1200"
+    assert body["description"] == "Main PLC"
+
+
+# ---------------------------------------------------------------------------
+# create_signal_interface_port
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_create_signal_interface_port_returns_id(client):
+    respx.post(f"{BASE}/api/v1/signal-interface-ports/provision").mock(
+        return_value=Response(
+            201,
+            json={
+                "signal_interface_port_id": 20,
+                "port_identifier": "AIN1",
+                "signal_interface_id": 10,
+            },
+        )
+    )
+    port_id = client.create_signal_interface_port(
+        signal_interface_id=10,
+        port_identifier="AIN1",
+        kind_name="analog_input",
+    )
+    assert port_id == 20
+
+
+# ---------------------------------------------------------------------------
+# create_channel
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_create_channel_returns_id(client):
+    respx.post(f"{BASE}/api/v1/channels/provision").mock(
+        return_value=Response(201, json={"channel_id": 30, "tag_name": "TIT-101"})
+    )
+    ch_id = client.create_channel(
+        signal_interface_id=10,
+        tag_name="TIT-101",
+    )
+    assert ch_id == 30
+
+
+@respx.mock
+def test_create_channel_passes_optional_fields(client):
+    route = respx.post(f"{BASE}/api/v1/channels/provision").mock(
+        return_value=Response(201, json={"channel_id": 31, "tag_name": "TIT-102"})
+    )
+    client.create_channel(
+        signal_interface_id=10,
+        tag_name="TIT-102",
+        parameter_name="temperature",
+        unit_name="degC",
+        channel_role="value",
+        data_provenance_id=2,
+    )
+    import json
+    body = json.loads(route.calls[0].request.content)
+    assert body["parameter_name"] == "temperature"
+    assert body["unit_name"] == "degC"
+    assert body["data_provenance_id"] == 2
+
+
+# ---------------------------------------------------------------------------
+# open_channel_port_history
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_open_channel_port_history_returns_id(client):
+    respx.post(f"{BASE}/api/v1/channels/5/port-history").mock(
+        return_value=Response(
+            201,
+            json={
+                "channel_port_history_id": 99,
+                "channel_id": 5,
+                "signal_interface_port_id": 20,
+                "valid_from": "2024-01-01T00:00:00",
+                "gating_note": None,
+            },
+        )
+    )
+    cph_id = client.open_channel_port_history(
+        channel_id=5,
+        port_id=20,
+        valid_from="2024-01-01T00:00:00",
+    )
+    assert cph_id == 99

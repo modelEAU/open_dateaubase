@@ -94,6 +94,7 @@ _COMMON = dict(
     data_provenance_id=1,
     processing_degree_id=1,
     label="test/var",
+    signal_interface_name=None,
 )
 
 _PAYLOAD = [{"timestamp": "2024-01-01T00:00:00+00:00", "value": 1.0}]
@@ -120,6 +121,7 @@ def test_ingest_via_api_tagged_calls_correct_method():
         data_provenance_id=1,
         processing_degree_id=1,
         values=_PAYLOAD,
+        signal_interface_name=None,
     )
     client.ingest_sensor_values_tagless.assert_not_called()
 
@@ -137,5 +139,6 @@ def test_ingest_via_api_tagless_calls_correct_method():
         data_provenance_id=1,
         processing_degree_id=1,
         values=_PAYLOAD,
+        signal_interface_name=None,
     )
     client.ingest_sensor_values.assert_not_called()

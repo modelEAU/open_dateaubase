@@ -263,6 +263,7 @@ class TaggedFileConfig(BaseModel):
     name: str
     mode: Literal["tagged"]
     das_name: str
+    signal_interface_name: str | None = None
     file_structure: FileStructure
     variables: list[TaggedFileVariable]
 
@@ -271,6 +272,7 @@ class TaglessFileConfig(BaseModel):
     name: str
     mode: Literal["tagless"]
     das_name: str
+    signal_interface_name: str | None = None
     file_structure: FileStructure
     variables: list[TaglessFileVariable]
 
@@ -279,6 +281,7 @@ class TaggedTsdbConfig(BaseModel):
     name: str
     mode: Literal["tagged"]
     das_name: str
+    signal_interface_name: str | None = None
     tsdb_structure: TsdbFileStructure
     variables: list[TaggedTsdbVariable]
 
@@ -287,6 +290,7 @@ class TaglessTsdbConfig(BaseModel):
     name: str
     mode: Literal["tagless"]
     das_name: str
+    signal_interface_name: str | None = None
     tsdb_structure: TsdbFileStructure
     variables: list[TaglessTsdbVariable]
 
@@ -302,6 +306,7 @@ class PilEAUteSCADAStructure(BaseModel):
 class PilEAUteSCADAConfig(BaseModel):
     name: str
     das_name: str
+    signal_interface_name: str | None = None
     scada_structure: PilEAUteSCADAStructure
     variables: list[PilEAUteSCADAVariable]
 
@@ -310,6 +315,7 @@ class TaggedVectorFileConfig(BaseModel):
     name: str
     mode: Literal["tagged"] = "tagged"
     das_name: str
+    signal_interface_name: str | None = None
     file_structure: VectorFileStructure
     variables: list[TaggedVectorFileVariable]
 
@@ -318,6 +324,7 @@ class TaggedImageFolderConfig(BaseModel):
     name: str
     mode: Literal["tagged"] = "tagged"
     das_name: str
+    signal_interface_name: str | None = None
     folder_structure: ImageFolderStructure
     variables: list[TaggedImageFolderVariable]
 
@@ -326,6 +333,7 @@ class TaglessImageFolderConfig(BaseModel):
     name: str
     mode: Literal["tagless"] = "tagless"
     das_name: str
+    signal_interface_name: str | None = None
     folder_structure: ImageFolderStructure
     variables: list[TaglessImageFolderVariable]
 
@@ -336,6 +344,7 @@ class TaggedMatrixFileConfig(BaseModel):
     name: str
     mode: Literal["tagged"] = "tagged"
     das_name: str
+    signal_interface_name: str | None = None
     file_structure: MatrixFileStructure
     variables: list[TaggedMatrixFileVariable]
 
