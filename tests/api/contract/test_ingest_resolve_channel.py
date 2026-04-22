@@ -1,9 +1,9 @@
 """Contract tests for resolve-channel endpoints.
 
 Covers both tagged (/resolve-channel) and tagless (/resolve-channel-tagless):
-- 422 for unknown signal_port_type / parameter / unit — fired before any DB write
+- 422 for unknown signal_port_type / parameter / unit -- fired before any DB write
 - 200 happy path returns {channel_id, warnings}
-- Warnings present when DAS or SignalPort auto-created
+- Warnings present when DAS or SignalInterface auto-created
 - No data is written (value_repository never called)
 
 Tests run without a live database using dependency_overrides and patch.
@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from api.database import get_db
 from api.main import app
 
-_REPO = "api.v1.endpoints.ingest.signal_port_repository"
+_REPO = "api.v1.endpoints.ingest.signal_interface_repository"
 _ING_REPO = "api.v1.endpoints.ingest.ingestion_repository"
 _VAL_REPO = "api.v1.endpoints.ingest.value_repository"
 
@@ -78,19 +78,26 @@ def client():
 @contextlib.contextmanager
 def _patch_tagged_resolved(
     *,
-    spt_id: int = 1,
+    channel_role_id: int = 1,
     param_id: int = 7,
     unit_id: int = 3,
     das_created: bool = False,
-    port_created: bool = False,
+    si_created: bool = False,
     channel_id: int = 42,
 ):
     with (
-        patch(f"{_REPO}.find_signal_port_type_by_name", return_value=spt_id),
+        patch(f"{_REPO}.find_channel_role_by_name", return_value=channel_role_id),
         patch(f"{_REPO}.find_parameter_by_name", return_value=param_id),
         patch(f"{_REPO}.find_unit_by_name", return_value=unit_id),
         patch(f"{_REPO}.find_or_create_das", return_value=(10, das_created)),
-        patch(f"{_REPO}.find_or_create_signal_port", return_value=(20, port_created)),
+        patch(
+            f"{_REPO}.find_signal_interface_by_das_and_name",
+            return_value=None if si_created else 20,
+        ),
+        patch(f"{_REPO}.find_signal_interface_type_by_name", return_value=2),
+        patch(
+            f"{_REPO}.find_or_create_signal_interface", return_value=(20, si_created)
+        ),
         patch(f"{_ING_REPO}.find_or_create_sensor_metadata", return_value=channel_id),
     ):
         yield
@@ -103,25 +110,36 @@ def _patch_tagless_resolved(
     unit_id: int = 2,
     das_created: bool = False,
     equip_created: bool = False,
-    port_created: bool = False,
+    si_created: bool = False,
     channel_id: int = 42,
 ):
     with (
         patch(f"{_REPO}.find_parameter_by_name", return_value=param_id),
         patch(f"{_REPO}.find_unit_by_name", return_value=unit_id),
         patch(f"{_REPO}.find_or_create_das", return_value=(10, das_created)),
-        patch(f"{_REPO}.find_or_create_equipment_by_identifier", return_value=(20, equip_created)),
-        patch(f"{_REPO}.find_signal_port_type_by_name", return_value=1),
-        patch(f"{_REPO}.generate_tagless_tag", return_value="probe_a/dissolved oxygen"),
-        patch(f"{_REPO}.find_or_create_signal_port", return_value=(30, port_created)),
-        patch(f"{_REPO}.open_port_equipment_history", return_value=1),
+        patch(
+            f"{_REPO}.find_or_create_equipment_by_identifier",
+            return_value=(20, equip_created),
+        ),
+        patch(
+            f"{_REPO}.find_active_equipment_wiring",
+            return_value=None if si_created else (30, None),
+        ),
+        patch(f"{_REPO}.find_signal_interface_type_by_name", return_value=5),
+        patch(
+            f"{_REPO}.generate_tagless_tagname", return_value="probe_a/dissolved oxygen"
+        ),
+        patch(
+            f"{_REPO}.find_or_create_signal_interface", return_value=(30, si_created)
+        ),
+        patch(f"{_REPO}.open_equipment_wiring_history", return_value=1),
         patch(f"{_ING_REPO}.find_or_create_sensor_metadata", return_value=channel_id),
     ):
         yield
 
 
 # ---------------------------------------------------------------------------
-# Tagged — validation errors
+# Tagged -- validation errors
 # ---------------------------------------------------------------------------
 
 
@@ -129,7 +147,7 @@ class TestTaggedValidationErrors:
     def test_unknown_signal_port_type_returns_422(self, client, mock_conn):
         payload = {**_TAGGED_PAYLOAD, "signal_port_type": "not_a_type"}
         with (
-            patch(f"{_REPO}.find_signal_port_type_by_name", return_value=None),
+            patch(f"{_REPO}.find_channel_role_by_name", return_value=None),
             patch(f"{_REPO}.find_parameter_by_name") as mock_param,
             patch(f"{_REPO}.find_unit_by_name") as mock_unit,
             patch(f"{_REPO}.find_or_create_das") as mock_das,
@@ -149,7 +167,7 @@ class TestTaggedValidationErrors:
     def test_unknown_parameter_returns_422(self, client, mock_conn):
         payload = {**_TAGGED_PAYLOAD, "parameter_name": "xyzzy"}
         with (
-            patch(f"{_REPO}.find_signal_port_type_by_name", return_value=1),
+            patch(f"{_REPO}.find_channel_role_by_name", return_value=1),
             patch(f"{_REPO}.find_parameter_by_name", return_value=None),
             patch(f"{_REPO}.find_unit_by_name") as mock_unit,
             patch(f"{_REPO}.find_or_create_das") as mock_das,
@@ -168,7 +186,7 @@ class TestTaggedValidationErrors:
     def test_unknown_unit_returns_422(self, client, mock_conn):
         payload = {**_TAGGED_PAYLOAD, "unit_name": "flurbs"}
         with (
-            patch(f"{_REPO}.find_signal_port_type_by_name", return_value=1),
+            patch(f"{_REPO}.find_channel_role_by_name", return_value=1),
             patch(f"{_REPO}.find_parameter_by_name", return_value=7),
             patch(f"{_REPO}.find_unit_by_name", return_value=None),
             patch(f"{_REPO}.find_or_create_das") as mock_das,
@@ -185,7 +203,7 @@ class TestTaggedValidationErrors:
 
 
 # ---------------------------------------------------------------------------
-# Tagged — happy path
+# Tagged -- happy path
 # ---------------------------------------------------------------------------
 
 
@@ -200,14 +218,14 @@ class TestTaggedHappyPath:
         assert "warnings" in body
 
     def test_no_warnings_when_all_exist(self, client, mock_conn):
-        with _patch_tagged_resolved(das_created=False, port_created=False):
+        with _patch_tagged_resolved(das_created=False, si_created=False):
             resp = client.post("/api/v1/ingest/resolve-channel", json=_TAGGED_PAYLOAD)
 
         assert resp.status_code == 200
         assert resp.json()["warnings"] == []
 
     def test_warning_when_das_auto_created(self, client, mock_conn):
-        with _patch_tagged_resolved(das_created=True, port_created=False):
+        with _patch_tagged_resolved(das_created=True, si_created=False):
             resp = client.post("/api/v1/ingest/resolve-channel", json=_TAGGED_PAYLOAD)
 
         assert resp.status_code == 200
@@ -215,8 +233,8 @@ class TestTaggedHappyPath:
         assert len(warnings) == 1
         assert "PlantSCADA" in warnings[0]
 
-    def test_warning_when_port_auto_created(self, client, mock_conn):
-        with _patch_tagged_resolved(das_created=False, port_created=True):
+    def test_warning_when_signal_interface_auto_created(self, client, mock_conn):
+        with _patch_tagged_resolved(das_created=False, si_created=True):
             resp = client.post("/api/v1/ingest/resolve-channel", json=_TAGGED_PAYLOAD)
 
         assert resp.status_code == 200
@@ -225,7 +243,7 @@ class TestTaggedHappyPath:
         assert "TIT-101" in warnings[0]
 
     def test_two_warnings_when_both_auto_created(self, client, mock_conn):
-        with _patch_tagged_resolved(das_created=True, port_created=True):
+        with _patch_tagged_resolved(das_created=True, si_created=True):
             resp = client.post("/api/v1/ingest/resolve-channel", json=_TAGGED_PAYLOAD)
 
         assert resp.status_code == 200
@@ -243,7 +261,7 @@ class TestTaggedHappyPath:
 
 
 # ---------------------------------------------------------------------------
-# Tagless — validation errors
+# Tagless -- validation errors
 # ---------------------------------------------------------------------------
 
 
@@ -285,14 +303,16 @@ class TestTaglessValidationErrors:
 
 
 # ---------------------------------------------------------------------------
-# Tagless — happy path
+# Tagless -- happy path
 # ---------------------------------------------------------------------------
 
 
 class TestTaglessHappyPath:
     def test_returns_channel_id_and_warnings(self, client, mock_conn):
         with _patch_tagless_resolved(channel_id=99):
-            resp = client.post("/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD)
+            resp = client.post(
+                "/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD
+            )
 
         assert resp.status_code == 200
         body = resp.json()
@@ -300,22 +320,30 @@ class TestTaglessHappyPath:
         assert "warnings" in body
 
     def test_no_warnings_when_all_exist(self, client, mock_conn):
-        with _patch_tagless_resolved(das_created=False, equip_created=False, port_created=False):
-            resp = client.post("/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD)
+        with _patch_tagless_resolved(
+            das_created=False, equip_created=False, si_created=False
+        ):
+            resp = client.post(
+                "/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD
+            )
 
         assert resp.status_code == 200
         assert resp.json()["warnings"] == []
 
     def test_warning_when_das_auto_created(self, client, mock_conn):
         with _patch_tagless_resolved(das_created=True):
-            resp = client.post("/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD)
+            resp = client.post(
+                "/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD
+            )
 
         assert resp.status_code == 200
         assert any("DirectStation" in w for w in resp.json()["warnings"])
 
     def test_warning_when_equipment_auto_created(self, client, mock_conn):
         with _patch_tagless_resolved(equip_created=True):
-            resp = client.post("/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD)
+            resp = client.post(
+                "/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD
+            )
 
         assert resp.status_code == 200
         assert any("Probe_A" in w for w in resp.json()["warnings"])
@@ -325,7 +353,9 @@ class TestTaglessHappyPath:
             _patch_tagless_resolved(),
             patch(f"{_VAL_REPO}.insert_scalar_values") as mock_vals,
         ):
-            resp = client.post("/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD)
+            resp = client.post(
+                "/api/v1/ingest/resolve-channel-tagless", json=_TAGLESS_PAYLOAD
+            )
 
         assert resp.status_code == 200
         mock_vals.assert_not_called()

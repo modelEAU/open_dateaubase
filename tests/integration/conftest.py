@@ -84,6 +84,8 @@ SQL_FILES = {
     "v2.2.0_create": PROJECT_ROOT
     / "sql_generation_scripts"
     / "v2.2.0_create_mssql.sql",
+    "v1.0.0_to_v3.0.0": MIGRATIONS_DIR / "v1.0.0_to_v3.0.0_mssql.sql",
+    "v4.0.0_signal_interface": MIGRATIONS_DIR / "v4.0.0_signal_interface.sql",
 }
 
 
@@ -418,3 +420,133 @@ def db_at_v220(fresh_db):
         ],
     )
     yield conn, db_name
+
+
+@pytest.fixture()
+def db_at_v400(fresh_db):
+    """Database at v4.0.0 schema with minimal seed data for ingest tests."""
+    conn, db_name = fresh_db
+    _apply_schema_and_seeds(
+        conn,
+        [
+            "v1.0.0_create",
+            "v1.0.0_to_v3.0.0",
+            "v4.0.0_signal_interface",
+        ],
+    )
+
+    # Seed minimal lookup data needed by ingest tests
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)", "Temperature"
+    )
+    cursor.execute("INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)", "pH")
+    cursor.execute("INSERT INTO [dbo].[Unit] ([Unit]) VALUES (?)", "degC")
+    cursor.execute("INSERT INTO [dbo].[Unit] ([Unit]) VALUES (?)", "pH units")
+    conn.commit()
+
+    yield conn, db_name
+
+
+# ---------------------------------------------------------------------------
+# v4.0.0 shared helpers (used by 5C–5G)
+# ---------------------------------------------------------------------------
+
+
+def make_signal_interface(conn, das_id: int, name: str, type_id: int) -> int:
+    """Create or retrieve a SignalInterface. Returns SignalInterface_ID."""
+    from api.v1.repositories.signal_interface_repository import (
+        find_or_create_signal_interface,
+    )
+
+    si_id, _ = find_or_create_signal_interface(conn, das_id, name, type_id)
+    return si_id
+
+
+def make_signal_interface_port(
+    conn, si_id: int, port_identifier: str, kind_id: int
+) -> int:
+    """Create or retrieve a SignalInterfacePort. Returns SignalInterfacePort_ID."""
+    from api.v1.repositories.signal_interface_repository import (
+        find_or_create_signal_interface_port,
+    )
+
+    port_id, _ = find_or_create_signal_interface_port(
+        conn, si_id, port_identifier, kind_id
+    )
+    return port_id
+
+
+def make_channel(
+    conn,
+    si_id: int,
+    tag_name: str,
+    parameter_id: int,
+    **kwargs,
+) -> int:
+    """Create or retrieve a Channel. Returns Channel_ID."""
+    from api.v1.repositories.ingestion_repository import (
+        find_or_create_sensor_metadata,
+    )
+
+    return find_or_create_sensor_metadata(
+        conn,
+        signal_interface_id=si_id,
+        tag_name=tag_name,
+        parameter_id=parameter_id,
+        **kwargs,
+    )
+
+
+def open_wiring(
+    conn,
+    equipment_id: int,
+    si_id: int,
+    port_id: int | None = None,
+    valid_from=None,
+):
+    """Open an EquipmentWiringHistory row. Returns EquipmentWiringHistory_ID."""
+    from datetime import datetime, timezone
+
+    if valid_from is None:
+        valid_from = datetime.now(timezone.utc)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[EquipmentWiringHistory]"
+        "    ([Equipment_ID], [SignalInterface_ID], [SignalInterfacePort_ID], [ValidFrom])"
+        " OUTPUT INSERTED.[EquipmentWiringHistory_ID]"
+        " VALUES (?, ?, ?, ?)",
+        equipment_id,
+        si_id,
+        port_id,
+        valid_from,
+    )
+    new_id = cursor.fetchone()[0]
+    conn.commit()
+    return new_id
+
+
+def open_location(
+    conn,
+    equipment_id: int,
+    sampling_point_id: int,
+    valid_from=None,
+):
+    """Open an EquipmentLocationHistory row. Returns EquipmentLocationHistory_ID."""
+    from datetime import datetime, timezone
+
+    if valid_from is None:
+        valid_from = datetime.now(timezone.utc)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[EquipmentLocationHistory]"
+        "    ([Equipment_ID], [SamplingPoint_ID], [ValidFrom])"
+        " OUTPUT INSERTED.[EquipmentLocationHistory_ID]"
+        " VALUES (?, ?, ?)",
+        equipment_id,
+        sampling_point_id,
+        valid_from,
+    )
+    new_id = cursor.fetchone()[0]
+    conn.commit()
+    return new_id

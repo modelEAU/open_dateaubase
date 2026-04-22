@@ -210,18 +210,25 @@ class TestSitesContract:
 
 REQUIRED_CHANNEL_FIELDS = {
     "channel_id",
+    "signal_interface_id",
+    "signal_interface_name",
+    "signal_interface_port_id",
+    "signal_interface_port_identifier",
+    "tag_name",
+    "parent_channel_id",
+    "parent_channel_tag_name",
+    "channel_role_id",
+    "channel_role_name",
     "parameter_id",
     "parameter_name",
     "equipment_id",
     "equipment_identifier",
     "data_provenance_id",
-    "data_provenance",
+    "data_provenance_name",
     "processing_degree_id",
     "processing_degree_name",
     "value_type_id",
     "value_type_name",
-    "signal_port_id",
-    "signal_port_tag",
     "unit_id",
     "unit_name",
 }
@@ -232,10 +239,12 @@ REQUIRED_PAGINATED_FIELDS = {"items", "total", "page", "page_size", "has_next"}
 def _mock_channel():
     return {f: None for f in REQUIRED_CHANNEL_FIELDS} | {
         "channel_id": 1,
+        "signal_interface_id": 1,
+        "tag_name": "MOCK-001",
         "processing_degree_id": 1,
         "processing_degree_name": "Raw",
-        "signal_port_id": 1,
-        "signal_port_tag": "MOCK-001",
+        "channel_role_id": 1,
+        "channel_role_name": "Value",
     }
 
 
@@ -294,6 +303,29 @@ class TestChannelsContract:
         ):
             r = c.get("/api/v1/channels?page=2&page_size=10&processing_degree_id=1")
         assert r.status_code == 200
+
+    def test_resolve_channel_returns_channel_id(self, patched_client):
+        c, conn, cursor = patched_client
+        with (
+            patch(
+                "api.v1.repositories.signal_interface_repository.find_signal_interface_by_name",
+                return_value=1,
+            ),
+            patch(
+                "api.v1.repositories.channel_repository.find_channel_by_signal_interface_tag",
+                return_value={"channel_id": 42},
+            ),
+        ):
+            r = c.post(
+                "/api/v1/channels/resolve",
+                json={
+                    "signal_interface_name": "PLC-01",
+                    "tag_name": "AI_01",
+                    "create_missing": False,
+                },
+            )
+        assert r.status_code == 200
+        assert r.json()["channel_id"] == 42
 
 
 # ---------------------------------------------------------------------------
@@ -813,17 +845,18 @@ class TestObservationAwareIngest:
     3. No KeyError or AttributeError from stale column references
     """
 
-    def test_post_ingest_sensor_scalar_contract(self, client):
+    def test_post_ingest_sensor_scalar_contract(self, patched_client):
         """POST /ingest/sensor returns {"rows_written": N, "channel_id": N} with valid input."""
         from unittest.mock import patch
 
-        _REPO = "api.v1.endpoints.ingest.signal_port_repository"
+        client, _conn, _cursor = patched_client
+        _REPO = "api.v1.endpoints.ingest.signal_interface_repository"
         with (
-            patch(f"{_REPO}.find_signal_port_type_by_name", return_value=1),
+            patch(f"{_REPO}.find_channel_role_by_name", return_value=1),
             patch(f"{_REPO}.find_parameter_by_name", return_value=1),
             patch(f"{_REPO}.find_unit_by_name", return_value=1),
             patch(f"{_REPO}.find_or_create_das", return_value=(5, False)),
-            patch(f"{_REPO}.find_or_create_signal_port", return_value=(10, False)),
+            patch(f"{_REPO}.find_signal_interface_by_das_and_name", return_value=10),
             patch(
                 "api.v1.endpoints.ingest.ingestion_repository.find_or_create_sensor_metadata",
                 return_value=42,
@@ -854,11 +887,12 @@ class TestObservationAwareIngest:
         assert "rows_written" in body
         assert body["rows_written"] == 2
 
-    def test_get_last_timestamp_contract(self, client):
+    def test_get_last_timestamp_contract(self, patched_client):
         """GET /ingest/last-timestamp returns {"last_timestamp": ...} or null."""
         from datetime import datetime
         from unittest.mock import patch
 
+        client, _conn, _cursor = patched_client
         with patch(
             "api.v1.endpoints.ingest.ingestion_repository.get_last_timestamp_for_channel",
             return_value=datetime(2024, 1, 1, 10, 5, 0),

@@ -1,71 +1,35 @@
-"""Integration tests for sub-signal grouping (Issue #8).
+"""Integration tests for sub-signal grouping (Issue #8, v4.0.0).
 
-Tests run against a live MSSQL container at the v3.0.0 schema.
+Tests run against a live MSSQL container at the v4.0.0 schema.
 Skipped automatically when the container is unavailable.
 
 Covers all issue #8 acceptance criteria:
 
-  AC-SS1  Tag-mode ingest accepts parent_tag; sets ParentPort_ID correctly
-  AC-SS2  Sub-signal port is created with the correct SignalPortType (Status/Alarm/Uncertainty)
-  AC-SS3  GET /ports/{id}/sub-signals returns all sub-signals for a value port
-  AC-SS4  Attempting to relocate a sub-signal port returns 422
-  AC-SS5  Relocating a parent port succeeds and does not affect sub-signal ParentPort_ID links
+  AC-SS1  ParentChannel_ID correctly links a child Channel to its parent
+  AC-SS2  Sub-signal Channel is created with the correct ChannelRole
+          (Value/Status/Alarm/Uncertainty)
+  AC-SS3  Querying sub-signals by ParentChannel_ID returns all children
+  AC-SS4  Status-channel auto-selection works via ParentChannel_ID +
+          ChannelRole.Name = 'Status'
+  AC-SS5  Parent/child links survive independent of Equipment wiring/location
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 
-from .conftest import fresh_db, mssql_engine, run_sql_file  # noqa: F401
+pytestmark = pytest.mark.db
 
-from api.v1.repositories import (
-    signal_port_repository,
-    ingestion_repository,
-    temporal_history_repository,
+from api.v1.repositories.ingestion_repository import find_or_create_sensor_metadata
+from api.v1.repositories.signal_interface_repository import (
+    find_channel_role_by_name,
+    find_or_create_das,
+    find_or_create_signal_interface,
+    find_parameter_by_name,
+    find_unit_by_name,
 )
-
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
-
-
-# ---------------------------------------------------------------------------
-# Fixture: v3.0.0 database with minimal seed data
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def db(fresh_db):  # noqa: F811
-    conn, db_name = fresh_db
-
-    run_sql_file(conn, MIGRATIONS_DIR / "v1.0.0_create_mssql.sql")
-    run_sql_file(conn, MIGRATIONS_DIR / "v1.0.0_to_v3.0.0_mssql.sql")
-
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)", "Temperature")
-    cursor.execute("INSERT INTO [dbo].[Unit] ([Unit]) VALUES (?)", "degC")
-
-    cursor.execute(
-        "INSERT INTO [dbo].[Site] ([Name]) OUTPUT INSERTED.[Site_ID] VALUES (?)", "TestSite"
-    )
-    site_id = cursor.fetchone()[0]
-    cursor.execute(
-        "INSERT INTO [dbo].[SamplingPoint] ([Name], [Site_ID])"
-        " OUTPUT INSERTED.[SamplingPoint_ID] VALUES (?, ?)",
-        "Inlet", site_id,
-    )
-    sp_inlet_id = cursor.fetchone()[0]
-    cursor.execute(
-        "INSERT INTO [dbo].[SamplingPoint] ([Name], [Site_ID])"
-        " OUTPUT INSERTED.[SamplingPoint_ID] VALUES (?, ?)",
-        "Outlet", site_id,
-    )
-    sp_outlet_id = cursor.fetchone()[0]
-    conn.commit()
-
-    yield conn, db_name, {"sp_inlet_id": sp_inlet_id, "sp_outlet_id": sp_outlet_id}
 
 
 # ---------------------------------------------------------------------------
@@ -73,199 +37,265 @@ def db(fresh_db):  # noqa: F811
 # ---------------------------------------------------------------------------
 
 
-def _make_port(conn, das_name: str, tag: str, port_type: str = "value") -> int:
-    das_id, _ = signal_port_repository.find_or_create_das(conn, das_name)
-    spt_id = signal_port_repository.find_signal_port_type_by_name(conn, port_type)
-    port_id, _ = signal_port_repository.find_or_create_signal_port(conn, das_id, tag, spt_id)
-    return port_id
-
-
-def _make_channel(conn, port_id: int) -> int:
-    param_id = signal_port_repository.find_parameter_by_name(conn, "Temperature")
-    unit_id = signal_port_repository.find_unit_by_name(conn, "degC")
-    return ingestion_repository.find_or_create_sensor_metadata(
+def _make_parent_channel(conn, das_name: str, tag: str) -> int:
+    """Create a parent (measurement) Channel with Value role. Returns Channel_ID."""
+    das_id, _ = find_or_create_das(conn, das_name)
+    si_id, _ = find_or_create_signal_interface(conn, das_id, tag, 2)  # SCADA
+    param_id = find_parameter_by_name(conn, "Temperature")
+    unit_id = find_unit_by_name(conn, "degC")
+    assert param_id is not None
+    assert unit_id is not None
+    return find_or_create_sensor_metadata(
         conn,
-        signal_port_id=port_id,
+        signal_interface_id=si_id,
+        tag_name=tag,
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=1,
         processing_degree_id=1,
+        channel_role_id=1,  # Value
     )
 
 
-def _get_parent_port_id_from_db(conn, signal_port_id: int) -> int | None:
+def _make_child_channel(conn, parent_channel_id: int, tag: str, role_name: str) -> int:
+    """Create a child Channel with a specific role linked to a parent. Returns Channel_ID."""
+    param_id = find_parameter_by_name(conn, "Temperature")
+    unit_id = find_unit_by_name(conn, "degC")
+    assert param_id is not None
+    assert unit_id is not None
+    role_id = find_channel_role_by_name(conn, role_name)
+    assert role_id is not None, f"Unknown channel role: {role_name}"
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ParentPort_ID] FROM [dbo].[SignalPort] WHERE [SignalPort_ID] = ?",
-        signal_port_id,
+        "SELECT [SignalInterface_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?",
+        parent_channel_id,
+    )
+    row = cursor.fetchone()
+    assert row is not None
+    si_id = row[0]
+    return find_or_create_sensor_metadata(
+        conn,
+        signal_interface_id=si_id,
+        tag_name=tag,
+        parameter_id=param_id,
+        unit_id=unit_id,
+        data_provenance_id=1,
+        processing_degree_id=1,
+        parent_channel_id=parent_channel_id,
+        channel_role_id=role_id,
+    )
+
+
+def _get_sub_signal_channel_ids(conn, parent_channel_id: int) -> list[int]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Channel_ID] FROM [dbo].[Channel]"
+        " WHERE [ParentChannel_ID] = ?"
+        " ORDER BY [Channel_ID]",
+        parent_channel_id,
+    )
+    return [row[0] for row in cursor.fetchall()]
+
+
+def _get_channel_role_name(conn, channel_id: int) -> str:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT cr.[Name]
+        FROM [dbo].[Channel] c
+        JOIN [dbo].[ChannelRole] cr ON cr.[ChannelRole_ID] = c.[ChannelRole_ID]
+        WHERE c.[Channel_ID] = ?
+        """,
+        channel_id,
+    )
+    row = cursor.fetchone()
+    assert row is not None
+    return row[0]
+
+
+def _get_status_channel_for_measurement(
+    conn, measurement_channel_id: int
+) -> int | None:
+    """Raw SQL matching _STATUS_CHANNEL_FOR_MEASUREMENT pattern."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT sc.[Channel_ID]
+        FROM [dbo].[Channel] sc
+        JOIN [dbo].[ChannelRole] cr ON cr.[ChannelRole_ID] = sc.[ChannelRole_ID]
+        WHERE sc.[ParentChannel_ID] = ?
+          AND cr.[Name] = N'Status'
+        """,
+        measurement_channel_id,
     )
     row = cursor.fetchone()
     return row[0] if row else None
 
 
-# ---------------------------------------------------------------------------
-# AC-SS1 + AC-SS2: parent_tag sets ParentPort_ID; correct SignalPortType stored
-# ---------------------------------------------------------------------------
-
-
-def test_set_parent_port_links_sub_signal(db):
-    conn, _, _ = db
-
-    parent_port_id = _make_port(conn, "DAS1", "TIT-101", "value")
-    sub_port_id = _make_port(conn, "DAS1", "TIT-101.status", "status")
-
-    assert _get_parent_port_id_from_db(conn, sub_port_id) is None
-
-    signal_port_repository.set_parent_port(conn, sub_port_id, parent_port_id)
-
-    assert _get_parent_port_id_from_db(conn, sub_port_id) == parent_port_id
-
-
-def test_set_parent_port_idempotent(db):
-    conn, _, _ = db
-
-    parent_port_id = _make_port(conn, "DAS1", "TIT-202", "value")
-    sub_port_id = _make_port(conn, "DAS1", "TIT-202.alarm", "alarm")
-
-    signal_port_repository.set_parent_port(conn, sub_port_id, parent_port_id)
-    # Second call with same parent — must not raise
-    signal_port_repository.set_parent_port(conn, sub_port_id, parent_port_id)
-
-    assert _get_parent_port_id_from_db(conn, sub_port_id) == parent_port_id
-
-
-def test_set_parent_port_rejects_reassignment(db):
-    conn, _, _ = db
-
-    parent_a = _make_port(conn, "DAS1", "TIT-303", "value")
-    parent_b = _make_port(conn, "DAS1", "TIT-304", "value")
-    sub_port_id = _make_port(conn, "DAS1", "TIT-303.uncertainty", "uncertainty")
-
-    signal_port_repository.set_parent_port(conn, sub_port_id, parent_a)
-
-    with pytest.raises(ValueError, match="already has ParentPort_ID"):
-        signal_port_repository.set_parent_port(conn, sub_port_id, parent_b)
-
-
-def test_sub_signal_has_correct_signal_port_type(db):
-    conn, _, _ = db
-
-    parent_port_id = _make_port(conn, "DAS1", "TIT-404", "value")
-    status_port_id = _make_port(conn, "DAS1", "TIT-404.status", "status")
-    alarm_port_id = _make_port(conn, "DAS1", "TIT-404.alarm", "alarm")
-    unc_port_id = _make_port(conn, "DAS1", "TIT-404.uncertainty", "uncertainty")
-
-    for sub_id in (status_port_id, alarm_port_id, unc_port_id):
-        signal_port_repository.set_parent_port(conn, sub_id, parent_port_id)
-
+def _insert_observation_and_value(
+    conn, channel_id: int, timestamp: datetime, value: float
+) -> int:
     cursor = conn.cursor()
-    for sub_id, expected_type in [
-        (status_port_id, "status"),
-        (alarm_port_id, "alarm"),
-        (unc_port_id, "uncertainty"),
-    ]:
+    cursor.execute(
+        "INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])"
+        " OUTPUT INSERTED.[Observation_ID]"
+        " VALUES (?, ?, 'Scalar')",
+        channel_id,
+        timestamp,
+    )
+    obs_id = cursor.fetchone()[0]
+    cursor.execute(
+        "INSERT INTO [dbo].[Value] ([Observation_ID], [Value]) VALUES (?, ?)",
+        obs_id,
+        value,
+    )
+    conn.commit()
+    return obs_id
+
+
+# ---------------------------------------------------------------------------
+# AC-SS1: ParentChannel_ID links child Channel correctly
+# ---------------------------------------------------------------------------
+
+
+class TestParentChildLink:
+    def test_parent_channel_links_sub_signal(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-101")
+        child_id = _make_child_channel(conn, parent_id, "TIT-101.status", "Status")
+
+        cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT spt.[Name]
-            FROM [dbo].[SignalPort] sp
-            JOIN [dbo].[SignalPortType] spt ON spt.[SignalPortType_ID] = sp.[SignalPortType_ID]
-            WHERE sp.[SignalPort_ID] = ?
-            """,
-            sub_id,
+            "SELECT [ParentChannel_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?",
+            child_id,
         )
         row = cursor.fetchone()
         assert row is not None
-        assert row[0].lower() == expected_type
+        assert row[0] == parent_id
+
+    def test_parent_channel_link_idempotent(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-202")
+        child_id_1 = _make_child_channel(conn, parent_id, "TIT-202.alarm", "Alarm")
+        child_id_2 = _make_child_channel(conn, parent_id, "TIT-202.alarm", "Alarm")
+
+        assert child_id_1 == child_id_2
+
+    def test_child_channels_differentiated_by_role(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-303")
+        status_id = _make_child_channel(conn, parent_id, "TIT-303.status", "Status")
+        alarm_id = _make_child_channel(conn, parent_id, "TIT-303.alarm", "Alarm")
+
+        assert status_id != alarm_id
 
 
 # ---------------------------------------------------------------------------
-# AC-SS3: get_sub_signals returns all children for a parent port
+# AC-SS2: ChannelRole is stored correctly
 # ---------------------------------------------------------------------------
 
 
-def test_get_sub_signals_returns_all_children(db):
-    conn, _, _ = db
+class TestChannelRole:
+    def test_sub_signal_has_correct_channel_role(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-404")
+        status_id = _make_child_channel(conn, parent_id, "TIT-404.status", "Status")
+        alarm_id = _make_child_channel(conn, parent_id, "TIT-404.alarm", "Alarm")
+        unc_id = _make_child_channel(
+            conn, parent_id, "TIT-404.uncertainty", "Uncertainty"
+        )
 
-    parent_port_id = _make_port(conn, "DAS1", "TIT-505", "value")
-    status_id = _make_port(conn, "DAS1", "TIT-505.status", "status")
-    alarm_id = _make_port(conn, "DAS1", "TIT-505.alarm", "alarm")
-    unc_id = _make_port(conn, "DAS1", "TIT-505.uncertainty", "uncertainty")
-
-    for sub_id in (status_id, alarm_id, unc_id):
-        signal_port_repository.set_parent_port(conn, sub_id, parent_port_id)
-
-    sub_signals = signal_port_repository.get_sub_signals(conn, parent_port_id)
-
-    returned_ids = {r["SignalPort_ID"] for r in sub_signals}
-    assert returned_ids == {status_id, alarm_id, unc_id}
-
-    for r in sub_signals:
-        assert r["ParentPort_ID"] == parent_port_id
-        assert r["signal_port_type_name"].lower() in {"status", "alarm", "uncertainty"}
-
-
-def test_get_sub_signals_empty_for_root_port(db):
-    conn, _, _ = db
-
-    parent_port_id = _make_port(conn, "DAS1", "TIT-606", "value")
-    sub_signals = signal_port_repository.get_sub_signals(conn, parent_port_id)
-    assert sub_signals == []
+        assert _get_channel_role_name(conn, parent_id) == "Value"
+        assert _get_channel_role_name(conn, status_id) == "Status"
+        assert _get_channel_role_name(conn, alarm_id) == "Alarm"
+        assert _get_channel_role_name(conn, unc_id) == "Uncertainty"
 
 
 # ---------------------------------------------------------------------------
-# AC-SS4: Relocating a sub-signal port is rejected
+# AC-SS3: Querying sub-signals by ParentChannel_ID
 # ---------------------------------------------------------------------------
 
 
-def test_relocate_sub_signal_port_raises_error(db):
-    conn, _, seed = db
+class TestGetSubSignals:
+    def test_get_sub_signals_returns_all_children(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-505")
+        status_id = _make_child_channel(conn, parent_id, "TIT-505.status", "Status")
+        alarm_id = _make_child_channel(conn, parent_id, "TIT-505.alarm", "Alarm")
+        unc_id = _make_child_channel(
+            conn, parent_id, "TIT-505.uncertainty", "Uncertainty"
+        )
 
-    parent_port_id = _make_port(conn, "DAS1", "TIT-707", "value")
-    sub_port_id = _make_port(conn, "DAS1", "TIT-707.status", "status")
-    signal_port_repository.set_parent_port(conn, sub_port_id, parent_port_id)
+        children = _get_sub_signal_channel_ids(conn, parent_id)
+        assert set(children) == {status_id, alarm_id, unc_id}
 
-    # Verify that get_parent_port_id correctly returns the parent (used by the endpoint guard)
-    assert signal_port_repository.get_parent_port_id(conn, sub_port_id) == parent_port_id
-
-
-def test_get_parent_port_id_is_none_for_root_port(db):
-    conn, _, _ = db
-
-    root_port_id = _make_port(conn, "DAS1", "TIT-808", "value")
-    assert signal_port_repository.get_parent_port_id(conn, root_port_id) is None
+    def test_get_sub_signals_empty_for_root_channel(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-606")
+        children = _get_sub_signal_channel_ids(conn, parent_id)
+        assert children == []
 
 
 # ---------------------------------------------------------------------------
-# AC-SS5: Relocating parent port succeeds; sub-signal ParentPort_ID unchanged
+# AC-SS4: Status-channel auto-selection
 # ---------------------------------------------------------------------------
 
 
-def test_relocate_parent_port_does_not_affect_sub_signal_links(db):
-    conn, _, seed = db
+class TestStatusChannelAutoSelection:
+    def test_status_channel_for_measurement_query(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-707")
+        status_id = _make_child_channel(conn, parent_id, "TIT-707.status", "Status")
 
-    parent_port_id = _make_port(conn, "DAS1", "TIT-909", "value")
-    _make_channel(conn, parent_port_id)
+        resolved = _get_status_channel_for_measurement(conn, parent_id)
+        assert resolved == status_id
 
-    sub_port_id = _make_port(conn, "DAS1", "TIT-909.status", "status")
-    signal_port_repository.set_parent_port(conn, sub_port_id, parent_port_id)
+    def test_status_channel_returns_none_when_missing(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-808")
 
-    t_install = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    t_move = datetime(2024, 6, 1, tzinfo=timezone.utc)
+        resolved = _get_status_channel_for_measurement(conn, parent_id)
+        assert resolved is None
 
+    def test_status_channel_resolves_with_observation(self, db_at_v400):
+        conn, _ = db_at_v400
+        parent_id = _make_parent_channel(conn, "DAS1", "TIT-909")
+        status_id = _make_child_channel(conn, parent_id, "TIT-909.status", "Status")
+
+        # Insert an observation on the status channel
+        t = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        _insert_observation_and_value(conn, status_id, t, 1.0)
+
+        # Verify the status channel still resolves correctly
+        resolved = _get_status_channel_for_measurement(conn, parent_id)
+        assert resolved == status_id
+
+
+# ---------------------------------------------------------------------------
+# AC-SS5: Parent/child links are independent of Equipment wiring/location
+# ---------------------------------------------------------------------------
+
+
+def test_parent_child_link_survives_equipment_wiring(db_at_v400):
+    """Opening an EquipmentWiringHistory row does not affect Channel.ParentChannel_ID."""
+    from api.v1.repositories.signal_interface_repository import (
+        find_or_create_equipment_by_identifier,
+        open_equipment_wiring_history,
+    )
+
+    conn, _ = db_at_v400
+    parent_id = _make_parent_channel(conn, "DAS1", "TIT-WIRE")
+    child_id = _make_child_channel(conn, parent_id, "TIT-WIRE.status", "Status")
+
+    equip_id, _ = find_or_create_equipment_by_identifier(conn, "Probe_Wire")
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO [dbo].[SignalPortLocationHistory]"
-        " ([SignalPort_ID], [SamplingPoint_ID], [StartTime])"
-        " VALUES (?, ?, ?)",
-        parent_port_id, seed["sp_inlet_id"], t_install,
+        "SELECT [SignalInterface_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?",
+        parent_id,
     )
-    conn.commit()
+    si_id = cursor.fetchone()[0]
+    open_equipment_wiring_history(conn, equip_id, si_id, None)
 
-    # Relocate the parent — must succeed
-    new_loc_id, closed_loc_id, ch_ids = temporal_history_repository.relocate_sensor(
-        conn, parent_port_id, seed["sp_outlet_id"], t_move
-    )
-    assert new_loc_id is not None
-
-    # Sub-signal ParentPort_ID must be unchanged
-    assert _get_parent_port_id_from_db(conn, sub_port_id) == parent_port_id
+    # Parent/child link must be unchanged
+    children = _get_sub_signal_channel_ids(conn, parent_id)
+    assert children == [child_id]

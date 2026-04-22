@@ -60,11 +60,7 @@ def _forward_migrations() -> list[Path]:
     """Return all forward migration SQL files (exclude rollbacks and create scripts)."""
     if not MIGRATIONS_DIR.exists():
         return []
-    return [
-        f
-        for f in MIGRATIONS_DIR.glob("v*_to_v*.sql")
-        if "_rollback" not in f.name
-    ]
+    return [f for f in MIGRATIONS_DIR.glob("v*_to_v*.sql") if "_rollback" not in f.name]
 
 
 def test_every_migration_has_a_rollback() -> None:
@@ -103,14 +99,12 @@ def test_migration_files_have_header_comment() -> None:
 
 
 def _latest_migration_target_version() -> str | None:
-    """Return the highest 'to' version found in migration filenames, or None."""
-    forward = _forward_migrations()
-    if not forward:
-        return None
-
+    """Return the highest version found in migration filenames or init.sql references, or None."""
     versions: list[tuple[int, ...]] = []
+
+    # 1) Forward migrations: v{from}_to_v{to}_{platform}.sql
+    forward = _forward_migrations()
     for f in forward:
-        # filename pattern: v{from}_to_v{to}_{platform}.sql
         parts = f.stem.split("_to_v")
         if len(parts) == 2:
             to_part = parts[1].split("_")[0]  # strip platform suffix
@@ -118,6 +112,19 @@ def _latest_migration_target_version() -> str | None:
                 versions.append(tuple(int(x) for x in to_part.split(".")))
             except ValueError:
                 pass
+
+    # 2) Direct version scripts referenced in sql/init.sql (e.g. v4.0.0_signal_interface.sql)
+    init_sql = REPO_ROOT / "sql" / "init.sql"
+    if init_sql.exists():
+        import re
+
+        for line in init_sql.read_text(encoding="utf-8").splitlines():
+            m = re.search(r":r\s+/migrations/v(\d+\.\d+\.\d+)", line)
+            if m:
+                try:
+                    versions.append(tuple(int(x) for x in m.group(1).split(".")))
+                except ValueError:
+                    pass
 
     if not versions:
         return None

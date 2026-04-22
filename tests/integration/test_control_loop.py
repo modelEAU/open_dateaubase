@@ -1,16 +1,16 @@
 """Integration tests for ControlLoop lifecycle (Issue #9).
 
-Tests run against a live MSSQL container at the v3.0.0 schema.
+Tests run against a live MSSQL container at the v4.0.0 schema.
 Skipped automatically when the container is unavailable.
 
 Covers all Issue #9 acceptance criteria:
 
   AC-CL1  ControlLoop created with any supported ControllerType + optional AlgorithmReference
-  AC-CL2  ControlLoopPort associates SignalPort with loop; UQ(ControlLoop_ID, SignalPort_ID) enforced
+  AC-CL2  ControlLoopPort associates Channel with loop; UQ(ControlLoop_ID, Channel_ID) enforced
   AC-CL3  ControlLoopApplication created with JSON params and StartTime; at most one active per loop
   AC-CL4  Re-tuning closes current Application and opens new one; old tuning preserved with time window
   AC-CL5  Point-in-time query returns correct Application for a given timestamp
-  AC-CL6  Cascade: ManipulatedVariable port on outer loop can be SetPoint port on inner loop
+  AC-CL6  Cascade: ManipulatedVariable channel on outer loop can be SetPoint channel on inner loop
   AC-CL7  FallbackControlLoop_ID chain is queryable end-to-end
   AC-CL8  Deactivating a cascade loop does not affect the inner loop's Application
   AC-CL9  Integration scenarios: PID with 3 ports, re-tuning, model-based loop, cascade+fallback, point-in-time
@@ -20,15 +20,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 
-from .conftest import fresh_db, mssql_engine, run_sql_file  # noqa: F401
 from api.v1.repositories import control_loop_repository
-
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
 
 
 # ---------------------------------------------------------------------------
@@ -37,14 +32,15 @@ MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
 
 
 @pytest.fixture()
-def db(fresh_db):  # noqa: F811
-    """Database at v3.0.0 schema with minimal seed data for control loop tests."""
-    conn, db_name = fresh_db
-    run_sql_file(conn, MIGRATIONS_DIR / "v1.0.0_create_mssql.sql")
-    run_sql_file(conn, MIGRATIONS_DIR / "v1.0.0_to_v3.0.0_mssql.sql")
+def db(db_at_v400):  # noqa: F811
+    """Database at v4.0.0 schema with minimal seed data for control loop tests."""
+    conn, db_name = db_at_v400
+
+    from api.v1.repositories.ingestion_repository import find_or_create_sensor_metadata
+    from api.v1.repositories.signal_interface_repository import find_parameter_by_name
 
     cursor = conn.cursor()
-    # Seed a DAS and two SignalPorts for use in tests
+    # Seed a DAS and SignalInterface for use in tests
     cursor.execute(
         "INSERT INTO [dbo].[DataAcquisitionSystem] ([Name])"
         " OUTPUT INSERTED.[DataAcquisitionSystem_ID] VALUES (?)",
@@ -52,27 +48,36 @@ def db(fresh_db):  # noqa: F811
     )
     das_id = cursor.fetchone()[0]
 
-    # SignalPortType_ID 1 = Value (seeded by migration)
-    for tag in ("DO_PV", "DO_MV", "DO_SP", "Turbidity_PV"):
-        cursor.execute(
-            "INSERT INTO [dbo].[SignalPort]"
-            "    ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID])"
-            " OUTPUT INSERTED.[SignalPort_ID]"
-            " VALUES (?, ?, 1)",
-            das_id,
-            tag,
-        )
+    # SignalInterfaceType_ID 1 = PLC (seeded by v4.0.0 migration)
+    cursor.execute(
+        "INSERT INTO [dbo].[SignalInterface]"
+        "    ([DataAcquisitionSystem_ID], [SignalInterfaceType_ID], [Name])"
+        " OUTPUT INSERTED.[SignalInterface_ID]"
+        " VALUES (?, ?, ?)",
+        das_id,
+        1,
+        "TestInterface",
+    )
+    si_id = cursor.fetchone()[0]
     conn.commit()
 
-    # Collect SignalPort IDs
-    cursor.execute(
-        "SELECT [Tag], [SignalPort_ID] FROM [dbo].[SignalPort]"
-        " WHERE [DataAcquisitionSystem_ID] = ?",
-        das_id,
-    )
-    port_map = {row[0]: row[1] for row in cursor.fetchall()}
+    param_id = find_parameter_by_name(conn, "temperature")
+    assert param_id is not None
 
-    yield conn, db_name, port_map
+    # Create Channels for the test tags
+    channel_map = {}
+    for tag in ("DO_PV", "DO_MV", "DO_SP", "Turbidity_PV"):
+        ch_id = find_or_create_sensor_metadata(
+            conn,
+            signal_interface_id=si_id,
+            tag_name=tag,
+            parameter_id=param_id,
+            data_provenance_id=1,
+            processing_degree_id=1,
+        )
+        channel_map[tag] = ch_id
+
+    yield conn, db_name, channel_map
 
 
 # ---------------------------------------------------------------------------
@@ -148,10 +153,10 @@ class TestControlLoopCreation:
 
 
 class TestControlLoopPort:
-    """AC-CL2: Ports can be added; UQ(ControlLoop_ID, SignalPort_ID) enforced."""
+    """AC-CL2: Ports can be added; UQ(ControlLoop_ID, Channel_ID) enforced."""
 
     def test_add_three_ports(self, db):
-        conn, _, port_map = db
+        conn, _, channel_map = db
         loop_id = control_loop_repository.create_control_loop(
             conn, name="DO PID 3port", controller_type="PID"
         )
@@ -160,13 +165,13 @@ class TestControlLoopPort:
         sp_id = _role_id(conn, "SetPoint")
 
         p1 = control_loop_repository.add_loop_port(
-            conn, loop_id, port_map["DO_PV"], mv_id
+            conn, loop_id, channel_map["DO_PV"], mv_id
         )
         p2 = control_loop_repository.add_loop_port(
-            conn, loop_id, port_map["DO_MV"], manip_id
+            conn, loop_id, channel_map["DO_MV"], manip_id
         )
         p3 = control_loop_repository.add_loop_port(
-            conn, loop_id, port_map["DO_SP"], sp_id
+            conn, loop_id, channel_map["DO_SP"], sp_id
         )
         assert len({p1, p2, p3}) == 3  # all distinct IDs
 
@@ -176,18 +181,18 @@ class TestControlLoopPort:
     def test_duplicate_port_raises(self, db):
         import pyodbc
 
-        conn, _, port_map = db
+        conn, _, channel_map = db
         loop_id = control_loop_repository.create_control_loop(
             conn, name="Dup Port Test", controller_type="P"
         )
         mv_id = _role_id(conn, "MeasuredVariable")
 
         control_loop_repository.add_loop_port(
-            conn, loop_id, port_map["DO_PV"], mv_id
+            conn, loop_id, channel_map["DO_PV"], mv_id
         )
         with pytest.raises(pyodbc.IntegrityError):
             control_loop_repository.add_loop_port(
-                conn, loop_id, port_map["DO_PV"], mv_id
+                conn, loop_id, channel_map["DO_PV"], mv_id
             )
 
 
@@ -284,16 +289,22 @@ class TestControlLoopApplication:
             conn, name="History Preserved", controller_type="PID"
         )
         app1_id = control_loop_repository.open_application(
-            conn, loop_id=loop_id, start_time=datetime(2025, 1, 1),
-            parameters=json.dumps({"Kp": 1.0})
+            conn,
+            loop_id=loop_id,
+            start_time=datetime(2025, 1, 1),
+            parameters=json.dumps({"Kp": 1.0}),
         )
         app2_id, _ = control_loop_repository.retune(
-            conn, loop_id=loop_id, start_time=datetime(2025, 4, 1),
-            parameters=json.dumps({"Kp": 1.5})
+            conn,
+            loop_id=loop_id,
+            start_time=datetime(2025, 4, 1),
+            parameters=json.dumps({"Kp": 1.5}),
         )
         _, _ = control_loop_repository.retune(
-            conn, loop_id=loop_id, start_time=datetime(2025, 7, 1),
-            parameters=json.dumps({"Kp": 2.0})
+            conn,
+            loop_id=loop_id,
+            start_time=datetime(2025, 7, 1),
+            parameters=json.dumps({"Kp": 2.0}),
         )
         total = _app_count(conn, loop_id)
         assert total == 3  # all three applications preserved
@@ -321,12 +332,16 @@ class TestPointInTimeQuery:
             conn, name="Point-in-time", controller_type="PID"
         )
         app1_id = control_loop_repository.open_application(
-            conn, loop_id=loop_id, start_time=datetime(2025, 1, 1),
-            parameters=json.dumps({"Kp": 1.0})
+            conn,
+            loop_id=loop_id,
+            start_time=datetime(2025, 1, 1),
+            parameters=json.dumps({"Kp": 1.0}),
         )
         app2_id, _ = control_loop_repository.retune(
-            conn, loop_id=loop_id, start_time=datetime(2025, 6, 1),
-            parameters=json.dumps({"Kp": 2.0})
+            conn,
+            loop_id=loop_id,
+            start_time=datetime(2025, 6, 1),
+            parameters=json.dumps({"Kp": 2.0}),
         )
         return loop_id, app1_id, app2_id
 
@@ -374,11 +389,11 @@ class TestPointInTimeQuery:
 
 class TestCascadeArchitecture:
     """AC-CL6: ManipulatedVariable on outer loop can be SetPoint on inner loop
-    via the same SignalPort_ID with different roles.
+    via the same Channel_ID with different roles.
     """
 
     def test_shared_port_different_roles(self, db):
-        conn, _, port_map = db
+        conn, _, channel_map = db
         mv_role = _role_id(conn, "ManipulatedVariable")
         sp_role = _role_id(conn, "SetPoint")
 
@@ -391,19 +406,19 @@ class TestCascadeArchitecture:
 
         # DO_SP is the ManipulatedVariable of the outer loop
         control_loop_repository.add_loop_port(
-            conn, outer_loop_id, port_map["DO_SP"], mv_role
+            conn, outer_loop_id, channel_map["DO_SP"], mv_role
         )
         # DO_SP is the SetPoint of the inner loop
         control_loop_repository.add_loop_port(
-            conn, inner_loop_id, port_map["DO_SP"], sp_role
+            conn, inner_loop_id, channel_map["DO_SP"], sp_role
         )
 
         outer_ports = control_loop_repository.get_loop_ports(conn, outer_loop_id)
         inner_ports = control_loop_repository.get_loop_ports(conn, inner_loop_id)
 
-        assert outer_ports[0]["SignalPort_ID"] == port_map["DO_SP"]
+        assert outer_ports[0]["Channel_ID"] == channel_map["DO_SP"]
         assert outer_ports[0]["role_name"] == "ManipulatedVariable"
-        assert inner_ports[0]["SignalPort_ID"] == port_map["DO_SP"]
+        assert inner_ports[0]["Channel_ID"] == channel_map["DO_SP"]
         assert inner_ports[0]["role_name"] == "SetPoint"
 
 
@@ -421,11 +436,15 @@ class TestFallbackChain:
             conn, name="Manual fallback", controller_type="Manual"
         )
         pi_id = control_loop_repository.create_control_loop(
-            conn, name="PI fallback", controller_type="PI",
+            conn,
+            name="PI fallback",
+            controller_type="PI",
             fallback_control_loop_id=manual_id,
         )
         pid_id = control_loop_repository.create_control_loop(
-            conn, name="PID outer", controller_type="PID",
+            conn,
+            name="PID outer",
+            controller_type="PID",
             fallback_control_loop_id=pi_id,
         )
 
@@ -494,7 +513,7 @@ class TestModelBasedLoop:
     """AC-CL9: Custom controller with arbitrary JSON parameters blob."""
 
     def test_mpc_loop_with_custom_params(self, db):
-        conn, _, port_map = db
+        conn, _, channel_map = db
         loop_id = control_loop_repository.create_control_loop(
             conn,
             name="MPC nitrification",
@@ -503,17 +522,18 @@ class TestModelBasedLoop:
         )
         mv_role = _role_id(conn, "MeasuredVariable")
         control_loop_repository.add_loop_port(
-            conn, loop_id, port_map["Turbidity_PV"], mv_role
+            conn, loop_id, channel_map["Turbidity_PV"], mv_role
         )
 
-        params = json.dumps({
-            "prediction_horizon": 10,
-            "control_horizon": 3,
-            "weights": {"Q": 1.0, "R": 0.1},
-        })
+        params = json.dumps(
+            {
+                "prediction_horizon": 10,
+                "control_horizon": 3,
+                "weights": {"Q": 1.0, "R": 0.1},
+            }
+        )
         app_id = control_loop_repository.open_application(
-            conn, loop_id=loop_id, start_time=datetime(2025, 1, 1),
-            parameters=params
+            conn, loop_id=loop_id, start_time=datetime(2025, 1, 1), parameters=params
         )
 
         active = control_loop_repository.get_active_application(conn, loop_id)
