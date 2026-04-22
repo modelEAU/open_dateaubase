@@ -117,3 +117,36 @@ class ChannelResolveOut(BaseModel):
     """Response from channel resolution."""
 
     channel_id: int
+
+
+class ChannelProvisionIn(BaseModel):
+    """Payload for find-or-create a Channel by name-based fields (used by L5X loader)."""
+
+    signal_interface_id: int
+    tag_name: str
+    signal_interface_port_id: int | None = None
+    parent_channel_id: int | None = None
+    channel_role: str = "value"
+    parameter_name: str | None = None
+    unit_name: str | None = None
+    data_provenance_id: int | None = None
+    processing_degree_id: int | None = None
+    value_type_id: int | None = None
+
+
+class ChannelPortHistoryIn(BaseModel):
+    """Payload for opening a ChannelPortHistory row."""
+
+    signal_interface_port_id: int | None = None
+    valid_from: str
+    gating_note: str | None = None
+
+
+class ChannelPortHistoryOut(BaseModel):
+    """Response after opening a ChannelPortHistory row."""
+
+    channel_port_history_id: int
+    channel_id: int
+    signal_interface_port_id: int | None
+    valid_from: str
+    gating_note: str | None

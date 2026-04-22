@@ -16,6 +16,9 @@ from ..schemas.channel import (
     ChannelIn,
     ChannelDerivedIn,
     ChannelDerivedOut,
+    ChannelPortHistoryIn,
+    ChannelPortHistoryOut,
+    ChannelProvisionIn,
     ChannelResolveIn,
     ChannelResolveOut,
     EquipmentLookupOut,
@@ -184,6 +187,76 @@ def resolve_channel(body: ChannelResolveIn, conn=Depends(get_db)):
         raise HTTPException(status_code=500, detail="Failed to create channel.")
 
     return ChannelResolveOut(channel_id=channel["channel_id"])
+
+
+@router.post("/provision", response_model=ChannelOut, status_code=201)
+def provision_channel(body: ChannelProvisionIn, conn=Depends(get_db)):
+    """Find or create a Channel by name-based fields (used by L5X loader).
+
+    Resolves parameter_name → Parameter_ID and unit_name → Unit_ID server-side.
+    Idempotent: returns the existing channel if one matches (signal_interface_id, tag_name).
+    """
+    parameter_id = None
+    if body.parameter_name:
+        parameter_id = signal_interface_repository.find_parameter_by_name(
+            conn, body.parameter_name
+        )
+    unit_id = None
+    if body.unit_name:
+        unit_id = signal_interface_repository.find_unit_by_name(conn, body.unit_name)
+    channel_role_id = (
+        signal_interface_repository.find_channel_role_by_name(conn, body.channel_role) or 1
+    )
+    existing = channel_repository.find_channel_by_signal_interface_tag(
+        conn, signal_interface_id=body.signal_interface_id, tag_name=body.tag_name
+    )
+    if existing:
+        return existing
+    data = {
+        "signal_interface_id": body.signal_interface_id,
+        "tag_name": body.tag_name,
+        "signal_interface_port_id": body.signal_interface_port_id,
+        "parent_channel_id": body.parent_channel_id,
+        "channel_role_id": channel_role_id,
+        "parameter_id": parameter_id,
+        "unit_id": unit_id,
+        "data_provenance_id": body.data_provenance_id,
+        "processing_degree_id": body.processing_degree_id,
+        "value_type_id": body.value_type_id,
+    }
+    return channel_repository.insert_channel(conn, data)
+
+
+@router.post("/{channel_id}/port-history", response_model=ChannelPortHistoryOut, status_code=201)
+def open_channel_port_history(
+    channel_id: int,
+    body: ChannelPortHistoryIn,
+    conn=Depends(get_db),
+):
+    """Open a ChannelPortHistory row linking a channel to a port for a time period."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[ChannelPortHistory]"
+        "    ([Channel_ID], [SignalInterfacePort_ID], [ValidFrom], [GatingNote])"
+        " OUTPUT INSERTED.[ChannelPortHistory_ID], INSERTED.[Channel_ID],"
+        "   INSERTED.[SignalInterfacePort_ID],"
+        "   CONVERT(VARCHAR(50), INSERTED.[ValidFrom], 127),"
+        "   INSERTED.[GatingNote]"
+        " VALUES (?, ?, ?, ?)",
+        channel_id,
+        body.signal_interface_port_id,
+        body.valid_from,
+        body.gating_note,
+    )
+    row = cursor.fetchone()
+    conn.commit()
+    return ChannelPortHistoryOut(
+        channel_port_history_id=row[0],
+        channel_id=row[1],
+        signal_interface_port_id=row[2],
+        valid_from=str(row[3]),
+        gating_note=row[4],
+    )
 
 
 @router.get("/lookup/equipment", response_model=list[EquipmentLookupOut])

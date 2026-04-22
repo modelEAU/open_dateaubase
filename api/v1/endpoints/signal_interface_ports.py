@@ -20,6 +20,7 @@ from ..schemas.signal_interface import (
     SignalInterfacePortIn,
     SignalInterfacePortOut,
     SignalInterfacePortPatchRequest,
+    SignalInterfacePortProvisionIn,
 )
 
 router = APIRouter()
@@ -87,6 +88,27 @@ def get_signal_interface_port(signal_interface_port_id: int, conn=Depends(get_db
             detail=f"SignalInterfacePort {signal_interface_port_id} not found.",
         )
     return _row_to_port_out(row)
+
+
+@router.post("/provision", response_model=SignalInterfacePortOut, status_code=201)
+def provision_signal_interface_port(body: SignalInterfacePortProvisionIn, conn=Depends(get_db)):
+    """Find or create a SignalInterfacePort by signal_interface_id + port_identifier + kind_name.
+
+    Idempotent: returns the existing port if one matches (signal_interface_id, port_identifier).
+    """
+    kind_id = signal_interface_repository.find_signal_interface_port_kind_by_name(
+        conn, body.kind_name
+    )
+    if kind_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"SignalInterfacePortKind {body.kind_name!r} not found.",
+        )
+    port_id, _ = signal_interface_repository.find_or_create_signal_interface_port(
+        conn, body.signal_interface_id, body.port_identifier, kind_id
+    )
+    row = signal_interface_repository.get_signal_interface_port_by_id(conn, port_id)
+    return _row_to_port_out(row)  # type: ignore[arg-type]
 
 
 @router.post("", response_model=SignalInterfacePortOut, status_code=201)

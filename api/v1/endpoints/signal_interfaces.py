@@ -23,6 +23,7 @@ from ..schemas.signal_interface import (
     SignalInterfaceOut,
     SignalInterfacePatchRequest,
     SignalInterfacePortOut,
+    SignalInterfaceProvisionIn,
 )
 
 router = APIRouter()
@@ -113,6 +114,28 @@ def get_signal_interface(signal_interface_id: int, conn=Depends(get_db)):
             status_code=404, detail=f"SignalInterface {signal_interface_id} not found."
         )
     return _row_to_signal_interface_out(row)
+
+
+@router.post("/provision", response_model=SignalInterfaceOut, status_code=201)
+def provision_signal_interface(body: SignalInterfaceProvisionIn, conn=Depends(get_db)):
+    """Find or create a SignalInterface by das_name + name + type_name.
+
+    Idempotent: returns the existing interface if one matches (das_name, name).
+    """
+    das_id, _ = signal_interface_repository.find_or_create_das(conn, body.das_name)
+    type_id = signal_interface_repository.find_signal_interface_type_by_name(
+        conn, body.type_name
+    )
+    if type_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"SignalInterfaceType {body.type_name!r} not found.",
+        )
+    si_id, _ = signal_interface_repository.find_or_create_signal_interface(
+        conn, das_id=das_id, name=body.name, signal_interface_type_id=type_id
+    )
+    row = signal_interface_repository.get_signal_interface_by_id(conn, si_id)
+    return _row_to_signal_interface_out(row)  # type: ignore[arg-type]
 
 
 @router.post("", response_model=SignalInterfaceOut, status_code=201)

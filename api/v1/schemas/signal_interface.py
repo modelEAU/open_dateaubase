@@ -181,6 +181,26 @@ class SubSignalsResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class SignalInterfaceProvisionIn(BaseModel):
+    """Payload for find-or-create a SignalInterface by name (used by L5X loader)."""
+
+    das_name: str
+    name: str
+    type_name: str
+    make: str | None = None
+    model: str | None = None
+    description: str | None = None
+
+
+class SignalInterfacePortProvisionIn(BaseModel):
+    """Payload for find-or-create a SignalInterfacePort by name (used by L5X loader)."""
+
+    signal_interface_id: int
+    port_identifier: str
+    kind_name: str
+    description: str | None = None
+
+
 class SignalInterfaceTypeIn(BaseModel):
     name: str
     description: str | None = None
