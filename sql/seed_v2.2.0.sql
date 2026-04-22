@@ -197,71 +197,71 @@ INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [SamplingPoint_ID],
 INSERT INTO [dbo].[EquipmentEvent] ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart], [EventDateTimeEnd], [PerformedByPerson_ID], [Campaign_ID], [Notes])
 VALUES (1, 1, '2024-01-10T09:00:00', '2024-01-10T11:00:00', 1, 1, N'Pre-deployment calibration using TSS standard solutions');  -- ID 1
 
--- EquipmentInstallation dropped in v3.0.0 (replaced by SignalPortEquipmentHistory / SignalPortLocationHistory)
+-- EquipmentInstallation / SignalPort* dropped in v4.0.0 — wiring now lives in
+-- EquipmentWiringHistory, location in EquipmentLocationHistory.
+-- Seed leaves these empty; views resolve to "unlinked" / "ambiguous" as designed.
 
 -- ============================================================
--- TIER 5+: DataAcquisitionSystem, SignalPort, Channel, Observation, Value, LabAnalysis, Annotation
+-- TIER 5+: DataAcquisitionSystem, SignalInterface, Channel, Observation, Value, LabAnalysis, Annotation
 -- ============================================================
 -- ============================================================
--- TIER 5: DataAcquisitionSystem, SignalPort, Channel
+-- TIER 5: DataAcquisitionSystem, SignalInterface, Channel
+-- v4.0.0: SignalPort* stack replaced by SignalInterface (+ optional Port).
+-- Channel now carries SignalInterface_ID + TagName directly; ChannelRole
+-- distinguishes Value from Status streams.
+-- ChannelRole IDs: 1=Value, 2=Status, 3=Alarm, 4=Uncertainty
+-- SignalInterfaceType IDs: 2=SCADA
 -- ============================================================
 
 -- DataAcquisitionSystem: Quebec City monitoring network
 INSERT INTO [dbo].[DataAcquisitionSystem] ([Name], [SystemType], [Description])
 VALUES (N'Quebec City Environmental Monitoring', N'SCADA', N'Multi-sensor monitoring network for Quebec City watersheds');  -- ID 1
 
--- SignalPorts (one per channel; SignalPortType 1=Value, 2=Status)
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'ISCO-001:TSS',    1);  -- ID 1
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'ISCO-001:COD',    1);  -- ID 2
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'YSI-001:pH',      1);  -- ID 3
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'YSI-001:Temp',    1);  -- ID 4
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'MANUAL:TSS-Eff',  1);  -- ID 5
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'SCAN-001:UV-Vis', 1);  -- ID 6
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'CAM-001:Image',   1);  -- ID 7
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'LISST-001:PSD',   1);  -- ID 8
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'FLOWCAM-001:SV',  1);  -- ID 9
-INSERT INTO [dbo].[SignalPort] ([DataAcquisitionSystem_ID], [Tag], [SignalPortType_ID]) VALUES (1, N'ISCO-001:Status', 2);  -- ID 10
+-- SignalInterface: a single SCADA interface fronting the DAS.
+INSERT INTO [dbo].[SignalInterface] ([DataAcquisitionSystem_ID], [SignalInterfaceType_ID], [Name], [Description])
+VALUES (1, 2, N'QC-Env-SCADA', N'SCADA interface exposing tag strings for the Quebec City monitoring network');  -- ID 1
 
 -- Channel 1: ISCO-001 TSS (sensor, raw, scalar) — mg/L = Unit 1
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (1, 1, 1, 1, 1, 1);  -- ID 1
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'ISCO-001:TSS', NULL, 1, 1, 1, 1, 1, 1, NULL);  -- ID 1
 
 -- Channel 2: ISCO-001 COD (sensor, raw, scalar) — mg/L = Unit 1
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (2, 2, 1, 1, 1, 1);  -- ID 2
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'ISCO-001:COD', NULL, 2, 1, 1, 1, 1, 1, NULL);  -- ID 2
 
 -- Channel 3: YSI-001 pH (sensor, raw, scalar) — pH units = Unit 3
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (3, 3, 1, 1, 1, 3);  -- ID 3
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'YSI-001:pH', NULL, 3, 1, 1, 1, 3, 1, NULL);  -- ID 3
 
 -- Channel 4: YSI-001 Temperature (sensor, raw, scalar) — °C = Unit 4
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (4, 4, 1, 1, 1, 4);  -- ID 4
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'YSI-001:Temp', NULL, 4, 1, 1, 1, 4, 1, NULL);  -- ID 4
 
 -- Channel 5: effluent TSS — manual entry — mg/L = Unit 1
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (5, 1, 3, 1, 1, 1);  -- ID 5
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'MANUAL:TSS-Eff', NULL, 1, 3, 1, 1, 1, 1, NULL);  -- ID 5
 
 -- Channel 6: UV-Vis absorbance vector — no single scalar unit (unit on ValueBinningAxis)
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (6, NULL, 1, 1, 2, NULL);  -- ID 6
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'SCAN-001:UV-Vis', NULL, NULL, 1, 1, 2, NULL, 1, NULL);  -- ID 6
 
 -- Channel 7: camera image at CSO outfall — no unit
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (7, NULL, 1, 2, 4, NULL);  -- ID 7
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'CAM-001:Image', NULL, NULL, 1, 2, 4, NULL, 1, NULL);  -- ID 7
 
 -- Channel 8: particle size distribution (vector) — no single scalar unit
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (8, NULL, 2, 1, 2, NULL);  -- ID 8
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'LISST-001:PSD', NULL, NULL, 2, 1, 2, NULL, 1, NULL);  -- ID 8
 
 -- Channel 9: particle size-velocity joint distribution (matrix) — no single scalar unit
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (9, NULL, 1, 3, 3, NULL);  -- ID 9
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'FLOWCAM-001:SV', NULL, NULL, 1, 3, 3, NULL, 1, NULL);  -- ID 9
 
 -- Channel 10: device-level status stream for ISCO-001 — Status Code = Unit 9
-INSERT INTO [dbo].[Channel] ([SignalPort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID])
-VALUES (10, 7, 1, 1, 1, 9);  -- ID 10
--- (Channel 11 dropped — StatusChannel_ID column removed in v3.0.0)
+-- ChannelRole=Status (2); ParentChannel=Channel 1 (ISCO TSS) so the status
+-- surfaces in vw_DeviceStatus / vw_ChannelStatus.
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [Parameter_ID], [DataProvenance_ID], [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ChannelRole_ID], [ParentChannel_ID])
+VALUES (1, N'ISCO-001:Status', NULL, 7, 1, 1, 1, 9, 2, 1);  -- ID 10
 
 -- ChannelAxis: link vector/matrix channels to their binning axes
 INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (6, 0, 1);  -- UV-Vis: wavelength axis
@@ -269,8 +269,9 @@ INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]
 INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (9, 0, 2);  -- Size-velocity: row=size
 INSERT INTO [dbo].[ChannelAxis] ([Channel_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (9, 1, 3);  -- Size-velocity: col=velocity
 
--- Note: EquipmentStatusChannel was dropped in v3.0 migration.
--- Equipment-to-status-channel linkage is now handled via SignalPortEquipmentHistory.
+-- Note: EquipmentStatusChannel was dropped in v3.0.
+-- In v4.0.0, equipment ↔ channel linkage resolves at query time through
+-- EquipmentWiringHistory joined on SignalInterface_ID (+ optional port).
 
 -- ============================================================
 -- TIER 6: Observation + Value Tables (v2.2.0 pattern)

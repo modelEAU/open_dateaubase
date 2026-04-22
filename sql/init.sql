@@ -44,6 +44,12 @@ GO
 :r /migrations/v3.0.0_sampling_point_picture_path.sql
 GO
 
+-- Step 2i: v4.0.0 — SignalInterface redesign (Issue #24). Drops SignalPort*
+-- stack, introduces SignalInterface/Port, Equipment wiring + location history,
+-- Channel.ParentChannel + ChannelRole, ControlLoopPort → Channel.
+:r /migrations/v4.0.0_signal_interface.sql
+GO
+
 -- Step 3: Load test seed data for the Quebec City monitoring scenario
 :r /sql/seed_v2.2.0.sql
 GO
@@ -57,7 +63,7 @@ GO
 :r /sql/seed_importer_fixtures.sql
 GO
 
-PRINT 'Database initialized at v3.0.0 with sample data.';
+PRINT 'Database initialized at v4.0.0 with sample data.';
 SELECT [Version], [AppliedDateTime], [Description] FROM dbo.SchemaVersion ORDER BY [AppliedDateTime];
 SELECT 'channel'     AS t, COUNT(*) AS n FROM dbo.Channel;
 SELECT 'value'       AS t, COUNT(*) AS n FROM dbo.[Value];
