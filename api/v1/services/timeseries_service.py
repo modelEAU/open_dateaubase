@@ -24,9 +24,7 @@ def get_timeseries(
     """Load channel context and dispatch to the correct value table."""
     channel = channel_repository.get_channel_by_id(conn, channel_id)
     if channel is None:
-        raise HTTPException(
-            status_code=404, detail=f"Channel {channel_id} not found."
-        )
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
 
     data = value_repository.get_values_for_metadata(
         conn,
@@ -45,7 +43,7 @@ def get_timeseries(
         "parameter": channel.get("parameter_name"),
         "unit": channel.get("unit_name"),
         "data_shape": channel.get("value_type_name") or "Scalar",
-        "provenance": channel.get("data_provenance"),
+        "provenance": channel.get("data_provenance_name"),
         "processing_degree": channel.get("processing_degree_name"),
         "campaign": None,
         "from_timestamp": min(timestamps) if timestamps else None,
@@ -88,9 +86,7 @@ def get_full_context(
 
     channel = channel_repository.get_channel_by_id(conn, channel_id)
     if channel is None:
-        raise HTTPException(
-            status_code=404, detail=f"Channel {channel_id} not found."
-        )
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
 
     # All processing degrees for same equipment + parameter
     cursor = conn.cursor()

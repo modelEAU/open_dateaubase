@@ -92,7 +92,12 @@ def create_control_loop(
     Set ``fallback_control_loop_id`` to build fallback chains.
     """
     if body.fallback_control_loop_id is not None:
-        if control_loop_repository.get_control_loop(conn, body.fallback_control_loop_id) is None:
+        if (
+            control_loop_repository.get_control_loop(
+                conn, body.fallback_control_loop_id
+            )
+            is None
+        ):
             raise HTTPException(
                 status_code=422,
                 detail=f"FallbackControlLoop_ID {body.fallback_control_loop_id} not found.",
@@ -132,7 +137,7 @@ def get_control_loop(loop_id: int, conn=Depends(get_db)):
     response_model=ControlLoopPortsResponse,
 )
 def list_loop_ports(loop_id: int, conn=Depends(get_db)):
-    """Return all SignalPorts associated with a ControlLoop."""
+    """Return all Channels associated with a ControlLoop."""
     if control_loop_repository.get_control_loop(conn, loop_id) is None:
         raise HTTPException(status_code=404, detail=f"ControlLoop {loop_id} not found.")
     rows = control_loop_repository.get_loop_ports(conn, loop_id)
@@ -142,7 +147,7 @@ def list_loop_ports(loop_id: int, conn=Depends(get_db)):
             ControlLoopPortOut(
                 control_loop_port_id=r["ControlLoopPort_ID"],
                 control_loop_id=r["ControlLoop_ID"],
-                signal_port_id=r["SignalPort_ID"],
+                channel_id=r["Channel_ID"],
                 role_id=r["ControlLoopPortRole_ID"],
                 role_name=r["role_name"],
             )
@@ -161,10 +166,10 @@ def add_port(
     body: ControlLoopPortAddRequest,
     conn=Depends(get_db),
 ):
-    """Associate a SignalPort with a ControlLoop.
+    """Associate a Channel with a ControlLoop.
 
     Provide ``role_id`` (integer PK) or ``role_name`` (case-insensitive name lookup).
-    The (ControlLoop_ID, SignalPort_ID) pair must be unique across all ports of the loop.
+    The (ControlLoop_ID, Channel_ID) pair must be unique across all ports of the loop.
     """
     if control_loop_repository.get_control_loop(conn, loop_id) is None:
         raise HTTPException(status_code=404, detail=f"ControlLoop {loop_id} not found.")
@@ -187,14 +192,14 @@ def add_port(
         port_id = control_loop_repository.add_loop_port(
             conn,
             loop_id=loop_id,
-            signal_port_id=body.signal_port_id,
+            channel_id=body.channel_id,
             role_id=role_id,
         )
     except pyodbc.IntegrityError as exc:
         raise HTTPException(
             status_code=409,
             detail=(
-                f"SignalPort {body.signal_port_id} is already assigned to ControlLoop {loop_id}. "
+                f"Channel {body.channel_id} is already assigned to ControlLoop {loop_id}. "
                 f"Database error: {exc}"
             ),
         ) from exc
@@ -205,7 +210,7 @@ def add_port(
     return ControlLoopPortOut(
         control_loop_port_id=port_row["ControlLoopPort_ID"],
         control_loop_id=port_row["ControlLoop_ID"],
-        signal_port_id=port_row["SignalPort_ID"],
+        channel_id=port_row["Channel_ID"],
         role_id=port_row["ControlLoopPortRole_ID"],
         role_name=port_row["role_name"],
     )

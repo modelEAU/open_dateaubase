@@ -5,13 +5,19 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
-from ..repositories import channel_repository, ingestion_repository
+from ..repositories import (
+    channel_repository,
+    ingestion_repository,
+    signal_interface_repository,
+)
 from ..schemas.common import PaginatedResponse
 from ..schemas.channel import (
     ChannelOut,
     ChannelIn,
     ChannelDerivedIn,
     ChannelDerivedOut,
+    ChannelResolveIn,
+    ChannelResolveOut,
     EquipmentLookupOut,
     ParameterLookupOut,
     ProcessingDegreeLookupOut,
@@ -53,10 +59,19 @@ def list_channels(
     processing_degree_id: int | None = Query(
         None, description="Filter by processing degree ID (1=Raw, 2=Cleaned, etc.)"
     ),
-    equipment_id: int | None = Query(None, description="Filter by equipment ID (resolved via active SignalPortEquipmentHistory)"),
-    signal_port_id: int | None = Query(None, description="Filter by signal port ID"),
-    value_type_id: int | None = Query(None, description="Filter by value type (1=Scalar,2=Vector,3=Matrix,4=Image)"),
-    campaign_id: int | None = Query(None, description="Filter to channels whose equipment is in this campaign"),
+    equipment_id: int | None = Query(
+        None,
+        description="Filter by equipment ID (resolved via active EquipmentWiringHistory)",
+    ),
+    signal_interface_id: int | None = Query(
+        None, description="Filter by signal interface ID"
+    ),
+    value_type_id: int | None = Query(
+        None, description="Filter by value type (1=Scalar,2=Vector,3=Matrix,4=Image)"
+    ),
+    campaign_id: int | None = Query(
+        None, description="Filter to channels whose equipment is in this campaign"
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000),
     conn=Depends(get_db),
@@ -68,7 +83,7 @@ def list_channels(
         data_provenance_id=data_provenance_id,
         processing_degree_id=processing_degree_id,
         equipment_id=equipment_id,
-        signal_port_id=signal_port_id,
+        signal_interface_id=signal_interface_id,
         value_type_id=value_type_id,
         campaign_id=campaign_id,
         page=page,
@@ -112,6 +127,63 @@ def delete_channel(channel_id: int, conn=Depends(get_db)):
     """Delete a channel by ID."""
     if not channel_repository.delete_channel(conn, channel_id):
         raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
+
+
+@router.post("/resolve", response_model=ChannelResolveOut, status_code=200)
+def resolve_channel(body: ChannelResolveIn, conn=Depends(get_db)):
+    """Resolve a channel by its natural keys (signal interface name + tag + optional parameter).
+
+    If ``create_missing`` is True and no channel exists, a minimal channel row is
+    created with default ChannelRole_ID=1 (Value) and ValueType_ID=1 (Scalar).
+    """
+    signal_interface_id = signal_interface_repository.find_signal_interface_by_name(
+        conn, body.signal_interface_name
+    )
+    if signal_interface_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"SignalInterface {body.signal_interface_name!r} not found.",
+        )
+
+    parameter_id = None
+    if body.parameter_name is not None:
+        parameter_id = signal_interface_repository.find_parameter_by_name(
+            conn, body.parameter_name
+        )
+        if parameter_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Parameter {body.parameter_name!r} not found.",
+            )
+
+    channel = channel_repository.find_channel_by_signal_interface_tag(
+        conn,
+        signal_interface_id=signal_interface_id,
+        tag_name=body.tag_name,
+        parameter_id=parameter_id,
+    )
+
+    if channel is None:
+        if not body.create_missing:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Channel not found for SignalInterface {body.signal_interface_name!r}, "
+                    f"tag {body.tag_name!r}"
+                    f"{(', parameter ' + body.parameter_name) if body.parameter_name else ''}."
+                ),
+            )
+        channel = channel_repository.find_or_create_channel(
+            conn,
+            signal_interface_id=signal_interface_id,
+            tag_name=body.tag_name,
+            parameter_id=parameter_id,
+        )
+
+    if channel is None:
+        raise HTTPException(status_code=500, detail="Failed to create channel.")
+
+    return ChannelResolveOut(channel_id=channel["channel_id"])
 
 
 @router.get("/lookup/equipment", response_model=list[EquipmentLookupOut])

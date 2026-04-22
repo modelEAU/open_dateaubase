@@ -22,9 +22,10 @@ import logging
 from api.config import settings
 from api.database import get_db
 from ..repositories import (
+    channel_repository,
     ingestion_repository,
     lookup_repository,
-    signal_port_repository,
+    signal_interface_repository,
     value_repository,
 )
 from ..schemas.ingestion import (
@@ -39,7 +40,6 @@ from ..schemas.ingestion import (
     SampleCreateResponse,
     SensorChannelResolveRequest,
     SensorIngestRequest,
-    SignalPortDeactivateResponse,
     TaglessSensorChannelResolveRequest,
     TaglessSensorIngestRequest,
     VectorSensorIngestRequest,
@@ -72,24 +72,24 @@ def _resolve_tag_inputs(
     signal_port_type: str,
     parameter_name: str,
     unit_name: str,
-) -> tuple[int, int, int, list[str]]:
-    """Validate names and resolve to IDs.  Returns (signal_port_id, parameter_id, unit_id, warnings).
+) -> tuple[int, str, int, int, int, list[str]]:
+    """Validate names and resolve to IDs.  Returns (signal_interface_id, tag_name, parameter_id, unit_id, channel_role_id, warnings).
 
     Raises HTTP 422 for unrecognised signal_port_type, parameter, or unit — *before* any DB writes.
-    Auto-creates DAS and SignalPort with warnings.
+    Auto-creates DAS and SignalInterface with warnings.
     """
     # --- Validation-only lookups first (no writes) ---
-    spt_id = signal_port_repository.find_signal_port_type_by_name(
+    channel_role_id = signal_interface_repository.find_channel_role_by_name(
         conn, signal_port_type
     )
-    if spt_id is None:
+    if channel_role_id is None:
         raise HTTPException(
             status_code=422,
             detail=f"Unknown signal_port_type {signal_port_type!r}. "
             "Valid values: value, status, alarm, uncertainty.",
         )
 
-    param_id = signal_port_repository.find_parameter_by_name(conn, parameter_name)
+    param_id = signal_interface_repository.find_parameter_by_name(conn, parameter_name)
     if param_id is None:
         raise HTTPException(
             status_code=422,
@@ -97,7 +97,7 @@ def _resolve_tag_inputs(
             "Add the parameter to the Parameter table before ingesting.",
         )
 
-    unit_id = signal_port_repository.find_unit_by_name(conn, unit_name)
+    unit_id = signal_interface_repository.find_unit_by_name(conn, unit_name)
     if unit_id is None:
         raise HTTPException(
             status_code=422,
@@ -108,21 +108,55 @@ def _resolve_tag_inputs(
     # --- Auto-create writes (warn on new rows) ---
     collected_warnings: list[str] = []
 
-    das_id, das_created = signal_port_repository.find_or_create_das(conn, das_name)
+    das_id, das_created = signal_interface_repository.find_or_create_das(conn, das_name)
     if das_created:
         msg = f"DataAcquisitionSystem {das_name!r} was not found and has been auto-created (ID={das_id})."
         logger.warning(msg)
         collected_warnings.append(msg)
 
-    port_id, port_created = signal_port_repository.find_or_create_signal_port(
-        conn, das_id, tag, spt_id
+    # Try to find existing SignalInterface by (DAS, tag); auto-create with default type on miss.
+    signal_interface_id = (
+        signal_interface_repository.find_signal_interface_by_das_and_name(
+            conn, das_id, tag
+        )
     )
-    if port_created:
-        msg = f"SignalPort tag={tag!r} (DAS={das_name!r}) was not found and has been auto-created (ID={port_id})."
-        logger.warning(msg)
-        collected_warnings.append(msg)
+    signal_interface_created = False
+    if signal_interface_id is None:
+        # Default to SCADA (type 2) for tagged ingest; fallback to first available type
+        si_type_id = signal_interface_repository.find_signal_interface_type_by_name(
+            conn, "SCADA"
+        )
+        if si_type_id is None:
+            si_type_id = signal_interface_repository.get_first_signal_interface_type_id(
+                conn
+            )
+        if si_type_id is None:
+            raise HTTPException(
+                status_code=500,
+                detail="No SignalInterfaceType records found in the database. "
+                "Seed data is missing.",
+            )
+        signal_interface_id, signal_interface_created = (
+            signal_interface_repository.find_or_create_signal_interface(
+                conn, das_id, tag, si_type_id
+            )
+        )
+        if signal_interface_created:
+            msg = (
+                f"SignalInterface name={tag!r} (DAS={das_name!r}) was not found and has been "
+                f"auto-created (ID={signal_interface_id})."
+            )
+            logger.warning(msg)
+            collected_warnings.append(msg)
 
-    return port_id, param_id, unit_id, collected_warnings
+    return (
+        signal_interface_id,
+        tag,
+        param_id,
+        unit_id,
+        channel_role_id,
+        collected_warnings,
+    )
 
 
 def _resolve_tagless_inputs(
@@ -131,17 +165,17 @@ def _resolve_tagless_inputs(
     equipment_name: str,
     parameter_name: str,
     unit_name: str,
-) -> tuple[int, int, int, list[str]]:
+) -> tuple[int, str, int, int, list[str]]:
     """Validate names and resolve tagless ingest inputs to IDs.
 
-    Returns (signal_port_id, parameter_id, unit_id, warnings).
+    Returns (signal_interface_id, tag_name, parameter_id, unit_id, warnings).
 
     Raises HTTP 422 for unrecognised parameter_name or unit_name — before any DB writes.
-    Auto-creates DAS, Equipment, and SignalPort with warnings.
-    Opens a SignalPortEquipmentHistory row immediately when the port is newly created.
+    Auto-creates DAS, Equipment, and SignalInterface with warnings.
+    Opens an EquipmentWiringHistory row when a new SignalInterface is created.
     """
     # --- Validation-only lookups first (no writes) ---
-    param_id = signal_port_repository.find_parameter_by_name(conn, parameter_name)
+    param_id = signal_interface_repository.find_parameter_by_name(conn, parameter_name)
     if param_id is None:
         raise HTTPException(
             status_code=422,
@@ -149,7 +183,7 @@ def _resolve_tagless_inputs(
             "Add the parameter to the Parameter table before ingesting.",
         )
 
-    unit_id = signal_port_repository.find_unit_by_name(conn, unit_name)
+    unit_id = signal_interface_repository.find_unit_by_name(conn, unit_name)
     if unit_id is None:
         raise HTTPException(
             status_code=422,
@@ -160,14 +194,14 @@ def _resolve_tagless_inputs(
     # --- Auto-create writes (warn on new rows) ---
     collected_warnings: list[str] = []
 
-    das_id, das_created = signal_port_repository.find_or_create_das(conn, das_name)
+    das_id, das_created = signal_interface_repository.find_or_create_das(conn, das_name)
     if das_created:
         msg = f"DataAcquisitionSystem {das_name!r} was not found and has been auto-created (ID={das_id})."
         logger.warning(msg)
         collected_warnings.append(msg)
 
     equip_id, equip_created = (
-        signal_port_repository.find_or_create_equipment_by_identifier(
+        signal_interface_repository.find_or_create_equipment_by_identifier(
             conn, equipment_name
         )
     )
@@ -179,30 +213,53 @@ def _resolve_tagless_inputs(
         logger.warning(msg)
         collected_warnings.append(msg)
 
-    spt_id = signal_port_repository.find_signal_port_type_by_name(conn, "value")
-    if spt_id is None:
-        raise HTTPException(
-            status_code=500,
-            detail="SignalPortType 'value' is missing from the database seed data.",
+    # Resolve SignalInterface via active EquipmentWiringHistory, or create one.
+    wiring = signal_interface_repository.find_active_equipment_wiring(conn, equip_id)
+    signal_interface_id: int | None = None
+    if wiring is not None:
+        signal_interface_id = wiring[0]
+
+    signal_interface_created = False
+    if signal_interface_id is None:
+        # Default to DirectConnect (type 5) for tagless ingest; fallback to first available type
+        si_type_id = signal_interface_repository.find_signal_interface_type_by_name(
+            conn, "DirectConnect"
+        )
+        if si_type_id is None:
+            si_type_id = signal_interface_repository.get_first_signal_interface_type_id(
+                conn
+            )
+        if si_type_id is None:
+            raise HTTPException(
+                status_code=500,
+                detail="No SignalInterfaceType records found in the database. "
+                "Seed data is missing.",
+            )
+        synthetic_interface_name = signal_interface_repository.generate_tagless_tagname(
+            equipment_name, parameter_name
+        )
+        signal_interface_id, signal_interface_created = (
+            signal_interface_repository.find_or_create_signal_interface(
+                conn, das_id, synthetic_interface_name, si_type_id
+            )
+        )
+        if signal_interface_created:
+            msg = (
+                f"SignalInterface name={synthetic_interface_name!r} (DAS={das_name!r}) was not found "
+                f"and has been auto-created (ID={signal_interface_id})."
+            )
+            logger.warning(msg)
+            collected_warnings.append(msg)
+        # Open wiring history so provenance is recorded at ingest time.
+        signal_interface_repository.open_equipment_wiring_history(
+            conn, equip_id, signal_interface_id, None
         )
 
-    synthetic_tag = signal_port_repository.generate_tagless_tag(
+    synthetic_tag = signal_interface_repository.generate_tagless_tagname(
         equipment_name, parameter_name
     )
-    port_id, port_created = signal_port_repository.find_or_create_signal_port(
-        conn, das_id, synthetic_tag, spt_id
-    )
-    if port_created:
-        msg = (
-            f"SignalPort tag={synthetic_tag!r} (DAS={das_name!r}) was not found and has been "
-            f"auto-created (ID={port_id})."
-        )
-        logger.warning(msg)
-        collected_warnings.append(msg)
-        # Immediately open equipment history so provenance is recorded at ingest time.
-        signal_port_repository.open_port_equipment_history(conn, port_id, equip_id)
 
-    return port_id, param_id, unit_id, collected_warnings
+    return signal_interface_id, synthetic_tag, param_id, unit_id, collected_warnings
 
 
 # ---------------------------------------------------------------------------
@@ -269,9 +326,13 @@ def update_laboratory(laboratory_id: int, body: dict, conn=Depends(get_db)):
         raise HTTPException(status_code=422, detail="name field is required")
     site_id = body.get("site_id") or None
     description = body.get("description") or None
-    updated = lookup_repository.update_laboratory(conn, laboratory_id, name, site_id, description)
+    updated = lookup_repository.update_laboratory(
+        conn, laboratory_id, name, site_id, description
+    )
     if updated is None:
-        raise HTTPException(status_code=404, detail=f"Laboratory {laboratory_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Laboratory {laboratory_id} not found."
+        )
     return updated
 
 
@@ -279,7 +340,9 @@ def update_laboratory(laboratory_id: int, body: dict, conn=Depends(get_db)):
 def delete_laboratory(laboratory_id: int, conn=Depends(get_db)):
     """Delete a laboratory."""
     if not lookup_repository.delete_laboratory(conn, laboratory_id):
-        raise HTTPException(status_code=404, detail=f"Laboratory {laboratory_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Laboratory {laboratory_id} not found."
+        )
 
 
 @router.get("/lookup/procedures")
@@ -345,7 +408,14 @@ def resolve_channel(data: SensorChannelResolveRequest, conn=Depends(get_db)):
     Runs the same validation and find-or-create logic as POST /ingest/sensor steps 1–3,
     then returns the channel_id.  Use this to pre-resolve channels before bulk ingestion.
     """
-    port_id, param_id, unit_id, warnings = _resolve_tag_inputs(
+    (
+        signal_interface_id,
+        tag_name,
+        param_id,
+        unit_id,
+        channel_role_id,
+        warnings,
+    ) = _resolve_tag_inputs(
         conn,
         das_name=data.das_name,
         tag=data.tag,
@@ -354,32 +424,51 @@ def resolve_channel(data: SensorChannelResolveRequest, conn=Depends(get_db)):
         unit_name=data.unit_name,
     )
 
+    parent_channel_id = None
     if data.parent_tag is not None:
-        das_id, _ = signal_port_repository.find_or_create_das(conn, data.das_name)
-        parent_port_id = signal_port_repository.find_signal_port_by_tag(
-            conn, das_id, data.parent_tag
+        parent_si_id = (
+            signal_interface_repository.find_signal_interface_by_das_and_name(
+                conn, signal_interface_id, data.parent_tag
+            )
         )
-        if parent_port_id is None:
+        if parent_si_id is None:
             raise HTTPException(
                 status_code=422,
                 detail=(
                     f"parent_tag {data.parent_tag!r} not found in DAS {data.das_name!r}. "
-                    "The parent port must exist before creating a sub-signal."
+                    "The parent signal interface must exist before creating a sub-signal."
                 ),
             )
-        try:
-            signal_port_repository.set_parent_port(conn, port_id, parent_port_id)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        parent_channel = channel_repository.find_channel_by_identity(
+            conn,
+            signal_interface_id=parent_si_id,
+            tag_name=data.parent_tag,
+            parameter_id=param_id,
+            data_provenance_id=data.data_provenance_id,
+            processing_degree_id=data.processing_degree_id,
+        )
+        if parent_channel is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"parent_tag {data.parent_tag!r} found as SignalInterface but no matching "
+                    f"Channel exists for parameter={data.parameter_name!r}, provenance={data.data_provenance_id}, "
+                    f"processing_degree={data.processing_degree_id}."
+                ),
+            )
+        parent_channel_id = parent_channel["channel_id"]
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        signal_port_id=port_id,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
         value_type_id=data.value_type_id,
+        channel_role_id=channel_role_id,
+        parent_channel_id=parent_channel_id,
     )
     return ChannelResolveResponse(channel_id=channel_id, warnings=warnings)
 
@@ -395,7 +484,13 @@ def resolve_channel_tagless(
     Runs the same validation and find-or-create logic as POST /ingest/sensor-tagless steps 1–3,
     then returns the channel_id.  Use this to pre-resolve channels before bulk ingestion.
     """
-    port_id, param_id, unit_id, warnings = _resolve_tagless_inputs(
+    (
+        signal_interface_id,
+        tag_name,
+        param_id,
+        unit_id,
+        warnings,
+    ) = _resolve_tagless_inputs(
         conn,
         das_name=data.das_name,
         equipment_name=data.equipment_name,
@@ -405,7 +500,8 @@ def resolve_channel_tagless(
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        signal_port_id=port_id,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
@@ -424,7 +520,14 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
     DAS and SignalPort are auto-created with a warning on first encounter.
     Unrecognised parameter_name or unit_name returns 422 before any DB write.
     """
-    port_id, param_id, unit_id, ingest_warnings = _resolve_tag_inputs(
+    (
+        signal_interface_id,
+        tag_name,
+        param_id,
+        unit_id,
+        channel_role_id,
+        ingest_warnings,
+    ) = _resolve_tag_inputs(
         conn,
         das_name=data.das_name,
         tag=data.tag,
@@ -433,32 +536,51 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         unit_name=data.unit_name,
     )
 
-    # --- parent_tag: link sub-signal to parent port ---
+    # --- parent_tag: link sub-signal to parent channel ---
+    parent_channel_id = None
     if data.parent_tag is not None:
-        das_id, _ = signal_port_repository.find_or_create_das(conn, data.das_name)
-        parent_port_id = signal_port_repository.find_signal_port_by_tag(
-            conn, das_id, data.parent_tag
+        parent_si_id = (
+            signal_interface_repository.find_signal_interface_by_das_and_name(
+                conn, signal_interface_id, data.parent_tag
+            )
         )
-        if parent_port_id is None:
+        if parent_si_id is None:
             raise HTTPException(
                 status_code=422,
                 detail=(
                     f"parent_tag {data.parent_tag!r} not found in DAS {data.das_name!r}. "
-                    "The parent port must exist before creating a sub-signal."
+                    "The parent signal interface must exist before creating a sub-signal."
                 ),
             )
-        try:
-            signal_port_repository.set_parent_port(conn, port_id, parent_port_id)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        parent_channel = channel_repository.find_channel_by_identity(
+            conn,
+            signal_interface_id=parent_si_id,
+            tag_name=data.parent_tag,
+            parameter_id=param_id,
+            data_provenance_id=data.data_provenance_id,
+            processing_degree_id=data.processing_degree_id,
+        )
+        if parent_channel is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"parent_tag {data.parent_tag!r} found as SignalInterface but no matching "
+                    f"Channel exists for parameter={data.parameter_name!r}, provenance={data.data_provenance_id}, "
+                    f"processing_degree={data.processing_degree_id}."
+                ),
+            )
+        parent_channel_id = parent_channel["channel_id"]
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        signal_port_id=port_id,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
+        channel_role_id=channel_role_id,
+        parent_channel_id=parent_channel_id,
     )
 
     rows = value_repository.insert_scalar_values(
@@ -488,7 +610,13 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
     Equipment record.  Unrecognised parameter_name or unit_name returns 422 before
     any DB write.
     """
-    port_id, param_id, unit_id, ingest_warnings = _resolve_tagless_inputs(
+    (
+        signal_interface_id,
+        tag_name,
+        param_id,
+        unit_id,
+        ingest_warnings,
+    ) = _resolve_tagless_inputs(
         conn,
         das_name=data.das_name,
         equipment_name=data.equipment_name,
@@ -498,7 +626,8 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        signal_port_id=port_id,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
@@ -602,7 +731,14 @@ def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
     Each observation contains a timestamp and an array of bin values.
     Channel is resolved/created with value_type_id=2 (Vector).
     """
-    port_id, param_id, unit_id, ingest_warnings = _resolve_tag_inputs(
+    (
+        signal_interface_id,
+        tag_name,
+        param_id,
+        unit_id,
+        channel_role_id,
+        ingest_warnings,
+    ) = _resolve_tag_inputs(
         conn,
         das_name=data.das_name,
         tag=data.tag,
@@ -613,12 +749,14 @@ def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        signal_port_id=port_id,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
         value_type_id=2,
+        channel_role_id=channel_role_id,
     )
     ingestion_repository.upsert_channel_axis(
         conn, channel_id, axis_role=0, binning_axis_id=data.binning_axis_id
@@ -639,7 +777,14 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
     Each observation contains a timestamp and a 2D matrix of values.
     Channel is resolved/created with value_type_id=3 (Matrix).
     """
-    port_id, param_id, unit_id, ingest_warnings = _resolve_tag_inputs(
+    (
+        signal_interface_id,
+        tag_name,
+        param_id,
+        unit_id,
+        channel_role_id,
+        ingest_warnings,
+    ) = _resolve_tag_inputs(
         conn,
         das_name=data.das_name,
         tag=data.tag,
@@ -650,12 +795,14 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        signal_port_id=port_id,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=data.data_provenance_id,
         processing_degree_id=data.processing_degree_id,
         value_type_id=3,
+        channel_role_id=channel_role_id,
     )
     ingestion_repository.upsert_channel_axis(
         conn, channel_id, axis_role=0, binning_axis_id=data.row_axis_id
@@ -733,7 +880,14 @@ def ingest_sensor_image(
 
     # 4. Resolve channel (tagged or tagless) and find/create (value_type_id=4 = Image)
     if tag is not None:
-        port_id, param_id, unit_id, _ = _resolve_tag_inputs(
+        (
+            signal_interface_id,
+            tag_name,
+            param_id,
+            unit_id,
+            channel_role_id,
+            _,
+        ) = _resolve_tag_inputs(
             conn,
             das_name=das_name,
             tag=tag,
@@ -742,21 +896,33 @@ def ingest_sensor_image(
             unit_name=unit_name,
         )
     else:
-        port_id, param_id, unit_id, _ = _resolve_tagless_inputs(
+        assert equipment_name is not None
+        (
+            signal_interface_id,
+            tag_name,
+            param_id,
+            unit_id,
+            _,
+        ) = _resolve_tagless_inputs(
             conn,
             das_name=das_name,
             equipment_name=equipment_name,
             parameter_name=parameter_name,
             unit_name=unit_name,
         )
+        channel_role_id = (
+            signal_interface_repository.find_channel_role_by_name(conn, "value") or 1
+        )
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
-        signal_port_id=port_id,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=data_provenance_id,
         processing_degree_id=processing_degree_id,
         value_type_id=4,
+        channel_role_id=channel_role_id,
     )
 
     # 5. Save file to disk
@@ -801,21 +967,3 @@ def create_sample(data: SampleCreateRequest, conn=Depends(get_db)):
         description=data.description,
     )
     return SampleCreateResponse(sample_id=sample_id)
-
-
-@router.patch(
-    "/signal-ports/{signal_port_id}/deactivate",
-    response_model=SignalPortDeactivateResponse,
-)
-def deactivate_signal_port(signal_port_id: int, conn=Depends(get_db)):
-    """Set SignalPort.IsActive = 0.
-
-    Does not affect the associated Channel rows or any historical data.
-    Returns 404 if the SignalPort does not exist.
-    """
-    found = signal_port_repository.deactivate_signal_port(conn, signal_port_id)
-    if not found:
-        raise HTTPException(
-            status_code=404, detail=f"SignalPort {signal_port_id} not found."
-        )
-    return SignalPortDeactivateResponse(signal_port_id=signal_port_id, deactivated=True)
