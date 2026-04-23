@@ -53,16 +53,16 @@ selected_site_id: int | None = site_options.get(selected_site_name)  # type: ign
 
 try:
     unit_types = list_process_unit_types()
-    type_options = {t["name"]: t["id"] for t in unit_types}
+    type_options = [{"id": t["process_unit_type_id"], "label": t["name"]} for t in unit_types]
 except APIError:
     unit_types = []
-    type_options = {}
+    type_options = []
 
 try:
     parent_candidates = list_process_units_lookup(site_id=selected_site_id)
-    parent_options = {f"{u['tag']} — {u['name']}": u["id"] for u in parent_candidates}
+    parent_options = [{"id": u["id"], "label": f"{u['tag']} — {u['name']}"} for u in parent_candidates]
 except APIError:
-    parent_options = {}
+    parent_options = []
 
 # ---------------------------------------------------------------------------
 # CRUD page
@@ -74,7 +74,7 @@ form_fields = [
         "label": "Site",
         "type": "select",
         "required": True,
-        "options": {s["name"]: s["id"] for s in sites_list},
+        "options": [{"id": s["id"], "label": s["name"]} for s in sites_list],
     },
     {"name": "tag", "label": "Tag (P&ID)", "type": "text", "required": True},
     {"name": "name", "label": "Name", "type": "text", "required": True},

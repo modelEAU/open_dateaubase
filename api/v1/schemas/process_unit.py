@@ -11,7 +11,7 @@ class ProcessUnitTypeIn(BaseModel):
 
 
 class ProcessUnitTypeOut(BaseModel):
-    id: int
+    process_unit_type_id: int
     name: str
     description: str | None
 

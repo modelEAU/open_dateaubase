@@ -16,7 +16,7 @@ def get_all_process_unit_types(conn: pyodbc.Connection) -> list[dict]:
         "SELECT [ProcessUnitType_ID], [Name], [Description] "
         "FROM [dbo].[ProcessUnitType] ORDER BY [Name]"
     )
-    return [{"id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
+    return [{"process_unit_type_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
 
 
 def insert_process_unit_type(
@@ -34,7 +34,7 @@ def insert_process_unit_type(
     )
     row = cursor.fetchone()
     conn.commit()
-    return {"id": row[0], "name": row[1], "description": row[2]}
+    return {"process_unit_type_id": row[0], "name": row[1], "description": row[2]}
 
 
 def update_process_unit_type(
@@ -56,7 +56,7 @@ def update_process_unit_type(
     conn.commit()
     if row is None:
         return None
-    return {"id": row[0], "name": row[1], "description": row[2]}
+    return {"process_unit_type_id": row[0], "name": row[1], "description": row[2]}
 
 
 def delete_process_unit_type(conn: pyodbc.Connection, process_unit_type_id: int) -> bool:
