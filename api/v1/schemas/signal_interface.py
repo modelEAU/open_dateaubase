@@ -225,6 +225,14 @@ class SignalInterfaceLookupOut(BaseModel):
     name: str
 
 
+class DasOut(BaseModel):
+    """Full DataAcquisitionSystem representation."""
+
+    das_id: int
+    name: str
+    description: str | None = None
+
+
 class DasLookupOut(BaseModel):
     das_id: int
     name: str
@@ -232,6 +240,19 @@ class DasLookupOut(BaseModel):
 
 class DasCreateIn(BaseModel):
     name: str
+    description: str | None = None
+
+
+class DasUpdateIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class SignalInterfacePortCreateIn(BaseModel):
+    """Payload for creating a port under a specific interface (signal_interface_id comes from path)."""
+
+    port_identifier: str
+    signal_interface_port_kind_id: int
     description: str | None = None
 
 

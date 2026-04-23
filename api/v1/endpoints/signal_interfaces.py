@@ -19,10 +19,15 @@ from api.database import get_db
 from ..repositories import channel_repository, signal_interface_repository
 from ..schemas.common import PaginatedResponse
 from ..schemas.signal_interface import (
+    DasCreateIn,
+    DasOut,
+    DasLookupOut,
+    DasUpdateIn,
     SignalInterfaceIn,
     SignalInterfaceLookupOut,
     SignalInterfaceOut,
     SignalInterfacePatchRequest,
+    SignalInterfacePortCreateIn,
     SignalInterfacePortOut,
     SignalInterfaceProvisionIn,
 )
@@ -108,6 +113,57 @@ def list_signal_interfaces(
 def list_signal_interfaces_lookup(conn=Depends(get_db)):
     """Return a lightweight ``[{signal_interface_id, name}]`` list for dropdown use."""
     return signal_interface_repository.list_signal_interfaces_lookup(conn)
+
+
+# ---------------------------------------------------------------------------
+# DataAcquisitionSystem CRUD
+# ---------------------------------------------------------------------------
+
+
+@router.get("/das/lookup", response_model=list[DasLookupOut])
+def list_das_lookup(conn=Depends(get_db)):
+    """Return a lightweight ``[{das_id, name}]`` list for dropdown use."""
+    rows = signal_interface_repository.list_das(conn)
+    return [DasLookupOut(das_id=r["DataAcquisitionSystem_ID"], name=r["Name"]) for r in rows]
+
+
+@router.get("/das", response_model=list[DasOut])
+def list_das(conn=Depends(get_db)):
+    """Return all DataAcquisitionSystem rows ordered by name."""
+    rows = signal_interface_repository.list_das(conn)
+    return [
+        DasOut(das_id=r["DataAcquisitionSystem_ID"], name=r["Name"], description=r["Description"])
+        for r in rows
+    ]
+
+
+@router.post("/das", response_model=DasOut, status_code=201)
+def create_das(body: DasCreateIn, conn=Depends(get_db)):
+    """Create a new DataAcquisitionSystem."""
+    try:
+        row = signal_interface_repository.insert_das(conn, body.name, body.description)
+    except pyodbc.IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"A DataAcquisitionSystem named {body.name!r} already exists. Database error: {exc}",
+        ) from exc
+    return DasOut(**row)
+
+
+@router.put("/das/{das_id}", response_model=DasOut)
+def update_das(das_id: int, body: DasUpdateIn, conn=Depends(get_db)):
+    """Update a DataAcquisitionSystem's name and description."""
+    row = signal_interface_repository.update_das(conn, das_id, body.name, body.description)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"DataAcquisitionSystem {das_id} not found.")
+    return DasOut(**row)
+
+
+@router.delete("/das/{das_id}", status_code=204)
+def delete_das(das_id: int, conn=Depends(get_db)):
+    """Delete a DataAcquisitionSystem by ID."""
+    if not signal_interface_repository.delete_das(conn, das_id):
+        raise HTTPException(status_code=404, detail=f"DataAcquisitionSystem {das_id} not found.")
 
 
 @router.get("/{signal_interface_id}", response_model=SignalInterfaceOut)
@@ -238,6 +294,42 @@ def list_ports_under_interface(
         page_size=page_size,
         has_next=(page * page_size) < total,
     )
+
+
+@router.post(
+    "/{signal_interface_id}/ports",
+    response_model=SignalInterfacePortOut,
+    status_code=201,
+)
+def create_port_under_interface(
+    signal_interface_id: int,
+    body: SignalInterfacePortCreateIn,
+    conn=Depends(get_db),
+):
+    """Create a new SignalInterfacePort under the given SignalInterface.
+
+    ``signal_interface_id`` is taken from the path — it must not be included in the
+    request body.
+    """
+    if signal_interface_repository.get_signal_interface_by_id(conn, signal_interface_id) is None:
+        raise HTTPException(
+            status_code=404, detail=f"SignalInterface {signal_interface_id} not found."
+        )
+    try:
+        new_id = signal_interface_repository.create_signal_interface_port(
+            conn,
+            signal_interface_id=signal_interface_id,
+            port_identifier=body.port_identifier,
+            signal_interface_port_kind_id=body.signal_interface_port_kind_id,
+            description=body.description,
+        )
+    except pyodbc.IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Port {body.port_identifier!r} already exists on interface {signal_interface_id}. Database error: {exc}",
+        ) from exc
+    row = signal_interface_repository.get_signal_interface_port_by_id(conn, new_id)
+    return _row_to_port_out(row)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
