@@ -147,17 +147,6 @@ class EquipmentEventTypeIn(BaseModel):
     name: str
 
 
-class PurposeOut(BaseModel):
-    purpose_id: int
-    name: str | None
-    description: str | None
-
-
-class PurposeIn(BaseModel):
-    name: str | None = None
-    description: str | None = None
-
-
 class ProcedureOut(BaseModel):
     procedure_id: int
     procedure_name: str | None
@@ -171,17 +160,6 @@ class ProcedureIn(BaseModel):
     procedure_type: str | None = None
     description: str | None = None
     procedure_location: str | None = None
-
-
-class ProjectOut(BaseModel):
-    project_id: int
-    name: str | None
-    description: str | None
-
-
-class ProjectIn(BaseModel):
-    name: str | None = None
-    description: str | None = None
 
 
 class WatershedOut(BaseModel):

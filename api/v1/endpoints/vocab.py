@@ -1,27 +1,12 @@
 """Vocabulary and entity CRUD endpoints.
 
 Covers:
-  GET  /vocab/equipment-event-types              — list all
-  POST /vocab/equipment-event-types              — create
-  PUT  /vocab/equipment-event-types/{id}         — update
-  DELETE /vocab/equipment-event-types/{id}       — delete
-
   GET  /vocab/processing-degrees                 — list (read-only)
-
-  GET  /vocab/purposes                           — list all
-  POST /vocab/purposes                           — create
-  PUT  /vocab/purposes/{id}                      — update
-  DELETE /vocab/purposes/{id}                    — delete
 
   GET  /vocab/procedures                         — list all
   POST /vocab/procedures                         — create
   PUT  /vocab/procedures/{id}                    — update
   DELETE /vocab/procedures/{id}                  — delete
-
-  GET  /vocab/projects                           — list all
-  POST /vocab/projects                           — create
-  PUT  /vocab/projects/{id}                      — update
-  DELETE /vocab/projects/{id}                    — delete
 
   GET  /vocab/watersheds                         — list all
   POST /vocab/watersheds                         — create
@@ -39,10 +24,6 @@ from ..schemas.metadata import (
     ProcessingDegreeOut,
     ProcedureIn,
     ProcedureOut,
-    ProjectIn,
-    ProjectOut,
-    PurposeIn,
-    PurposeOut,
     WatershedIn,
     WatershedOut,
 )
@@ -58,36 +39,6 @@ router = APIRouter()
 @router.get("/processing-degrees", response_model=list[ProcessingDegreeOut])
 def list_processing_degrees(conn=Depends(get_db)):
     return lookup_repository.get_processing_degrees(conn)
-
-
-# ---------------------------------------------------------------------------
-# Purpose
-# ---------------------------------------------------------------------------
-
-
-@router.get("/purposes", response_model=list[PurposeOut])
-def list_purposes(conn=Depends(get_db)):
-    return lookup_repository.get_purposes(conn)
-
-
-@router.post("/purposes", response_model=PurposeOut, status_code=201)
-def create_purpose(body: PurposeIn, conn=Depends(get_db)):
-    return lookup_repository.insert_purpose(conn, body.name, body.description)
-
-
-@router.put("/purposes/{purpose_id}", response_model=PurposeOut)
-def update_purpose(purpose_id: int, body: PurposeIn, conn=Depends(get_db)):
-    updated = lookup_repository.update_purpose(conn, purpose_id, body.name, body.description)
-    if updated is None:
-        raise HTTPException(status_code=404, detail=f"Purpose {purpose_id} not found.")
-    return updated
-
-
-@router.delete("/purposes/{purpose_id}", status_code=204)
-def delete_purpose(purpose_id: int, conn=Depends(get_db)):
-    deleted = lookup_repository.delete_purpose(conn, purpose_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail=f"Purpose {purpose_id} not found.")
 
 
 # ---------------------------------------------------------------------------
@@ -131,36 +82,6 @@ def delete_procedure(procedure_id: int, conn=Depends(get_db)):
     deleted = lookup_repository.delete_procedure(conn, procedure_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Procedure {procedure_id} not found.")
-
-
-# ---------------------------------------------------------------------------
-# Project
-# ---------------------------------------------------------------------------
-
-
-@router.get("/projects", response_model=list[ProjectOut])
-def list_projects(conn=Depends(get_db)):
-    return lookup_repository.get_projects(conn)
-
-
-@router.post("/projects", response_model=ProjectOut, status_code=201)
-def create_project(body: ProjectIn, conn=Depends(get_db)):
-    return lookup_repository.insert_project(conn, body.name, body.description)
-
-
-@router.put("/projects/{project_id}", response_model=ProjectOut)
-def update_project(project_id: int, body: ProjectIn, conn=Depends(get_db)):
-    updated = lookup_repository.update_project(conn, project_id, body.name, body.description)
-    if updated is None:
-        raise HTTPException(status_code=404, detail=f"Project {project_id} not found.")
-    return updated
-
-
-@router.delete("/projects/{project_id}", status_code=204)
-def delete_project(project_id: int, conn=Depends(get_db)):
-    deleted = lookup_repository.delete_project(conn, project_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail=f"Project {project_id} not found.")
 
 
 # ---------------------------------------------------------------------------

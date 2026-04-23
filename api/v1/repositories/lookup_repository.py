@@ -135,7 +135,7 @@ def delete_laboratory(conn: pyodbc.Connection, laboratory_id: int) -> bool:
 def get_procedures_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT Procedure_ID, ProcedureName FROM [dbo].[Procedures] ORDER BY ProcedureName"
+        "SELECT Procedure_ID, [Procedure_name] FROM [dbo].[Procedures] ORDER BY [Procedure_name]"
     )
     return [
         {"procedure_id": row[0], "procedure_name": row[1]} for row in cursor.fetchall()
@@ -795,77 +795,6 @@ def delete_equipment_event_type(
 
 
 # ---------------------------------------------------------------------------
-# Purpose
-# ---------------------------------------------------------------------------
-
-
-def get_purposes(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [Purpose_ID], [Purpose], [Description] FROM [dbo].[Purpose] ORDER BY [Purpose_ID]"
-    )
-    return [
-        {"purpose_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
-
-
-def insert_purpose(
-    conn: pyodbc.Connection, name: str | None, description: str | None
-) -> dict:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO [dbo].[Purpose] ([Purpose], [Description])"
-            " OUTPUT inserted.[Purpose_ID], inserted.[Purpose], inserted.[Description]"
-            " VALUES (?, ?)",
-            name,
-            description,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        return {"purpose_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def update_purpose(
-    conn: pyodbc.Connection, purpose_id: int, name: str | None, description: str | None
-) -> dict | None:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "UPDATE [dbo].[Purpose]"
-            " SET [Purpose]=?, [Description]=?"
-            " OUTPUT inserted.[Purpose_ID], inserted.[Purpose], inserted.[Description]"
-            " WHERE [Purpose_ID]=?",
-            name,
-            description,
-            purpose_id,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        if row is None:
-            return None
-        return {"purpose_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def delete_purpose(conn: pyodbc.Connection, purpose_id: int) -> bool:
-    cursor = conn.cursor()
-    try:
-        cursor.execute("DELETE FROM [dbo].[Purpose] WHERE [Purpose_ID]=?", purpose_id)
-        conn.commit()
-        return cursor.rowcount > 0
-    except Exception:
-        conn.rollback()
-        raise
-
-
-# ---------------------------------------------------------------------------
 # Procedures
 # ---------------------------------------------------------------------------
 
@@ -966,77 +895,6 @@ def delete_procedure(conn: pyodbc.Connection, procedure_id: int) -> bool:
         cursor.execute(
             "DELETE FROM [dbo].[Procedures] WHERE [Procedure_ID]=?", procedure_id
         )
-        conn.commit()
-        return cursor.rowcount > 0
-    except Exception:
-        conn.rollback()
-        raise
-
-
-# ---------------------------------------------------------------------------
-# Project
-# ---------------------------------------------------------------------------
-
-
-def get_projects(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [Project_ID], [name], [Description] FROM [dbo].[Project] ORDER BY [name]"
-    )
-    return [
-        {"project_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
-
-
-def insert_project(
-    conn: pyodbc.Connection, name: str | None, description: str | None
-) -> dict:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO [dbo].[Project] ([name], [Description])"
-            " OUTPUT inserted.[Project_ID], inserted.[name], inserted.[Description]"
-            " VALUES (?, ?)",
-            name,
-            description,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        return {"project_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def update_project(
-    conn: pyodbc.Connection, project_id: int, name: str | None, description: str | None
-) -> dict | None:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "UPDATE [dbo].[Project]"
-            " SET [name]=?, [Description]=?"
-            " OUTPUT inserted.[Project_ID], inserted.[name], inserted.[Description]"
-            " WHERE [Project_ID]=?",
-            name,
-            description,
-            project_id,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        if row is None:
-            return None
-        return {"project_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def delete_project(conn: pyodbc.Connection, project_id: int) -> bool:
-    cursor = conn.cursor()
-    try:
-        cursor.execute("DELETE FROM [dbo].[Project] WHERE [Project_ID]=?", project_id)
         conn.commit()
         return cursor.rowcount > 0
     except Exception:

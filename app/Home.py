@@ -2,6 +2,7 @@
 
 Run with: uv run streamlit run app/Home.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -52,7 +53,8 @@ def _home() -> None:
 - **Sensor / Lab Ingest** — upload and register measurements
 - **Explore** — browse and plot time series
 - **Campaigns** — sampling campaign wizard
-- **Administration** — manage sites, equipment, channels, and lookup tables
+- **Entities** — manage sites, equipment, channels, and signal sources
+- **Vocabulary** — lookup tables and controlled vocabularies
             """
         )
 
@@ -79,14 +81,15 @@ pg = st.navigation(
             st.Page(str(_pages / "campaigns.py"), title="Campaigns", icon="🗂️"),
         ],
         "Entities": [
-            st.Page(str(_pages / "projects.py"), title="Projects"),
             st.Page(str(_pages / "watersheds.py"), title="Watersheds"),
             st.Page(str(_pages / "sites.py"), title="Sites"),
             st.Page(str(_pages / "process_units.py"), title="Process Units"),
             st.Page(str(_pages / "equipment.py"), title="Equipment"),
             st.Page(str(_pages / "equipment_models.py"), title="Equipment Models"),
-            st.Page(str(_pages / "data_acquisition_systems.py"), title="Data Acquisition Systems"),
-            st.Page(str(_pages / "signal_ports.py"), title="Signal Ports"),
+            st.Page(
+                str(_pages / "data_acquisition_systems.py"),
+                title="Data Acquisition Systems",
+            ),
             st.Page(str(_pages / "control_loops.py"), title="Control Loops"),
             st.Page(str(_pages / "channels.py"), title="Channels"),
             st.Page(str(_pages / "parameters.py"), title="Parameters"),
@@ -96,12 +99,22 @@ pg = st.navigation(
             st.Page(str(_pages / "persons.py"), title="Persons"),
             st.Page(str(_pages / "procedures.py"), title="Procedures"),
         ],
+        "Signal Sources": [
+            st.Page(
+                str(_pages / "signal_interfaces.py"),
+                title="Signal Interfaces",
+                icon="🔌",
+            ),
+            st.Page(str(_pages / "signal_interface_types.py"), title="Interface Types"),
+            st.Page(str(_pages / "signal_interface_port_kinds.py"), title="Port Kinds"),
+        ],
         "Vocabulary": [
             st.Page(str(_pages / "site_types.py"), title="Site Types"),
             st.Page(str(_pages / "campaign_types.py"), title="Campaign Types"),
             st.Page(str(_pages / "process_unit_types.py"), title="Process Unit Types"),
-            st.Page(str(_pages / "signal_port_types.py"), title="Signal Port Types"),
-            st.Page(str(_pages / "equipment_event_types.py"), title="Equipment Event Types"),
+            st.Page(
+                str(_pages / "equipment_event_types.py"), title="Equipment Event Types"
+            ),
             st.Page(str(_pages / "annotation_types.py"), title="Annotation Types"),
             st.Page(str(_pages / "sample_types.py"), title="Sample Types"),
             st.Page(str(_pages / "sample_methods.py"), title="Sample Methods"),
@@ -109,7 +122,6 @@ pg = st.navigation(
             st.Page(str(_pages / "units.py"), title="Units"),
             st.Page(str(_pages / "bin_modes.py"), title="Bin Modes"),
             st.Page(str(_pages / "processing_degrees.py"), title="Processing Degrees"),
-            st.Page(str(_pages / "purposes.py"), title="Purposes"),
         ],
         "Workflows": [
             st.Page(str(_pages / "equipment_move.py"), title="Equipment Move"),
