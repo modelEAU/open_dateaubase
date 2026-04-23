@@ -86,6 +86,14 @@ class ProcessingDegreeLookupOut(BaseModel):
     name: str
 
 
+class ChannelRoleLookupOut(BaseModel):
+    """Lightweight channel role info for dropdowns."""
+
+    channel_role_id: int
+    name: str
+    description: str | None
+
+
 class ChannelListResponse(BaseModel):
     """Paginated list of channels."""
 

@@ -8,6 +8,7 @@ from api.database import get_db
 from ..repositories import (
     channel_repository,
     ingestion_repository,
+    lookup_repository,
     signal_interface_repository,
 )
 from ..schemas.common import PaginatedResponse
@@ -21,6 +22,7 @@ from ..schemas.channel import (
     ChannelProvisionIn,
     ChannelResolveIn,
     ChannelResolveOut,
+    ChannelRoleLookupOut,
     EquipmentLookupOut,
     ParameterLookupOut,
     ProcessingDegreeLookupOut,
@@ -277,3 +279,9 @@ def list_parameters_lookup(conn=Depends(get_db)):
 def list_processing_degrees_lookup(conn=Depends(get_db)):
     """Return processing degrees for dropdowns."""
     return get_processing_degrees_lookup(conn)
+
+
+@router.get("/lookup/channel-roles", response_model=list[ChannelRoleLookupOut])
+def list_channel_roles(conn=Depends(get_db)):
+    """Return channel roles for dropdowns."""
+    return lookup_repository.get_channel_roles(conn)
