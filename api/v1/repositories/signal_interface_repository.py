@@ -446,6 +446,21 @@ _SELECT_SIGNAL_INTERFACE = """
 """
 
 
+def list_signal_interfaces_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return a lightweight list of all SignalInterfaces as ``{signal_interface_id, name}``.
+
+    Used by the ``GET /signal-interfaces/lookup`` endpoint so clients can populate
+    dropdowns without fetching full paginated detail.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SignalInterface_ID], [Name]"
+        " FROM [dbo].[SignalInterface]"
+        " ORDER BY [Name]"
+    )
+    return [{"signal_interface_id": row[0], "name": row[1]} for row in cursor.fetchall()]
+
+
 def list_signal_interfaces(
     conn: pyodbc.Connection,
     *,

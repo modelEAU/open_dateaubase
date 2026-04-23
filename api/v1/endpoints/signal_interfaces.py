@@ -20,6 +20,7 @@ from ..repositories import channel_repository, signal_interface_repository
 from ..schemas.common import PaginatedResponse
 from ..schemas.signal_interface import (
     SignalInterfaceIn,
+    SignalInterfaceLookupOut,
     SignalInterfaceOut,
     SignalInterfacePatchRequest,
     SignalInterfacePortOut,
@@ -101,6 +102,12 @@ def list_signal_interfaces(
         page_size=page_size,
         has_next=(page * page_size) < total,
     )
+
+
+@router.get("/lookup", response_model=list[SignalInterfaceLookupOut])
+def list_signal_interfaces_lookup(conn=Depends(get_db)):
+    """Return a lightweight ``[{signal_interface_id, name}]`` list for dropdown use."""
+    return signal_interface_repository.list_signal_interfaces_lookup(conn)
 
 
 @router.get("/{signal_interface_id}", response_model=SignalInterfaceOut)

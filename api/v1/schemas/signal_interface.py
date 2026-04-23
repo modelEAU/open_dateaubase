@@ -218,6 +218,13 @@ class SignalInterfacePortKindLookupOut(BaseModel):
     description: str | None = None
 
 
+class SignalInterfaceLookupOut(BaseModel):
+    """Lightweight SignalInterface representation for dropdowns and foreign-key lookups."""
+
+    signal_interface_id: int
+    name: str
+
+
 class DasLookupOut(BaseModel):
     das_id: int
     name: str
