@@ -1,0 +1,20 @@
+api_config:
+  api_url: http://localhost:8000/api/v1
+
+# WTW TurbR300 BaseStation imported in equipment (tagless) mode.
+# DAS = monEAU server; data format = WTW proprietary .tsdb binary files.
+# Equipment TEST_Basestation-Turb is auto-created by the importer on first run.
+tsdb_configs:
+- name: wwtp_basestation
+  mode: tagless
+  das_name: TEST_monEAU
+  tsdb_structure:
+    extension: .tsdb
+    timezone: America/Montreal
+  variables:
+  - name: basestation_turbidity
+    parameter_name: Turbidity
+    source_unit_name: NTU
+    destination_unit_name: NTU
+    directory_path: test_data/basestation
+    equipment_name: TEST_Basestation-Turb

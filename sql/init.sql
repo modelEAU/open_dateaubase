@@ -7,63 +7,16 @@ GO
 USE open_dateaubase;
 GO
 
--- Step 1: Create the v1.0.0 baseline schema
-:r /migrations/v1.0.0_create_mssql.sql
+-- Full schema — generated from schema_dictionary/tables/*.yaml via `uv run mkdocs build`
+:r /sql_generation_scripts/v4.0.0_create_mssql.sql
 GO
 
--- Step 2: Apply the consolidated migration to v3.0.0
-:r /migrations/v1.0.0_to_v3.0.0_mssql.sql
+-- Vocabulary seed: units, parameters, procedures, one TEST_ watershed, one TEST_ lab.
+-- No equipment, sites, campaigns, or channels — those are created by the importer.
+:r /sql/seed_vocabulary.sql
 GO
 
--- Step 2b: Add BinMode vocabulary table and NominalValue to ValueBin
-:r /migrations/v3.0.0_add_binmode_nominalvalue.sql
-GO
-
--- Step 2c: Add SiteType vocabulary table
-:r /migrations/v3.0.0_add_site_type_mssql.sql
-GO
-
--- Step 2d: Move Unit_ID from Parameter to Channel
-:r /migrations/v3.0.0_add_channel_unit.sql
-GO
-
--- Step 2e: Add ResponsiblePerson_ID to Campaign
-:r /migrations/v3.0.0_add_campaign_responsible_person.sql
-:r /migrations/v3.0.0_add_description_to_lookup_tables.sql
-GO
-
--- Step 2f: Add QualityCode column to dbo.Value (scalar)
-:r /migrations/v3.0.0_add_quality_code_to_scalar_value.sql
-GO
-
--- Step 2g: Add ProcessUnitType lookup and ProcessUnit hierarchy
-:r /migrations/v3.0.0_add_process_unit.sql
-GO
-
--- Step 2h: Replace SamplingPoint.Pictures BLOB with filesystem PicturePath
-:r /migrations/v3.0.0_sampling_point_picture_path.sql
-GO
-
--- Step 2i: v4.0.0 — SignalInterface redesign (Issue #24). Drops SignalPort*
--- stack, introduces SignalInterface/Port, Equipment wiring + location history,
--- Channel.ParentChannel + ChannelRole, ControlLoopPort → Channel.
-:r /migrations/v4.0.0_signal_interface.sql
-GO
-
--- Step 3: Load test seed data for the Quebec City monitoring scenario
-:r /sql/seed_v2.2.0.sql
-GO
-
--- Step 4: Load Explore page demonstration data (Feb 2026, all four value types)
--- NOTE: seed_explore.sql needs to be updated for v3.0.0 format
--- :r /sql/seed_explore.sql
--- GO
-
--- Step 5: Load equipment/parameters needed by the importer test data
-:r /sql/seed_importer_fixtures.sql
-GO
-
-PRINT 'Database initialized at v4.0.0 with sample data.';
+PRINT 'Database initialized with sample data.';
 SELECT [Version], [AppliedDateTime], [Description] FROM dbo.SchemaVersion ORDER BY [AppliedDateTime];
 SELECT 'channel'     AS t, COUNT(*) AS n FROM dbo.Channel;
 SELECT 'value'       AS t, COUNT(*) AS n FROM dbo.[Value];

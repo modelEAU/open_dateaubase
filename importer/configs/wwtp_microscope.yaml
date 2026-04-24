@@ -1,0 +1,23 @@
+api_config:
+  api_url: http://localhost:8000/api/v1
+
+# Inline microscope imported in equipment (tagless) mode from a student's PC.
+# Captures activated sludge floc morphology images; model is unknown.
+# Equipment TEST_microscope_001 is auto-created by the importer on first run.
+# Timestamps are derived from file mtime (no EXIF data on microscope exports).
+image_folder_configs:
+- name: wwtp_microscope
+  mode: tagless
+  das_name: TEST_student_PC
+  folder_structure:
+    extensions: [.jpg, .jpeg, .png, .tiff]
+    timezone: America/Montreal
+    filename_format: null
+    timestamp_source: mtime
+  variables:
+  - name: microscope_floc_morphology
+    parameter_name: floc_morphology
+    source_unit_name: "-"
+    destination_unit_name: "-"
+    directory_path: test_data/images/felinoscope_2000
+    equipment_name: TEST_microscope_001
