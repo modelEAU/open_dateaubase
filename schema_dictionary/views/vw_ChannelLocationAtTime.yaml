@@ -33,7 +33,7 @@ view:
         cea.Timestamp,
         cea.EquipmentID,
         elh.[SamplingPoint_ID] AS SamplingPointID,
-        sp.[Name]              AS SamplingPointName
+        sp.[SamplingPoint]     AS SamplingPointName
     FROM [dbo].[vw_ChannelEquipmentAtTime] cea
     LEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID
                                                   AND elh.[ValidFrom]   <= cea.Timestamp

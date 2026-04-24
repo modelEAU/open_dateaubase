@@ -140,6 +140,8 @@ def render_column_def(col: dict, platform: str) -> str:
                 parts.append("DEFAULT SYSDATETIMEOFFSET()")
             else:
                 parts.append("DEFAULT CURRENT_TIMESTAMP")
+        elif isinstance(default, bool):
+            parts.append(f"DEFAULT {1 if default else 0}")
         else:
             parts.append(f"DEFAULT {default}")
 
@@ -592,6 +594,8 @@ def render_create_script_with_views(
     if views:
         view_lines: list[str] = ["", "-- Views"]
         for view_name in sorted(views.keys()):
+            if platform == "mssql":
+                view_lines.append("GO")
             view_lines.append(render_create_view(view_name, views[view_name], platform))
             view_lines.append("")
         sql += "\n" + "\n".join(view_lines)

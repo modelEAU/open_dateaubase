@@ -42,6 +42,6 @@ table:
   check_constraints:
     - name: CK_ValueBin_BinValues
       expression: >
-        (LowerBound IS NULL) = (UpperBound IS NULL)
+        ((LowerBound IS NULL AND UpperBound IS NULL) OR (LowerBound IS NOT NULL AND UpperBound IS NOT NULL))
         AND (LowerBound IS NULL OR UpperBound > LowerBound)
         AND (NominalValue IS NOT NULL OR LowerBound IS NOT NULL)

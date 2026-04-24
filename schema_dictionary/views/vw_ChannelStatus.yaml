@@ -41,7 +41,7 @@ view:
     FROM [dbo].[Value] v
     JOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]
     JOIN [dbo].[Channel]       statusC ON statusC.[Channel_ID] = o.[Channel_ID]
-    JOIN [dbo].[ChannelRole]   role    ON role.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+    JOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]
     JOIN [dbo].[Channel]       valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]
     JOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]
     LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
