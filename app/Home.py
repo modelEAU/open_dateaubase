@@ -60,8 +60,13 @@ else:
         if st.button("Sign out"):
             logout()
 
+    _pages_dir = Path(__file__).parent / "pages"
+
     pg = st.navigation(
-        [st.Page(dashboard_page, title="Home", icon="🏠", default=True)],
+        [
+            st.Page(dashboard_page, title="Home", icon="🏠", default=True),
+            st.Page(_pages_dir / "Audit_Log.py", title="Audit Log", icon="📋"),
+        ],
         position="sidebar",
     )
 
