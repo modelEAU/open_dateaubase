@@ -95,3 +95,38 @@ def get_me() -> dict:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
+
+
+# ---------------------------------------------------------------------------
+# Audit
+# ---------------------------------------------------------------------------
+
+def get_audit_logs(
+    *,
+    user_id: int | None = None,
+    action: str | None = None,
+    resource_type: str | None = None,
+    from_dt: str | None = None,
+    to_dt: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    params: dict = {"limit": limit, "offset": offset}
+    if user_id is not None:
+        params["user_id"] = user_id
+    if action:
+        params["action"] = action
+    if resource_type:
+        params["resource_type"] = resource_type
+    if from_dt:
+        params["from_dt"] = from_dt
+    if to_dt:
+        params["to_dt"] = to_dt
+
+    try:
+        with _get_client() as client:
+            r = client.get("/audit/logs", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
