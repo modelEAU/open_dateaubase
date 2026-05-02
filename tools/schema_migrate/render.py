@@ -601,3 +601,109 @@ def render_create_script_with_views(
         sql += "\n" + "\n".join(view_lines)
 
     return sql + "\n"
+
+
+def _render_seed_value(value: object) -> str:
+    """Convert a Python YAML value to an SQL literal.
+
+    Args:
+        value: Python value from a seed_data row dict.
+
+    Returns:
+        SQL literal string:
+        - ``None``  → ``NULL``
+        - ``bool``  → ``1`` or ``0``  (MSSQL BIT)
+        - ``int`` / ``float`` → decimal string
+        - ``str``   → ``N'...'`` with single-quotes escaped as ``''``
+    """
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (int, float)):
+        return str(value)
+    # str
+    escaped = str(value).replace("'", "''")
+    return f"N'{escaped}'"
+
+
+def _render_insert_block(table_name: str, table_dict: dict, platform: str) -> str:
+    """Render all INSERT statements for a single table's seed_data.
+
+    Args:
+        table_name: Name of the table.
+        table_dict: Full file-level dict (including ``_format_version`` key).
+        platform: ``'mssql'`` or ``'postgres'``.
+
+    Returns:
+        Multi-line SQL string with all INSERTs (and IDENTITY_INSERT wrappers
+        where needed), or ``""`` if the table has no seed_data.
+    """
+    tbl = table_dict["table"]
+    schema = tbl.get("schema", "dbo")
+    seed_rows: list[dict] = tbl.get("seed_data") or []
+
+    if not seed_rows:
+        return ""
+
+    # Detect whether any column uses IDENTITY
+    has_identity = any(col.get("identity", False) for col in tbl.get("columns", []) or [])
+
+    # Build quoted table reference
+    if platform == "mssql":
+        full_table = f"[{schema}].[{table_name}]"
+    else:
+        full_table = f'"{schema}"."{table_name}"'
+
+    lines: list[str] = [f"-- {table_name}"]
+
+    if has_identity:
+        lines.append(f"SET IDENTITY_INSERT {full_table} ON;")
+
+    for row in seed_rows:
+        if platform == "mssql":
+            cols = ", ".join(f"[{col}]" for col in row)
+        else:
+            cols = ", ".join(f'"{col}"' for col in row)
+        vals = ", ".join(_render_seed_value(v) for v in row.values())
+        lines.append(f"INSERT INTO {full_table} ({cols}) VALUES ({vals});")
+
+    if has_identity:
+        lines.append(f"SET IDENTITY_INSERT {full_table} OFF;")
+
+    return "\n".join(lines)
+
+
+def render_seed_script(
+    schema: dict[str, dict],
+    version: str,
+    platform: str,
+) -> str:
+    """Render a seed INSERT script for all tables in the schema that have seed_data.
+
+    Args:
+        schema: Full schema dict from ``load_schema``.
+        version: Schema version string.
+        platform: ``'mssql'`` or ``'postgres'``.
+
+    Returns:
+        SQL string containing all INSERT statements for vocabulary tables,
+        with IDENTITY_INSERT wrappers where needed.
+    """
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    lines: list[str] = [
+        f"-- Seed data for schema v{version}",
+        f"-- Platform: {platform}",
+        f"-- Generated: {now}",
+        "",
+    ]
+
+    sorted_tables = _sort_tables_fk_safe(sorted(schema.keys()), schema)
+
+    blocks: list[str] = []
+    for table_name in sorted_tables:
+        block = _render_insert_block(table_name, schema[table_name], platform)
+        if block:
+            blocks.append(block)
+
+    return "\n".join(lines) + "\n".join(blocks) + "\n"

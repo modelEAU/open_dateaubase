@@ -57,10 +57,48 @@ def test_generate_all_from_yaml_produces_expected_files(tmp_path: Path) -> None:
     assert (docs_dir / "erd.md").exists(), "erd.md was not generated"
     assert (assets_dir / "erd_interactive.html").exists(), "erd_interactive.html was not generated"
     assert (sql_dir / f"v{version}_create_mssql.sql").exists(), "SQL CREATE script was not generated"
+    assert (sql_dir / f"v{version}_seed_mssql.sql").exists(), "SQL seed script was not generated"
 
 
 # ---------------------------------------------------------------------------
-# Test 2: Generated SQL contains CREATE TABLE for every YAML table
+# Test 2: Generated seed SQL contains INSERT INTO for every table with seed_data
+# ---------------------------------------------------------------------------
+
+
+def test_generated_seed_sql_contains_all_vocabulary_inserts(tmp_path: Path) -> None:
+    """Every table with at least one seed_data row must have an INSERT in the seed SQL."""
+    import sys
+
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    from generate_from_yaml import generate_all_from_yaml
+    from tools.schema_migrate.loader import load_schema
+
+    version = _schema_version()
+    sql_dir = tmp_path / "sql"
+
+    generate_all_from_yaml(
+        tables_dir=TABLES_DIR,
+        views_dir=VIEWS_DIR,
+        docs_dir=tmp_path / "docs",
+        assets_dir=tmp_path / "assets",
+        sql_dir=sql_dir,
+        platform="mssql",
+        version=version,
+    )
+
+    seed_content = (sql_dir / f"v{version}_seed_mssql.sql").read_text(encoding="utf-8")
+    schema = load_schema(TABLES_DIR)
+
+    tables_with_seed = [
+        t for t, d in schema.items()
+        if d.get("table", {}).get("seed_data")
+    ]
+    missing = [t for t in tables_with_seed if f"INSERT INTO [dbo].[{t}]" not in seed_content]
+    assert missing == [], f"Tables with seed_data missing from generated seed SQL: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# Test 3: Generated SQL contains CREATE TABLE for every YAML table
 # ---------------------------------------------------------------------------
 
 

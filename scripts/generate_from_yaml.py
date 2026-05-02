@@ -25,7 +25,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from tools.schema_migrate.loader import load_schema, load_views
-from tools.schema_migrate.render import render_column_type, render_create_script_with_views
+from tools.schema_migrate.render import render_column_type, render_create_script_with_views, render_seed_script
 
 # Add scripts dir to path for doc generators
 scripts_dir = Path(__file__).parent
@@ -278,6 +278,12 @@ def generate_all_from_yaml(
     sql_path = sql_dir / f"v{version}_create_{platform}.sql"
     sql_path.write_text(sql_script, encoding="utf-8")
     print(f"Generated SQL CREATE script: {sql_path}")
+
+    # Step 7: SQL seed script
+    seed_script = render_seed_script(schema, version, platform)
+    seed_path = sql_dir / f"v{version}_seed_{platform}.sql"
+    seed_path.write_text(seed_script, encoding="utf-8")
+    print(f"Generated SQL seed script: {seed_path}")
 
 
 def main() -> None:
