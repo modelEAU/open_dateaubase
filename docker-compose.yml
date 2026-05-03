@@ -83,8 +83,8 @@ services:
         condition: service_healthy
     volumes:
       - ./importer/test_data:/test-data
-      - ./docker/import-test-data.yaml:/config.yaml
-    command: ["--config", "/config.yaml"]
+      - ./importer/configs:/configs
+    command: ["import", "--config-dir", "/configs", "--api-url", "http://api:8000/api/v1"]
 
   app:
     build:

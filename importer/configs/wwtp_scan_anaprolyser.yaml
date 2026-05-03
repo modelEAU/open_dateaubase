@@ -27,6 +27,7 @@ file_configs:
 - name: scan_par_tss
   mode: tagless
   das_name: TEST_monEAU
+  file_reader_type: rodtox
   file_structure:
     extension: .par
     separator: "\t"
@@ -55,6 +56,7 @@ file_configs:
 - name: scan_par_cod
   mode: tagless
   das_name: TEST_monEAU
+  file_reader_type: rodtox
   file_structure:
     extension: .par
     separator: "\t"
@@ -83,6 +85,7 @@ file_configs:
 - name: scan_par_nh4n
   mode: tagless
   das_name: TEST_monEAU
+  file_reader_type: rodtox
   file_structure:
     extension: .par
     separator: "\t"
@@ -111,6 +114,7 @@ file_configs:
 - name: scan_par_temp
   mode: tagless
   das_name: TEST_monEAU
+  file_reader_type: rodtox
   file_structure:
     extension: .par
     separator: "\t"

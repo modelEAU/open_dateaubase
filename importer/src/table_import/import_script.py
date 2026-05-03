@@ -154,7 +154,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
         # ------------------------------------------------------------------
         for file_cfg in settings.file_configs:
             file_structure = file_cfg.file_structure
-            file_reader_class = get_file_reader(file_cfg.name)
+            file_reader_class = get_file_reader(file_cfg.file_reader_type or file_cfg.name)
             mode = file_cfg.mode
 
             for variable in file_cfg.variables:
@@ -415,7 +415,7 @@ def _ingest_vector_source(
         for w in axis_warnings:
             print(f"[WARNING] {label}: {w}")
 
-        # 2. Resolve channel
+        # 2. Resolve channel (value_type_id=2 for Vector channels)
         channel_id, ch_warnings = client.resolve_channel(
             das_name=vec_cfg.das_name,
             tag=variable.tag,
@@ -425,6 +425,7 @@ def _ingest_vector_source(
             unit_name=variable.destination_unit_name,
             data_provenance_id=variable.data_provenance_id,
             processing_degree_id=variable.processing_degree_id,
+            value_type_id=2,
             signal_interface_name=vec_cfg.signal_interface_name,
         )
         for w in ch_warnings:
@@ -611,3 +612,41 @@ def read_config_from_file(path: str) -> config.Config:
     with open(path_obj) as f:
         file_config = yaml.safe_load(f)
     return config.Config(**file_config)
+
+
+def read_configs_from_dir(dir_path: str) -> config.Config:
+    """Merge all *.yaml files in dir_path into a single Config.
+
+    api_config is taken from the first file that defines it.
+    All list fields (file_configs, tsdb_configs, etc.) are concatenated.
+    """
+    path_obj = Path(dir_path)
+    if not path_obj.is_dir():
+        raise ValueError(f"Could not find config directory at {dir_path}")
+
+    yaml_files = sorted(path_obj.glob("*.yaml"))
+    if not yaml_files:
+        raise ValueError(f"No *.yaml files found in {dir_path}")
+
+    api_config_raw: dict | None = None
+    merged: dict[str, list] = {
+        "file_configs": [],
+        "tsdb_configs": [],
+        "scada_sql_configs": [],
+        "vector_file_configs": [],
+        "image_folder_configs": [],
+        "matrix_file_configs": [],
+    }
+
+    for yaml_file in yaml_files:
+        with open(yaml_file) as f:
+            data = yaml.safe_load(f) or {}
+        if api_config_raw is None and "api_config" in data:
+            api_config_raw = data["api_config"]
+        for key in merged:
+            merged[key].extend(data.get(key, []))
+
+    if api_config_raw is None:
+        raise ValueError(f"No api_config found in any *.yaml file in {dir_path}")
+
+    return config.Config(api_config=api_config_raw, **merged)

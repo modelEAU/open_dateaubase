@@ -264,6 +264,7 @@ class TaggedFileConfig(BaseModel):
     mode: Literal["tagged"]
     das_name: str
     signal_interface_name: str | None = None
+    file_reader_type: str | None = None
     file_structure: FileStructure
     variables: list[TaggedFileVariable]
 
@@ -273,6 +274,7 @@ class TaglessFileConfig(BaseModel):
     mode: Literal["tagless"]
     das_name: str
     signal_interface_name: str | None = None
+    file_reader_type: str | None = None
     file_structure: FileStructure
     variables: list[TaglessFileVariable]
 

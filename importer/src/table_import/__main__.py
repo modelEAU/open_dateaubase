@@ -2,13 +2,24 @@ import argparse
 import sys
 from pathlib import Path
 
-from table_import.import_script import main as import_main, read_config_from_file
+from table_import.import_script import (
+    main as import_main,
+    read_config_from_file,
+    read_configs_from_dir,
+)
 
 
 def _cmd_import(args: argparse.Namespace) -> None:
-    configuration = read_config_from_file(args.config)
+    if args.config_dir is not None:
+        configuration = read_configs_from_dir(args.config_dir)
+    else:
+        if args.config is None:
+            raise SystemExit("error: one of --config or --config-dir is required")
+        configuration = read_config_from_file(args.config)
     if args.min_timestamp is not None:
         configuration.api_config.min_timestamp = args.min_timestamp
+    if args.api_url is not None:
+        configuration.api_config.api_url = args.api_url
     import_main(configuration, dry_run=args.dry_run)
 
 
@@ -50,8 +61,12 @@ def cli() -> None:
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
 
     # ---- import subcommand (original behaviour) ----
-    p_import = sub.add_parser("import", help="Import sensor data from a YAML config file")
-    p_import.add_argument("--config", required=True, help="Path to the YAML configuration file")
+    p_import = sub.add_parser("import", help="Import sensor data from a YAML config file or directory")
+    p_import.add_argument("--config", default=None, help="Path to a single YAML configuration file")
+    p_import.add_argument("--config-dir", default=None, metavar="DIR",
+                          help="Directory of *.yaml config files (merged at runtime)")
+    p_import.add_argument("--api-url", default=None, metavar="URL",
+                          help="Override api_config.api_url from the config file(s)")
     p_import.add_argument("--dry-run", action="store_true", default=False,
                           help="Collect and format data but do not write to the API")
     p_import.add_argument("--min-timestamp", metavar="ISO8601", default=None,

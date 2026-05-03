@@ -138,7 +138,9 @@ class RodtoxFile(TextDBFile):
             structure.timezone, nonexistent="shift_forward", ambiguous="NaT"
         )
         df = df.dropna(subset=[structure.time_column])
-        df[structure.time_column] = df[structure.time_column].astype(np.int64) // 1e9
+        df[structure.time_column] = df[structure.time_column].map(
+            lambda ts: ts.timestamp() if pd.notna(ts) else float("nan")
+        )
 
         # Quality codes via status_map
         quality_codes: list[int | None] = []
@@ -186,8 +188,7 @@ class AnaproFile(TextDBFile):
         df[structure.time_column] = (
             df[structure.time_column]
             .dt.tz_localize(structure.timezone, ambiguous="infer")
-            .astype(np.int64)
-            // 1e9
+            .map(lambda ts: ts.timestamp() if pd.notna(ts) else float("nan"))
         )
 
         # Quality codes via status_map
