@@ -149,7 +149,7 @@ file_configs:
 #   Row 2+: data rows
 vector_file_configs:
 - name: scan_fp_absorbance
-  mode: tagged
+  mode: tagless
   das_name: TEST_monEAU
   file_structure:
     extension: .fp
@@ -172,7 +172,7 @@ vector_file_configs:
     source_unit_name: AU
     destination_unit_name: AU
     directory_path: test_data/scan
-    tag: TEST_spectro::lyzer_V160
+    equipment_name: TEST_spectro::lyzer_V160
     axis:
       name: UV-vis 200-750nm
       description: UV-Vis absorbance spectrum 200–750 nm at 2.5 nm step (spectro::lyser)

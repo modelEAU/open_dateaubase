@@ -42,6 +42,7 @@ from ..schemas.ingestion import (
     SensorIngestRequest,
     TaglessSensorChannelResolveRequest,
     TaglessSensorIngestRequest,
+    TaglessVectorSensorIngestRequest,
     VectorSensorIngestRequest,
 )
 from ..services import lineage_service
@@ -69,23 +70,23 @@ def _resolve_tag_inputs(
     conn,
     das_name: str,
     tag: str,
-    channel_role: str,
+    channel_kind: str,
     parameter_name: str,
     unit_name: str,
 ) -> tuple[int, str, int, int, int, list[str]]:
-    """Validate names and resolve to IDs.  Returns (signal_interface_id, tag_name, parameter_id, unit_id, channel_role_id, warnings).
+    """Validate names and resolve to IDs.  Returns (signal_interface_id, tag_name, parameter_id, unit_id, channel_kind_id, warnings).
 
-    Raises HTTP 422 for unrecognised channel_role, parameter, or unit — *before* any DB writes.
+    Raises HTTP 422 for unrecognised channel_kind, parameter, or unit — *before* any DB writes.
     Auto-creates DAS and SignalInterface with warnings.
     """
     # --- Validation-only lookups first (no writes) ---
-    channel_role_id = signal_interface_repository.find_channel_role_by_name(
-        conn, channel_role
+    channel_kind_id = signal_interface_repository.find_channel_kind_by_name(
+        conn, channel_kind
     )
-    if channel_role_id is None:
+    if channel_kind_id is None:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown channel_role {channel_role!r}. "
+            detail=f"Unknown channel_kind {channel_kind!r}. "
             "Valid values: value, status, alarm, uncertainty.",
         )
 
@@ -127,13 +128,13 @@ def _resolve_tag_inputs(
             conn, "SCADA"
         )
         if si_type_id is None:
-            si_type_id = signal_interface_repository.get_first_signal_interface_type_id(
+            si_type_id = signal_interface_repository.get_first_signal_interface_kind_id(
                 conn
             )
         if si_type_id is None:
             raise HTTPException(
                 status_code=500,
-                detail="No SignalInterfaceType records found in the database. "
+                detail="No SignalInterfaceKind records found in the database. "
                 "Seed data is missing.",
             )
         signal_interface_id, signal_interface_created = (
@@ -154,7 +155,7 @@ def _resolve_tag_inputs(
         tag,
         param_id,
         unit_id,
-        channel_role_id,
+        channel_kind_id,
         collected_warnings,
     )
 
@@ -226,13 +227,13 @@ def _resolve_tagless_inputs(
             conn, "DirectConnect"
         )
         if si_type_id is None:
-            si_type_id = signal_interface_repository.get_first_signal_interface_type_id(
+            si_type_id = signal_interface_repository.get_first_signal_interface_kind_id(
                 conn
             )
         if si_type_id is None:
             raise HTTPException(
                 status_code=500,
-                detail="No SignalInterfaceType records found in the database. "
+                detail="No SignalInterfaceKind records found in the database. "
                 "Seed data is missing.",
             )
         synthetic_interface_name = signal_interface_repository.generate_tagless_tagname(
@@ -279,7 +280,12 @@ def create_unit(body: dict, conn=Depends(get_db)):
     unit_name = (body.get("unit") or "").strip()
     if not unit_name:
         raise HTTPException(status_code=422, detail="unit field is required")
-    return lookup_repository.insert_unit(conn, unit_name)
+    return lookup_repository.insert_unit(
+        conn,
+        unit_name,
+        qudt_iri=body.get("qudt_iri"),
+        unit_vector=body.get("unit_vector"),
+    )
 
 
 @router.put("/lookup/units/{unit_id}")
@@ -288,7 +294,13 @@ def update_unit(unit_id: int, body: dict, conn=Depends(get_db)):
     unit_name = (body.get("unit") or "").strip()
     if not unit_name:
         raise HTTPException(status_code=422, detail="unit field is required")
-    updated = lookup_repository.update_unit(conn, unit_id, unit_name)
+    updated = lookup_repository.update_unit(
+        conn,
+        unit_id,
+        unit_name,
+        qudt_iri=body.get("qudt_iri"),
+        unit_vector=body.get("unit_vector"),
+    )
     if updated is None:
         raise HTTPException(status_code=404, detail=f"Unit {unit_id} not found.")
     return updated
@@ -372,7 +384,7 @@ def get_equipment_events_lookup(conn=Depends(get_db)):
 @router.get("/lookup/data-provenance")
 def get_data_provenance_lookup(conn=Depends(get_db)):
     """Return data provenance types for dropdowns."""
-    return lookup_repository.get_data_provenance_lookup(conn)
+    return lookup_repository.get_data_provenance_kind_lookup(conn)
 
 
 # ---------------------------------------------------------------------------
@@ -413,13 +425,13 @@ def resolve_channel(data: SensorChannelResolveRequest, conn=Depends(get_db)):
         tag_name,
         param_id,
         unit_id,
-        channel_role_id,
+        channel_kind_id,
         warnings,
     ) = _resolve_tag_inputs(
         conn,
         das_name=data.das_name,
         tag=data.tag,
-        channel_role=data.channel_role,
+        channel_kind=data.channel_kind,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )
@@ -444,16 +456,16 @@ def resolve_channel(data: SensorChannelResolveRequest, conn=Depends(get_db)):
             signal_interface_id=parent_si_id,
             tag_name=data.parent_tag,
             parameter_id=param_id,
-            data_provenance_id=data.data_provenance_id,
-            processing_degree_id=data.processing_degree_id,
+            data_provenance_id=data.data_provenance_kind_id,
+            processing_kind_id=data.processing_kind_id,
         )
         if parent_channel is None:
             raise HTTPException(
                 status_code=422,
                 detail=(
                     f"parent_tag {data.parent_tag!r} found as SignalInterface but no matching "
-                    f"Channel exists for parameter={data.parameter_name!r}, provenance={data.data_provenance_id}, "
-                    f"processing_degree={data.processing_degree_id}."
+                    f"Channel exists for parameter={data.parameter_name!r}, provenance={data.data_provenance_kind_id}, "
+                    f"processing_degree={data.processing_kind_id}."
                 ),
             )
         parent_channel_id = parent_channel["channel_id"]
@@ -464,10 +476,10 @@ def resolve_channel(data: SensorChannelResolveRequest, conn=Depends(get_db)):
         tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
-        data_provenance_id=data.data_provenance_id,
-        processing_degree_id=data.processing_degree_id,
-        value_type_id=data.value_type_id,
-        channel_role_id=channel_role_id,
+        data_provenance_id=data.data_provenance_kind_id,
+        processing_kind_id=data.processing_kind_id,
+        value_kind_id=data.value_kind_id,
+        channel_kind_id=channel_kind_id,
         parent_channel_id=parent_channel_id,
     )
     return ChannelResolveResponse(channel_id=channel_id, warnings=warnings)
@@ -504,9 +516,9 @@ def resolve_channel_tagless(
         tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
-        data_provenance_id=data.data_provenance_id,
-        processing_degree_id=data.processing_degree_id,
-        value_type_id=data.value_type_id,
+        data_provenance_id=data.data_provenance_kind_id,
+        processing_kind_id=data.processing_kind_id,
+        value_kind_id=data.value_kind_id,
     )
     return ChannelResolveResponse(channel_id=channel_id, warnings=warnings)
 
@@ -516,7 +528,7 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
     """Ingest raw sensor measurements.
 
     Resolves (or creates) the Channel via the UNIQUE stream identity:
-    (das_name, tag, parameter_name, data_provenance_id, processing_degree).
+    (das_name, tag, parameter_name, data_provenance_kind_id, processing_degree).
     DAS and SignalPort are auto-created with a warning on first encounter.
     Unrecognised parameter_name or unit_name returns 422 before any DB write.
     """
@@ -525,13 +537,13 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         tag_name,
         param_id,
         unit_id,
-        channel_role_id,
+        channel_kind_id,
         ingest_warnings,
     ) = _resolve_tag_inputs(
         conn,
         das_name=data.das_name,
         tag=data.tag,
-        channel_role=data.channel_role,
+        channel_kind=data.channel_kind,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )
@@ -557,16 +569,16 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
             signal_interface_id=parent_si_id,
             tag_name=data.parent_tag,
             parameter_id=param_id,
-            data_provenance_id=data.data_provenance_id,
-            processing_degree_id=data.processing_degree_id,
+            data_provenance_id=data.data_provenance_kind_id,
+            processing_kind_id=data.processing_kind_id,
         )
         if parent_channel is None:
             raise HTTPException(
                 status_code=422,
                 detail=(
                     f"parent_tag {data.parent_tag!r} found as SignalInterface but no matching "
-                    f"Channel exists for parameter={data.parameter_name!r}, provenance={data.data_provenance_id}, "
-                    f"processing_degree={data.processing_degree_id}."
+                    f"Channel exists for parameter={data.parameter_name!r}, provenance={data.data_provenance_kind_id}, "
+                    f"processing_degree={data.processing_kind_id}."
                 ),
             )
         parent_channel_id = parent_channel["channel_id"]
@@ -577,9 +589,9 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
         tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
-        data_provenance_id=data.data_provenance_id,
-        processing_degree_id=data.processing_degree_id,
-        channel_role_id=channel_role_id,
+        data_provenance_id=data.data_provenance_kind_id,
+        processing_kind_id=data.processing_kind_id,
+        channel_kind_id=channel_kind_id,
         parent_channel_id=parent_channel_id,
     )
 
@@ -630,8 +642,8 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
         tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
-        data_provenance_id=data.data_provenance_id,
-        processing_degree_id=data.processing_degree_id,
+        data_provenance_id=data.data_provenance_kind_id,
+        processing_kind_id=data.processing_kind_id,
     )
 
     rows = value_repository.insert_scalar_values(
@@ -683,7 +695,7 @@ def ingest_processed(data: ProcessedIngestRequest, conn=Depends(get_db)):
     """Ingest processed data with full lineage tracking.
 
     Derives the output channel from the primary source (cloning stream identity
-    with a new ProcessingDegree), writes processed values, and records a
+    with a new ProcessingKind), writes processed values, and records a
     ProcessingStep + DataLineage.
     """
     if not data.source_channel_ids:
@@ -696,7 +708,7 @@ def ingest_processed(data: ProcessedIngestRequest, conn=Depends(get_db)):
     output_channel_id = ingestion_repository.find_or_create_derived_metadata(
         conn,
         source_channel_id=primary_source_id,
-        processing_degree_id=data.output.processing_degree_id,
+        processing_kind_id=data.output.processing_kind_id,
     )
 
     rows = value_repository.insert_scalar_values(
@@ -729,20 +741,20 @@ def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
     """Ingest vector sensor data (spectral or distribution measurements).
 
     Each observation contains a timestamp and an array of bin values.
-    Channel is resolved/created with value_type_id=2 (Vector).
+    Channel is resolved/created with value_kind_id=2 (Vector).
     """
     (
         signal_interface_id,
         tag_name,
         param_id,
         unit_id,
-        channel_role_id,
+        channel_kind_id,
         ingest_warnings,
     ) = _resolve_tag_inputs(
         conn,
         das_name=data.das_name,
         tag=data.tag,
-        channel_role=data.channel_role,
+        channel_kind=data.channel_kind,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )
@@ -753,10 +765,53 @@ def ingest_sensor_vector(data: VectorSensorIngestRequest, conn=Depends(get_db)):
         tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
-        data_provenance_id=data.data_provenance_id,
-        processing_degree_id=data.processing_degree_id,
-        value_type_id=2,
-        channel_role_id=channel_role_id,
+        data_provenance_id=data.data_provenance_kind_id,
+        processing_kind_id=data.processing_kind_id,
+        value_kind_id=2,
+        channel_kind_id=channel_kind_id,
+    )
+    ingestion_repository.upsert_channel_axis(
+        conn, channel_id, axis_role=0, binning_axis_id=data.binning_axis_id
+    )
+    observations = [o.model_dump() for o in data.observations]
+    rows = value_repository.insert_vector_values(
+        conn, channel_id, data.binning_axis_id, observations
+    )
+    return IngestResponse(
+        channel_id=channel_id, rows_written=rows, warnings=ingest_warnings
+    )
+
+
+@router.post("/sensor-vector-tagless", response_model=IngestResponse, status_code=201)
+def ingest_sensor_vector_tagless(data: TaglessVectorSensorIngestRequest, conn=Depends(get_db)):
+    """Ingest vector sensor data from a direct-connect station (no SCADA tag).
+
+    Uses the same equipment-based channel resolution as /sensor-tagless, but
+    creates a Vector channel (value_kind_id=2) and stores bin values.
+    """
+    (
+        signal_interface_id,
+        tag_name,
+        param_id,
+        unit_id,
+        ingest_warnings,
+    ) = _resolve_tagless_inputs(
+        conn,
+        das_name=data.das_name,
+        equipment_name=data.equipment_name,
+        parameter_name=data.parameter_name,
+        unit_name=data.unit_name,
+    )
+
+    channel_id = ingestion_repository.find_or_create_sensor_metadata(
+        conn,
+        signal_interface_id=signal_interface_id,
+        tag_name=tag_name,
+        parameter_id=param_id,
+        unit_id=unit_id,
+        data_provenance_id=data.data_provenance_kind_id,
+        processing_kind_id=data.processing_kind_id,
+        value_kind_id=2,
     )
     ingestion_repository.upsert_channel_axis(
         conn, channel_id, axis_role=0, binning_axis_id=data.binning_axis_id
@@ -775,20 +830,20 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
     """Ingest matrix sensor data (2D distribution measurements).
 
     Each observation contains a timestamp and a 2D matrix of values.
-    Channel is resolved/created with value_type_id=3 (Matrix).
+    Channel is resolved/created with value_kind_id=3 (Matrix).
     """
     (
         signal_interface_id,
         tag_name,
         param_id,
         unit_id,
-        channel_role_id,
+        channel_kind_id,
         ingest_warnings,
     ) = _resolve_tag_inputs(
         conn,
         das_name=data.das_name,
         tag=data.tag,
-        channel_role=data.channel_role,
+        channel_kind=data.channel_kind,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
     )
@@ -799,10 +854,10 @@ def ingest_sensor_matrix(data: MatrixSensorIngestRequest, conn=Depends(get_db)):
         tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
-        data_provenance_id=data.data_provenance_id,
-        processing_degree_id=data.processing_degree_id,
-        value_type_id=3,
-        channel_role_id=channel_role_id,
+        data_provenance_id=data.data_provenance_kind_id,
+        processing_kind_id=data.processing_kind_id,
+        value_kind_id=3,
+        channel_kind_id=channel_kind_id,
     )
     ingestion_repository.upsert_channel_axis(
         conn, channel_id, axis_role=0, binning_axis_id=data.row_axis_id
@@ -824,13 +879,13 @@ def ingest_sensor_image(
     das_name: str = Form(...),
     tag: str | None = Form(None),
     equipment_name: str | None = Form(None),
-    channel_role: str = Form("value"),
+    channel_kind: str = Form("value"),
     parameter_name: str = Form(...),
     unit_name: str = Form(...),
     timestamp: str = Form(...),  # ISO datetime string
     quality_code: int | None = Form(None),
-    data_provenance_id: int = Form(1),
-    processing_degree_id: int = Form(1),
+    data_provenance_kind_id: int = Form(1),
+    processing_kind_id: int = Form(1),
     image: UploadFile = File(...),
     conn=Depends(get_db),
 ):
@@ -838,7 +893,7 @@ def ingest_sensor_image(
 
     Supports both tagged (tag) and tagless (equipment_name) channel resolution.
     Saves the file to disk and stores metadata in ValueImage table.
-    Creates/uses a channel with value_type_id=4 (Image).
+    Creates/uses a channel with value_kind_id=4 (Image).
     """
     if tag is None and equipment_name is None:
         raise HTTPException(
@@ -878,20 +933,20 @@ def ingest_sensor_image(
             # Pillow failed — store without metadata
             pass
 
-    # 4. Resolve channel (tagged or tagless) and find/create (value_type_id=4 = Image)
+    # 4. Resolve channel (tagged or tagless) and find/create (value_kind_id=4 = Image)
     if tag is not None:
         (
             signal_interface_id,
             tag_name,
             param_id,
             unit_id,
-            channel_role_id,
+            channel_kind_id,
             _,
         ) = _resolve_tag_inputs(
             conn,
             das_name=das_name,
             tag=tag,
-            channel_role=channel_role,
+            channel_kind=channel_kind,
             parameter_name=parameter_name,
             unit_name=unit_name,
         )
@@ -910,8 +965,8 @@ def ingest_sensor_image(
             parameter_name=parameter_name,
             unit_name=unit_name,
         )
-        channel_role_id = (
-            signal_interface_repository.find_channel_role_by_name(conn, "value") or 1
+        channel_kind_id = (
+            signal_interface_repository.find_channel_kind_by_name(conn, "value") or 1
         )
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
         conn,
@@ -919,10 +974,10 @@ def ingest_sensor_image(
         tag_name=tag_name,
         parameter_id=param_id,
         unit_id=unit_id,
-        data_provenance_id=data_provenance_id,
-        processing_degree_id=processing_degree_id,
-        value_type_id=4,
-        channel_role_id=channel_role_id,
+        data_provenance_id=data_provenance_kind_id,
+        processing_kind_id=processing_kind_id,
+        value_kind_id=4,
+        channel_kind_id=channel_kind_id,
     )
 
     # 5. Save file to disk

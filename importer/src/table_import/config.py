@@ -133,7 +133,7 @@ class PilEAUteSCADAVariable(BaseVariable):
 
 
 # ---------------------------------------------------------------------------
-# Vector file variables (tagged only for now)
+# Vector file variables
 # ---------------------------------------------------------------------------
 
 
@@ -141,6 +141,12 @@ class TaggedVectorFileVariable(BaseVariable):
     directory_path: str
     tag: str
     parent_tag: str | None = None
+    axis: AxisConfig
+
+
+class TaglessVectorFileVariable(BaseVariable):
+    directory_path: str
+    equipment_name: str
     axis: AxisConfig
 
 
@@ -322,6 +328,15 @@ class TaggedVectorFileConfig(BaseModel):
     variables: list[TaggedVectorFileVariable]
 
 
+class TaglessVectorFileConfig(BaseModel):
+    name: str
+    mode: Literal["tagless"] = "tagless"
+    das_name: str
+    signal_interface_name: str | None = None
+    file_structure: VectorFileStructure
+    variables: list[TaglessVectorFileVariable]
+
+
 class TaggedImageFolderConfig(BaseModel):
     name: str
     mode: Literal["tagged"] = "tagged"
@@ -375,7 +390,9 @@ class Config(BaseModel):
         Annotated[TaggedTsdbConfig | TaglessTsdbConfig, Discriminator("mode")]
     ] = []
     scada_sql_configs: list[PilEAUteSCADAConfig] = []
-    vector_file_configs: list[TaggedVectorFileConfig] = []
+    vector_file_configs: list[
+        Annotated[TaggedVectorFileConfig | TaglessVectorFileConfig, Discriminator("mode")]
+    ] = []
     image_folder_configs: list[
         Annotated[TaggedImageFolderConfig | TaglessImageFolderConfig, Discriminator("mode")]
     ] = []

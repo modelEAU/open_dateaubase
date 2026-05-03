@@ -89,13 +89,13 @@ class DateaubaseClient:
         body: dict[str, Any] = {
             "das_name": das_name,
             "tag": tag,
-            "signal_port_type": signal_port_type,
+            "channel_kind": signal_port_type,
             "parent_tag": parent_tag,
             "parameter_name": parameter_name,
             "unit_name": unit_name,
-            "data_provenance_id": data_provenance_id,
-            "processing_degree_id": processing_degree_id,
-            "value_type_id": value_type_id,
+            "data_provenance_kind_id": data_provenance_id,
+            "processing_kind_id": processing_degree_id,
+            "value_kind_id": value_type_id,
         }
         if signal_interface_name is not None:
             body["signal_interface_name"] = signal_interface_name
@@ -120,9 +120,9 @@ class DateaubaseClient:
             "equipment_name": equipment_name,
             "parameter_name": parameter_name,
             "unit_name": unit_name,
-            "data_provenance_id": data_provenance_id,
-            "processing_degree_id": processing_degree_id,
-            "value_type_id": value_type_id,
+            "data_provenance_kind_id": data_provenance_id,
+            "processing_kind_id": processing_degree_id,
+            "value_kind_id": value_type_id,
         }
         if signal_interface_name is not None:
             body["signal_interface_name"] = signal_interface_name
@@ -234,7 +234,7 @@ class DateaubaseClient:
             "name": axis.name,
             "description": axis.description,
             "unit_name": axis.unit_name,
-            "bin_mode": axis.bin_mode,
+            "bin_kind": axis.bin_mode,
             "bins": bins_payload,
         }
         payload = self._post("/api/v1/value-binning-axes/resolve", body)
@@ -250,7 +250,6 @@ class DateaubaseClient:
         das_name: str,
         tag: str,
         signal_port_type: str = "value",
-        parent_tag: str | None = None,
         parameter_name: str,
         unit_name: str,
         binning_axis_id: int,
@@ -259,27 +258,46 @@ class DateaubaseClient:
         observations: list[dict],
         signal_interface_name: str | None = None,
     ) -> dict:
-        """POST /api/v1/ingest/sensor-vector — tagged bulk vector ingest.
-
-        Each observation: {"timestamp": "<ISO 8601>", "bin_values": list[float|None],
-                           "quality_code": int|None}.
-        Returns IngestResponse dict: {"channel_id": int, "rows_written": int, "warnings": list}.
-        """
+        """POST /api/v1/ingest/sensor-vector — tagged bulk vector ingest."""
         body: dict[str, Any] = {
             "das_name": das_name,
             "tag": tag,
-            "signal_port_type": signal_port_type,
-            "parent_tag": parent_tag,
+            "channel_kind": signal_port_type,
             "parameter_name": parameter_name,
             "unit_name": unit_name,
             "binning_axis_id": binning_axis_id,
-            "data_provenance_id": data_provenance_id,
-            "processing_degree_id": processing_degree_id,
+            "data_provenance_kind_id": data_provenance_id,
+            "processing_kind_id": processing_degree_id,
             "observations": observations,
         }
         if signal_interface_name is not None:
             body["signal_interface_name"] = signal_interface_name
         return self._post("/api/v1/ingest/sensor-vector", body)
+
+    def ingest_vector_observations_tagless(
+        self,
+        *,
+        das_name: str,
+        equipment_name: str,
+        parameter_name: str,
+        unit_name: str,
+        binning_axis_id: int,
+        data_provenance_id: int = 1,
+        processing_degree_id: int = 1,
+        observations: list[dict],
+    ) -> dict:
+        """POST /api/v1/ingest/sensor-vector-tagless — tagless bulk vector ingest."""
+        body: dict[str, Any] = {
+            "das_name": das_name,
+            "equipment_name": equipment_name,
+            "parameter_name": parameter_name,
+            "unit_name": unit_name,
+            "binning_axis_id": binning_axis_id,
+            "data_provenance_kind_id": data_provenance_id,
+            "processing_kind_id": processing_degree_id,
+            "observations": observations,
+        }
+        return self._post("/api/v1/ingest/sensor-vector-tagless", body)
 
     # ------------------------------------------------------------------
     # Image ingest (multipart)
@@ -396,7 +414,7 @@ class DateaubaseClient:
         unit_name: str | None = None,
         signal_interface_port_id: int | None = None,
         parent_channel_id: int | None = None,
-        channel_role: str = "value",
+        channel_kind: str = "value",
         data_provenance_id: int | None = None,
         processing_degree_id: int | None = None,
         value_type_id: int | None = None,
@@ -405,7 +423,7 @@ class DateaubaseClient:
         body: dict[str, Any] = {
             "signal_interface_id": signal_interface_id,
             "tag_name": tag_name,
-            "channel_role": channel_role,
+            "channel_kind": channel_kind,
         }
         if parameter_name is not None:
             body["parameter_name"] = parameter_name

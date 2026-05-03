@@ -18,12 +18,12 @@ class SensorIngestRequest(BaseModel):
 
     das_name: str
     tag: str
-    channel_role: str = "value"
+    channel_kind: str = "value"
     parent_tag: str | None = None
     parameter_name: str
     unit_name: str
-    data_provenance_id: int = 1
-    processing_degree_id: int = 1
+    data_provenance_kind_id: int = 1
+    processing_kind_id: int = 1
     values: list[ValueItem]
 
     @field_validator("values")
@@ -73,7 +73,7 @@ class ProcessingInfo(BaseModel):
 
 
 class ProcessedOutputSpec(BaseModel):
-    processing_degree_id: int
+    processing_kind_id: int
     values: list[ValueItem]
 
 
@@ -136,12 +136,12 @@ class VectorObservation(BaseModel):
 class VectorSensorIngestRequest(BaseModel):
     das_name: str
     tag: str
-    channel_role: str = "value"
+    channel_kind: str = "value"
     parameter_name: str
     unit_name: str
     binning_axis_id: int
-    data_provenance_id: int = 1
-    processing_degree_id: int = 1
+    data_provenance_kind_id: int = 1
+    processing_kind_id: int = 1
     observations: list[VectorObservation]
 
     @field_validator("observations")
@@ -160,16 +160,34 @@ class MatrixObservation(BaseModel):
     quality_code: int | None = None
 
 
+class TaglessVectorSensorIngestRequest(BaseModel):
+    das_name: str
+    equipment_name: str
+    parameter_name: str
+    unit_name: str
+    binning_axis_id: int
+    data_provenance_kind_id: int = 1
+    processing_kind_id: int = 1
+    observations: list[VectorObservation]
+
+    @field_validator("observations")
+    @classmethod
+    def obs_not_empty(cls, v):
+        if not v:
+            raise ValueError("observations must not be empty")
+        return v
+
+
 class MatrixSensorIngestRequest(BaseModel):
     das_name: str
     tag: str
-    channel_role: str = "value"
+    channel_kind: str = "value"
     parameter_name: str
     unit_name: str
     row_axis_id: int
     col_axis_id: int
-    data_provenance_id: int = 1
-    processing_degree_id: int = 1
+    data_provenance_kind_id: int = 1
+    processing_kind_id: int = 1
     observations: list[MatrixObservation]
 
     @field_validator("observations")
@@ -200,8 +218,8 @@ class TaglessSensorIngestRequest(BaseModel):
     equipment_name: str
     parameter_name: str
     unit_name: str
-    data_provenance_id: int = 1
-    processing_degree_id: int = 1
+    data_provenance_kind_id: int = 1
+    processing_kind_id: int = 1
     values: list[ValueItem]
 
     @field_validator("values")
@@ -217,13 +235,13 @@ class SensorChannelResolveRequest(BaseModel):
 
     das_name: str
     tag: str
-    channel_role: str = "value"
+    channel_kind: str = "value"
     parent_tag: str | None = None
     parameter_name: str
     unit_name: str
-    data_provenance_id: int = 1
-    processing_degree_id: int = 1
-    value_type_id: int = 1
+    data_provenance_kind_id: int = 1
+    processing_kind_id: int = 1
+    value_kind_id: int = 1
 
 
 class TaglessSensorChannelResolveRequest(BaseModel):
@@ -233,9 +251,9 @@ class TaglessSensorChannelResolveRequest(BaseModel):
     equipment_name: str
     parameter_name: str
     unit_name: str
-    data_provenance_id: int = 1
-    processing_degree_id: int = 1
-    value_type_id: int = 1
+    data_provenance_kind_id: int = 1
+    processing_kind_id: int = 1
+    value_kind_id: int = 1
 
 
 class ChannelResolveResponse(BaseModel):

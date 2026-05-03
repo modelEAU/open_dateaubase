@@ -408,11 +408,12 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
 
 def _ingest_vector_source(
     client: DateaubaseClient,
-    vec_cfg: config.TaggedVectorFileConfig,
+    vec_cfg: config.TaggedVectorFileConfig | config.TaglessVectorFileConfig,
     min_unix_ts: float | None,
     dry_run: bool,
 ) -> None:
-    """Process all variables in a tagged vector file config."""
+    """Process all variables in a tagged or tagless vector file config."""
+    mode = vec_cfg.mode
     for variable in vec_cfg.variables:
         label = f"{vec_cfg.name}/{variable.name}"
 
@@ -427,19 +428,30 @@ def _ingest_vector_source(
         for w in axis_warnings:
             print(f"[WARNING] {label}: {w}")
 
-        # 2. Resolve channel (value_type_id=2 for Vector channels)
-        channel_id, ch_warnings = client.resolve_channel(
-            das_name=vec_cfg.das_name,
-            tag=variable.tag,
-            signal_port_type=variable.signal_port_type,
-            parent_tag=variable.parent_tag,
-            parameter_name=variable.parameter_name,
-            unit_name=variable.destination_unit_name,
-            data_provenance_id=variable.data_provenance_id,
-            processing_degree_id=variable.processing_degree_id,
-            value_type_id=2,
-            signal_interface_name=vec_cfg.signal_interface_name,
-        )
+        # 2. Resolve channel (value_kind_id=2 for Vector)
+        if mode == "tagged":
+            channel_id, ch_warnings = client.resolve_channel(
+                das_name=vec_cfg.das_name,
+                tag=variable.tag,
+                signal_port_type=variable.signal_port_type,
+                parameter_name=variable.parameter_name,
+                unit_name=variable.destination_unit_name,
+                data_provenance_id=variable.data_provenance_id,
+                processing_degree_id=variable.processing_degree_id,
+                value_type_id=2,
+                signal_interface_name=vec_cfg.signal_interface_name,
+            )
+        else:
+            channel_id, ch_warnings = client.resolve_channel_tagless(
+                das_name=vec_cfg.das_name,
+                equipment_name=variable.equipment_name,
+                parameter_name=variable.parameter_name,
+                unit_name=variable.destination_unit_name,
+                data_provenance_id=variable.data_provenance_id,
+                processing_degree_id=variable.processing_degree_id,
+                value_type_id=2,
+                signal_interface_name=vec_cfg.signal_interface_name,
+            )
         for w in ch_warnings:
             print(f"[WARNING] {label}: {w}")
 
@@ -489,19 +501,30 @@ def _ingest_vector_source(
             print(f"[DRY RUN] {label}: would send {len(deduped)} observations to API")
             continue
 
-        result = client.ingest_vector_observations(
-            das_name=vec_cfg.das_name,
-            tag=variable.tag,
-            signal_port_type=variable.signal_port_type,
-            parent_tag=variable.parent_tag,
-            parameter_name=variable.parameter_name,
-            unit_name=variable.destination_unit_name,
-            binning_axis_id=axis_id,
-            data_provenance_id=variable.data_provenance_id,
-            processing_degree_id=variable.processing_degree_id,
-            observations=deduped,
-            signal_interface_name=vec_cfg.signal_interface_name,
-        )
+        if mode == "tagged":
+            result = client.ingest_vector_observations(
+                das_name=vec_cfg.das_name,
+                tag=variable.tag,
+                signal_port_type=variable.signal_port_type,
+                parameter_name=variable.parameter_name,
+                unit_name=variable.destination_unit_name,
+                binning_axis_id=axis_id,
+                data_provenance_id=variable.data_provenance_id,
+                processing_degree_id=variable.processing_degree_id,
+                observations=deduped,
+                signal_interface_name=vec_cfg.signal_interface_name,
+            )
+        else:
+            result = client.ingest_vector_observations_tagless(
+                das_name=vec_cfg.das_name,
+                equipment_name=variable.equipment_name,
+                parameter_name=variable.parameter_name,
+                unit_name=variable.destination_unit_name,
+                binning_axis_id=axis_id,
+                data_provenance_id=variable.data_provenance_id,
+                processing_degree_id=variable.processing_degree_id,
+                observations=deduped,
+            )
         print(
             f"{label}: wrote {result['rows_written']} observations → channel_id={result['channel_id']}"
         )
