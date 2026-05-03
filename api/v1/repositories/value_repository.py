@@ -1,6 +1,6 @@
-"""Data access for value tables — dispatches by ValueType_ID.
+"""Data access for value tables — dispatches by ValueKind_ID.
 
-ValueType_ID mapping (from schema seed data):
+ValueKind_ID mapping (from schema seed data):
   1 = Scalar   → dbo.Value
   2 = Vector   → dbo.ValueVector
   3 = Matrix   → dbo.ValueMatrix
@@ -48,14 +48,14 @@ def get_scalar_values(
         params.append(to_dt)
 
     if operational_only:
-        # Navigate to the status channel via ChannelRole (v4.0.0 pattern).
-        # A status channel is one whose ChannelRole.Name = 'Status' and
+        # Navigate to the status channel via ChannelKind (v4.0.0 pattern).
+        # A status channel is one whose ChannelKind.Name = 'Status' and
         # ParentChannel_ID pointing to the measurement channel.
         where += """
         AND (NOT EXISTS (
             SELECT 1
             FROM   dbo.Channel       statusC
-            JOIN   dbo.ChannelRole   cr  ON cr.[ChannelRole_ID]  = statusC.[ChannelRole_ID]
+            JOIN   dbo.ChannelKind   cr  ON cr.[ChannelKind_ID]  = statusC.[ChannelKind_ID]
             JOIN   dbo.Observation   so  ON so.[Channel_ID]     = statusC.[Channel_ID]
             JOIN   dbo.Value         sv  ON sv.[Observation_ID] = so.[Observation_ID]
             WHERE  statusC.[ParentChannel_ID] = o.[Channel_ID]
@@ -65,7 +65,7 @@ def get_scalar_values(
         OR EXISTS (
             SELECT 1
             FROM   dbo.Channel       statusC
-            JOIN   dbo.ChannelRole   cr  ON cr.[ChannelRole_ID]  = statusC.[ChannelRole_ID]
+            JOIN   dbo.ChannelKind   cr  ON cr.[ChannelKind_ID]  = statusC.[ChannelKind_ID]
             JOIN   dbo.Observation   so  ON so.[Channel_ID]     = statusC.[Channel_ID]
             JOIN   dbo.Value         sv  ON sv.[Observation_ID] = so.[Observation_ID]
             JOIN   dbo.QualityCode   qc  ON qc.[QualityCode_ID] = CAST(sv.[Value] AS INT)
@@ -279,13 +279,13 @@ def get_image_metadata_by_timestamp(
 def get_values_for_metadata(
     conn: pyodbc.Connection,
     channel_id: int,
-    value_type_id: int | None,
+    value_kind_id: int | None,
     from_dt: datetime | None,
     to_dt: datetime | None,
     operational_only: bool = False,
 ) -> list[dict]:
-    """Dispatch to the correct value table based on value_type_id."""
-    vt = value_type_id or _VALUE_TYPE_SCALAR
+    """Dispatch to the correct value table based on value_kind_id."""
+    vt = value_kind_id or _VALUE_TYPE_SCALAR
     if vt == _VALUE_TYPE_VECTOR:
         return get_vector_values(conn, channel_id, from_dt, to_dt)
     elif vt == _VALUE_TYPE_MATRIX:
@@ -301,28 +301,54 @@ def insert_scalar_values(
     channel_id: int,
     values: list[dict],
 ) -> int:
-    """Insert rows into dbo.Value. Returns rows written."""
+    """Bulk-insert rows into dbo.Observation + dbo.Value. Returns rows written.
+
+    Uses a temp staging table to capture all inserted Observation_IDs in one
+    round trip instead of 2 queries per row.
+    """
+    if not values:
+        return 0
+
     cursor = conn.cursor()
-    for v in values:
-        # Step 1: create Observation, get ID
-        cursor.execute(
-            """
-            INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
-            OUTPUT INSERTED.[Observation_ID]
-            VALUES (?, ?, 'Scalar')
-            """,
-            channel_id,
-            _utc_naive(v["timestamp"]),
+    cursor.fast_executemany = True
+
+    cursor.execute("IF OBJECT_ID('tempdb..#obs_stage') IS NOT NULL DROP TABLE #obs_stage")
+    cursor.execute("""
+        CREATE TABLE #obs_stage (
+            row_num  INT            NOT NULL,
+            ts       DATETIME2      NOT NULL,
+            val      FLOAT              NULL,
+            qc       INT                NULL
         )
-        obs_id: int = cursor.fetchone()[0]
-        # Step 2: insert scalar payload
-        cursor.execute(
-            "INSERT INTO [dbo].[Value] ([Observation_ID], [Value], [QualityCode]) VALUES (?, ?, ?)",
-            obs_id,
-            v["value"],
-            v.get("quality_code"),
-        )
+    """)
+
+    cursor.executemany(
+        "INSERT INTO #obs_stage (row_num, ts, val, qc) VALUES (?, ?, ?, ?)",
+        [
+            (i, _utc_naive(v["timestamp"]), v["value"], v.get("quality_code"))
+            for i, v in enumerate(values)
+        ],
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+        OUTPUT INSERTED.[Observation_ID]
+        SELECT ?, ts, 'Scalar' FROM #obs_stage ORDER BY row_num
+        """,
+        channel_id,
+    )
+    obs_ids = [row[0] for row in cursor.fetchall()]
+
+    cursor.executemany(
+        "INSERT INTO [dbo].[Value] ([Observation_ID], [Value], [QualityCode]) VALUES (?, ?, ?)",
+        [
+            (obs_ids[i], values[i]["value"], values[i].get("quality_code"))
+            for i in range(len(values))
+        ],
+    )
     conn.commit()
+    cursor.execute("DROP TABLE #obs_stage")
     return len(values)
 
 
@@ -566,10 +592,10 @@ _STATS_TABLE = {
 def get_channel_stats(
     conn: pyodbc.Connection,
     channel_id: int,
-    value_type_id: int,
+    value_kind_id: int,
 ) -> dict:
     """Return min/max timestamp and observation count for a channel without loading data."""
-    vt = value_type_id if value_type_id in _STATS_TABLE else _VALUE_TYPE_SCALAR
+    vt = value_kind_id if value_kind_id in _STATS_TABLE else _VALUE_TYPE_SCALAR
     # Vector/matrix have multiple rows per observation; COUNT DISTINCT gives measurement count.
     table = _STATS_TABLE[vt]
     cursor = conn.cursor()
@@ -595,7 +621,7 @@ def get_channel_stats(
 def bulk_set_quality_code(
     conn: pyodbc.Connection,
     channel_id: int,
-    value_type_id: int,
+    value_kind_id: int,
     from_dt: datetime,
     to_dt: datetime,
     quality_code: int,
@@ -605,7 +631,7 @@ def bulk_set_quality_code(
     For vector/matrix types every payload row per matched observation is updated
     (one QualityCode stored on each bin row).  Returns the row count updated.
     """
-    vt = value_type_id if value_type_id in _BULK_QC_SQL else _VALUE_TYPE_SCALAR
+    vt = value_kind_id if value_kind_id in _BULK_QC_SQL else _VALUE_TYPE_SCALAR
     cursor = conn.cursor()
     cursor.execute(_BULK_QC_SQL[vt], quality_code, channel_id, from_dt, to_dt)
     updated = cursor.rowcount

@@ -1,5 +1,5 @@
 api_config:
-  api_url: http://localhost:8000/api/v1
+  api_url: http://localhost:8000
 
 # Inline microscope imported in equipment (tagless) mode from a student's PC.
 # Captures activated sludge floc morphology images; model is unknown.

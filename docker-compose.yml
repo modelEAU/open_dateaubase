@@ -82,9 +82,9 @@ services:
       api:
         condition: service_healthy
     volumes:
-      - ./importer/test_data:/test-data
+      - ./importer/test_data:/app/test_data
       - ./importer/configs:/configs
-    command: ["import", "--config-dir", "/configs", "--api-url", "http://api:8000/api/v1"]
+    command: ["import", "--config-dir", "/configs", "--api-url", "http://api:8000"]
 
   app:
     build:

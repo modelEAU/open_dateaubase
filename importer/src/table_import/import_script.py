@@ -50,6 +50,9 @@ def build_api_payload(
     ]
 
 
+_INGEST_CHUNK_SIZE = 5_000
+
+
 def ingest_via_api(
     client: DateaubaseClient,
     *,
@@ -68,36 +71,45 @@ def ingest_via_api(
     dry_run: bool = False,
     signal_interface_name: str | None = None,
 ) -> None:
-    """Send payload to the appropriate ingest endpoint and log the result."""
+    """Send payload to the appropriate ingest endpoint in chunks and log the result."""
     if dry_run:
         print(f"[DRY RUN] {label}: would send {len(payload)} rows to API")
         return
-    if mode == "tagged":
-        result = client.ingest_sensor_values(
-            das_name=das_name,
-            tag=tag,
-            signal_port_type=signal_port_type,
-            parent_tag=parent_tag,
-            parameter_name=parameter_name,
-            unit_name=unit_name,
-            data_provenance_id=data_provenance_id,
-            processing_degree_id=processing_degree_id,
-            values=payload,
-            signal_interface_name=signal_interface_name,
-        )
-    else:
-        result = client.ingest_sensor_values_tagless(
-            das_name=das_name,
-            equipment_name=equipment_name,
-            parameter_name=parameter_name,
-            unit_name=unit_name,
-            data_provenance_id=data_provenance_id,
-            processing_degree_id=processing_degree_id,
-            values=payload,
-            signal_interface_name=signal_interface_name,
-        )
+
+    total_written = 0
+    channel_id = None
+    for i in range(0, max(len(payload), 1), _INGEST_CHUNK_SIZE):
+        chunk = payload[i : i + _INGEST_CHUNK_SIZE]
+        if not chunk:
+            break
+        if mode == "tagged":
+            result = client.ingest_sensor_values(
+                das_name=das_name,
+                tag=tag,
+                signal_port_type=signal_port_type,
+                parent_tag=parent_tag,
+                parameter_name=parameter_name,
+                unit_name=unit_name,
+                data_provenance_id=data_provenance_id,
+                processing_degree_id=processing_degree_id,
+                values=chunk,
+                signal_interface_name=signal_interface_name,
+            )
+        else:
+            result = client.ingest_sensor_values_tagless(
+                das_name=das_name,
+                equipment_name=equipment_name,
+                parameter_name=parameter_name,
+                unit_name=unit_name,
+                data_provenance_id=data_provenance_id,
+                processing_degree_id=processing_degree_id,
+                values=chunk,
+                signal_interface_name=signal_interface_name,
+            )
+        total_written += result["rows_written"]
+        channel_id = result["channel_id"]
     print(
-        f"{label}: wrote {result['rows_written']} rows → channel_id={result['channel_id']}"
+        f"{label}: wrote {total_written} rows → channel_id={channel_id}"
     )
 
 

@@ -1,5 +1,5 @@
 api_config:
-  api_url: http://localhost:8000/api/v1
+  api_url: http://localhost:8000
 
 # PLC data imported in tagged mode from the PilEAUte SCADA database.
 # DAS = the SCADA system; signal interface = the PLC front-end.

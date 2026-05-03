@@ -1,5 +1,5 @@
 api_config:
-  api_url: http://localhost:8000/api/v1
+  api_url: http://localhost:8000
 
 # WTW TurbR300 BaseStation imported in equipment (tagless) mode.
 # DAS = monEAU server; data format = WTW proprietary .tsdb binary files.
