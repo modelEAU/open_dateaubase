@@ -11,6 +11,7 @@ from .endpoints.timeseries import router as timeseries_router
 from .endpoints.campaigns import router as campaigns_router
 from .endpoints.equipment import router as equipment_router
 from .endpoints.equipment_move import router as equipment_move_router
+from .endpoints.das_move import router as das_move_router
 from .endpoints.lineage import router as lineage_router
 from .endpoints.ingest import router as ingest_router
 from .endpoints.annotations import (
@@ -53,6 +54,7 @@ router.include_router(equipment_router, prefix="/equipment", tags=["equipment"])
 router.include_router(
     equipment_move_router, prefix="/equipment", tags=["equipment-move"]
 )
+router.include_router(das_move_router, prefix="/das", tags=["das-move"])
 router.include_router(lineage_router, prefix="/lineage", tags=["lineage"])
 router.include_router(ingest_router, prefix="/ingest", tags=["ingestion"])
 router.include_router(annotations_router, prefix="/annotations", tags=["annotations"])

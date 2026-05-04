@@ -1339,6 +1339,40 @@ def create_das(data: dict) -> dict:
     return r.json()
 
 
+def deploy_das(
+    das_id: int,
+    site_id: int,
+    valid_from: str,
+    campaign_id: int | None = None,
+    notes: str | None = None,
+) -> dict:
+    """Open a new DASLocationHistory row (closes any current active deployment)."""
+    payload = {"site_id": site_id, "valid_from": valid_from}
+    if campaign_id is not None:
+        payload["campaign_id"] = campaign_id
+    if notes is not None:
+        payload["notes"] = notes
+    try:
+        with _get_client() as client:
+            r = client.post(f"/das/{das_id}/deploy", json=payload)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_das_conflict(das_id: int, site_id: int) -> dict | None:
+    """Return conflict info if DAS is currently active at a different site, else None."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/das/{das_id}/conflict-check", params={"site_id": site_id})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    data = r.json()
+    return data if data.get("conflict") else None
+
+
 def update_das(das_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:

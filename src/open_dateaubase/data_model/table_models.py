@@ -40,6 +40,50 @@ class QualityCode(QualityCodeBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
+class DASLocationHistoryBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    dataacquisitionsystemID: int = Field(
+        alias="DataAcquisitionSystem_ID",
+        description="The DAS whose site deployment is recorded here",
+    )
+    siteID: int = Field(
+        alias="Site_ID",
+        description="The site where this DAS is deployed during this period",
+    )
+    validfrom: datetime = Field(
+        alias="ValidFrom",
+        description="UTC datetime when the DAS was deployed at this site",
+    )
+    validto: Optional[datetime] = Field(
+        alias="ValidTo",
+        default=None,
+        description="UTC datetime when the DAS left this site. NULL = currently deployed.",
+    )
+    campaignID: Optional[int] = Field(
+        alias="Campaign_ID",
+        default=None,
+        description="Campaign during which this deployment started (if applicable)",
+    )
+    notes: Optional[str] = Field(
+        alias="Notes",
+        default=None,
+        description="Free-text notes about the deployment or move",
+    )
+
+
+class DASLocationHistoryCreate(DASLocationHistoryBase):
+    pass
+
+
+class DASLocationHistory(DASLocationHistoryBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    daslocationhistoryID: int = Field(
+        alias="DASLocationHistory_ID", description="Surrogate primary key"
+    )
+
+
 class EquipmentLocationHistoryBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 

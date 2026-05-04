@@ -1,0 +1,70 @@
+_format_version: "1.0"
+table:
+  name: DASLocationHistory
+  schema: dbo
+  description: >
+    Temporal record of where a Data Acquisition System (DAS) is physically
+    deployed (which Site and Campaign). At most one row per DAS may have
+    ValidTo IS NULL (the DAS's current deployment). Used by the campaign
+    wizard to warn when a DAS is being reused at a different site while
+    still marked as active elsewhere.
+
+  columns:
+    - name: DASLocationHistory_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: DataAcquisitionSystem_ID
+      logical_type: integer
+      nullable: false
+      description: "The DAS whose site deployment is recorded here"
+      foreign_key:
+        table: DataAcquisitionSystem
+        column: DataAcquisitionSystem_ID
+
+    - name: Site_ID
+      logical_type: integer
+      nullable: false
+      description: "The site where this DAS is deployed during this period"
+      foreign_key:
+        table: Site
+        column: Site_ID
+
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign during which this deployment started (if applicable)"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+
+    - name: ValidFrom
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "UTC datetime when the DAS was deployed at this site"
+
+    - name: ValidTo
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "UTC datetime when the DAS left this site. NULL = currently deployed."
+
+    - name: Notes
+      logical_type: text
+      nullable: true
+      description: "Free-text notes about the deployment or move"
+
+  indexes:
+    - name: UQ_DASLocationHistory_ActivePerDAS
+      columns: [DataAcquisitionSystem_ID]
+      unique: true
+      description: "At most one active (ValidTo IS NULL) deployment row per DAS. Filtered index."
+    - name: IX_DASLocationHistory_Site_ValidFrom
+      columns: [Site_ID, ValidFrom]
+      unique: false
+      description: "Supports 'what DAS was at this site when?' queries"
+
+  primary_key: [DASLocationHistory_ID]

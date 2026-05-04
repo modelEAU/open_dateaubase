@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import streamlit as st
 
@@ -19,6 +19,8 @@ from app.api_client import (
     create_sampling_location,
     create_signal_interface,
     create_site,
+    deploy_das,
+    get_das_conflict,
     list_campaign_kinds,
     list_das_lookup,
     list_equipment_lookup,
@@ -636,6 +638,15 @@ def _step_das(lookups: dict) -> None:
     das_opts = [{"id": d["das_id"], "label": d["name"]} for d in lookups["das"]]
     das_labels = [o["label"] for o in das_opts]
 
+    # Resolve the site chosen in step 1 so we can run conflict checks.
+    site_opts = [{"id": s["site_id"], "label": s["name"]} for s in lookups["sites"]]
+    site_mode = st.session_state.get("wiz_s1_mode", "Use existing")
+    current_site_id: int | None = None
+    if site_mode == "Use existing":
+        site_label = st.session_state.get("wiz_s1_site_label")
+        if site_label:
+            current_site_id = _resolve_id(site_label, site_opts)
+
     st.write(
         "Add the Data Acquisition Systems used in this campaign. "
         "Select existing ones or create new ones inline."
@@ -681,6 +692,25 @@ def _step_das(lookups: dict) -> None:
                         das_labels,
                         key=f"wiz_das_{das_id}_das_label",
                     )
+                    # Conflict check: warn if this DAS is currently active at a different site.
+                    selected_label = st.session_state.get(f"wiz_das_{das_id}_das_label")
+                    resolved_das_id = _resolve_id(selected_label, das_opts) if selected_label else None
+                    if resolved_das_id is not None and current_site_id is not None:
+                        try:
+                            conflict = get_das_conflict(resolved_das_id, current_site_id)
+                        except APIError:
+                            conflict = None
+                        if conflict:
+                            other_site = conflict.get("conflicting_site_name") or f"site ID {conflict.get('conflicting_site_id')}"
+                            other_campaign = conflict.get("conflicting_campaign_name")
+                            msg = (
+                                f"This DAS is currently active at **{other_site}**"
+                                + (f" (campaign: {other_campaign})" if other_campaign else "")
+                                + ". You can still proceed if it will be physically moved here, "
+                                "but make sure the other campaign is aware."
+                            )
+                            st.warning(msg)
+                        st.session_state[f"wiz_das_{das_id}_conflict"] = conflict
                 else:
                     st.info(
                         "No existing Data Acquisition Systems found. Switch to **New**."
@@ -1533,6 +1563,26 @@ def _execute_creates(lookups: dict) -> list[str]:
                 errors.append(f"Data Acquisition System '{das_name}': {e.message}")
                 continue
         das_id_map[das_wiz_id] = actual_das_id
+
+        # Record the DAS deployment against the campaign site and start date.
+        if campaign_site_id is not None:
+            deploy_valid_from = (
+                datetime(start_date.year, start_date.month, start_date.day).isoformat()
+                if start_date
+                else datetime.now(timezone.utc).isoformat()
+            )
+            try:
+                deploy_das(
+                    actual_das_id,
+                    site_id=campaign_site_id,
+                    valid_from=deploy_valid_from,
+                    campaign_id=campaign_id,
+                )
+            except APIError as e:
+                errors.append(
+                    f"Data Acquisition System {das_wiz_id + 1}: "
+                    f"could not record deployment: {e.message}"
+                )
 
     if errors:
         return errors

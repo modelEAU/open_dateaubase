@@ -343,3 +343,116 @@ def get_location_at_time(
         "sampling_point_name": row[5],
         "sampling_point_description": row[6],
     }
+
+
+# ---------------------------------------------------------------------------
+# DASLocationHistory
+# ---------------------------------------------------------------------------
+
+
+def get_active_das_deployment(
+    conn: pyodbc.Connection, das_id: int
+) -> dict | None:
+    """Return the currently active DASLocationHistory row, or None."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            dlh.[DASLocationHistory_ID],
+            dlh.[DataAcquisitionSystem_ID],
+            dlh.[Site_ID],
+            dlh.[Campaign_ID],
+            dlh.[ValidFrom],
+            dlh.[ValidTo],
+            dlh.[Notes],
+            s.[Name] AS [site_name],
+            c.[Name] AS [campaign_name]
+        FROM [dbo].[DASLocationHistory] dlh
+        LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = dlh.[Site_ID]
+        LEFT JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = dlh.[Campaign_ID]
+        WHERE dlh.[DataAcquisitionSystem_ID] = ? AND dlh.[ValidTo] IS NULL
+        """,
+        das_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "history_id": row[0],
+        "das_id": row[1],
+        "site_id": row[2],
+        "campaign_id": row[3],
+        "valid_from": row[4],
+        "valid_to": row[5],
+        "notes": row[6],
+        "site_name": row[7],
+        "campaign_name": row[8],
+    }
+
+
+def deploy_das(
+    conn: pyodbc.Connection,
+    das_id: int,
+    site_id: int,
+    valid_from: datetime,
+    campaign_id: int | None = None,
+    notes: str | None = None,
+) -> tuple[int, int | None]:
+    """Close any active DASLocationHistory row and open a new deployment.
+
+    Returns ``(new_history_id, closed_history_id)``.  ``closed_history_id``
+    is ``None`` when there was no active row (first deployment).
+
+    The swap is atomic within a single transaction.
+    """
+    cursor = conn.cursor()
+    closed_id: int | None = None
+
+    # Close the active row, if any.
+    cursor.execute(
+        """
+        UPDATE [dbo].[DASLocationHistory]
+        SET [ValidTo] = ?
+        OUTPUT DELETED.[DASLocationHistory_ID]
+        WHERE [DataAcquisitionSystem_ID] = ? AND [ValidTo] IS NULL
+        """,
+        valid_from,
+        das_id,
+    )
+    row = cursor.fetchone()
+    if row:
+        closed_id = row[0]
+
+    # Open the new row.
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[DASLocationHistory]
+            ([DataAcquisitionSystem_ID], [Site_ID], [Campaign_ID], [ValidFrom], [Notes])
+        OUTPUT INSERTED.[DASLocationHistory_ID]
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        das_id,
+        site_id,
+        campaign_id,
+        valid_from,
+        notes,
+    )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return new_id, closed_id
+
+
+def get_das_conflict(
+    conn: pyodbc.Connection, das_id: int, site_id: int
+) -> dict | None:
+    """Return the active deployment if the DAS is currently at a *different* site.
+
+    Returns ``None`` if the DAS has no active deployment, or if the active
+    deployment is already at ``site_id`` (shared-site use is fine).
+    """
+    active = get_active_das_deployment(conn, das_id)
+    if active is None:
+        return None
+    if active["site_id"] == site_id:
+        return None
+    return active
