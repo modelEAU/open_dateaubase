@@ -19,5 +19,41 @@ table:
       logical_type: text
       nullable: true
       description: "Description of the parameter"
+    - name: ENVO_IRI
+      logical_type: string
+      max_length: 256
+      nullable: true
+      description: "ENVO ontology IRI for the parameter (e.g. http://purl.obolibrary.org/obo/ENVO_01001502)"
+    - name: ValueKind_ID
+      logical_type: integer
+      nullable: false
+      default: 1
+      description: "Shape of the stored value: FK to ValueKind (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
+      foreign_key: { table: ValueKind, column: ValueKind_ID }
+    - name: QUDT_QuantityKind_IRI
+      logical_type: string
+      max_length: 256
+      nullable: true
+      description: "QUDT quantity kind IRI; used at build time to populate ParameterHasUnit. NULL = no physical quantity kind (status codes, images, spectra)."
 
   primary_key: [Parameter_ID]
+
+  seed_data:
+    - { Parameter: "TSS concentration",              Parameter_ID: 1,  Description: "Total suspended solids",                                              ENVO_IRI: "http://purl.obolibrary.org/obo/ENVO_01001502", ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/MassConcentration", manual_units: ["mg/L"] }
+    - { Parameter: "COD concentration",              Parameter_ID: 2,  Description: "Chemical oxygen demand",                                             ENVO_IRI: "http://purl.obolibrary.org/obo/ENVO_01000632", ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/MassConcentration", manual_units: ["mg/L"] }
+    - { Parameter: "pH",                             Parameter_ID: 3,  Description: "Hydrogen ion concentration",                                         ENVO_IRI: "http://purl.obolibrary.org/obo/ENVO_09200019", ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/PH",               manual_units: ["pH units"] }
+    - { Parameter: "Temperature",                    Parameter_ID: 4,  Description: "Water temperature",                                                  ENVO_IRI: "http://purl.obolibrary.org/obo/ENVO_01001501", ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/Temperature",      manual_units: ["°C"] }
+    - { Parameter: "Conductivity",                   Parameter_ID: 5,  Description: "Electrical conductivity",                                            ENVO_IRI: "http://purl.obolibrary.org/obo/ENVO_09200010", ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/ElectricConductivity", manual_units: ["mS/cm"] }
+    - { Parameter: "Sensor Status",                  Parameter_ID: 6,  Description: "Per-channel operational status code",                                 ENVO_IRI: null,                                           ValueKind_ID: 1, QUDT_QuantityKind_IRI: null,                                                   manual_units: ["Status Code"] }
+    - { Parameter: "Device Status",                  Parameter_ID: 7,  Description: "Overall equipment health status code",                                ENVO_IRI: null,                                           ValueKind_ID: 1, QUDT_QuantityKind_IRI: null,                                                   manual_units: ["Status Code"] }
+    - { Parameter: "Dissolved oxygen concentration", Parameter_ID: 8,  Description: "Dissolved oxygen concentration in water",                            ENVO_IRI: "http://purl.obolibrary.org/obo/ENVO_01001111", ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/MassConcentration", manual_units: ["mg/L"] }
+    - { Parameter: "Turbidity",                      Parameter_ID: 9,  Description: "Water turbidity measured by nephelometry",                           ENVO_IRI: "http://purl.obolibrary.org/obo/ENVO_01001573", ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/Turbidity",       manual_units: ["NTU"] }
+    - { Parameter: "Absorbance spectrum",            Parameter_ID: 10, Description: "UV-Vis spectral absorbance (per-wavelength vector, unit AU)",        ENVO_IRI: null,                                           ValueKind_ID: 2, QUDT_QuantityKind_IRI: null,                                                   manual_units: ["AU"] }
+    - { Parameter: "Ammonium-N concentration",       Parameter_ID: 11, Description: "Ammonium nitrogen concentration (NH4-N)",                            ENVO_IRI: "http://purl.obolibrary.org/obo/CHEBI_49786",   ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/MassConcentration", manual_units: ["mg/L"] }
+    - { Parameter: "Nitrate-N concentration",        Parameter_ID: 12, Description: "Nitrate nitrogen concentration as NO3-N equivalent",                 ENVO_IRI: "http://purl.obolibrary.org/obo/CHEBI_17632",   ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/MassConcentration", manual_units: ["mg/L"] }
+    - { Parameter: "COD filtered concentration",     Parameter_ID: 13, Description: "Filtered COD (CODf) — soluble fraction of chemical oxygen demand",  ENVO_IRI: null,                                           ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/MassConcentration", manual_units: ["mg/L"] }
+    - { Parameter: "Flow",                           Parameter_ID: 14, Description: "Volumetric flow rate",                                               ENVO_IRI: "http://purl.obolibrary.org/obo/ENVO_01001020", ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/VolumeFlowRate",   manual_units: ["m³/h"] }
+    - { Parameter: "Level",                          Parameter_ID: 15, Description: "Water level / depth",                                                ENVO_IRI: null,                                           ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/Length",          manual_units: ["m"] }
+    - { Parameter: "floc_morphology",                Parameter_ID: 16, Description: "Activated sludge floc morphology image from inline microscope",      ENVO_IRI: null,                                           ValueKind_ID: 4, QUDT_QuantityKind_IRI: null,                                                   manual_units: [] }
+    - { Parameter: "Potassium concentration",        Parameter_ID: 17, Description: "Potassium concentration (K)",                                        ENVO_IRI: null,                                           ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/MassConcentration", manual_units: ["mg/L"] }
+    - { Parameter: "Light Absorbance",               Parameter_ID: 18, Description: "Scalar light absorbance measurement",                                ENVO_IRI: null,                                           ValueKind_ID: 1, QUDT_QuantityKind_IRI: "http://qudt.org/vocab/quantitykind/Absorbance",     manual_units: ["AU"] }

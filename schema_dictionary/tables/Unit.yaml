@@ -15,5 +15,38 @@ table:
       max_length: 100
       nullable: true
       description: "SI-units only"
+    - name: QUDT_IRI
+      logical_type: string
+      max_length: 256
+      nullable: true
+      description: "QUDT ontology IRI for the unit (e.g. https://qudt.org/vocab/unit/MilliGM-PER-L)"
+    - name: UnitVector
+      logical_type: string
+      max_length: 64
+      nullable: true
+      description: "SI unit dimension vector [m, kg, s, A, K, mol, cd] as a comma-separated string (e.g. 0,1,-3,0,0,0,0)"
+    - name: SI_Multiplier
+      logical_type: float64
+      nullable: true
+      description: "Multiply value by this to obtain SI quantity (e.g. 0.001 for mg/L → kg/m³). NULL = no linear SI conversion."
+    - name: SI_Offset
+      logical_type: float64
+      nullable: true
+      description: "Add this after applying SI_Multiplier (e.g. 273.15 for °C → K). NULL treated as 0."
 
   primary_key: [Unit_ID]
+
+  seed_data:
+    - { Unit_ID: 1,  Unit: "mg/L",        QUDT_IRI: "https://qudt.org/vocab/unit/MilliGM-PER-L",    UnitVector: "0,1,-3,0,0,0,0",  SI_Multiplier: 0.001,      SI_Offset: null }
+    - { Unit_ID: 2,  Unit: "NTU",         QUDT_IRI: "https://qudt.org/vocab/unit/NTU",              UnitVector: "0,0,0,0,0,0,0",   SI_Multiplier: null,       SI_Offset: null }
+    - { Unit_ID: 3,  Unit: "pH units",    QUDT_IRI: "https://qudt.org/vocab/unit/PH",               UnitVector: "0,0,0,0,0,0,0",   SI_Multiplier: null,       SI_Offset: null }
+    - { Unit_ID: 4,  Unit: "°C",          QUDT_IRI: "https://qudt.org/vocab/unit/DEG_C",            UnitVector: "0,0,0,0,1,0,0",   SI_Multiplier: 1.0,        SI_Offset: 273.15 }
+    - { Unit_ID: 5,  Unit: "mS/cm",       QUDT_IRI: "https://qudt.org/vocab/unit/MilliS-PER-CentiM", UnitVector: "-3,-1,3,2,0,0,0", SI_Multiplier: 0.1,       SI_Offset: null }
+    - { Unit_ID: 6,  Unit: "nm",          QUDT_IRI: "https://qudt.org/vocab/unit/NanoM",            UnitVector: "1,0,0,0,0,0,0",   SI_Multiplier: 1.0e-9,     SI_Offset: null }
+    - { Unit_ID: 7,  Unit: "µm",          QUDT_IRI: "https://qudt.org/vocab/unit/MicroM",           UnitVector: "1,0,0,0,0,0,0",   SI_Multiplier: 1.0e-6,     SI_Offset: null }
+    - { Unit_ID: 8,  Unit: "m/s",         QUDT_IRI: "https://qudt.org/vocab/unit/M-PER-SEC",        UnitVector: "1,0,-1,0,0,0,0",  SI_Multiplier: 1.0,        SI_Offset: null }
+    - { Unit_ID: 9,  Unit: "Status Code", QUDT_IRI: null,                                           UnitVector: null,              SI_Multiplier: null,       SI_Offset: null }
+    - { Unit_ID: 10, Unit: "AU",          QUDT_IRI: "https://qudt.org/vocab/unit/ABSORBANCE_UNIT",  UnitVector: "0,0,0,0,0,0,0",   SI_Multiplier: null,       SI_Offset: null }
+    - { Unit_ID: 11, Unit: "-",           QUDT_IRI: "https://qudt.org/vocab/unit/UNITLESS",         UnitVector: "0,0,0,0,0,0,0",   SI_Multiplier: 1.0,        SI_Offset: null }
+    - { Unit_ID: 12, Unit: "m³/h",        QUDT_IRI: "https://qudt.org/vocab/unit/M3-PER-HR",        UnitVector: "3,0,-1,0,0,0,0",  SI_Multiplier: 2.77778e-4,  SI_Offset: null }
+    - { Unit_ID: 13, Unit: "m",           QUDT_IRI: "https://qudt.org/vocab/unit/M",                UnitVector: "1,0,0,0,0,0,0",   SI_Multiplier: 1.0,        SI_Offset: null }
