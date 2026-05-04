@@ -1,0 +1,579 @@
+"""Field System Wizard — create DAS, signal interfaces, equipment, and channels."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import streamlit as st
+
+from app.api_client import (
+    APIError,
+    create_channel,
+    create_das,
+    create_equipment,
+    create_equipment_model,
+    create_signal_interface,
+    list_equipment_lookup,
+    list_equipment_models_lookup,
+    list_parameters_lookup,
+    list_processing_kinds_lookup,
+    list_signal_interface_types,
+    register_equipment_at_interface,
+)
+from app.components.wizard_helpers import (
+    clear_wizard,
+    nav,
+    render_wizard_header,
+    resolve_id,
+    restore_snapshot,
+)
+
+_WIZ = "fs_wiz"
+
+STEPS = [
+    "Data Acquisition System",
+    "Signal Interfaces",
+    "Equipment",
+    "Channels",
+    "Review & Create",
+]
+
+_STEP_PREFIXES: dict[int, list[str]] = {
+    0: [f"{_WIZ}_s0_"],
+    1: [f"{_WIZ}_si_"],
+    2: [f"{_WIZ}_eq_"],
+    3: [f"{_WIZ}_ch_"],
+    4: [],
+}
+
+_VALUE_TYPES = [
+    {"id": 1, "label": "Scalar"},
+    {"id": 2, "label": "Vector"},
+    {"id": 3, "label": "Matrix"},
+    {"id": 4, "label": "Image"},
+]
+
+
+def _init() -> None:
+    defaults: dict = {
+        f"{_WIZ}_step": 0,
+        f"{_WIZ}_si_ids": [],
+        f"{_WIZ}_si_next_id": 0,
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+
+def _cancel() -> None:
+    clear_wizard(_WIZ)
+
+
+def _load_lookups() -> dict | None:
+    try:
+        return {
+            "si_types": list_signal_interface_types(),
+            "equipment": list_equipment_lookup(),
+            "equipment_models": list_equipment_models_lookup(),
+            "parameters": list_parameters_lookup(),
+            "processing_kinds": list_processing_kinds_lookup(),
+        }
+    except APIError as e:
+        st.error(f"Failed to load lookup data: {e.message}")
+        return None
+
+
+def _model_label(m: dict) -> str:
+    parts = [p for p in [m.get("manufacturer"), m.get("model_name")] if p]
+    return " – ".join(parts) if parts else f"Model {m.get('model_id', '?')}"
+
+
+# ---------------------------------------------------------------------------
+# Steps
+# ---------------------------------------------------------------------------
+
+
+def _step_das(lookups: dict) -> None:  # lookups unused; consistent signature
+    restore_snapshot(_WIZ, 0)
+
+    st.text_input("DAS name *", key=f"{_WIZ}_s0_name")
+    st.text_area("Description (optional)", key=f"{_WIZ}_s0_description")
+
+    def on_next() -> list[str]:
+        errors: list[str] = []
+        if not (st.session_state.get(f"{_WIZ}_s0_name") or "").strip():
+            errors.append("DAS name is required.")
+        return errors
+
+    nav(
+        wiz_id=_WIZ,
+        step=0,
+        steps=STEPS,
+        step_prefixes=_STEP_PREFIXES,
+        on_next=on_next,
+        on_cancel=_cancel,
+    )
+
+
+def _step_signal_interfaces(lookups: dict) -> None:
+    restore_snapshot(_WIZ, 1)
+
+    si_type_opts = [
+        {"id": t["signal_interface_kind_id"], "label": t["name"]}
+        for t in lookups["si_types"]
+    ]
+    si_type_labels = [o["label"] for o in si_type_opts]
+    si_ids: list[int] = st.session_state[f"{_WIZ}_si_ids"]
+
+    if st.button("+ Add Signal Interface", key=f"{_WIZ}_si_add_btn"):
+        nid = st.session_state[f"{_WIZ}_si_next_id"]
+        st.session_state[f"{_WIZ}_si_ids"].append(nid)
+        st.session_state[f"{_WIZ}_si_next_id"] = nid + 1
+        # Initialize per-SI equipment and channel lists
+        st.session_state[f"{_WIZ}_eq_{nid}_ids"] = []
+        st.session_state[f"{_WIZ}_eq_{nid}_next_id"] = 0
+        st.session_state[f"{_WIZ}_ch_{nid}_ids"] = []
+        st.session_state[f"{_WIZ}_ch_{nid}_next_id"] = 0
+        st.rerun()
+
+    for si_id in list(si_ids):
+        label = st.session_state.get(f"{_WIZ}_si_{si_id}_name") or f"Signal Interface {si_id + 1}"
+        with st.expander(label, expanded=True):
+            st.text_input("Name *", key=f"{_WIZ}_si_{si_id}_name")
+            if si_type_labels:
+                st.selectbox("Kind *", si_type_labels, key=f"{_WIZ}_si_{si_id}_kind")
+            else:
+                st.warning("No signal interface kinds found.")
+            col_make, col_model, col_serial = st.columns(3)
+            with col_make:
+                st.text_input("Make", key=f"{_WIZ}_si_{si_id}_make")
+            with col_model:
+                st.text_input("Model", key=f"{_WIZ}_si_{si_id}_model_name")
+            with col_serial:
+                st.text_input("Serial number", key=f"{_WIZ}_si_{si_id}_serial")
+            if st.button("Remove", key=f"{_WIZ}_si_{si_id}_remove_btn"):
+                st.session_state[f"{_WIZ}_si_ids"].remove(si_id)
+                st.rerun()
+
+    def on_next() -> list[str]:
+        errors: list[str] = []
+        if not st.session_state[f"{_WIZ}_si_ids"]:
+            errors.append("At least one signal interface is required.")
+        for si_id in st.session_state[f"{_WIZ}_si_ids"]:
+            if not (st.session_state.get(f"{_WIZ}_si_{si_id}_name") or "").strip():
+                errors.append(f"Signal Interface {si_id + 1}: name is required.")
+            if si_type_labels and not st.session_state.get(f"{_WIZ}_si_{si_id}_kind"):
+                errors.append(f"Signal Interface {si_id + 1}: kind is required.")
+        return errors
+
+    nav(
+        wiz_id=_WIZ,
+        step=1,
+        steps=STEPS,
+        step_prefixes=_STEP_PREFIXES,
+        on_next=on_next,
+        on_cancel=_cancel,
+    )
+
+
+def _step_equipment(lookups: dict) -> None:
+    restore_snapshot(_WIZ, 2)
+
+    eq_opts = [
+        {"id": e["equipment_id"], "label": e["identifier"]}
+        for e in lookups["equipment"]
+    ]
+    eq_labels = [o["label"] for o in eq_opts]
+    model_opts = [
+        {"id": m["model_id"], "label": _model_label(m)}
+        for m in lookups["equipment_models"]
+    ]
+    model_labels = ["(new model)"] + [o["label"] for o in model_opts]
+
+    si_ids: list[int] = st.session_state.get(f"{_WIZ}_si_ids", [])
+
+    st.info("Wire existing or new equipment to each signal interface (optional).")
+
+    for si_id in si_ids:
+        si_name = st.session_state.get(f"{_WIZ}_si_{si_id}_name") or f"SI {si_id + 1}"
+        st.markdown(f"#### {si_name}")
+
+        # Ensure equipment list exists for this SI
+        if f"{_WIZ}_eq_{si_id}_ids" not in st.session_state:
+            st.session_state[f"{_WIZ}_eq_{si_id}_ids"] = []
+            st.session_state[f"{_WIZ}_eq_{si_id}_next_id"] = 0
+
+        eq_ids: list[int] = st.session_state[f"{_WIZ}_eq_{si_id}_ids"]
+
+        if st.button(f"+ Add Equipment to {si_name}", key=f"{_WIZ}_eq_{si_id}_add_btn"):
+            nid = st.session_state[f"{_WIZ}_eq_{si_id}_next_id"]
+            st.session_state[f"{_WIZ}_eq_{si_id}_ids"].append(nid)
+            st.session_state[f"{_WIZ}_eq_{si_id}_next_id"] = nid + 1
+            st.rerun()
+
+        for eq_id in list(eq_ids):
+            eq_label = (
+                st.session_state.get(f"{_WIZ}_eq_{si_id}_{eq_id}_identifier")
+                or f"Equipment {eq_id + 1}"
+            )
+            with st.expander(eq_label, expanded=True):
+                mode = st.radio(
+                    "Equipment",
+                    ["Existing", "New"],
+                    key=f"{_WIZ}_eq_{si_id}_{eq_id}_mode",
+                    horizontal=True,
+                )
+                if mode == "Existing":
+                    if eq_labels:
+                        st.selectbox(
+                            "Select equipment",
+                            eq_labels,
+                            key=f"{_WIZ}_eq_{si_id}_{eq_id}_existing",
+                        )
+                    else:
+                        st.info("No equipment found. Switch to New to create one.")
+                else:
+                    st.text_input("Identifier", key=f"{_WIZ}_eq_{si_id}_{eq_id}_identifier")
+                    st.text_input("Serial number", key=f"{_WIZ}_eq_{si_id}_{eq_id}_serial")
+                    st.selectbox("Model", model_labels, key=f"{_WIZ}_eq_{si_id}_{eq_id}_model")
+                    if st.session_state.get(f"{_WIZ}_eq_{si_id}_{eq_id}_model") == "(new model)":
+                        col_mfr, col_mname = st.columns(2)
+                        with col_mfr:
+                            st.text_input(
+                                "Manufacturer",
+                                key=f"{_WIZ}_eq_{si_id}_{eq_id}_model_manufacturer",
+                            )
+                        with col_mname:
+                            st.text_input(
+                                "Model name",
+                                key=f"{_WIZ}_eq_{si_id}_{eq_id}_model_name",
+                            )
+
+                if st.button("Remove", key=f"{_WIZ}_eq_{si_id}_{eq_id}_remove_btn"):
+                    st.session_state[f"{_WIZ}_eq_{si_id}_ids"].remove(eq_id)
+                    st.rerun()
+
+    nav(
+        wiz_id=_WIZ,
+        step=2,
+        steps=STEPS,
+        step_prefixes=_STEP_PREFIXES,
+        on_next=lambda: [],
+        on_cancel=_cancel,
+    )
+
+
+def _step_channels(lookups: dict) -> None:
+    restore_snapshot(_WIZ, 3)
+
+    param_opts = [
+        {"id": p["parameter_id"], "label": p["parameter_name"]}
+        for p in lookups["parameters"]
+    ]
+    param_labels = ["(none)"] + [o["label"] for o in param_opts]
+    proc_opts = [
+        {"id": p["processing_kind_id"], "label": p["name"]}
+        for p in lookups["processing_kinds"]
+    ]
+    proc_labels = ["(none)"] + [o["label"] for o in proc_opts]
+    vt_labels = ["(none)"] + [o["label"] for o in _VALUE_TYPES]
+
+    si_ids: list[int] = st.session_state.get(f"{_WIZ}_si_ids", [])
+
+    st.info("Define data channels (tag names) published by each signal interface.")
+
+    for si_id in si_ids:
+        si_name = st.session_state.get(f"{_WIZ}_si_{si_id}_name") or f"SI {si_id + 1}"
+        st.markdown(f"#### {si_name}")
+
+        if f"{_WIZ}_ch_{si_id}_ids" not in st.session_state:
+            st.session_state[f"{_WIZ}_ch_{si_id}_ids"] = []
+            st.session_state[f"{_WIZ}_ch_{si_id}_next_id"] = 0
+
+        ch_ids: list[int] = st.session_state[f"{_WIZ}_ch_{si_id}_ids"]
+
+        if st.button(f"+ Add Channel to {si_name}", key=f"{_WIZ}_ch_{si_id}_add_btn"):
+            nid = st.session_state[f"{_WIZ}_ch_{si_id}_next_id"]
+            st.session_state[f"{_WIZ}_ch_{si_id}_ids"].append(nid)
+            st.session_state[f"{_WIZ}_ch_{si_id}_next_id"] = nid + 1
+            st.rerun()
+
+        for ch_id in list(ch_ids):
+            tag = st.session_state.get(f"{_WIZ}_ch_{si_id}_{ch_id}_tag") or f"Channel {ch_id + 1}"
+            with st.expander(tag, expanded=True):
+                col_tag, col_param = st.columns(2)
+                with col_tag:
+                    st.text_input("Tag name *", key=f"{_WIZ}_ch_{si_id}_{ch_id}_tag")
+                with col_param:
+                    st.selectbox("Parameter", param_labels, key=f"{_WIZ}_ch_{si_id}_{ch_id}_parameter")
+                col_vt, col_proc = st.columns(2)
+                with col_vt:
+                    st.selectbox("Value type", vt_labels, key=f"{_WIZ}_ch_{si_id}_{ch_id}_value_type")
+                with col_proc:
+                    st.selectbox(
+                        "Processing",
+                        proc_labels,
+                        key=f"{_WIZ}_ch_{si_id}_{ch_id}_processing",
+                    )
+                if st.button("Remove", key=f"{_WIZ}_ch_{si_id}_{ch_id}_remove_btn"):
+                    st.session_state[f"{_WIZ}_ch_{si_id}_ids"].remove(ch_id)
+                    st.rerun()
+
+    def on_next() -> list[str]:
+        errors: list[str] = []
+        for si_id in st.session_state.get(f"{_WIZ}_si_ids", []):
+            for ch_id in st.session_state.get(f"{_WIZ}_ch_{si_id}_ids", []):
+                if not (st.session_state.get(f"{_WIZ}_ch_{si_id}_{ch_id}_tag") or "").strip():
+                    errors.append(f"Channel {ch_id + 1} on SI {si_id + 1}: tag name is required.")
+        return errors
+
+    nav(
+        wiz_id=_WIZ,
+        step=3,
+        steps=STEPS,
+        step_prefixes=_STEP_PREFIXES,
+        on_next=on_next,
+        on_cancel=_cancel,
+    )
+
+
+def _step_review(lookups: dict) -> None:
+    das_name = st.session_state.get(f"{_WIZ}_s0_name", "")
+    das_desc = st.session_state.get(f"{_WIZ}_s0_description", "")
+    si_ids = st.session_state.get(f"{_WIZ}_si_ids", [])
+
+    st.markdown("### Data Acquisition System")
+    st.write(f"**Name:** {das_name}")
+    if das_desc:
+        st.write(f"**Description:** {das_desc}")
+
+    for si_id in si_ids:
+        si_name = st.session_state.get(f"{_WIZ}_si_{si_id}_name", "")
+        si_kind = st.session_state.get(f"{_WIZ}_si_{si_id}_kind", "")
+        with st.expander(f"Signal Interface: {si_name} ({si_kind})", expanded=True):
+            eq_ids = st.session_state.get(f"{_WIZ}_eq_{si_id}_ids", [])
+            if eq_ids:
+                st.markdown("**Equipment:**")
+                for eq_id in eq_ids:
+                    mode = st.session_state.get(f"{_WIZ}_eq_{si_id}_{eq_id}_mode", "Existing")
+                    if mode == "Existing":
+                        label = st.session_state.get(f"{_WIZ}_eq_{si_id}_{eq_id}_existing", "?")
+                        st.write(f"- Existing: {label}")
+                    else:
+                        ident = st.session_state.get(f"{_WIZ}_eq_{si_id}_{eq_id}_identifier", "?")
+                        st.write(f"- New: {ident}")
+            ch_ids = st.session_state.get(f"{_WIZ}_ch_{si_id}_ids", [])
+            if ch_ids:
+                st.markdown("**Channels:**")
+                for ch_id in ch_ids:
+                    tag = st.session_state.get(f"{_WIZ}_ch_{si_id}_{ch_id}_tag", "?")
+                    param = st.session_state.get(f"{_WIZ}_ch_{si_id}_{ch_id}_parameter", "")
+                    st.write(f"- `{tag}` ({param})")
+            if not eq_ids and not ch_ids:
+                st.caption("No equipment or channels defined.")
+
+    def on_next() -> list[str]:
+        errors = _execute_creates(lookups)
+        if not errors:
+            st.toast("Field system created successfully!", icon="✅")
+            clear_wizard(_WIZ)
+            st.rerun()
+        return errors
+
+    nav(
+        wiz_id=_WIZ,
+        step=4,
+        steps=STEPS,
+        step_prefixes=_STEP_PREFIXES,
+        on_next=on_next,
+        on_cancel=_cancel,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Execution
+# ---------------------------------------------------------------------------
+
+
+def _execute_creates(lookups: dict) -> list[str]:
+    for s in range(4):
+        restore_snapshot(_WIZ, s)
+
+    errors: list[str] = []
+    si_id_map: dict[int, int] = {}  # wiz_si_id → DB SignalInterface_ID
+
+    eq_opts = [
+        {"id": e["equipment_id"], "label": e["identifier"]}
+        for e in lookups["equipment"]
+    ]
+    model_opts = [
+        {"id": m["model_id"], "label": _model_label(m)}
+        for m in lookups["equipment_models"]
+    ]
+    param_opts = [
+        {"id": p["parameter_id"], "label": p["parameter_name"]}
+        for p in lookups["parameters"]
+    ]
+    proc_opts = [
+        {"id": p["processing_kind_id"], "label": p["name"]}
+        for p in lookups["processing_kinds"]
+    ]
+    si_type_opts = [
+        {"id": t["signal_interface_kind_id"], "label": t["name"]}
+        for t in lookups["si_types"]
+    ]
+
+    # 1. Create DAS
+    try:
+        das = create_das(
+            {
+                "name": (st.session_state.get(f"{_WIZ}_s0_name") or "").strip(),
+                "description": st.session_state.get(f"{_WIZ}_s0_description") or None,
+            }
+        )
+        das_id: int = das["data_acquisition_system_id"]
+    except APIError as e:
+        errors.append(f"DAS creation failed: {e.message}")
+        return errors
+
+    # 2. Create signal interfaces
+    for si_wiz_id in st.session_state.get(f"{_WIZ}_si_ids", []):
+        si_name = (st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_name") or "").strip()
+        si_kind_label = st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_kind") or None
+        si_kind_id = resolve_id(si_kind_label, si_type_opts)
+        try:
+            si = create_signal_interface(
+                {
+                    "data_acquisition_system_id": das_id,
+                    "name": si_name,
+                    "signal_interface_kind_id": si_kind_id,
+                    "make": st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_make") or None,
+                    "model": st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_model_name") or None,
+                    "serial_number": st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_serial") or None,
+                }
+            )
+            si_id_map[si_wiz_id] = si["signal_interface_id"]
+        except APIError as e:
+            errors.append(f"Signal interface '{si_name}': {e.message}")
+            continue
+
+        actual_si_id = si_id_map[si_wiz_id]
+
+        # 3. Wire equipment to this SI
+        for eq_wiz_id in st.session_state.get(f"{_WIZ}_eq_{si_wiz_id}_ids", []):
+            mode = st.session_state.get(f"{_WIZ}_eq_{si_wiz_id}_{eq_wiz_id}_mode", "Existing")
+            actual_eq_id: int | None = None
+
+            if mode == "Existing":
+                existing_label = st.session_state.get(f"{_WIZ}_eq_{si_wiz_id}_{eq_wiz_id}_existing")
+                actual_eq_id = resolve_id(existing_label, eq_opts)
+            else:
+                # Resolve or create model
+                model_label = st.session_state.get(f"{_WIZ}_eq_{si_wiz_id}_{eq_wiz_id}_model") or "(new model)"
+                resolved_model_id: int | None = None
+                if model_label == "(new model)":
+                    mfr = st.session_state.get(f"{_WIZ}_eq_{si_wiz_id}_{eq_wiz_id}_model_manufacturer") or None
+                    mname = st.session_state.get(f"{_WIZ}_eq_{si_wiz_id}_{eq_wiz_id}_model_name") or None
+                    if mfr or mname:
+                        try:
+                            new_model = create_equipment_model(
+                                {"model_name": mname, "manufacturer": mfr}
+                            )
+                            resolved_model_id = new_model["model_id"]
+                        except APIError as e:
+                            errors.append(f"Equipment model: {e.message}")
+                            continue
+                else:
+                    resolved_model_id = resolve_id(model_label, model_opts)
+
+                try:
+                    eq = create_equipment(
+                        {
+                            "model_id": resolved_model_id,
+                            "identifier": st.session_state.get(f"{_WIZ}_eq_{si_wiz_id}_{eq_wiz_id}_identifier") or None,
+                            "serial_number": st.session_state.get(f"{_WIZ}_eq_{si_wiz_id}_{eq_wiz_id}_serial") or None,
+                        }
+                    )
+                    actual_eq_id = eq["equipment_id"]
+                except APIError as e:
+                    errors.append(f"Equipment creation failed: {e.message}")
+                    continue
+
+            if actual_eq_id is not None:
+                try:
+                    register_equipment_at_interface(
+                        actual_eq_id,
+                        {
+                            "signal_interface_id": actual_si_id,
+                            "valid_from": datetime.now().isoformat(),
+                        },
+                    )
+                except APIError as e:
+                    errors.append(f"Equipment wiring failed: {e.message}")
+
+        # 4. Create channels for this SI
+        for ch_wiz_id in st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_ids", []):
+            tag = (st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_{ch_wiz_id}_tag") or "").strip()
+            if not tag:
+                continue
+            param_label = st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_{ch_wiz_id}_parameter")
+            vt_label = st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_{ch_wiz_id}_value_type")
+            proc_label = st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_{ch_wiz_id}_processing")
+            param_id = (
+                resolve_id(param_label, param_opts)
+                if param_label and param_label != "(none)"
+                else None
+            )
+            vt_id = (
+                resolve_id(vt_label, _VALUE_TYPES)
+                if vt_label and vt_label != "(none)"
+                else None
+            )
+            proc_id = (
+                resolve_id(proc_label, proc_opts)
+                if proc_label and proc_label != "(none)"
+                else None
+            )
+            try:
+                create_channel(
+                    {
+                        "signal_interface_id": actual_si_id,
+                        "tag_name": tag,
+                        "parameter_id": param_id,
+                        "value_kind_id": vt_id,
+                        "processing_kind_id": proc_id,
+                    }
+                )
+            except APIError as e:
+                errors.append(f"Channel '{tag}': {e.message}")
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Page entry point
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    st.title("📡 Field System Wizard")
+    _init()
+
+    with st.spinner("Loading lookup data…"):
+        lookups = _load_lookups()
+    if lookups is None:
+        return
+
+    step = st.session_state[f"{_WIZ}_step"]
+    render_wizard_header(step, STEPS)
+
+    {
+        0: _step_das,
+        1: _step_signal_interfaces,
+        2: _step_equipment,
+        3: _step_channels,
+        4: _step_review,
+    }[step](lookups)
+
+
+main()
