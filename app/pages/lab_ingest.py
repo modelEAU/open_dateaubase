@@ -81,6 +81,7 @@ with st.container(border=True):
             "Select sample",
             options=sample_labels,
             index=0,
+            help="The physical sample that was analysed",
         )
         sample_id = next(
             (
@@ -105,6 +106,7 @@ with st.container(border=True):
                 options=sp_labels,
                 index=None,
                 placeholder="Select sampling point...",
+                help="Sampling location where the sample was collected or prepared",
             )
             sampling_point_id = next(
                 (opt["id"] for opt in sp_options if opt["label"] == selected_sp_label),
@@ -120,6 +122,7 @@ with st.container(border=True):
                 "Campaign (optional)",
                 options=camp_labels,
                 index=0,
+                help="Campaign this sample belongs to",
             )
             campaign_id = next(
                 (
@@ -140,12 +143,17 @@ with st.container(border=True):
             end_date = st.date_input("End date (optional)", value=None)
             end_time = st.time_input("End time (optional)", value=None)
 
-        description = st.text_area("Description (optional)", max_chars=500)
+        description = st.text_area(
+            "Description (optional)",
+            max_chars=500,
+            help="Additional notes about the sample",
+        )
         sampled_by_person_id = st.number_input(
             "Sampled by Person ID (optional)",
             min_value=1,
             step=1,
             value=None,
+            help="Person who collected the sample",
         )
 
         # Combine date and time
@@ -196,6 +204,7 @@ with st.container(border=True):
             "Laboratory",
             options=lab_labels,
             index=0,
+            help="Laboratory where the analysis was performed",
         )
         laboratory_id = next(
             (opt["id"] for opt in lab_options if opt["label"] == selected_lab_label),
@@ -212,6 +221,7 @@ with st.container(border=True):
             "Procedure",
             options=proc_labels,
             index=0,
+            help="Standard operating procedure used for this analysis",
         )
         procedure_id = next(
             (opt["id"] for opt in proc_options if opt["label"] == selected_proc_label),
@@ -224,6 +234,7 @@ with st.container(border=True):
             min_value=1,
             step=1,
             value=None,
+            help="Person who performed the analysis",
         )
 
     camp_options = [{"id": None, "label": "— none —"}] + [
@@ -235,6 +246,7 @@ with st.container(border=True):
         options=camp_labels,
         index=0,
         key="analysis_campaign",
+        help="Campaign this analysis was part of, if any",
     )
     analysis_campaign_id = next(
         (
@@ -245,7 +257,11 @@ with st.container(border=True):
         None,
     )
 
-    notes = st.text_area("Notes (optional)", max_chars=1000)
+    notes = st.text_area(
+        "Notes (optional)",
+        max_chars=1000,
+        help="Free-text notes about this analysis run",
+    )
 
 # Measurement values section
 with st.container(border=True):
@@ -257,8 +273,8 @@ with st.container(border=True):
 
     # Initialize with one empty row if not present
     default_row = {
-        "parameter_id": None,
-        "unit_id": None,
+        "parameter_name": None,
+        "unit_name": None,
         "value": None,
         "replicate": 1,
         "quality_code": None,
@@ -266,22 +282,22 @@ with st.container(border=True):
     if not st.session_state.get("lab_rows"):
         st.session_state["lab_rows"] = [default_row.copy()]
 
-    # Build parameter and unit options for column config
-    param_options = {p["parameter_id"]: p["parameter_name"] for p in parameters_lookup}
-    unit_options = {u["unit_id"]: u["unit"] for u in units_lookup}
+    # Build name lists for SelectboxColumn (display names, resolve to IDs at submit)
+    param_names = [p["parameter_name"] for p in parameters_lookup]
+    unit_names = [u["unit"] for u in units_lookup]
 
     # Display data editor
     edited_df = st.data_editor(
         pd.DataFrame(st.session_state["lab_rows"]),
         column_config={
-            "parameter_id": st.column_config.SelectboxColumn(
+            "parameter_name": st.column_config.SelectboxColumn(
                 "Parameter",
-                options=param_options,
+                options=param_names,
                 required=False,
             ),
-            "unit_id": st.column_config.SelectboxColumn(
+            "unit_name": st.column_config.SelectboxColumn(
                 "Unit",
-                options=unit_options,
+                options=unit_names,
                 required=False,
             ),
             "value": st.column_config.NumberColumn("Value", required=False),
@@ -321,9 +337,13 @@ st.markdown("---")
 valid_rows = [
     r
     for r in st.session_state.get("lab_rows", [])
-    if r.get("parameter_id") is not None and r.get("value") is not None
+    if r.get("parameter_name") is not None and r.get("value") is not None
 ]
 submit_disabled = len(valid_rows) == 0
+
+# Reverse-lookup dicts for name → ID resolution at submit time
+param_name_to_id = {p["parameter_name"]: p["parameter_id"] for p in parameters_lookup}
+unit_name_to_id = {u["unit"]: u["unit_id"] for u in units_lookup}
 
 if st.button("Submit Lab Analysis", type="primary", disabled=submit_disabled):
     payload = {
@@ -335,8 +355,8 @@ if st.button("Submit Lab Analysis", type="primary", disabled=submit_disabled):
         "notes": notes if notes else None,
         "values": [
             {
-                "parameter_id": r["parameter_id"],
-                "unit_id": r["unit_id"],
+                "parameter_id": param_name_to_id.get(r["parameter_name"]),
+                "unit_id": unit_name_to_id.get(r["unit_name"]) if r.get("unit_name") else None,
                 "value": r["value"],
                 "replicate": r.get("replicate") or 1,
                 "quality_code": r.get("quality_code"),
