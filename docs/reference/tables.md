@@ -20,7 +20,7 @@ Human-authored annotations on time series data. Each annotation applies to a sin
 |-------|----------|-----------|----------|-------------|-------------|
 | Annotation_ID | INT **(PK)** | - | ✓ | <span id="Annotation_ID"></span>Primary key, auto-incremented | - |
 | Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The time series this annotation applies to | FK → [Channel.Channel_ID](#Channel) |
-| AnnotationType_ID | INT | - | ✓ | <span id="AnnotationType_ID"></span>What kind of annotation this is | FK → [AnnotationType.AnnotationType_ID](#AnnotationType) |
+| AnnotationKind_ID | INT | - | ✓ | <span id="AnnotationKind_ID"></span>What kind of annotation this is | FK → [AnnotationKind.AnnotationKind_ID](#AnnotationKind) |
 | StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>Start of the annotated time range | - |
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the annotated range. NULL = point annotation or ongoing | - |
 | AuthorPerson_ID | INT | - |  | <span id="AuthorPerson_ID"></span>Person who created this annotation | FK → [Person.Person_ID](#Person) |
@@ -33,11 +33,11 @@ Human-authored annotations on time series data. Each annotation applies to a sin
 | Observation_ID | INT | - |  | <span id="Observation_ID"></span>Optional link to a specific Observation for point-level annotations (e.g., 'wrong focal length on this image'). When NULL, the annotation applies to the time range [StartTime, EndTime] on the channel. When set, StartTime should match Observation.Timestamp.
  | FK → [Observation.Observation_ID](#Observation) |
 
-<span id="AnnotationType"></span>
+<span id="AnnotationKind"></span>
 
-### AnnotationType
+### AnnotationKind
 
-Lookup table defining the kinds of annotations that can be applied to time series data. Each type has a display color for UI rendering.
+Controlled vocabulary defining the kinds of annotations that can be applied to time series data. Each kind has a display color for UI rendering.
 
 
 
@@ -45,10 +45,26 @@ Lookup table defining the kinds of annotations that can be applied to time serie
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| AnnotationType_ID | INT **(PK)** | - | ✓ | <span id="AnnotationType_ID"></span>Primary key, manually assigned | - |
-| AnnotationTypeName | NVARCHAR(100) | - | ✓ | <span id="AnnotationTypeName"></span>Human-readable name of the annotation type | - |
-| Description | NVARCHAR(500) | - |  | <span id="Description"></span>Explanation of when to use this annotation type | - |
+| AnnotationKind_ID | INT **(PK)** | - | ✓ | <span id="AnnotationKind_ID"></span>Primary key, manually assigned | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Human-readable name of the annotation kind | - |
+| Description | NVARCHAR(500) | - |  | <span id="Description"></span>Explanation of when to use this annotation kind | - |
 | Color | NVARCHAR(7) | - |  | <span id="Color"></span>Hex color code for UI rendering, e.g. '#FF6B6B' | - |
+
+<span id="BinKind"></span>
+
+### BinKind
+
+Controlled vocabulary defining how bins on a ValueBinningAxis are specified. Each axis declares exactly one kind, and all bins on that axis must conform to it.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| BinKind_ID | INT **(PK)** | - | ✓ | <span id="BinKind_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(30) | - | ✓ | <span id="Name"></span>Kind name (e.g. 'interval', 'nominal', 'interval_with_nominal') | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this bin kind means | - |
 
 <span id="Campaign"></span>
 
@@ -62,12 +78,13 @@ A named collection of measurement activities at a site, classified by type (Expe
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Campaign_ID | INT **(PK)** | - | ✓ | <span id="Campaign_ID"></span>Surrogate primary key | - |
-| CampaignType_ID | INT | - | ✓ | <span id="CampaignType_ID"></span>Type of campaign (Experiment, Operations, Commissioning) | FK → [CampaignType.CampaignType_ID](#CampaignType) |
+| CampaignKind_ID | INT | - | ✓ | <span id="CampaignKind_ID"></span>Kind of campaign (Experiment, Operations, Commissioning) | FK → [CampaignKind.CampaignKind_ID](#CampaignKind) |
 | Site_ID | INT | - | ✓ | <span id="Site_ID"></span>Site where the campaign is conducted | FK → [Site.Site_ID](#Site) |
 | Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable name for the campaign | - |
 | Description | NVARCHAR(2000) | - |  | <span id="Description"></span>Detailed description of the campaign objectives and scope | - |
 | CampaignStartDateTime | DATETIME2(7) | - |  | <span id="CampaignStartDateTime"></span>Date and time the campaign began (UTC) | - |
 | CampaignEndDateTime | DATETIME2(7) | - |  | <span id="CampaignEndDateTime"></span>Date and time the campaign ended (UTC); NULL if ongoing | - |
+| ResponsiblePerson_ID | INT | - |  | <span id="ResponsiblePerson_ID"></span>Person responsible for running the campaign | FK → [Person.Person_ID](#Person) |
 
 <span id="CampaignEquipment"></span>
 
@@ -84,6 +101,21 @@ Junction table: equipment deployed during a campaign.
 | Equipment_ID | INT **(PK)** | - | ✓ | <span id="Equipment_ID"></span>Equipment deployed during the campaign | FK → [Equipment.Equipment_ID](#Equipment) |
 | Role | NVARCHAR(100) | - |  | <span id="Role"></span>Role of this equipment in the campaign (e.g., 'Primary sensor', 'Auto-sampler') | - |
 
+<span id="CampaignKind"></span>
+
+### CampaignKind
+
+Controlled vocabulary classifying the nature of a Campaign (Experiment, Operations, Commissioning)
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| CampaignKind_ID | INT **(PK)** | - | ✓ | <span id="CampaignKind_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the campaign kind | - |
+| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of this campaign kind | - |
+
 <span id="CampaignSamplingLocation"></span>
 
 ### CampaignSamplingLocation
@@ -99,25 +131,11 @@ Junction table: sampling locations actively monitored during a campaign.
 | SamplingPoint_ID | INT **(PK)** | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location used by the campaign | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
 | Role | NVARCHAR(100) | - |  | <span id="Role"></span>Role of this location in the campaign (e.g., 'Inlet', 'Reference') | - |
 
-<span id="CampaignType"></span>
-
-### CampaignType
-
-Lookup table classifying the nature of a Campaign (Experiment, Operations, Commissioning)
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| CampaignType_ID | INT **(PK)** | - | ✓ | <span id="CampaignType_ID"></span>Surrogate primary key | - |
-| CampaignType_Name | NVARCHAR(100) | - | ✓ | <span id="CampaignType_Name"></span>Name of the campaign type. Controlled vocabulary: Experiment, Operations, Commissioning | - |
-
 <span id="Channel"></span>
 
 ### Channel
 
-Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the SignalPort via SignalPortEquipmentHistory and SignalPortLocationHistory, leaving the Channel_ID stable. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
+Invariant descriptor for a measurement stream (sensor channel). Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
 
 
 
@@ -126,14 +144,24 @@ Invariant descriptor for a measurement stream (sensor channel). Each row identif
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Surrogate primary key | - |
-| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The SignalPort (stable signal identity) that this measurement stream belongs to. Replaces Equipment_ID — equipment that produces data is tracked via SignalPortEquipmentHistory, allowing probes to be swapped without breaking the Channel.
- | FK → [SignalPort.SignalPort_ID](#SignalPort) |
+| SignalInterface_ID | INT | - | ✓ | <span id="SignalInterface_ID"></span>The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag. The anchor for ingest: observations are routed by (SignalInterface_ID, TagName).
+ | FK → [SignalInterface.SignalInterface_ID](#SignalInterface) |
+| TagName | NVARCHAR(200) | - | ✓ | <span id="TagName"></span>Tag string as published by the SignalInterface (case-preserved; lookups are case-insensitive trimmed). For direct-connect interfaces a synthetic tag such as "{equipment_identifier}/{parameter_name}" is auto-generated.
+ | - |
+| SignalInterfacePort_ID | INT | - |  | <span id="SignalInterfacePort_ID"></span>Current physical port (if known) this Channel is gated through. Denormalised from the active ChannelPortHistory row for query convenience. NULL when the wiring has not yet been traced.
+ | FK → [SignalInterfacePort.SignalInterfacePort_ID](#SignalInterfacePort) |
+| ParentChannel_ID | INT | - |  | <span id="ParentChannel_ID"></span>For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent Value Channel. NULL for primary value channels and unlinked channels. Self-FK.
+ | FK → [Channel.Channel_ID](#Channel) |
+| ChannelKind_ID | INT | - | ✓ | <span id="ChannelKind_ID"></span>Kind of information this Channel carries (1=Value, 2=Status, 3=Alarm, 4=Uncertainty).
+ | FK → [ChannelKind.ChannelKind_ID](#ChannelKind)<br>Default: `1` |
 | Parameter_ID | INT | - |  | <span id="Parameter_ID"></span>Measured analyte or parameter (e.g. TSS, pH) | FK → [Parameter.Parameter_ID](#Parameter) |
-| DataProvenance_ID | INT | - |  | <span id="DataProvenance_ID"></span>How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5, Forecast=6)
- | FK → [DataProvenance.DataProvenance_ID](#DataProvenance) |
-| ProcessingDegree_ID | INT | - |  | <span id="ProcessingDegree_ID"></span>Level of processing applied to this time series (FK to ProcessingDegree lookup). Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation — if the processing degree changes, a new Channel row is created. Default 1 = Raw.
- | FK → [ProcessingDegree.ProcessingDegree_ID](#ProcessingDegree)<br>Default: `1` |
-| ValueType_ID | INT | - | ✓ | <span id="ValueType_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueType.ValueType_ID](#ValueType)<br>Default: `1` |
+| DataProvenanceKind_ID | INT | - |  | <span id="DataProvenanceKind_ID"></span>How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5, Forecast=6)
+ | FK → [DataProvenanceKind.DataProvenanceKind_ID](#DataProvenanceKind) |
+| ProcessingKind_ID | INT | - |  | <span id="ProcessingKind_ID"></span>Level of processing applied to this time series (FK to ProcessingKind lookup). Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation — if the processing kind changes, a new Channel row is created. Default 1 = Raw.
+ | FK → [ProcessingKind.ProcessingKind_ID](#ProcessingKind)<br>Default: `1` |
+| ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueKind.ValueKind_ID](#ValueKind)<br>Default: `1` |
+| Unit_ID | INT | - |  | <span id="Unit_ID"></span>Unit of measurement for values stored in this channel (e.g. mg/L, NTU). Set at channel creation via the ingestion pipeline and treated as immutable thereafter — a unit change requires a new Channel row.
+ | FK → [Unit.Unit_ID](#Unit) |
 
 <span id="ChannelAxis"></span>
 
@@ -149,6 +177,42 @@ Junction table linking a Channel measurement series to its binning axis or axes.
 | Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the measurement channel | FK → [Channel.Channel_ID](#Channel) |
 | AxisRole | INT **(PK)** | - | ✓ | <span id="AxisRole"></span>Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only) | - |
 | ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the binning axis for this role | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
+
+<span id="ChannelKind"></span>
+
+### ChannelKind
+
+Controlled vocabulary describing what kind of information a Channel carries (Value / Status / Alarm / Uncertainty). Sub-signals (Status, Alarm, Uncertainty) attach to their parent value Channel via Channel.ParentChannel_ID.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ChannelKind_ID | INT **(PK)** | - | ✓ | <span id="ChannelKind_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this channel kind | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this channel kind means | - |
+
+<span id="ChannelPortHistory"></span>
+
+### ChannelPortHistory
+
+Temporal record of which SignalInterfacePort (if any) a given Channel is gated through over time. Needed to model multiplexers like TresCON, where a single physical port on the parent interface emits a sequence of distinct streams distinguished by a gating discipline (round-robin, tag mapping, etc.). Also used for backfill: when a Channel is created with no port known, a row with NULL SignalInterfacePort_ID opens; when the wire is later traced, that row is closed and a new row with the port is opened. At most one row per Channel may have ValidTo IS NULL.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ChannelPortHistory_ID | INT **(PK)** | - | ✓ | <span id="ChannelPortHistory_ID"></span>Surrogate primary key | - |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel whose port gating is recorded here | FK → [Channel.Channel_ID](#Channel) |
+| SignalInterfacePort_ID | INT | - |  | <span id="SignalInterfacePort_ID"></span>Port the Channel is gated through (NULL when untraced) | FK → [SignalInterfacePort.SignalInterfacePort_ID](#SignalInterfacePort) |
+| ValidFrom | DATETIME2(7) | - | ✓ | <span id="ValidFrom"></span>UTC datetime when this port gating started | - |
+| ValidTo | DATETIME2(7) | - |  | <span id="ValidTo"></span>UTC datetime when this port gating ended. NULL = currently gated. | - |
+| GatingNote | NVARCHAR(MAX) | - |  | <span id="GatingNote"></span>Free-text description of the gating discipline (e.g. 'TresCON round-robin slot 2', 'selected when DigitalIn3 high').
+ | - |
 
 <span id="ControlLoop"></span>
 
@@ -194,7 +258,7 @@ Temporal history of a ControlLoop's active configuration — tuning events and p
 
 ### ControlLoopPort
 
-Association between a ControlLoop and its SignalPorts, with an explicit role for each port. The unique constraint ensures each port appears at most once per loop. Cascade control is modelled by using the same SignalPort_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner).
+Association between a ControlLoop and its participating Channels, with an explicit role for each channel. The unique constraint ensures each channel appears at most once per loop. Cascade control is modelled by using the same Channel_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner). (v3.0.0 used SignalPort_ID; v4.0.0 switches to Channel_ID so that control-loop participation is resolved through the same Channel abstraction ingest uses.)
 
 
 
@@ -204,14 +268,14 @@ Association between a ControlLoop and its SignalPorts, with an explicit role for
 |-------|----------|-----------|----------|-------------|-------------|
 | ControlLoopPort_ID | INT **(PK)** | - | ✓ | <span id="ControlLoopPort_ID"></span>Surrogate primary key | - |
 | ControlLoop_ID | INT | - | ✓ | <span id="ControlLoop_ID"></span>The control loop this association belongs to | FK → [ControlLoop.ControlLoop_ID](#ControlLoop) |
-| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The port participating in this control loop | FK → [SignalPort.SignalPort_ID](#SignalPort) |
-| ControlLoopPortRole_ID | INT | - | ✓ | <span id="ControlLoopPortRole_ID"></span>The functional role of this port within the loop | FK → [ControlLoopPortRole.ControlLoopPortRole_ID](#ControlLoopPortRole) |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel participating in this control loop | FK → [Channel.Channel_ID](#Channel) |
+| ControlLoopPortKind_ID | INT | - | ✓ | <span id="ControlLoopPortKind_ID"></span>The functional kind of this channel within the loop | FK → [ControlLoopPortKind.ControlLoopPortKind_ID](#ControlLoopPortKind) |
 
-<span id="ControlLoopPortRole"></span>
+<span id="ControlLoopPortKind"></span>
 
-### ControlLoopPortRole
+### ControlLoopPortKind
 
-Controlled vocabulary for the functional role of a SignalPort within a ControlLoop. 'Other' is an explicit escape hatch for novel control schemes; its use should be accompanied by a description in ControlLoop.Description.
+Controlled vocabulary for the functional kind of a Channel within a ControlLoop. 'Other' is an explicit escape hatch for novel control schemes; its use should be accompanied by a description in ControlLoop.Description.
 
 
 
@@ -219,9 +283,9 @@ Controlled vocabulary for the functional role of a SignalPort within a ControlLo
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| ControlLoopPortRole_ID | INT **(PK)** | - | ✓ | <span id="ControlLoopPortRole_ID"></span>Surrogate primary key, manually assigned | - |
-| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this role | - |
-| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the role within a control loop | - |
+| ControlLoopPortKind_ID | INT **(PK)** | - | ✓ | <span id="ControlLoopPortKind_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this control loop port kind | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the kind within a control loop | - |
 
 <span id="DataAcquisitionSystem"></span>
 
@@ -243,19 +307,20 @@ Represents any upstream system that assigns tags to signals: SCADA servers, PLCs
 | Model | NVARCHAR(100) | - |  | <span id="Model"></span>Model name or version of the system | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this DAS | - |
 
-<span id="DataProvenance"></span>
+<span id="DataProvenanceKind"></span>
 
-### DataProvenance
+### DataProvenanceKind
 
-Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast)
+Controlled vocabulary describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast)
 
 
 #### Fields
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| DataProvenance_ID | INT **(PK)** | - | ✓ | <span id="DataProvenance_ID"></span>Surrogate primary key | - |
-| DataProvenance_Name | NVARCHAR(50) | - | ✓ | <span id="DataProvenance_Name"></span>Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast | - |
+| DataProvenanceKind_ID | INT **(PK)** | - | ✓ | <span id="DataProvenanceKind_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Name of the provenance kind | - |
+| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of how data with this provenance was produced | - |
 
 <span id="Dataset"></span>
 
@@ -327,26 +392,47 @@ Records a discrete lifecycle event (calibration, maintenance, failure, etc.) tha
 |-------|----------|-----------|----------|-------------|-------------|
 | EquipmentEvent_ID | INT **(PK)** | - | ✓ | <span id="EquipmentEvent_ID"></span>Surrogate primary key | - |
 | Equipment_ID | INT | - | ✓ | <span id="Equipment_ID"></span>Equipment on which the event occurred | FK → [Equipment.Equipment_ID](#Equipment) |
-| EquipmentEventType_ID | INT | - | ✓ | <span id="EquipmentEventType_ID"></span>Type of lifecycle event | FK → [EquipmentEventType.EquipmentEventType_ID](#EquipmentEventType) |
+| EquipmentEventKind_ID | INT | - | ✓ | <span id="EquipmentEventKind_ID"></span>Kind of lifecycle event | FK → [EquipmentEventKind.EquipmentEventKind_ID](#EquipmentEventKind) |
 | EventDateTimeStart | DATETIME2(7) | - | ✓ | <span id="EventDateTimeStart"></span>Date and time the event began (UTC) | - |
 | EventDateTimeEnd | DATETIME2(7) | - |  | <span id="EventDateTimeEnd"></span>Date and time the event ended (UTC). NULL if instantaneous or ongoing. | - |
 | PerformedByPerson_ID | INT | - |  | <span id="PerformedByPerson_ID"></span>Person who performed or recorded the event | FK → [Person.Person_ID](#Person) |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign during which this event occurred (if applicable) | FK → [Campaign.Campaign_ID](#Campaign) |
 | Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes about the event | - |
 
-<span id="EquipmentEventType"></span>
+<span id="EquipmentEventKind"></span>
 
-### EquipmentEventType
+### EquipmentEventKind
 
-Lookup table classifying the type of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)
+Controlled vocabulary classifying the kind of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)
 
 
 #### Fields
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| EquipmentEventType_ID | INT **(PK)** | - | ✓ | <span id="EquipmentEventType_ID"></span>Surrogate primary key | - |
-| EquipmentEventType_Name | NVARCHAR(100) | - | ✓ | <span id="EquipmentEventType_Name"></span>Name of the event type. Controlled vocabulary: Calibration, Validation, Maintenance, Installation, Removal, Firmware Update, Failure, Repair | - |
+| EquipmentEventKind_ID | INT **(PK)** | - | ✓ | <span id="EquipmentEventKind_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the equipment event kind | - |
+| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of what this kind of equipment event involves | - |
+
+<span id="EquipmentLocationHistory"></span>
+
+### EquipmentLocationHistory
+
+Temporal record of where a piece of Equipment is physically installed (which SamplingPoint). Independent from EquipmentWiringHistory: a probe can be relocated without changing its wiring, and vice versa. Absorbs the former EquipmentInstallation role and the location aspect of SignalPortLocationHistory. At most one row per Equipment may have ValidTo IS NULL (the equipment's current location).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| EquipmentLocationHistory_ID | INT **(PK)** | - | ✓ | <span id="EquipmentLocationHistory_ID"></span>Surrogate primary key | - |
+| Equipment_ID | INT | - | ✓ | <span id="Equipment_ID"></span>The physical instrument whose location is recorded here | FK → [Equipment.Equipment_ID](#Equipment) |
+| SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location where this equipment is installed during this period | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
+| ValidFrom | DATETIME2(7) | - | ✓ | <span id="ValidFrom"></span>UTC datetime when the equipment started measuring at this location | - |
+| ValidTo | DATETIME2(7) | - |  | <span id="ValidTo"></span>UTC datetime when the equipment left this location. NULL = currently installed. | - |
+| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign during which this deployment occurred (if applicable) | FK → [Campaign.Campaign_ID](#Campaign) |
+| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes about the deployment or relocation | - |
 
 <span id="EquipmentModel"></span>
 
@@ -393,6 +479,26 @@ Links equipment models to the relevant maintenance procedures
 |-------|----------|-----------|----------|-------------|-------------|
 | EquipmentModel_ID | INT **(PK)** | - | ✓ | <span id="EquipmentModel_ID"></span>Link to the Equipment model table | FK → [EquipmentModel.EquipmentModel_ID](#EquipmentModel) |
 | Procedure_ID | INT **(PK)** | - | ✓ | <span id="Procedure_ID"></span>Link to the Procedures table | FK → [Procedures.Procedure_ID](#Procedures) |
+
+<span id="EquipmentWiringHistory"></span>
+
+### EquipmentWiringHistory
+
+Temporal record of how a piece of Equipment is wired to a SignalInterface (and optionally a specific SignalInterfacePort). When a sensor probe is swapped, rewired to a different input, or temporarily disconnected, a closed row is written and (usually) a new open row is opened. The port reference is nullable: at ingest time the interface + tag are always known, but the physical port may not have been traced yet. Replaces SignalPortEquipmentHistory. At most one row per Equipment may have ValidTo IS NULL (the equipment's current wiring).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| EquipmentWiringHistory_ID | INT **(PK)** | - | ✓ | <span id="EquipmentWiringHistory_ID"></span>Surrogate primary key | - |
+| Equipment_ID | INT | - | ✓ | <span id="Equipment_ID"></span>The physical instrument whose wiring is recorded here | FK → [Equipment.Equipment_ID](#Equipment) |
+| SignalInterface_ID | INT | - | ✓ | <span id="SignalInterface_ID"></span>The interface this equipment is wired into during this period | FK → [SignalInterface.SignalInterface_ID](#SignalInterface) |
+| SignalInterfacePort_ID | INT | - |  | <span id="SignalInterfacePort_ID"></span>Specific port on the interface (NULL when not yet traced) | FK → [SignalInterfacePort.SignalInterfacePort_ID](#SignalInterfacePort) |
+| ValidFrom | DATETIME2(7) | - | ✓ | <span id="ValidFrom"></span>UTC datetime when this wiring started | - |
+| ValidTo | DATETIME2(7) | - |  | <span id="ValidTo"></span>UTC datetime when this wiring ended. NULL = currently wired. | - |
+| Note | NVARCHAR(MAX) | - |  | <span id="Note"></span>Free-text notes (reason for rewire, calibration context) | - |
 
 <span id="HydrologicalCharacteristics"></span>
 
@@ -498,10 +604,27 @@ Stores the different water quality or quantity parameters that are measured (e.g
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Unit_ID | INT | - |  | <span id="Unit_ID"></span>A unique ID is generated automatically by the database | FK → [Unit.Unit_ID](#Unit) |
 | Parameter | NVARCHAR(100) | - |  | <span id="Parameter"></span>Name of the parameter | - |
 | Parameter_ID | INT **(PK)** | - | ✓ | <span id="Parameter_ID"></span>Link to the Parameter table | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the parameter | - |
+| ENVO_IRI | NVARCHAR(256) | - |  | <span id="ENVO_IRI"></span>ENVO ontology IRI for the parameter (e.g. http://purl.obolibrary.org/obo/ENVO_01001502) | - |
+| ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Shape of the stored value: FK to ValueKind (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueKind.ValueKind_ID](#ValueKind)<br>Default: `1` |
+| QUDT_QuantityKind_IRI | NVARCHAR(256) | - |  | <span id="QUDT_QuantityKind_IRI"></span>QUDT quantity kind IRI; used at build time to populate ParameterHasUnit. NULL = no physical quantity kind (status codes, images, spectra). | - |
+
+<span id="ParameterHasUnit"></span>
+
+### ParameterHasUnit
+
+Records which Units are valid for the measurement values of each Parameter. Covers Scalar, Vector, and Matrix parameters. Image parameters are excluded. For Vector/Matrix parameters this is the unit of the individual scalar values at each bin — axis units live in ValueBinningAxis.Unit_ID, not here. Do not hand-edit seed_data — rows are generated by generate_from_yaml.py by merging QUDT applicableUnit results with per-parameter manual_units overrides.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Parameter_ID | INT **(PK)** | - | ✓ | <span id="Parameter_ID"></span>Link to Parameter | FK → [Parameter.Parameter_ID](#Parameter) |
+| Unit_ID | INT **(PK)** | - | ✓ | <span id="Unit_ID"></span>Link to Unit | FK → [Unit.Unit_ID](#Unit) |
 
 <span id="Person"></span>
 
@@ -542,11 +665,11 @@ Stores details for different measurement procedures (e.g., calibration, validati
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the procedure | - |
 | ProcedureLocation | NVARCHAR(100) | - |  | <span id="ProcedureLocation"></span>Where is the procedure stored | - |
 
-<span id="ProcessingDegree"></span>
+<span id="ProcessUnit"></span>
 
-### ProcessingDegree
+### ProcessUnit
 
-Controlled dictionary describing the level of processing applied to a Channel's time series. A new Channel row is created each time the processing degree changes — this field is set once at row creation. The DataLineage graph is the authoritative record of how each Channel was derived; this field exists for fast filtering.
+Self-referential, site-scoped hierarchy of functional process locations. Each unit carries a stable P&ID-style Tag unique per site. Used to structure sampling points within process facilities (WWTPs, pilot plants) without breaking field campaigns that rely on free-text SamplingLocation fields.
 
 
 
@@ -554,7 +677,42 @@ Controlled dictionary describing the level of processing applied to a Channel's 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| ProcessingDegree_ID | INT **(PK)** | - | ✓ | <span id="ProcessingDegree_ID"></span>Surrogate primary key, manually assigned | - |
+| ProcessUnit_ID | INT **(PK)** | - | ✓ | <span id="ProcessUnit_ID"></span>Primary key for the ProcessUnit | - |
+| Site_ID | INT | - | ✓ | <span id="Site_ID"></span>Foreign key to Site — scopes the unit to a single site | FK → [Site.Site_ID](#Site) |
+| Tag | NVARCHAR(100) | - | ✓ | <span id="Tag"></span>Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site. | - |
+| Name | NVARCHAR(255) | - | ✓ | <span id="Name"></span>Human-readable name for the process unit | - |
+| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Optional description of the process unit's role or function | - |
+| ProcessUnitKind_ID | INT | - |  | <span id="ProcessUnitKind_ID"></span>Foreign key to ProcessUnitKind lookup | FK → [ProcessUnitKind.ProcessUnitKind_ID](#ProcessUnitKind) |
+| Parent_ID | INT | - |  | <span id="Parent_ID"></span>Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree | FK → [ProcessUnit.ProcessUnit_ID](#ProcessUnit) |
+
+<span id="ProcessUnitKind"></span>
+
+### ProcessUnitKind
+
+Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ProcessUnitKind_ID | INT **(PK)** | - | ✓ | <span id="ProcessUnitKind_ID"></span>Primary key for the ProcessUnitKind lookup | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the process unit kind (e.g. Reactor, Pipe, Clarifier) | - |
+| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of this process unit kind | - |
+
+<span id="ProcessingKind"></span>
+
+### ProcessingKind
+
+Controlled vocabulary describing the level of processing applied to a Channel's time series. A new Channel row is created each time the processing kind changes — this field is set once at row creation. The DataLineage graph is the authoritative record of how each Channel was derived; this field exists for fast filtering.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ProcessingKind_ID | INT **(PK)** | - | ✓ | <span id="ProcessingKind_ID"></span>Surrogate primary key, manually assigned | - |
 | Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Processing level name (e.g. 'Raw', 'Cleaned') | - |
 | Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this processing level means | - |
 
@@ -637,37 +795,21 @@ A discrete physical sample collected at a sampling location or prepared in a lab
 |-------|----------|-----------|----------|-------------|-------------|
 | Sample_ID | INT **(PK)** | - | ✓ | <span id="Sample_ID"></span>Surrogate primary key | - |
 | ParentSample_ID | INT | - |  | <span id="ParentSample_ID"></span>Parent sample this was derived from (e.g., an aliquot of a master standard). NULL for primary samples. | FK → [Sample.Sample_ID](#Sample) |
-| SampleType_ID | INT | - |  | <span id="SampleType_ID"></span>Nature of the sample (FK to SampleType lookup table) | FK → [SampleType.SampleType_ID](#SampleType) |
+| SampleKind_ID | INT | - |  | <span id="SampleKind_ID"></span>Nature of the sample (FK to SampleKind lookup table) | FK → [SampleKind.SampleKind_ID](#SampleKind) |
 | SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location where the sample was collected or prepared | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
 | SampledByPerson_ID | INT | - |  | <span id="SampledByPerson_ID"></span>Person who collected the sample | FK → [Person.Person_ID](#Person) |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this sample belongs to | FK → [Campaign.Campaign_ID](#Campaign) |
 | SampleDateTimeStart | DATETIME2(7) | - | ✓ | <span id="SampleDateTimeStart"></span>Date and time sampling began (UTC) | - |
 | SampleDateTimeEnd | DATETIME2(7) | - |  | <span id="SampleDateTimeEnd"></span>Date and time sampling ended (UTC). NULL for instantaneous grab samples. | - |
-| SampleMethod_ID | INT | - |  | <span id="SampleMethod_ID"></span>Method of sample collection (FK to SampleMethod lookup table) | FK → [SampleMethod.SampleMethod_ID](#SampleMethod) |
+| SampleCollectionKind_ID | INT | - |  | <span id="SampleCollectionKind_ID"></span>Method of sample collection (FK to SampleCollectionKind lookup table) | FK → [SampleCollectionKind.SampleCollectionKind_ID](#SampleCollectionKind) |
 | SampleEquipment_ID | INT | - |  | <span id="SampleEquipment_ID"></span>Equipment used to collect the sample (e.g., auto-sampler) | FK → [Equipment.Equipment_ID](#Equipment) |
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Additional notes about the sample | - |
 
-<span id="SampleMethod"></span>
+<span id="SampleCollectionKind"></span>
 
-### SampleMethod
+### SampleCollectionKind
 
-Controlled dictionary describing how a sample was collected. Referenced by Sample.SampleMethod_ID.
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| SampleMethod_ID | INT **(PK)** | - | ✓ | <span id="SampleMethod_ID"></span>Surrogate primary key, manually assigned | - |
-| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Collection method name (e.g. 'Grab', 'Composite24h') | - |
-| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the collection method | - |
-
-<span id="SampleType"></span>
-
-### SampleType
-
-Controlled dictionary describing the nature of a physical sample. Referenced by Sample.SampleType_ID.
+Controlled vocabulary describing how a sample was collected. Referenced by Sample.SampleCollectionKind_ID.
 
 
 
@@ -675,9 +817,25 @@ Controlled dictionary describing the nature of a physical sample. Referenced by 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| SampleType_ID | INT **(PK)** | - | ✓ | <span id="SampleType_ID"></span>Surrogate primary key, manually assigned | - |
-| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Sample type name (e.g. 'Field', 'Blank') | - |
-| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this sample type represents | - |
+| SampleCollectionKind_ID | INT **(PK)** | - | ✓ | <span id="SampleCollectionKind_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Collection kind name (e.g. 'Grab', 'Composite24h') | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the collection kind | - |
+
+<span id="SampleKind"></span>
+
+### SampleKind
+
+Controlled vocabulary describing the nature of a physical sample. Referenced by Sample.SampleKind_ID.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SampleKind_ID | INT **(PK)** | - | ✓ | <span id="SampleKind_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Sample kind name (e.g. 'Field', 'Blank') | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this sample kind represents | - |
 
 <span id="SamplingPoint"></span>
 
@@ -691,15 +849,16 @@ Stores the identification, specific geographical coordinates (Latitude/Longitude
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | SamplingPoint_ID | INT **(PK)** | - | ✓ | <span id="SamplingPoint_ID"></span>Link to the SamplingPoint table | - |
-| Site_ID | INT | - |  | <span id="Site_ID"></span>A unique ID is generated automatically by the database | FK → [Site.Site_ID](#Site) |
-| SamplingPoint | NVARCHAR(100) | - |  | <span id="SamplingPoint"></span>Where the sample was taken. For example: "Inlet", "Outlet" or "Upstream" | - |
+| Site_ID | INT | - | ✓ | <span id="Site_ID"></span>Site this sampling point belongs to | FK → [Site.Site_ID](#Site) |
+| SamplingPoint | NVARCHAR(100) | - | ✓ | <span id="SamplingPoint"></span>Name of the sampling location. For example: "Inlet", "Outlet" or "Upstream" | - |
 | SamplingLocation | NVARCHAR(100) | - |  | <span id="SamplingLocation"></span>Where the sample was taken. For example: "Biofiltration", "Sewer 01" or "Retention Tank" | - |
 | LatitudeWGS84 | FLOAT | - |  | <span id="LatitudeWGS84"></span>WGS84 latitude in decimal degrees. For example: 45.9070 | - |
 | LongitudeWGS84 | FLOAT | - |  | <span id="LongitudeWGS84"></span>WGS84 longitude in decimal degrees. For example: -73.7833 | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the sampling point | - |
-| Pictures | /* UNMAPPED TYPE */ | - |  | <span id="Pictures"></span>Picture of the site | - |
+| PicturePath | NVARCHAR(500) | - |  | <span id="PicturePath"></span>Relative path to the sampling point reference photo on disk (e.g. sampling_points/42_abc123.jpg) | - |
 | ValidFrom | DATETIME2(7) | - |  | <span id="ValidFrom"></span>Date from which this sampling point record is considered valid (UTC). NULL means valid from the beginning of records. | - |
 | ValidTo | DATETIME2(7) | - |  | <span id="ValidTo"></span>Date until which this sampling point record is valid (UTC). NULL means currently active. | - |
+| ProcessUnit_ID | INT | - |  | <span id="ProcessUnit_ID"></span>Optional process unit this sampling point is located within (e.g. a tank or zone) | FK → [ProcessUnit.ProcessUnit_ID](#ProcessUnit) |
 | CreatedByCampaign_ID | INT | - |  | <span id="CreatedByCampaign_ID"></span>Campaign during which this sampling point was first established (if applicable) | FK → [Campaign.Campaign_ID](#Campaign) |
 
 <span id="SchemaVersion"></span>
@@ -719,11 +878,11 @@ Tracks which schema versions have been applied to this database instance
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Human-readable description of what this migration does | - |
 | MigrationScript | NVARCHAR(200) | - |  | <span id="MigrationScript"></span>Filename of the migration script that was applied | - |
 
-<span id="SignalPort"></span>
+<span id="SignalInterface"></span>
 
-### SignalPort
+### SignalInterface
 
-Universal connection point between a DataAcquisitionSystem and a measurement Channel. A port is the stable identity of a signal: it persists across equipment swaps and sensor relocations. One row per tag per DAS. For SCADA systems the tag is a standard tag string (e.g. "TIT-101"). For direct-connect stations a synthetic tag is auto-generated as "{equipment_identifier}/{parameter_name}". Sub-signals (status, alarm, uncertainty) reference their parent value port via ParentPort_ID.
+Physical or logical device that sits between field Equipment (sensors, actuators) and a DataAcquisitionSystem. Examples: a Logix5000 PLC, a Hach SC1000 controller, an IQ Sensor Net bus, a monEAU/TresCON basestation. A SignalInterface owns one or more SignalInterfacePorts and is the stable anchor that Channels reference via tag name — so tags keep working when the wiring to individual Equipment changes.
 
 
 
@@ -731,39 +890,56 @@ Universal connection point between a DataAcquisitionSystem and a measurement Cha
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| SignalPort_ID | INT **(PK)** | - | ✓ | <span id="SignalPort_ID"></span>Surrogate primary key | - |
-| DataAcquisitionSystem_ID | INT | - | ✓ | <span id="DataAcquisitionSystem_ID"></span>The DAS that owns this tag | FK → [DataAcquisitionSystem.DataAcquisitionSystem_ID](#DataAcquisitionSystem) |
-| Tag | NVARCHAR(200) | - | ✓ | <span id="Tag"></span>Tag string as published by the DAS (case-preserved; lookups are case-insensitive trimmed) | - |
-| SignalPortType_ID | INT | - | ✓ | <span id="SignalPortType_ID"></span>Kind of data flowing through this port (Value, Status, Alarm, Uncertainty) | FK → [SignalPortType.SignalPortType_ID](#SignalPortType) |
-| ParentPort_ID | INT | - |  | <span id="ParentPort_ID"></span>For sub-signals (Status, Alarm, Uncertainty ports), points to the parent Value-type port. NULL for primary value ports and unlinked ports.
- | FK → [SignalPort.SignalPort_ID](#SignalPort) |
-| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this port is currently expected to receive data. Set to false when a signal is retired. | Default: `True` |
+| SignalInterface_ID | INT **(PK)** | - | ✓ | <span id="SignalInterface_ID"></span>Surrogate primary key | - |
+| DataAcquisitionSystem_ID | INT | - | ✓ | <span id="DataAcquisitionSystem_ID"></span>The DAS that reads data from this interface | FK → [DataAcquisitionSystem.DataAcquisitionSystem_ID](#DataAcquisitionSystem) |
+| SignalInterfaceKind_ID | INT | - | ✓ | <span id="SignalInterfaceKind_ID"></span>Kind of this interface (PLC, SCADA, Basestation, ...) | FK → [SignalInterfaceKind.SignalInterfaceKind_ID](#SignalInterfaceKind) |
+| Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable unique name of this interface (e.g. 'hedi_plc', 'sc1000_primary') | - |
+| Make | NVARCHAR(100) | - |  | <span id="Make"></span>Manufacturer (e.g. 'Rockwell', 'Hach', 'WTW') | - |
+| Model | NVARCHAR(100) | - |  | <span id="Model"></span>Model designation (e.g. 'Logix5000', 'SC1000', 'TresCON') | - |
+| SerialNumber | NVARCHAR(100) | - |  | <span id="SerialNumber"></span>Serial number if known | - |
+| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this interface | - |
+| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this interface is currently in service | Default: `True` |
+
+<span id="SignalInterfaceKind"></span>
+
+### SignalInterfaceKind
+
+Controlled vocabulary for the kind of signal interface sitting between Equipment and DataAcquisitionSystem (e.g. PLC, SCADA multiplexer, direct-connect basestation, IQ Sensor bus). Classifies a SignalInterface for UI grouping and routing logic; does not affect how values are stored.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SignalInterfaceKind_ID | INT **(PK)** | - | ✓ | <span id="SignalInterfaceKind_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this interface kind | - |
+| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of this interface kind | - |
+
+<span id="SignalInterfacePort"></span>
+
+### SignalInterfacePort
+
+A physical or logical port on a SignalInterface (e.g. analog input 6 channel 0 on a PLC rack, an RS-485 port on a basestation). Represents the wiring point an Equipment is physically connected to. A Channel is NOT required to reference a port — when the wire has not yet been traced, Channel.SignalInterfacePort_ID is left NULL and the Channel is addressable by (SignalInterface_ID, TagName) alone. Multiple Channels can share a single port (multiplexer case, e.g. TresCON), distinguished by ChannelPortHistory.GatingNote.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SignalInterfacePort_ID | INT **(PK)** | - | ✓ | <span id="SignalInterfacePort_ID"></span>Surrogate primary key | - |
+| SignalInterface_ID | INT | - | ✓ | <span id="SignalInterface_ID"></span>The interface this port belongs to | FK → [SignalInterface.SignalInterface_ID](#SignalInterface) |
+| PortIdentifier | NVARCHAR(100) | - | ✓ | <span id="PortIdentifier"></span>Identifier used by the interface (e.g. 'slot6/Ch0', 'COM2', 'ProbeA') | - |
+| SignalInterfacePortKind_ID | INT | - | ✓ | <span id="SignalInterfacePortKind_ID"></span>Physical kind of port (analog/digital/serial/...) | FK → [SignalInterfacePortKind.SignalInterfacePortKind_ID](#SignalInterfacePortKind) |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this port | - |
+| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this port is currently in use | Default: `True` |
 
-<span id="SignalPortEquipmentHistory"></span>
+<span id="SignalInterfacePortKind"></span>
 
-### SignalPortEquipmentHistory
+### SignalInterfacePortKind
 
-Temporal record of which physical instrument (Equipment) is behind a SignalPort. When a sensor probe is replaced, close the current row (set EndTime) and open a new row for the replacement instrument. Equipment_ID may be NULL when the physical instrument is unknown at ingest time. At most one row per port may have EndTime IS NULL (the "currently installed" instrument).
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| SignalPortEquipmentHistory_ID | INT **(PK)** | - | ✓ | <span id="SignalPortEquipmentHistory_ID"></span>Surrogate primary key | - |
-| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The port to which this equipment is linked | FK → [SignalPort.SignalPort_ID](#SignalPort) |
-| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>The physical instrument behind this port during this period. NULL = unknown at ingest time. | FK → [Equipment.Equipment_ID](#Equipment) |
-| StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>UTC datetime when this equipment started serving this port | - |
-| EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>UTC datetime when this equipment stopped serving this port. NULL = currently installed. | - |
-| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes (e.g. reason for swap, calibration context) | - |
-
-<span id="SignalPortLocationHistory"></span>
-
-### SignalPortLocationHistory
-
-Temporal record of where a SignalPort is measuring (which SamplingPoint). Enables the sensor relocation SOP: when a sensor is physically moved, close the current row (set EndTime) and open a new row for the new SamplingPoint. Point-in-time queries resolve the SamplingPoint at any historical timestamp. At most one row per port may have EndTime IS NULL (the "active" location).
+Controlled vocabulary describing the physical nature of a SignalInterfacePort (analog input, digital output, serial link, etc.). This is *not* the same as the kind of information carried — that is ChannelRole (Value / Status / Alarm / Uncertainty).
 
 
 
@@ -771,28 +947,9 @@ Temporal record of where a SignalPort is measuring (which SamplingPoint). Enable
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| SignalPortLocationHistory_ID | INT **(PK)** | - | ✓ | <span id="SignalPortLocationHistory_ID"></span>Surrogate primary key | - |
-| SignalPort_ID | INT | - | ✓ | <span id="SignalPort_ID"></span>The port whose physical location is recorded here | FK → [SignalPort.SignalPort_ID](#SignalPort) |
-| SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>The SamplingPoint where this port is measuring during this period | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
-| StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>UTC datetime when the port started measuring at this SamplingPoint | - |
-| EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>UTC datetime when the port stopped measuring here. NULL = currently active. | - |
-| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes (e.g. reason for relocation) | - |
-
-<span id="SignalPortType"></span>
-
-### SignalPortType
-
-Controlled vocabulary describing the kind of data flowing through a SignalPort. Answers "what kind of signal is this?". A blower command has SignalPortType=Value. A device health indicator has SignalPortType=Status.
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| SignalPortType_ID | INT **(PK)** | - | ✓ | <span id="SignalPortType_ID"></span>Surrogate primary key, manually assigned | - |
-| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this port type | - |
-| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this port type means | - |
+| SignalInterfacePortKind_ID | INT **(PK)** | - | ✓ | <span id="SignalInterfacePortKind_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short name for this port kind | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this port kind means physically | - |
 
 <span id="Site"></span>
 
@@ -808,7 +965,7 @@ Stores general site information, including address, site type, and a link to the
 | Site_ID | INT **(PK)** | - | ✓ | <span id="Site_ID"></span>A unique ID is generated automatically by the database | - |
 | Watershed_ID | INT | - |  | <span id="Watershed_ID"></span>Linked to the Watershed table | FK → [Watershed.Watershed_ID](#Watershed) |
 | Name | NVARCHAR(100) | - |  | <span id="Name"></span>Name of the site | - |
-| Type | NVARCHAR(255) | - |  | <span id="Type"></span>For example: "WWTP", "River" or "Sewer_system" | - |
+| SiteKind_ID | INT | - |  | <span id="SiteKind_ID"></span>Kind of the site via SiteKind lookup | FK → [SiteKind.SiteKind_ID](#SiteKind) |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Description of the site | - |
 | LatitudeWGS84 | FLOAT | - |  | <span id="LatitudeWGS84"></span>Latitude of the site in WGS84 decimal degrees | - |
 | LongitudeWGS84 | FLOAT | - |  | <span id="LongitudeWGS84"></span>Longitude of the site in WGS84 decimal degrees | - |
@@ -818,6 +975,21 @@ Stores general site information, including address, site type, and a link to the
 | PostCode | NVARCHAR(100) | - |  | <span id="PostCode"></span>Address: postal code | - |
 | Province | NVARCHAR(255) | - |  | <span id="Province"></span>Address: name of the province | - |
 | Country | NVARCHAR(255) | - |  | <span id="Country"></span>Address: name of the country | - |
+
+<span id="SiteKind"></span>
+
+### SiteKind
+
+Controlled vocabulary of site kinds (e.g. Wastewater Treatment Plant, River, Pilot Plant)
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SiteKind_ID | INT **(PK)** | - | ✓ | <span id="SiteKind_ID"></span>Primary key for the SiteKind lookup | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the site kind (e.g. Wastewater Treatment Plant) | - |
+| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Detailed description of the site kind | - |
 
 <span id="Unit"></span>
 
@@ -832,6 +1004,10 @@ Stores the SI units of measurement (or other relevant units) corresponding to th
 |-------|----------|-----------|----------|-------------|-------------|
 | Unit_ID | INT **(PK)** | - | ✓ | <span id="Unit_ID"></span>A unique ID is generated automatically by the database | - |
 | Unit | NVARCHAR(100) | - |  | <span id="Unit"></span>SI-units only | - |
+| QUDT_IRI | NVARCHAR(256) | - |  | <span id="QUDT_IRI"></span>QUDT ontology IRI for the unit (e.g. https://qudt.org/vocab/unit/MilliGM-PER-L) | - |
+| UnitVector | NVARCHAR(64) | - |  | <span id="UnitVector"></span>SI unit dimension vector [m, kg, s, A, K, mol, cd] as a comma-separated string (e.g. 0,1,-3,0,0,0,0) | - |
+| SI_Multiplier | FLOAT | - |  | <span id="SI_Multiplier"></span>Multiply value by this to obtain SI quantity (e.g. 0.001 for mg/L → kg/m³). NULL = no linear SI conversion. | - |
+| SI_Offset | FLOAT | - |  | <span id="SI_Offset"></span>Add this after applying SI_Multiplier (e.g. 273.15 for °C → K). NULL treated as 0. | - |
 
 <span id="UrbanCharacteristics"></span>
 
@@ -867,12 +1043,14 @@ Scalar payload for a single Observation. One row per Observation of DataType='Sc
 |-------|----------|-----------|----------|-------------|-------------|
 | Observation_ID | INT **(PK)** | - | ✓ | <span id="Observation_ID"></span>Links this scalar value to its Observation (channel + timestamp) | FK → [Observation.Observation_ID](#Observation) |
 | Value | FLOAT | - |  | <span id="Value"></span>Measured scalar value | - |
+| QualityCode | INT | - |  | <span id="QualityCode"></span>Quality flag for this scalar measurement (references QualityCode.QualityCode_ID) | - |
 
 <span id="ValueBin"></span>
 
 ### ValueBin
 
-Individual bins on a ValueBinningAxis, each defined by a half-open interval [LowerBound, UpperBound) in the axis unit
+Individual bins on a ValueBinningAxis. The fields populated on each bin depend on the parent axis BinMode: 'interval' bins have LowerBound and UpperBound only; 'interval_with_nominal' bins have all three fields; 'nominal' bins have NominalValue only.
+
 
 
 #### Fields
@@ -882,8 +1060,9 @@ Individual bins on a ValueBinningAxis, each defined by a half-open interval [Low
 | ValueBin_ID | INT **(PK)** | - | ✓ | <span id="ValueBin_ID"></span>Surrogate primary key | - |
 | ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the parent binning axis | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
 | BinIndex | INT | - | ✓ | <span id="BinIndex"></span>0-based ordinal position of this bin within its axis | - |
-| LowerBound | FLOAT | - | ✓ | <span id="LowerBound"></span>Inclusive lower edge of this bin in the axis unit | - |
-| UpperBound | FLOAT | - | ✓ | <span id="UpperBound"></span>Exclusive upper edge of this bin in the axis unit; must be greater than LowerBound | - |
+| LowerBound | FLOAT | - |  | <span id="LowerBound"></span>Inclusive lower edge of this bin in the axis unit; NULL for 'nominal' mode bins | - |
+| UpperBound | FLOAT | - |  | <span id="UpperBound"></span>Exclusive upper edge of this bin in the axis unit; must be greater than LowerBound when set; NULL for 'nominal' mode bins | - |
+| NominalValue | FLOAT | - |  | <span id="NominalValue"></span>Nominal (center or exact) value of this bin in the axis unit; NULL for 'interval' mode bins | - |
 
 <span id="ValueBinningAxis"></span>
 
@@ -900,7 +1079,8 @@ Defines a named measurement axis for binned data (e.g. wavelength, particle size
 | Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable name identifying this axis configuration (e.g. 'S::CAN spectro::lyser UV-Vis') | - |
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Optional description of this axis | - |
 | NumberOfBins | INT | - | ✓ | <span id="NumberOfBins"></span>Total number of bins defined on this axis | - |
-| Unit_ID | INT | - | ✓ | <span id="Unit_ID"></span>Physical unit of the axis coordinates (e.g. nm, µm, m/s) — distinct from the measured value unit stored in MetaData | FK → [Unit.Unit_ID](#Unit) |
+| Unit_ID | INT | - | ✓ | <span id="Unit_ID"></span>Physical unit of the axis coordinates (e.g. nm, µm, m/s) — distinct from the measured value unit stored in Channel | FK → [Unit.Unit_ID](#Unit) |
+| BinKind_ID | INT | - | ✓ | <span id="BinKind_ID"></span>Declares how all bins on this axis are specified; FK to BinKind (1=interval, 2=interval_with_nominal, 3=nominal) | FK → [BinKind.BinKind_ID](#BinKind)<br>Default: `1` |
 
 <span id="ValueImage"></span>
 
@@ -926,6 +1106,21 @@ Image measurement payload for a single Observation. One row per Observation of D
 | Thumbnail | VARBINARY(MAX) | - |  | <span id="Thumbnail"></span>Optional thumbnail image stored inline as binary | - |
 | QualityCode | INT | - |  | <span id="QualityCode"></span>Quality flag for this image | - |
 
+<span id="ValueKind"></span>
+
+### ValueKind
+
+Controlled vocabulary defining the shape of stored measurement values (Scalar, Vector, Matrix, Image)
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ValueKind_ID | INT **(PK)** | - | ✓ | <span id="ValueKind_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Human-readable name of the value kind (Scalar, Vector, Matrix, or Image) | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this value kind represents structurally | - |
+
 <span id="ValueMatrix"></span>
 
 ### ValueMatrix
@@ -943,20 +1138,6 @@ One row per (observation, row-bin, col-bin) for 2D matrix data. Supports joint d
 | ColValueBin_ID | INT **(PK)** | - | ✓ | <span id="ColValueBin_ID"></span>References the bin on the column axis (AxisRole=1) | FK → [ValueBin.ValueBin_ID](#ValueBin) |
 | Value | FLOAT | - |  | <span id="Value"></span>Measured value at this (row-bin, col-bin) cell | - |
 | QualityCode | INT | - |  | <span id="QualityCode"></span>Quality flag for this measurement | - |
-
-<span id="ValueType"></span>
-
-### ValueType
-
-Lookup table defining the shape of stored measurement values (Scalar, Vector, Matrix, Image)
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| ValueType_ID | INT **(PK)** | - | ✓ | <span id="ValueType_ID"></span>Surrogate primary key | - |
-| ValueType_Name | NVARCHAR(50) | - | ✓ | <span id="ValueType_Name"></span>Human-readable name of the value type (Scalar, Vector, Matrix, or Image) | - |
 
 <span id="ValueVector"></span>
 

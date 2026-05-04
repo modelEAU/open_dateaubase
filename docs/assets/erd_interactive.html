@@ -406,12 +406,12 @@
           "description": "The time series this annotation applies to"
         },
         {
-          "name": "AnnotationType_ID",
+          "name": "AnnotationKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "AnnotationType.AnnotationType_ID",
+          "fk_target": "AnnotationKind.AnnotationKind_ID",
           "description": "What kind of annotation this is"
         },
         {
@@ -509,12 +509,12 @@
       "group_color": "#4d7c0f"
     },
     {
-      "id": "AnnotationType",
-      "label": "AnnotationType",
-      "description": "Lookup table defining the kinds of annotations that can be applied to time series data. Each type has a display color for UI rendering.\n",
+      "id": "AnnotationKind",
+      "label": "AnnotationKind",
+      "description": "Controlled vocabulary defining the kinds of annotations that can be applied to time series data. Each kind has a display color for UI rendering.\n",
       "fields": [
         {
-          "name": "AnnotationType_ID",
+          "name": "AnnotationKind_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -523,13 +523,13 @@
           "description": "Primary key, manually assigned"
         },
         {
-          "name": "AnnotationTypeName",
+          "name": "Name",
           "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Human-readable name of the annotation type"
+          "description": "Human-readable name of the annotation kind"
         },
         {
           "name": "Description",
@@ -538,7 +538,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Explanation of when to use this annotation type"
+          "description": "Explanation of when to use this annotation kind"
         },
         {
           "name": "Color",
@@ -550,8 +550,44 @@
           "description": "Hex color code for UI rendering, e.g. '#FF6B6B'"
         }
       ],
-      "group_name": "Annotations",
-      "group_color": "#4d7c0f"
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "BinKind",
+      "label": "BinKind",
+      "description": "Controlled vocabulary defining how bins on a ValueBinningAxis are specified. Each axis declares exactly one kind, and all bins on that axis must conform to it.\n",
+      "fields": [
+        {
+          "name": "BinKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(30)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Kind name (e.g. 'interval', 'nominal', 'interval_with_nominal')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this bin kind means"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "Campaign",
@@ -568,13 +604,13 @@
           "description": "Surrogate primary key"
         },
         {
-          "name": "CampaignType_ID",
+          "name": "CampaignKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "CampaignType.CampaignType_ID",
-          "description": "Type of campaign (Experiment, Operations, Commissioning)"
+          "fk_target": "CampaignKind.CampaignKind_ID",
+          "description": "Kind of campaign (Experiment, Operations, Commissioning)"
         },
         {
           "name": "Site_ID",
@@ -620,6 +656,15 @@
           "is_required": false,
           "fk_target": null,
           "description": "Date and time the campaign ended (UTC); NULL if ongoing"
+        },
+        {
+          "name": "ResponsiblePerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person responsible for running the campaign"
         }
       ],
       "group_name": "Campaign & Provenance",
@@ -662,6 +707,42 @@
       "group_color": "#d97706"
     },
     {
+      "id": "CampaignKind",
+      "label": "CampaignKind",
+      "description": "Controlled vocabulary classifying the nature of a Campaign (Experiment, Operations, Commissioning)",
+      "fields": [
+        {
+          "name": "CampaignKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the campaign kind"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of this campaign kind"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
       "id": "CampaignSamplingLocation",
       "label": "CampaignSamplingLocation",
       "description": "Junction table: sampling locations actively monitored during a campaign.",
@@ -698,36 +779,9 @@
       "group_color": "#d97706"
     },
     {
-      "id": "CampaignType",
-      "label": "CampaignType",
-      "description": "Lookup table classifying the nature of a Campaign (Experiment, Operations, Commissioning)",
-      "fields": [
-        {
-          "name": "CampaignType_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "CampaignType_Name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Name of the campaign type. Controlled vocabulary: Experiment, Operations, Commissioning"
-        }
-      ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
-    },
-    {
       "id": "Channel",
       "label": "Channel",
-      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row identifies a unique (SignalPort, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the SignalPort via SignalPortEquipmentHistory and SignalPortLocationHistory, leaving the Channel_ID stable. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
       "fields": [
         {
           "name": "Channel_ID",
@@ -739,13 +793,49 @@
           "description": "Surrogate primary key"
         },
         {
-          "name": "SignalPort_ID",
+          "name": "SignalInterface_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "SignalPort.SignalPort_ID",
-          "description": "The SignalPort (stable signal identity) that this measurement stream belongs to. Replaces Equipment_ID \u2014 equipment that produces data is tracked via SignalPortEquipmentHistory, allowing probes to be swapped without breaking the Channel.\n"
+          "fk_target": "SignalInterface.SignalInterface_ID",
+          "description": "The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag. The anchor for ingest: observations are routed by (SignalInterface_ID, TagName).\n"
+        },
+        {
+          "name": "TagName",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Tag string as published by the SignalInterface (case-preserved; lookups are case-insensitive trimmed). For direct-connect interfaces a synthetic tag such as \"{equipment_identifier}/{parameter_name}\" is auto-generated.\n"
+        },
+        {
+          "name": "SignalInterfacePort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SignalInterfacePort.SignalInterfacePort_ID",
+          "description": "Current physical port (if known) this Channel is gated through. Denormalised from the active ChannelPortHistory row for query convenience. NULL when the wiring has not yet been traced.\n"
+        },
+        {
+          "name": "ParentChannel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Channel.Channel_ID",
+          "description": "For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent Value Channel. NULL for primary value channels and unlinked channels. Self-FK.\n"
+        },
+        {
+          "name": "ChannelKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ChannelKind.ChannelKind_ID",
+          "description": "Kind of information this Channel carries (1=Value, 2=Status, 3=Alarm, 4=Uncertainty).\n"
         },
         {
           "name": "Parameter_ID",
@@ -757,31 +847,40 @@
           "description": "Measured analyte or parameter (e.g. TSS, pH)"
         },
         {
-          "name": "DataProvenance_ID",
+          "name": "DataProvenanceKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "DataProvenance.DataProvenance_ID",
+          "fk_target": "DataProvenanceKind.DataProvenanceKind_ID",
           "description": "How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5, Forecast=6)\n"
         },
         {
-          "name": "ProcessingDegree_ID",
+          "name": "ProcessingKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "ProcessingDegree.ProcessingDegree_ID",
-          "description": "Level of processing applied to this time series (FK to ProcessingDegree lookup). Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation \u2014 if the processing degree changes, a new Channel row is created. Default 1 = Raw.\n"
+          "fk_target": "ProcessingKind.ProcessingKind_ID",
+          "description": "Level of processing applied to this time series (FK to ProcessingKind lookup). Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation \u2014 if the processing kind changes, a new Channel row is created. Default 1 = Raw.\n"
         },
         {
-          "name": "ValueType_ID",
+          "name": "ValueKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "ValueType.ValueType_ID",
+          "fk_target": "ValueKind.ValueKind_ID",
           "description": "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
+        },
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Unit.Unit_ID",
+          "description": "Unit of measurement for values stored in this channel (e.g. mg/L, NTU). Set at channel creation via the ingestion pipeline and treated as immutable thereafter \u2014 a unit change requires a new Channel row.\n"
         }
       ],
       "group_name": "Signal / Channel",
@@ -818,6 +917,105 @@
           "is_required": true,
           "fk_target": "ValueBinningAxis.ValueBinningAxis_ID",
           "description": "References the binning axis for this role"
+        }
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
+    },
+    {
+      "id": "ChannelKind",
+      "label": "ChannelKind",
+      "description": "Controlled vocabulary describing what kind of information a Channel carries (Value / Status / Alarm / Uncertainty). Sub-signals (Status, Alarm, Uncertainty) attach to their parent value Channel via Channel.ParentChannel_ID.\n",
+      "fields": [
+        {
+          "name": "ChannelKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Short name for this channel kind"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this channel kind means"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "ChannelPortHistory",
+      "label": "ChannelPortHistory",
+      "description": "Temporal record of which SignalInterfacePort (if any) a given Channel is gated through over time. Needed to model multiplexers like TresCON, where a single physical port on the parent interface emits a sequence of distinct streams distinguished by a gating discipline (round-robin, tag mapping, etc.). Also used for backfill: when a Channel is created with no port known, a row with NULL SignalInterfacePort_ID opens; when the wire is later traced, that row is closed and a new row with the port is opened. At most one row per Channel may have ValidTo IS NULL.\n",
+      "fields": [
+        {
+          "name": "ChannelPortHistory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Channel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Channel.Channel_ID",
+          "description": "The Channel whose port gating is recorded here"
+        },
+        {
+          "name": "SignalInterfacePort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SignalInterfacePort.SignalInterfacePort_ID",
+          "description": "Port the Channel is gated through (NULL when untraced)"
+        },
+        {
+          "name": "ValidFrom",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC datetime when this port gating started"
+        },
+        {
+          "name": "ValidTo",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC datetime when this port gating ended. NULL = currently gated."
+        },
+        {
+          "name": "GatingNote",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text description of the gating discipline (e.g. 'TresCON round-robin slot 2', 'selected when DigitalIn3 high').\n"
         }
       ],
       "group_name": "Signal / Channel",
@@ -961,7 +1159,7 @@
     {
       "id": "ControlLoopPort",
       "label": "ControlLoopPort",
-      "description": "Association between a ControlLoop and its SignalPorts, with an explicit role for each port. The unique constraint ensures each port appears at most once per loop. Cascade control is modelled by using the same SignalPort_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner).\n",
+      "description": "Association between a ControlLoop and its participating Channels, with an explicit role for each channel. The unique constraint ensures each channel appears at most once per loop. Cascade control is modelled by using the same Channel_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner). (v3.0.0 used SignalPort_ID; v4.0.0 switches to Channel_ID so that control-loop participation is resolved through the same Channel abstraction ingest uses.)\n",
       "fields": [
         {
           "name": "ControlLoopPort_ID",
@@ -982,34 +1180,34 @@
           "description": "The control loop this association belongs to"
         },
         {
-          "name": "SignalPort_ID",
+          "name": "Channel_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "SignalPort.SignalPort_ID",
-          "description": "The port participating in this control loop"
+          "fk_target": "Channel.Channel_ID",
+          "description": "The Channel participating in this control loop"
         },
         {
-          "name": "ControlLoopPortRole_ID",
+          "name": "ControlLoopPortKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "ControlLoopPortRole.ControlLoopPortRole_ID",
-          "description": "The functional role of this port within the loop"
+          "fk_target": "ControlLoopPortKind.ControlLoopPortKind_ID",
+          "description": "The functional kind of this channel within the loop"
         }
       ],
       "group_name": "Control Loops",
       "group_color": "#be123c"
     },
     {
-      "id": "ControlLoopPortRole",
-      "label": "ControlLoopPortRole",
-      "description": "Controlled vocabulary for the functional role of a SignalPort within a ControlLoop. 'Other' is an explicit escape hatch for novel control schemes; its use should be accompanied by a description in ControlLoop.Description.\n",
+      "id": "ControlLoopPortKind",
+      "label": "ControlLoopPortKind",
+      "description": "Controlled vocabulary for the functional kind of a Channel within a ControlLoop. 'Other' is an explicit escape hatch for novel control schemes; its use should be accompanied by a description in ControlLoop.Description.\n",
       "fields": [
         {
-          "name": "ControlLoopPortRole_ID",
+          "name": "ControlLoopPortKind_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -1024,7 +1222,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Short name for this role"
+          "description": "Short name for this control loop port kind"
         },
         {
           "name": "Description",
@@ -1033,11 +1231,11 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Explanation of the role within a control loop"
+          "description": "Explanation of the kind within a control loop"
         }
       ],
-      "group_name": "Control Loops",
-      "group_color": "#be123c"
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "DataAcquisitionSystem",
@@ -1112,12 +1310,12 @@
       "group_color": "#059669"
     },
     {
-      "id": "DataProvenance",
-      "label": "DataProvenance",
-      "description": "Lookup table describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast)",
+      "id": "DataProvenanceKind",
+      "label": "DataProvenanceKind",
+      "description": "Controlled vocabulary describing how a measurement was produced (Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast)",
       "fields": [
         {
-          "name": "DataProvenance_ID",
+          "name": "DataProvenanceKind_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -1126,17 +1324,26 @@
           "description": "Surrogate primary key"
         },
         {
-          "name": "DataProvenance_Name",
+          "name": "Name",
           "sql_type": "NVARCHAR(50)",
           "is_pk": false,
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Name of the provenance. Controlled vocabulary: Sensor, Laboratory, Manual Entry, Model Output, External Source, Forecast"
+          "description": "Name of the provenance kind"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of how data with this provenance was produced"
         }
       ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "Dataset",
@@ -1333,13 +1540,13 @@
           "description": "Equipment on which the event occurred"
         },
         {
-          "name": "EquipmentEventType_ID",
+          "name": "EquipmentEventKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "EquipmentEventType.EquipmentEventType_ID",
-          "description": "Type of lifecycle event"
+          "fk_target": "EquipmentEventKind.EquipmentEventKind_ID",
+          "description": "Kind of lifecycle event"
         },
         {
           "name": "EventDateTimeStart",
@@ -1391,12 +1598,12 @@
       "group_color": "#059669"
     },
     {
-      "id": "EquipmentEventType",
-      "label": "EquipmentEventType",
-      "description": "Lookup table classifying the type of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)",
+      "id": "EquipmentEventKind",
+      "label": "EquipmentEventKind",
+      "description": "Controlled vocabulary classifying the kind of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)",
       "fields": [
         {
-          "name": "EquipmentEventType_ID",
+          "name": "EquipmentEventKind_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -1405,13 +1612,94 @@
           "description": "Surrogate primary key"
         },
         {
-          "name": "EquipmentEventType_Name",
+          "name": "Name",
           "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Name of the event type. Controlled vocabulary: Calibration, Validation, Maintenance, Installation, Removal, Firmware Update, Failure, Repair"
+          "description": "Name of the equipment event kind"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this kind of equipment event involves"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "EquipmentLocationHistory",
+      "label": "EquipmentLocationHistory",
+      "description": "Temporal record of where a piece of Equipment is physically installed (which SamplingPoint). Independent from EquipmentWiringHistory: a probe can be relocated without changing its wiring, and vice versa. Absorbs the former EquipmentInstallation role and the location aspect of SignalPortLocationHistory. At most one row per Equipment may have ValidTo IS NULL (the equipment's current location).\n",
+      "fields": [
+        {
+          "name": "EquipmentLocationHistory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "The physical instrument whose location is recorded here"
+        },
+        {
+          "name": "SamplingPoint_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SamplingPoint.SamplingPoint_ID",
+          "description": "Sampling location where this equipment is installed during this period"
+        },
+        {
+          "name": "ValidFrom",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC datetime when the equipment started measuring at this location"
+        },
+        {
+          "name": "ValidTo",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC datetime when the equipment left this location. NULL = currently installed."
+        },
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign during which this deployment occurred (if applicable)"
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about the deployment or relocation"
         }
       ],
       "group_name": "Equipment & Instruments",
@@ -1529,6 +1817,78 @@
           "is_required": true,
           "fk_target": "Procedures.Procedure_ID",
           "description": "Link to the Procedures table"
+        }
+      ],
+      "group_name": "Equipment & Instruments",
+      "group_color": "#059669"
+    },
+    {
+      "id": "EquipmentWiringHistory",
+      "label": "EquipmentWiringHistory",
+      "description": "Temporal record of how a piece of Equipment is wired to a SignalInterface (and optionally a specific SignalInterfacePort). When a sensor probe is swapped, rewired to a different input, or temporarily disconnected, a closed row is written and (usually) a new open row is opened. The port reference is nullable: at ingest time the interface + tag are always known, but the physical port may not have been traced yet. Replaces SignalPortEquipmentHistory. At most one row per Equipment may have ValidTo IS NULL (the equipment's current wiring).\n",
+      "fields": [
+        {
+          "name": "EquipmentWiringHistory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "The physical instrument whose wiring is recorded here"
+        },
+        {
+          "name": "SignalInterface_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalInterface.SignalInterface_ID",
+          "description": "The interface this equipment is wired into during this period"
+        },
+        {
+          "name": "SignalInterfacePort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SignalInterfacePort.SignalInterfacePort_ID",
+          "description": "Specific port on the interface (NULL when not yet traced)"
+        },
+        {
+          "name": "ValidFrom",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC datetime when this wiring started"
+        },
+        {
+          "name": "ValidTo",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "UTC datetime when this wiring ended. NULL = currently wired."
+        },
+        {
+          "name": "Note",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes (reason for rewire, calibration context)"
         }
       ],
       "group_name": "Equipment & Instruments",
@@ -1855,15 +2215,6 @@
       "description": "Stores the different water quality or quantity parameters that are measured (e.g., pH, TSS, N-components)",
       "fields": [
         {
-          "name": "Unit_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Unit.Unit_ID",
-          "description": "A unique ID is generated automatically by the database"
-        },
-        {
           "name": "Parameter",
           "sql_type": "NVARCHAR(100)",
           "is_pk": false,
@@ -1889,10 +2240,64 @@
           "is_required": false,
           "fk_target": null,
           "description": "Description of the parameter"
+        },
+        {
+          "name": "ENVO_IRI",
+          "sql_type": "NVARCHAR(256)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "ENVO ontology IRI for the parameter (e.g. http://purl.obolibrary.org/obo/ENVO_01001502)"
+        },
+        {
+          "name": "ValueKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueKind.ValueKind_ID",
+          "description": "Shape of the stored value: FK to ValueKind (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
+        },
+        {
+          "name": "QUDT_QuantityKind_IRI",
+          "sql_type": "NVARCHAR(256)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "QUDT quantity kind IRI; used at build time to populate ParameterHasUnit. NULL = no physical quantity kind (status codes, images, spectra)."
         }
       ],
       "group_name": "Lookup / Reference",
       "group_color": "#475569"
+    },
+    {
+      "id": "ParameterHasUnit",
+      "label": "ParameterHasUnit",
+      "description": "Records which Units are valid for the measurement values of each Parameter. Covers Scalar, Vector, and Matrix parameters. Image parameters are excluded. For Vector/Matrix parameters this is the unit of the individual scalar values at each bin \u2014 axis units live in ValueBinningAxis.Unit_ID, not here. Do not hand-edit seed_data \u2014 rows are generated by generate_from_yaml.py by merging QUDT applicableUnit results with per-parameter manual_units overrides.\n",
+      "fields": [
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Parameter.Parameter_ID",
+          "description": "Link to Parameter"
+        },
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Unit.Unit_ID",
+          "description": "Link to Unit"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "Person",
@@ -2048,12 +2453,120 @@
       "group_color": "#475569"
     },
     {
-      "id": "ProcessingDegree",
-      "label": "ProcessingDegree",
-      "description": "Controlled dictionary describing the level of processing applied to a Channel's time series. A new Channel row is created each time the processing degree changes \u2014 this field is set once at row creation. The DataLineage graph is the authoritative record of how each Channel was derived; this field exists for fast filtering.\n",
+      "id": "ProcessUnit",
+      "label": "ProcessUnit",
+      "description": "Self-referential, site-scoped hierarchy of functional process locations. Each unit carries a stable P&ID-style Tag unique per site. Used to structure sampling points within process facilities (WWTPs, pilot plants) without breaking field campaigns that rely on free-text SamplingLocation fields.\n",
       "fields": [
         {
-          "name": "ProcessingDegree_ID",
+          "name": "ProcessUnit_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key for the ProcessUnit"
+        },
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Site.Site_ID",
+          "description": "Foreign key to Site \u2014 scopes the unit to a single site"
+        },
+        {
+          "name": "Tag",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site."
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name for the process unit"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Optional description of the process unit's role or function"
+        },
+        {
+          "name": "ProcessUnitKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ProcessUnitKind.ProcessUnitKind_ID",
+          "description": "Foreign key to ProcessUnitKind lookup"
+        },
+        {
+          "name": "Parent_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ProcessUnit.ProcessUnit_ID",
+          "description": "Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "ProcessUnitKind",
+      "label": "ProcessUnitKind",
+      "description": "Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)",
+      "fields": [
+        {
+          "name": "ProcessUnitKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key for the ProcessUnitKind lookup"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the process unit kind (e.g. Reactor, Pipe, Clarifier)"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of this process unit kind"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "ProcessingKind",
+      "label": "ProcessingKind",
+      "description": "Controlled vocabulary describing the level of processing applied to a Channel's time series. A new Channel row is created each time the processing kind changes \u2014 this field is set once at row creation. The DataLineage graph is the authoritative record of how each Channel was derived; this field exists for fast filtering.\n",
+      "fields": [
+        {
+          "name": "ProcessingKind_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -2080,8 +2593,8 @@
           "description": "Explanation of what this processing level means"
         }
       ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "ProcessingLineage",
@@ -2314,13 +2827,13 @@
           "description": "Parent sample this was derived from (e.g., an aliquot of a master standard). NULL for primary samples."
         },
         {
-          "name": "SampleType_ID",
+          "name": "SampleKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "SampleType.SampleType_ID",
-          "description": "Nature of the sample (FK to SampleType lookup table)"
+          "fk_target": "SampleKind.SampleKind_ID",
+          "description": "Nature of the sample (FK to SampleKind lookup table)"
         },
         {
           "name": "SamplingPoint_ID",
@@ -2368,13 +2881,13 @@
           "description": "Date and time sampling ended (UTC). NULL for instantaneous grab samples."
         },
         {
-          "name": "SampleMethod_ID",
+          "name": "SampleCollectionKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "SampleMethod.SampleMethod_ID",
-          "description": "Method of sample collection (FK to SampleMethod lookup table)"
+          "fk_target": "SampleCollectionKind.SampleCollectionKind_ID",
+          "description": "Method of sample collection (FK to SampleCollectionKind lookup table)"
         },
         {
           "name": "SampleEquipment_ID",
@@ -2399,12 +2912,12 @@
       "group_color": "#0891b2"
     },
     {
-      "id": "SampleMethod",
-      "label": "SampleMethod",
-      "description": "Controlled dictionary describing how a sample was collected. Referenced by Sample.SampleMethod_ID.\n",
+      "id": "SampleCollectionKind",
+      "label": "SampleCollectionKind",
+      "description": "Controlled vocabulary describing how a sample was collected. Referenced by Sample.SampleCollectionKind_ID.\n",
       "fields": [
         {
-          "name": "SampleMethod_ID",
+          "name": "SampleCollectionKind_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -2419,7 +2932,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Collection method name (e.g. 'Grab', 'Composite24h')"
+          "description": "Collection kind name (e.g. 'Grab', 'Composite24h')"
         },
         {
           "name": "Description",
@@ -2428,19 +2941,19 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Explanation of the collection method"
+          "description": "Explanation of the collection kind"
         }
       ],
-      "group_name": "Lab",
-      "group_color": "#0891b2"
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
-      "id": "SampleType",
-      "label": "SampleType",
-      "description": "Controlled dictionary describing the nature of a physical sample. Referenced by Sample.SampleType_ID.\n",
+      "id": "SampleKind",
+      "label": "SampleKind",
+      "description": "Controlled vocabulary describing the nature of a physical sample. Referenced by Sample.SampleKind_ID.\n",
       "fields": [
         {
-          "name": "SampleType_ID",
+          "name": "SampleKind_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -2455,7 +2968,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Sample type name (e.g. 'Field', 'Blank')"
+          "description": "Sample kind name (e.g. 'Field', 'Blank')"
         },
         {
           "name": "Description",
@@ -2464,11 +2977,11 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Explanation of what this sample type represents"
+          "description": "Explanation of what this sample kind represents"
         }
       ],
-      "group_name": "Lab",
-      "group_color": "#0891b2"
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "SamplingPoint",
@@ -2489,18 +3002,18 @@
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": false,
+          "is_required": true,
           "fk_target": "Site.Site_ID",
-          "description": "A unique ID is generated automatically by the database"
+          "description": "Site this sampling point belongs to"
         },
         {
           "name": "SamplingPoint",
           "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
-          "is_required": false,
+          "is_required": true,
           "fk_target": null,
-          "description": "Where the sample was taken. For example: \"Inlet\", \"Outlet\" or \"Upstream\""
+          "description": "Name of the sampling location. For example: \"Inlet\", \"Outlet\" or \"Upstream\""
         },
         {
           "name": "SamplingLocation",
@@ -2539,13 +3052,13 @@
           "description": "Description of the sampling point"
         },
         {
-          "name": "Pictures",
-          "sql_type": "/* UNMAPPED TYPE */",
+          "name": "PicturePath",
+          "sql_type": "NVARCHAR(500)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Picture of the site"
+          "description": "Relative path to the sampling point reference photo on disk (e.g. sampling_points/42_abc123.jpg)"
         },
         {
           "name": "ValidFrom",
@@ -2564,6 +3077,15 @@
           "is_required": false,
           "fk_target": null,
           "description": "Date until which this sampling point record is valid (UTC). NULL means currently active."
+        },
+        {
+          "name": "ProcessUnit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ProcessUnit.ProcessUnit_ID",
+          "description": "Optional process unit this sampling point is located within (e.g. a tank or zone)"
         },
         {
           "name": "CreatedByCampaign_ID",
@@ -2633,12 +3155,12 @@
       "group_color": "#475569"
     },
     {
-      "id": "SignalPort",
-      "label": "SignalPort",
-      "description": "Universal connection point between a DataAcquisitionSystem and a measurement Channel. A port is the stable identity of a signal: it persists across equipment swaps and sensor relocations. One row per tag per DAS. For SCADA systems the tag is a standard tag string (e.g. \"TIT-101\"). For direct-connect stations a synthetic tag is auto-generated as \"{equipment_identifier}/{parameter_name}\". Sub-signals (status, alarm, uncertainty) reference their parent value port via ParentPort_ID.\n",
+      "id": "SignalInterface",
+      "label": "SignalInterface",
+      "description": "Physical or logical device that sits between field Equipment (sensors, actuators) and a DataAcquisitionSystem. Examples: a Logix5000 PLC, a Hach SC1000 controller, an IQ Sensor Net bus, a monEAU/TresCON basestation. A SignalInterface owns one or more SignalInterfacePorts and is the stable anchor that Channels reference via tag name \u2014 so tags keep working when the wiring to individual Equipment changes.\n",
       "fields": [
         {
-          "name": "SignalPort_ID",
+          "name": "SignalInterface_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -2653,43 +3175,52 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "DataAcquisitionSystem.DataAcquisitionSystem_ID",
-          "description": "The DAS that owns this tag"
+          "description": "The DAS that reads data from this interface"
         },
         {
-          "name": "Tag",
+          "name": "SignalInterfaceKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalInterfaceKind.SignalInterfaceKind_ID",
+          "description": "Kind of this interface (PLC, SCADA, Basestation, ...)"
+        },
+        {
+          "name": "Name",
           "sql_type": "NVARCHAR(200)",
           "is_pk": false,
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Tag string as published by the DAS (case-preserved; lookups are case-insensitive trimmed)"
+          "description": "Human-readable unique name of this interface (e.g. 'hedi_plc', 'sc1000_primary')"
         },
         {
-          "name": "SignalPortType_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "SignalPortType.SignalPortType_ID",
-          "description": "Kind of data flowing through this port (Value, Status, Alarm, Uncertainty)"
-        },
-        {
-          "name": "ParentPort_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "SignalPort.SignalPort_ID",
-          "description": "For sub-signals (Status, Alarm, Uncertainty ports), points to the parent Value-type port. NULL for primary value ports and unlinked ports.\n"
-        },
-        {
-          "name": "IsActive",
-          "sql_type": "BIT",
+          "name": "Make",
+          "sql_type": "NVARCHAR(100)",
           "is_pk": false,
           "is_fk": false,
-          "is_required": true,
+          "is_required": false,
           "fk_target": null,
-          "description": "Whether this port is currently expected to receive data. Set to false when a signal is retired."
+          "description": "Manufacturer (e.g. 'Rockwell', 'Hach', 'WTW')"
+        },
+        {
+          "name": "Model",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Model designation (e.g. 'Logix5000', 'SC1000', 'TresCON')"
+        },
+        {
+          "name": "SerialNumber",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Serial number if known"
         },
         {
           "name": "Description",
@@ -2698,145 +3229,28 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Free-text notes about this port"
+          "description": "Free-text notes about this interface"
+        },
+        {
+          "name": "IsActive",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether this interface is currently in service"
         }
       ],
       "group_name": "Signal / Channel",
       "group_color": "#7c3aed"
     },
     {
-      "id": "SignalPortEquipmentHistory",
-      "label": "SignalPortEquipmentHistory",
-      "description": "Temporal record of which physical instrument (Equipment) is behind a SignalPort. When a sensor probe is replaced, close the current row (set EndTime) and open a new row for the replacement instrument. Equipment_ID may be NULL when the physical instrument is unknown at ingest time. At most one row per port may have EndTime IS NULL (the \"currently installed\" instrument).\n",
+      "id": "SignalInterfaceKind",
+      "label": "SignalInterfaceKind",
+      "description": "Controlled vocabulary for the kind of signal interface sitting between Equipment and DataAcquisitionSystem (e.g. PLC, SCADA multiplexer, direct-connect basestation, IQ Sensor bus). Classifies a SignalInterface for UI grouping and routing logic; does not affect how values are stored.\n",
       "fields": [
         {
-          "name": "SignalPortEquipmentHistory_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "SignalPort_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "SignalPort.SignalPort_ID",
-          "description": "The port to which this equipment is linked"
-        },
-        {
-          "name": "Equipment_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "The physical instrument behind this port during this period. NULL = unknown at ingest time."
-        },
-        {
-          "name": "StartTime",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "UTC datetime when this equipment started serving this port"
-        },
-        {
-          "name": "EndTime",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "UTC datetime when this equipment stopped serving this port. NULL = currently installed."
-        },
-        {
-          "name": "Notes",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Free-text notes (e.g. reason for swap, calibration context)"
-        }
-      ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
-    },
-    {
-      "id": "SignalPortLocationHistory",
-      "label": "SignalPortLocationHistory",
-      "description": "Temporal record of where a SignalPort is measuring (which SamplingPoint). Enables the sensor relocation SOP: when a sensor is physically moved, close the current row (set EndTime) and open a new row for the new SamplingPoint. Point-in-time queries resolve the SamplingPoint at any historical timestamp. At most one row per port may have EndTime IS NULL (the \"active\" location).\n",
-      "fields": [
-        {
-          "name": "SignalPortLocationHistory_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "SignalPort_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "SignalPort.SignalPort_ID",
-          "description": "The port whose physical location is recorded here"
-        },
-        {
-          "name": "SamplingPoint_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "SamplingPoint.SamplingPoint_ID",
-          "description": "The SamplingPoint where this port is measuring during this period"
-        },
-        {
-          "name": "StartTime",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "UTC datetime when the port started measuring at this SamplingPoint"
-        },
-        {
-          "name": "EndTime",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "UTC datetime when the port stopped measuring here. NULL = currently active."
-        },
-        {
-          "name": "Notes",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Free-text notes (e.g. reason for relocation)"
-        }
-      ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
-    },
-    {
-      "id": "SignalPortType",
-      "label": "SignalPortType",
-      "description": "Controlled vocabulary describing the kind of data flowing through a SignalPort. Answers \"what kind of signal is this?\". A blower command has SignalPortType=Value. A device health indicator has SignalPortType=Status.\n",
-      "fields": [
-        {
-          "name": "SignalPortType_ID",
+          "name": "SignalInterfaceKind_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -2851,7 +3265,106 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Short name for this port type"
+          "description": "Short name for this interface kind"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of this interface kind"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "SignalInterfacePort",
+      "label": "SignalInterfacePort",
+      "description": "A physical or logical port on a SignalInterface (e.g. analog input 6 channel 0 on a PLC rack, an RS-485 port on a basestation). Represents the wiring point an Equipment is physically connected to. A Channel is NOT required to reference a port \u2014 when the wire has not yet been traced, Channel.SignalInterfacePort_ID is left NULL and the Channel is addressable by (SignalInterface_ID, TagName) alone. Multiple Channels can share a single port (multiplexer case, e.g. TresCON), distinguished by ChannelPortHistory.GatingNote.\n",
+      "fields": [
+        {
+          "name": "SignalInterfacePort_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "SignalInterface_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalInterface.SignalInterface_ID",
+          "description": "The interface this port belongs to"
+        },
+        {
+          "name": "PortIdentifier",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Identifier used by the interface (e.g. 'slot6/Ch0', 'COM2', 'ProbeA')"
+        },
+        {
+          "name": "SignalInterfacePortKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SignalInterfacePortKind.SignalInterfacePortKind_ID",
+          "description": "Physical kind of port (analog/digital/serial/...)"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about this port"
+        },
+        {
+          "name": "IsActive",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether this port is currently in use"
+        }
+      ],
+      "group_name": "Signal / Channel",
+      "group_color": "#7c3aed"
+    },
+    {
+      "id": "SignalInterfacePortKind",
+      "label": "SignalInterfacePortKind",
+      "description": "Controlled vocabulary describing the physical nature of a SignalInterfacePort (analog input, digital output, serial link, etc.). This is *not* the same as the kind of information carried \u2014 that is ChannelRole (Value / Status / Alarm / Uncertainty).\n",
+      "fields": [
+        {
+          "name": "SignalInterfacePortKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Short name for this port kind"
         },
         {
           "name": "Description",
@@ -2860,7 +3373,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Explanation of what this port type means"
+          "description": "Explanation of what this port kind means physically"
         }
       ],
       "group_name": "Signal / Channel",
@@ -2899,13 +3412,13 @@
           "description": "Name of the site"
         },
         {
-          "name": "Type",
-          "sql_type": "NVARCHAR(255)",
+          "name": "SiteKind_ID",
+          "sql_type": "INT",
           "is_pk": false,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": false,
-          "fk_target": null,
-          "description": "For example: \"WWTP\", \"River\" or \"Sewer_system\""
+          "fk_target": "SiteKind.SiteKind_ID",
+          "description": "Kind of the site via SiteKind lookup"
         },
         {
           "name": "Description",
@@ -2993,6 +3506,42 @@
       "group_color": "#2563eb"
     },
     {
+      "id": "SiteKind",
+      "label": "SiteKind",
+      "description": "Controlled vocabulary of site kinds (e.g. Wastewater Treatment Plant, River, Pilot Plant)",
+      "fields": [
+        {
+          "name": "SiteKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key for the SiteKind lookup"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the site kind (e.g. Wastewater Treatment Plant)"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Detailed description of the site kind"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
       "id": "Unit",
       "label": "Unit",
       "description": "Stores the SI units of measurement (or other relevant units) corresponding to the parameters (e.g., mg/L, g/L, s)",
@@ -3014,6 +3563,42 @@
           "is_required": false,
           "fk_target": null,
           "description": "SI-units only"
+        },
+        {
+          "name": "QUDT_IRI",
+          "sql_type": "NVARCHAR(256)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "QUDT ontology IRI for the unit (e.g. https://qudt.org/vocab/unit/MilliGM-PER-L)"
+        },
+        {
+          "name": "UnitVector",
+          "sql_type": "NVARCHAR(64)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "SI unit dimension vector [m, kg, s, A, K, mol, cd] as a comma-separated string (e.g. 0,1,-3,0,0,0,0)"
+        },
+        {
+          "name": "SI_Multiplier",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Multiply value by this to obtain SI quantity (e.g. 0.001 for mg/L \u2192 kg/m\u00b3). NULL = no linear SI conversion."
+        },
+        {
+          "name": "SI_Offset",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Add this after applying SI_Multiplier (e.g. 273.15 for \u00b0C \u2192 K). NULL treated as 0."
         }
       ],
       "group_name": "Lookup / Reference",
@@ -3122,6 +3707,15 @@
           "is_required": false,
           "fk_target": null,
           "description": "Measured scalar value"
+        },
+        {
+          "name": "QualityCode",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Quality flag for this scalar measurement (references QualityCode.QualityCode_ID)"
         }
       ],
       "group_name": "Observations & Values",
@@ -3130,7 +3724,7 @@
     {
       "id": "ValueBin",
       "label": "ValueBin",
-      "description": "Individual bins on a ValueBinningAxis, each defined by a half-open interval [LowerBound, UpperBound) in the axis unit",
+      "description": "Individual bins on a ValueBinningAxis. The fields populated on each bin depend on the parent axis BinMode: 'interval' bins have LowerBound and UpperBound only; 'interval_with_nominal' bins have all three fields; 'nominal' bins have NominalValue only.\n",
       "fields": [
         {
           "name": "ValueBin_ID",
@@ -3164,18 +3758,27 @@
           "sql_type": "FLOAT",
           "is_pk": false,
           "is_fk": false,
-          "is_required": true,
+          "is_required": false,
           "fk_target": null,
-          "description": "Inclusive lower edge of this bin in the axis unit"
+          "description": "Inclusive lower edge of this bin in the axis unit; NULL for 'nominal' mode bins"
         },
         {
           "name": "UpperBound",
           "sql_type": "FLOAT",
           "is_pk": false,
           "is_fk": false,
-          "is_required": true,
+          "is_required": false,
           "fk_target": null,
-          "description": "Exclusive upper edge of this bin in the axis unit; must be greater than LowerBound"
+          "description": "Exclusive upper edge of this bin in the axis unit; must be greater than LowerBound when set; NULL for 'nominal' mode bins"
+        },
+        {
+          "name": "NominalValue",
+          "sql_type": "FLOAT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Nominal (center or exact) value of this bin in the axis unit; NULL for 'interval' mode bins"
         }
       ],
       "group_name": "Observations & Values",
@@ -3229,7 +3832,16 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "Unit.Unit_ID",
-          "description": "Physical unit of the axis coordinates (e.g. nm, \u00b5m, m/s) \u2014 distinct from the measured value unit stored in MetaData"
+          "description": "Physical unit of the axis coordinates (e.g. nm, \u00b5m, m/s) \u2014 distinct from the measured value unit stored in Channel"
+        },
+        {
+          "name": "BinKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "BinKind.BinKind_ID",
+          "description": "Declares how all bins on this axis are specified; FK to BinKind (1=interval, 2=interval_with_nominal, 3=nominal)"
         }
       ],
       "group_name": "Observations & Values",
@@ -3335,6 +3947,42 @@
       "group_color": "#dc2626"
     },
     {
+      "id": "ValueKind",
+      "label": "ValueKind",
+      "description": "Controlled vocabulary defining the shape of stored measurement values (Scalar, Vector, Matrix, Image)",
+      "fields": [
+        {
+          "name": "ValueKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name of the value kind (Scalar, Vector, Matrix, or Image)"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this value kind represents structurally"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
       "id": "ValueMatrix",
       "label": "ValueMatrix",
       "description": "One row per (observation, row-bin, col-bin) for 2D matrix data. Supports joint distributions such as particle size-velocity. Channel and Timestamp are resolved via the Observation table.\n",
@@ -3387,33 +4035,6 @@
       ],
       "group_name": "Observations & Values",
       "group_color": "#dc2626"
-    },
-    {
-      "id": "ValueType",
-      "label": "ValueType",
-      "description": "Lookup table defining the shape of stored measurement values (Scalar, Vector, Matrix, Image)",
-      "fields": [
-        {
-          "name": "ValueType_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "ValueType_Name",
-          "sql_type": "NVARCHAR(50)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Human-readable name of the value type (Scalar, Vector, Matrix, or Image)"
-        }
-      ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
     },
     {
       "id": "ValueVector",
@@ -3526,10 +4147,138 @@
   ],
   "views": [
     {
+      "id": "vw_ChannelEquipmentAtTime",
+      "label": "vw_ChannelEquipmentAtTime",
+      "description": "Resolves, for every Observation, which physical Equipment was wired to the Channel at the time of the observation. Walks EquipmentWiringHistory by matching SignalInterface_ID (and, when the Channel's port is known, SignalInterfacePort_ID) and bracketing (ValidFrom, ValidTo]. When a Channel has no port recorded and multiple Equipment share the interface at the same time, EquipmentID is NULL and Resolution = 'ambiguous'.\n",
+      "view_definition": "WITH channel_wiring AS (\n    SELECT\n        o.[Observation_ID] AS ObservationID,\n        c.[Channel_ID]     AS ChannelID,\n        o.[Timestamp]      AS Timestamp,\n        c.[SignalInterface_ID],\n        c.[SignalInterfacePort_ID],\n        ewh.[Equipment_ID] AS EquipmentID,\n        ROW_NUMBER() OVER (\n            PARTITION BY o.[Observation_ID]\n            ORDER BY\n                CASE WHEN ewh.[SignalInterfacePort_ID] IS NOT NULL THEN 0 ELSE 1 END,\n                ewh.[ValidFrom] DESC\n        ) AS rn,\n        COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count\n    FROM [dbo].[Observation] o\n    JOIN [dbo].[Channel] c                      ON c.[Channel_ID]           = o.[Channel_ID]\n    LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]\n                                                AND (\n                                                     ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]\n                                                     OR (ewh.[SignalInterfacePort_ID] IS NULL AND c.[SignalInterfacePort_ID] IS NULL)\n                                                     OR c.[SignalInterfacePort_ID] IS NULL\n                                                    )\n                                                AND ewh.[ValidFrom] <= o.[Timestamp]\n                                                AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] > o.[Timestamp])\n)\nSELECT\n    cw.ObservationID,\n    cw.ChannelID,\n    cw.Timestamp,\n    CASE WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN NULL ELSE cw.EquipmentID END AS EquipmentID,\n    e.[Identifier]     AS EquipmentName,\n    CASE\n        WHEN cw.EquipmentID IS NULL AND cw.match_count = 0 THEN N'unlinked'\n        WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN N'ambiguous'\n        ELSE N'resolved'\n    END AS Resolution\nFROM channel_wiring cw\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = cw.EquipmentID\nWHERE cw.rn = 1\n",
+      "columns": [
+        {
+          "name": "ObservationID",
+          "sql_type": "BIGINT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Observation row"
+        },
+        {
+          "name": "ChannelID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Channel this observation belongs to"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Observation timestamp used for resolution"
+        },
+        {
+          "name": "EquipmentID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Equipment wired at this time (NULL if unresolved / ambiguous)"
+        },
+        {
+          "name": "EquipmentName",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Identifier of the resolved equipment"
+        },
+        {
+          "name": "Resolution",
+          "sql_type": "NVARCHAR(20)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "'resolved' | 'unlinked' | 'ambiguous'"
+        }
+      ],
+      "group_name": "Views",
+      "group_color": "#0284c7"
+    },
+    {
+      "id": "vw_ChannelLocationAtTime",
+      "label": "vw_ChannelLocationAtTime",
+      "description": "Resolves the SamplingPoint a Channel was sampling at the time of each Observation, by composing vw_ChannelEquipmentAtTime with EquipmentLocationHistory. When equipment cannot be resolved (ambiguous or unlinked wiring), SamplingPointID is NULL.\n",
+      "view_definition": "SELECT\n    cea.ObservationID,\n    cea.ChannelID,\n    cea.Timestamp,\n    cea.EquipmentID,\n    elh.[SamplingPoint_ID] AS SamplingPointID,\n    sp.[SamplingPoint]     AS SamplingPointName\nFROM [dbo].[vw_ChannelEquipmentAtTime] cea\nLEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID\n                                              AND elh.[ValidFrom]   <= cea.Timestamp\n                                              AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > cea.Timestamp)\nLEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]\n",
+      "columns": [
+        {
+          "name": "ObservationID",
+          "sql_type": "BIGINT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Observation row"
+        },
+        {
+          "name": "ChannelID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Channel this observation belongs to"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Observation timestamp used for resolution"
+        },
+        {
+          "name": "EquipmentID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Equipment resolved at this time (NULL if unresolved)"
+        },
+        {
+          "name": "SamplingPointID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "SamplingPoint where the equipment was installed at this time"
+        },
+        {
+          "name": "SamplingPointName",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Name of the SamplingPoint"
+        }
+      ],
+      "group_name": "Views",
+      "group_color": "#0284c7"
+    },
+    {
       "id": "vw_ChannelStatus",
       "label": "vw_ChannelStatus",
-      "description": "Per-channel sensor status view. A status channel is a Channel whose SignalPort has SignalPortType=Status and a non-null ParentPort_ID pointing to the measured value port. Navigates via SignalPort sub-signal relationship \u2014 replaces the StatusChannel_ID column from v2.x.\n",
-      "view_definition": "SELECT\n    statusC.[Channel_ID]        AS StatusChannelID,\n    valueC.[Channel_ID]         AS MeasurementChannelID,\n    e.[Equipment_ID]            AS EquipmentID,\n    e.[Identifier]              AS EquipmentName,\n    p.[Parameter]               AS MeasurementParameter,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)      AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]\nJOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]\nJOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]\nJOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]\nJOIN [dbo].[SignalPort]                valueP   ON valueP.[SignalPort_ID]  = statusP.[ParentPort_ID]\nJOIN [dbo].[Channel]                   valueC   ON valueC.[SignalPort_ID]  = valueP.[SignalPort_ID]\nJOIN [dbo].[Parameter]                 p        ON p.[Parameter_ID]        = valueC.[Parameter_ID]\nLEFT JOIN [dbo].[SignalPortEquipmentHistory] peh  ON peh.[SignalPort_ID]     = valueP.[SignalPort_ID]\n                                                  AND peh.[EndTime]          IS NULL\nLEFT JOIN [dbo].[Equipment]            e        ON e.[Equipment_ID]        = peh.[Equipment_ID]\nWHERE spt.[Name] = N'Status'\n  AND statusP.[ParentPort_ID] IS NOT NULL\n",
+      "description": "Per-channel sensor status view. A status channel is a Channel whose ChannelRole = Status and whose ParentChannel_ID points at the measured value Channel. The equipment behind the value channel is resolved via the new EquipmentWiringHistory table (v4.0.0).\n",
+      "view_definition": "SELECT\n    statusC.[Channel_ID]      AS StatusChannelID,\n    valueC.[Channel_ID]       AS MeasurementChannelID,\n    e.[Equipment_ID]          AS EquipmentID,\n    e.[Identifier]            AS EquipmentName,\n    p.[Parameter]             AS MeasurementParameter,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)    AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]       statusC ON statusC.[Channel_ID] = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[Channel]       valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]\nJOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]\nLEFT JOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n  AND statusC.[ParentChannel_ID] IS NOT NULL\n",
       "columns": [
         {
           "name": "StatusChannelID",
@@ -3556,7 +4305,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Equipment ID of the currently-linked sensor (NULL if no active history row)"
+          "description": "Equipment ID currently wired to the measurement channel (NULL if unresolved)"
         },
         {
           "name": "EquipmentName",
@@ -3601,8 +4350,8 @@
     {
       "id": "vw_DeviceStatus",
       "label": "vw_DeviceStatus",
-      "description": "Device-level status view. Finds status channels by following the currently-active SignalPortEquipmentHistory row for each equipment, then filtering for ports with SignalPortType=Status. Replaces the EquipmentStatusChannel junction table from v2.x.\n",
-      "view_definition": "SELECT\n    statusC.[Channel_ID]        AS StatusChannelID,\n    e.[Equipment_ID]            AS EquipmentID,\n    e.[Identifier]              AS EquipmentName,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)      AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]               o        ON o.[Observation_ID]      = v.[Observation_ID]\nJOIN [dbo].[Channel]                   statusC  ON statusC.[Channel_ID]    = o.[Channel_ID]\nJOIN [dbo].[SignalPort]                statusP  ON statusP.[SignalPort_ID] = statusC.[SignalPort_ID]\nJOIN [dbo].[SignalPortType]            spt      ON spt.[SignalPortType_ID] = statusP.[SignalPortType_ID]\nJOIN [dbo].[SignalPortEquipmentHistory]  peh      ON peh.[SignalPort_ID]     = statusP.[SignalPort_ID]\n                                                 AND peh.[EndTime]          IS NULL\nJOIN [dbo].[Equipment]                 e        ON e.[Equipment_ID]        = peh.[Equipment_ID]\nWHERE spt.[Name] = N'Status'\n",
+      "description": "Device-level status view. Finds status channels through the v4.0.0 SignalInterface + EquipmentWiringHistory chain: a status Channel (ChannelRole = Status) inherits its equipment from the parent value Channel's current wiring. Replaces the port-centric v3.0.0 join.\n",
+      "view_definition": "SELECT\n    statusC.[Channel_ID]       AS StatusChannelID,\n    e.[Equipment_ID]           AS EquipmentID,\n    e.[Identifier]             AS EquipmentName,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)     AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]      statusC ON statusC.[Channel_ID] = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]  role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[Channel]      valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]\nJOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nJOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n",
       "columns": [
         {
           "name": "StatusChannelID",
@@ -3664,9 +4413,9 @@
     },
     {
       "from_table": "Annotation",
-      "to_table": "AnnotationType",
-      "from_field": "AnnotationType_ID",
-      "to_field": "AnnotationType_ID",
+      "to_table": "AnnotationKind",
+      "from_field": "AnnotationKind_ID",
+      "to_field": "AnnotationKind_ID",
       "relationship_type": null
     },
     {
@@ -3699,9 +4448,9 @@
     },
     {
       "from_table": "Campaign",
-      "to_table": "CampaignType",
-      "from_field": "CampaignType_ID",
-      "to_field": "CampaignType_ID",
+      "to_table": "CampaignKind",
+      "from_field": "CampaignKind_ID",
+      "to_field": "CampaignKind_ID",
       "relationship_type": null
     },
     {
@@ -3709,6 +4458,13 @@
       "to_table": "Site",
       "from_field": "Site_ID",
       "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Campaign",
+      "to_table": "Person",
+      "from_field": "ResponsiblePerson_ID",
+      "to_field": "Person_ID",
       "relationship_type": null
     },
     {
@@ -3741,9 +4497,30 @@
     },
     {
       "from_table": "Channel",
-      "to_table": "SignalPort",
-      "from_field": "SignalPort_ID",
-      "to_field": "SignalPort_ID",
+      "to_table": "SignalInterface",
+      "from_field": "SignalInterface_ID",
+      "to_field": "SignalInterface_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "SignalInterfacePort",
+      "from_field": "SignalInterfacePort_ID",
+      "to_field": "SignalInterfacePort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "Channel",
+      "from_field": "ParentChannel_ID",
+      "to_field": "Channel_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "ChannelKind",
+      "from_field": "ChannelKind_ID",
+      "to_field": "ChannelKind_ID",
       "relationship_type": null
     },
     {
@@ -3755,23 +4532,30 @@
     },
     {
       "from_table": "Channel",
-      "to_table": "DataProvenance",
-      "from_field": "DataProvenance_ID",
-      "to_field": "DataProvenance_ID",
+      "to_table": "DataProvenanceKind",
+      "from_field": "DataProvenanceKind_ID",
+      "to_field": "DataProvenanceKind_ID",
       "relationship_type": null
     },
     {
       "from_table": "Channel",
-      "to_table": "ProcessingDegree",
-      "from_field": "ProcessingDegree_ID",
-      "to_field": "ProcessingDegree_ID",
+      "to_table": "ProcessingKind",
+      "from_field": "ProcessingKind_ID",
+      "to_field": "ProcessingKind_ID",
       "relationship_type": null
     },
     {
       "from_table": "Channel",
-      "to_table": "ValueType",
-      "from_field": "ValueType_ID",
-      "to_field": "ValueType_ID",
+      "to_table": "ValueKind",
+      "from_field": "ValueKind_ID",
+      "to_field": "ValueKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
+      "to_table": "Unit",
+      "from_field": "Unit_ID",
+      "to_field": "Unit_ID",
       "relationship_type": null
     },
     {
@@ -3786,6 +4570,20 @@
       "to_table": "ValueBinningAxis",
       "from_field": "ValueBinningAxis_ID",
       "to_field": "ValueBinningAxis_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ChannelPortHistory",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ChannelPortHistory",
+      "to_table": "SignalInterfacePort",
+      "from_field": "SignalInterfacePort_ID",
+      "to_field": "SignalInterfacePort_ID",
       "relationship_type": null
     },
     {
@@ -3818,16 +4616,16 @@
     },
     {
       "from_table": "ControlLoopPort",
-      "to_table": "SignalPort",
-      "from_field": "SignalPort_ID",
-      "to_field": "SignalPort_ID",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Channel_ID",
       "relationship_type": null
     },
     {
       "from_table": "ControlLoopPort",
-      "to_table": "ControlLoopPortRole",
-      "from_field": "ControlLoopPortRole_ID",
-      "to_field": "ControlLoopPortRole_ID",
+      "to_table": "ControlLoopPortKind",
+      "from_field": "ControlLoopPortKind_ID",
+      "to_field": "ControlLoopPortKind_ID",
       "relationship_type": null
     },
     {
@@ -3874,9 +4672,9 @@
     },
     {
       "from_table": "EquipmentEvent",
-      "to_table": "EquipmentEventType",
-      "from_field": "EquipmentEventType_ID",
-      "to_field": "EquipmentEventType_ID",
+      "to_table": "EquipmentEventKind",
+      "from_field": "EquipmentEventKind_ID",
+      "to_field": "EquipmentEventKind_ID",
       "relationship_type": null
     },
     {
@@ -3888,6 +4686,27 @@
     },
     {
       "from_table": "EquipmentEvent",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentLocationHistory",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentLocationHistory",
+      "to_table": "SamplingPoint",
+      "from_field": "SamplingPoint_ID",
+      "to_field": "SamplingPoint_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentLocationHistory",
       "to_table": "Campaign",
       "from_field": "Campaign_ID",
       "to_field": "Campaign_ID",
@@ -3919,6 +4738,27 @@
       "to_table": "Procedures",
       "from_field": "Procedure_ID",
       "to_field": "Procedure_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentWiringHistory",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentWiringHistory",
+      "to_table": "SignalInterface",
+      "from_field": "SignalInterface_ID",
+      "to_field": "SignalInterface_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentWiringHistory",
+      "to_table": "SignalInterfacePort",
+      "from_field": "SignalInterfacePort_ID",
+      "to_field": "SignalInterfacePort_ID",
       "relationship_type": null
     },
     {
@@ -4000,9 +4840,44 @@
     },
     {
       "from_table": "Parameter",
+      "to_table": "ValueKind",
+      "from_field": "ValueKind_ID",
+      "to_field": "ValueKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ParameterHasUnit",
+      "to_table": "Parameter",
+      "from_field": "Parameter_ID",
+      "to_field": "Parameter_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ParameterHasUnit",
       "to_table": "Unit",
       "from_field": "Unit_ID",
       "to_field": "Unit_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "ProcessUnitKind",
+      "from_field": "ProcessUnitKind_ID",
+      "to_field": "ProcessUnitKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "ProcessUnit",
+      "from_field": "Parent_ID",
+      "to_field": "ProcessUnit_ID",
       "relationship_type": null
     },
     {
@@ -4042,9 +4917,9 @@
     },
     {
       "from_table": "Sample",
-      "to_table": "SampleType",
-      "from_field": "SampleType_ID",
-      "to_field": "SampleType_ID",
+      "to_table": "SampleKind",
+      "from_field": "SampleKind_ID",
+      "to_field": "SampleKind_ID",
       "relationship_type": null
     },
     {
@@ -4070,9 +4945,9 @@
     },
     {
       "from_table": "Sample",
-      "to_table": "SampleMethod",
-      "from_field": "SampleMethod_ID",
-      "to_field": "SampleMethod_ID",
+      "to_table": "SampleCollectionKind",
+      "from_field": "SampleCollectionKind_ID",
+      "to_field": "SampleCollectionKind_ID",
       "relationship_type": null
     },
     {
@@ -4091,58 +4966,44 @@
     },
     {
       "from_table": "SamplingPoint",
+      "to_table": "ProcessUnit",
+      "from_field": "ProcessUnit_ID",
+      "to_field": "ProcessUnit_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "SamplingPoint",
       "to_table": "Campaign",
       "from_field": "CreatedByCampaign_ID",
       "to_field": "Campaign_ID",
       "relationship_type": null
     },
     {
-      "from_table": "SignalPort",
+      "from_table": "SignalInterface",
       "to_table": "DataAcquisitionSystem",
       "from_field": "DataAcquisitionSystem_ID",
       "to_field": "DataAcquisitionSystem_ID",
       "relationship_type": null
     },
     {
-      "from_table": "SignalPort",
-      "to_table": "SignalPortType",
-      "from_field": "SignalPortType_ID",
-      "to_field": "SignalPortType_ID",
+      "from_table": "SignalInterface",
+      "to_table": "SignalInterfaceKind",
+      "from_field": "SignalInterfaceKind_ID",
+      "to_field": "SignalInterfaceKind_ID",
       "relationship_type": null
     },
     {
-      "from_table": "SignalPort",
-      "to_table": "SignalPort",
-      "from_field": "ParentPort_ID",
-      "to_field": "SignalPort_ID",
+      "from_table": "SignalInterfacePort",
+      "to_table": "SignalInterface",
+      "from_field": "SignalInterface_ID",
+      "to_field": "SignalInterface_ID",
       "relationship_type": null
     },
     {
-      "from_table": "SignalPortEquipmentHistory",
-      "to_table": "SignalPort",
-      "from_field": "SignalPort_ID",
-      "to_field": "SignalPort_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "SignalPortEquipmentHistory",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "SignalPortLocationHistory",
-      "to_table": "SignalPort",
-      "from_field": "SignalPort_ID",
-      "to_field": "SignalPort_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "SignalPortLocationHistory",
-      "to_table": "SamplingPoint",
-      "from_field": "SamplingPoint_ID",
-      "to_field": "SamplingPoint_ID",
+      "from_table": "SignalInterfacePort",
+      "to_table": "SignalInterfacePortKind",
+      "from_field": "SignalInterfacePortKind_ID",
+      "to_field": "SignalInterfacePortKind_ID",
       "relationship_type": null
     },
     {
@@ -4150,6 +5011,13 @@
       "to_table": "Watershed",
       "from_field": "Watershed_ID",
       "to_field": "Watershed_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Site",
+      "to_table": "SiteKind",
+      "from_field": "SiteKind_ID",
+      "to_field": "SiteKind_ID",
       "relationship_type": null
     },
     {
@@ -4178,6 +5046,13 @@
       "to_table": "Unit",
       "from_field": "Unit_ID",
       "to_field": "Unit_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ValueBinningAxis",
+      "to_table": "BinKind",
+      "from_field": "BinKind_ID",
+      "to_field": "BinKind_ID",
       "relationship_type": null
     },
     {
@@ -4328,13 +5203,13 @@
                 const isView = this.model.get('isView');
                 const data = isView ? this.model.get('viewData') : this.model.get('tableData');
 
-                // Escape string for usage in onclick
-                const entityJson = JSON.stringify({
+                // URL-encode for safe embedding in onclick attribute strings
+                const entityJson = encodeURIComponent(JSON.stringify({
                     name: data.label,
                     description: data.description,
                     type: isView ? 'view' : 'table',
                     definition: data.view_definition || null
-                }).replace(/"/g, '&quot;');
+                }));
 
                 let rowsHtml = '';
                 const items = isView ? data.columns : data.fields;
@@ -4347,8 +5222,7 @@
                     // Add asterisk for required fields
                     const requiredMarker = field.is_required ? '<span style="color: #ef4444;">*</span>' : '';
 
-                    // Escape data for attribute usage
-                    const fieldJson = JSON.stringify(field).replace(/"/g, '&quot;');
+                    const fieldJson = encodeURIComponent(JSON.stringify(field));
 
                     rowsHtml += `
                         <div class="table-row" onclick="showFieldDetails('${fieldJson}', '${data.label}', event)">
@@ -5032,8 +5906,7 @@
             });
 
             const serializer = new XMLSerializer();
-            const svgString = '<?xml version="1.0" encoding="UTF-8"?>
-' + serializer.serializeToString(svgClone);
+            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(svgClone);
             const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -5048,7 +5921,7 @@
         // --- Sidebar Logic ---
         function showFieldDetails(fieldJson, tableName, event) {
             event.stopPropagation(); // Prevent paper blank click from closing sidebar
-            const field = JSON.parse(fieldJson);
+            const field = JSON.parse(decodeURIComponent(fieldJson));
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('sidebar-details');
             
@@ -5093,7 +5966,7 @@
         
         function showTableDetails(tableJson, event) {
             event.stopPropagation();
-            const entity = JSON.parse(tableJson);
+            const entity = JSON.parse(decodeURIComponent(tableJson));
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('sidebar-details');
 
