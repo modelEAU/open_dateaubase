@@ -16,16 +16,16 @@ class ChannelOut(BaseModel):
     tag_name: str
     parent_channel_id: int | None
     parent_channel_tag_name: str | None
-    channel_role_id: int | None
-    channel_role_name: str | None
+    channel_kind_id: int | None
+    channel_kind_name: str | None
     parameter_id: int | None
     parameter_name: str | None
-    data_provenance_id: int | None
-    data_provenance_name: str | None
-    processing_degree_id: int | None
-    processing_degree_name: str | None
-    value_type_id: int | None
-    value_type_name: str | None
+    data_provenance_kind_id: int | None
+    data_provenance_kind_name: str | None
+    processing_kind_id: int | None
+    processing_kind_name: str | None
+    value_kind_id: int | None
+    value_kind_name: str | None
     unit_id: int | None
     unit_name: str | None
     equipment_id: int | None
@@ -39,11 +39,11 @@ class ChannelIn(BaseModel):
     tag_name: str
     signal_interface_port_id: int | None = None
     parent_channel_id: int | None = None
-    channel_role_id: int = 1
+    channel_kind_id: int = 1
     parameter_id: int | None = None
-    data_provenance_id: int | None = None
-    processing_degree_id: int | None = None
-    value_type_id: int | None = None
+    data_provenance_kind_id: int | None = None
+    processing_kind_id: int | None = None
+    value_kind_id: int | None = None
 
 
 class ChannelLookupOut(BaseModel):
@@ -71,25 +71,41 @@ class ParameterLookupOut(BaseModel):
 class ParameterIn(BaseModel):
     parameter: str
     description: str | None = None
+    envo_iri: str | None = None
 
 
 class ParameterOut(BaseModel):
     parameter_id: int
     parameter_name: str | None
     description: str | None
+    envo_iri: str | None = None
+    value_kind_id: int | None = None
 
 
-class ProcessingDegreeLookupOut(BaseModel):
+class UnitOut(BaseModel):
+    unit_id: int
+    unit: str
+    qudt_iri: str | None = None
+    unit_vector: str | None = None
+
+
+class UnitIn(BaseModel):
+    unit: str
+    qudt_iri: str | None = None
+    unit_vector: str | None = None
+
+
+class ProcessingKindLookupOut(BaseModel):
     """Lightweight processing degree info for dropdowns."""
 
-    processing_degree_id: int
+    processing_kind_id: int
     name: str
 
 
-class ChannelRoleLookupOut(BaseModel):
+class ChannelKindLookupOut(BaseModel):
     """Lightweight channel role info for dropdowns."""
 
-    channel_role_id: int
+    channel_kind_id: int
     name: str
     description: str | None
 
@@ -105,7 +121,7 @@ class ChannelListResponse(BaseModel):
 
 class ChannelDerivedIn(BaseModel):
     source_channel_id: int
-    processing_degree_id: int
+    processing_kind_id: int
 
 
 class ChannelDerivedOut(BaseModel):
@@ -134,12 +150,12 @@ class ChannelProvisionIn(BaseModel):
     tag_name: str
     signal_interface_port_id: int | None = None
     parent_channel_id: int | None = None
-    channel_role: str = "value"
+    channel_kind: str = "value"
     parameter_name: str | None = None
     unit_name: str | None = None
-    data_provenance_id: int | None = None
-    processing_degree_id: int | None = None
-    value_type_id: int | None = None
+    data_provenance_kind_id: int | None = None
+    processing_kind_id: int | None = None
+    value_kind_id: int | None = None
 
 
 class ChannelPortHistoryIn(BaseModel):
@@ -158,3 +174,13 @@ class ChannelPortHistoryOut(BaseModel):
     signal_interface_port_id: int | None
     valid_from: str
     gating_note: str | None
+
+
+class ParameterUnitIn(BaseModel):
+    unit_id: int
+
+
+class ParameterUnitOut(BaseModel):
+    parameter_id: int
+    unit_id: int
+    unit: str

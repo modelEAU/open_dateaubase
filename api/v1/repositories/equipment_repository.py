@@ -62,7 +62,7 @@ def get_equipment_by_id(conn: pyodbc.Connection, equipment_id: int) -> dict | No
     }
 
 
-def insert_equipment(conn: pyodbc.Connection, data: dict) -> dict:
+def insert_equipment(conn: pyodbc.Connection, data: dict) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO [dbo].[Equipment] ([Identifier], [SerialNumber], [EquipmentModel_ID], [Owner], [PurchaseDate])"
@@ -74,7 +74,9 @@ def insert_equipment(conn: pyodbc.Connection, data: dict) -> dict:
         data.get("purchase_date"),
     )
     cursor.execute("SELECT @@IDENTITY")
-    new_id = int(cursor.fetchone()[0])
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id = int(_row[0])
     conn.commit()
     return get_equipment_by_id(conn, new_id)
 
@@ -197,7 +199,7 @@ def get_equipment_model_by_id(conn: pyodbc.Connection, model_id: int) -> dict | 
     }
 
 
-def insert_equipment_model(conn: pyodbc.Connection, data: dict) -> dict:
+def insert_equipment_model(conn: pyodbc.Connection, data: dict) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation])"
@@ -209,7 +211,9 @@ def insert_equipment_model(conn: pyodbc.Connection, data: dict) -> dict:
         data.get("manual_location"),
     )
     cursor.execute("SELECT @@IDENTITY")
-    new_id = int(cursor.fetchone()[0])
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id = int(_row[0])
     conn.commit()
     return get_equipment_model_by_id(conn, new_id)
 
@@ -265,16 +269,16 @@ def get_equipment_events(
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventType_ID],
-               eet.[EquipmentEventType_Name],
+        SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventKind_ID],
+               eet.[Name],
                ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
                ee.[PerformedByPerson_ID],
                CONCAT(per.[FirstName], ' ', per.[LastName]) AS PersonName,
                ee.[Campaign_ID], c.[Name] AS CampaignName,
                ee.[Notes]
         FROM [dbo].[EquipmentEvent] ee
-        LEFT JOIN [dbo].[EquipmentEventType] eet
-            ON eet.[EquipmentEventType_ID] = ee.[EquipmentEventType_ID]
+        LEFT JOIN [dbo].[EquipmentEventKind] eet
+            ON eet.[EquipmentEventKind_ID] = ee.[EquipmentEventKind_ID]
         LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = ee.[PerformedByPerson_ID]
         LEFT JOIN [dbo].[Campaign] c  ON c.[Campaign_ID]  = ee.[Campaign_ID]
         {where}
@@ -345,25 +349,26 @@ def get_equipment_installations(
     ]
 
 
-def get_equipment_event_types(conn: pyodbc.Connection) -> list[dict]:
-    """Return all EquipmentEventType rows for dropdowns."""
+def get_equipment_event_kinds(conn: pyodbc.Connection) -> list[dict]:
+    """Return all EquipmentEventKind rows for dropdowns."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [EquipmentEventType_ID], [EquipmentEventType_Name] FROM [dbo].[EquipmentEventType] ORDER BY [EquipmentEventType_Name]"
+        "SELECT [EquipmentEventKind_ID], [Name] FROM [dbo].[EquipmentEventKind] ORDER BY [Name]"
     )
     return [{"event_type_id": row[0], "event_type_name": row[1]} for row in cursor.fetchall()]
 
 
-def insert_equipment_event_type(conn: pyodbc.Connection, name: str) -> dict:
+def insert_equipment_event_kind(conn: pyodbc.Connection, name: str) -> dict:
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO [dbo].[EquipmentEventType] ([EquipmentEventType_Name])"
-            " OUTPUT inserted.[EquipmentEventType_ID], inserted.[EquipmentEventType_Name]"
+            "INSERT INTO [dbo].[EquipmentEventKind] ([Name])"
+            " OUTPUT inserted.[EquipmentEventKind_ID], inserted.[Name]"
             " VALUES (?)",
             name,
         )
         row = cursor.fetchone()
+        assert row is not None
         conn.commit()
         return {"event_type_id": row[0], "event_type_name": row[1]}
     except Exception:
@@ -371,16 +376,16 @@ def insert_equipment_event_type(conn: pyodbc.Connection, name: str) -> dict:
         raise
 
 
-def update_equipment_event_type(conn: pyodbc.Connection, event_type_id: int, name: str) -> dict | None:
+def update_equipment_event_kind(conn: pyodbc.Connection, event_kind_id: int, name: str) -> dict | None:
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "UPDATE [dbo].[EquipmentEventType]"
-            " SET [EquipmentEventType_Name]=?"
-            " OUTPUT inserted.[EquipmentEventType_ID], inserted.[EquipmentEventType_Name]"
-            " WHERE [EquipmentEventType_ID]=?",
+            "UPDATE [dbo].[EquipmentEventKind]"
+            " SET [Name]=?"
+            " OUTPUT inserted.[EquipmentEventKind_ID], inserted.[Name]"
+            " WHERE [EquipmentEventKind_ID]=?",
             name,
-            event_type_id,
+            event_kind_id,
         )
         row = cursor.fetchone()
         conn.commit()
@@ -392,12 +397,12 @@ def update_equipment_event_type(conn: pyodbc.Connection, event_type_id: int, nam
         raise
 
 
-def delete_equipment_event_type(conn: pyodbc.Connection, event_type_id: int) -> bool:
+def delete_equipment_event_kind(conn: pyodbc.Connection, event_kind_id: int) -> bool:
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "DELETE FROM [dbo].[EquipmentEventType] WHERE [EquipmentEventType_ID]=?",
-            event_type_id,
+            "DELETE FROM [dbo].[EquipmentEventKind] WHERE [EquipmentEventKind_ID]=?",
+            event_kind_id,
         )
         conn.commit()
         return cursor.rowcount > 0
@@ -412,7 +417,7 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
     cursor.execute(
         """
         INSERT INTO [dbo].[EquipmentEvent]
-            ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart], [EventDateTimeEnd],
+            ([Equipment_ID], [EquipmentEventKind_ID], [EventDateTimeStart], [EventDateTimeEnd],
              [PerformedByPerson_ID], [Campaign_ID], [Notes])
         OUTPUT INSERTED.[EquipmentEvent_ID]
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -425,21 +430,23 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
         data.get("campaign_id"),
         data.get("notes"),
     )
-    event_id = cursor.fetchone()[0]
+    _id_row = cursor.fetchone()
+    assert _id_row is not None
+    event_id = _id_row[0]
     conn.commit()
 
     # Re-fetch with joins for the full response
     cursor.execute(
         """
-        SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventType_ID],
-               eet.[EquipmentEventType_Name],
+        SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventKind_ID],
+               eet.[Name],
                ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
                ee.[PerformedByPerson_ID],
                CONCAT(per.[FirstName], ' ', per.[LastName]) AS PersonName,
                ee.[Campaign_ID], c.[Name] AS CampaignName,
                ee.[Notes]
         FROM [dbo].[EquipmentEvent] ee
-        LEFT JOIN [dbo].[EquipmentEventType] eet ON eet.[EquipmentEventType_ID] = ee.[EquipmentEventType_ID]
+        LEFT JOIN [dbo].[EquipmentEventKind] eet ON eet.[EquipmentEventKind_ID] = ee.[EquipmentEventKind_ID]
         LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = ee.[PerformedByPerson_ID]
         LEFT JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = ee.[Campaign_ID]
         WHERE ee.[EquipmentEvent_ID] = ?
@@ -447,10 +454,11 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
         event_id,
     )
     row = cursor.fetchone()
+    assert row is not None
     return {
         "event_id": row[0],
-        "event_type_id": row[1],
-        "event_type_name": row[2],
+        "event_kind_id": row[1],
+        "event_kind_name": row[2],
         "start_datetime": row[3],
         "end_datetime": row[4],
         "performed_by_person_id": row[5],
@@ -466,11 +474,11 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _find_event_type_id_by_name(conn: pyodbc.Connection, name: str) -> int | None:
+def _find_event_kind_id_by_name(conn: pyodbc.Connection, name: str) -> int | None:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [EquipmentEventType_ID] FROM [dbo].[EquipmentEventType]"
-        " WHERE [EquipmentEventType_Name] = ?",
+        "SELECT [EquipmentEventKind_ID] FROM [dbo].[EquipmentEventKind]"
+        " WHERE [Name] = ?",
         name,
     )
     row = cursor.fetchone()
@@ -487,10 +495,10 @@ def commission_equipment(
 
     Returns ``{"equipment_id", "is_active", "equipment_event_id"}``.
     """
-    event_type_id = _find_event_type_id_by_name(conn, "Commissioning")
+    event_type_id = _find_event_kind_id_by_name(conn, "Commissioning")
     if event_type_id is None:
         raise RuntimeError(
-            "EquipmentEventType 'Commissioning' is missing from seed data."
+            "EquipmentEventKind 'Commissioning' is missing from seed data."
         )
 
     cursor = conn.cursor()
@@ -505,7 +513,7 @@ def commission_equipment(
     cursor.execute(
         """
         INSERT INTO [dbo].[EquipmentEvent]
-            ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart],
+            ([Equipment_ID], [EquipmentEventKind_ID], [EventDateTimeStart],
              [PerformedByPerson_ID], [Notes])
         OUTPUT INSERTED.[EquipmentEvent_ID]
         VALUES (?, ?, SYSUTCDATETIME(), ?, ?)
@@ -515,7 +523,9 @@ def commission_equipment(
         performed_by_person_id,
         notes,
     )
-    event_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    event_id: int = _row[0]
     conn.commit()
     return {"equipment_id": equipment_id, "is_active": True, "equipment_event_id": event_id}
 
@@ -530,10 +540,10 @@ def decommission_equipment(
 
     Returns ``{"equipment_id", "is_active", "equipment_event_id"}``.
     """
-    event_type_id = _find_event_type_id_by_name(conn, "Decommissioning")
+    event_type_id = _find_event_kind_id_by_name(conn, "Decommissioning")
     if event_type_id is None:
         raise RuntimeError(
-            "EquipmentEventType 'Decommissioning' is missing from seed data."
+            "EquipmentEventKind 'Decommissioning' is missing from seed data."
         )
 
     cursor = conn.cursor()
@@ -548,7 +558,7 @@ def decommission_equipment(
     cursor.execute(
         """
         INSERT INTO [dbo].[EquipmentEvent]
-            ([Equipment_ID], [EquipmentEventType_ID], [EventDateTimeStart],
+            ([Equipment_ID], [EquipmentEventKind_ID], [EventDateTimeStart],
              [PerformedByPerson_ID], [Notes])
         OUTPUT INSERTED.[EquipmentEvent_ID]
         VALUES (?, ?, SYSUTCDATETIME(), ?, ?)
@@ -558,6 +568,114 @@ def decommission_equipment(
         performed_by_person_id,
         notes,
     )
-    event_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    event_id: int = _row[0]
     conn.commit()
     return {"equipment_id": equipment_id, "is_active": False, "equipment_event_id": event_id}
+
+
+# ---------------------------------------------------------------------------
+# EquipmentModelHasParameter
+# ---------------------------------------------------------------------------
+
+
+def list_model_parameters(conn: pyodbc.Connection, model_id: int) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT p.[Parameter_ID], p.[ParameterName], p.[Description]
+        FROM [dbo].[EquipmentModelHasParameter] emp
+        JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = emp.[Parameter_ID]
+        WHERE emp.[EquipmentModel_ID] = ?
+        ORDER BY p.[ParameterName]
+        """,
+        model_id,
+    )
+    return [
+        {"model_id": model_id, "parameter_id": row[0], "parameter_name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+def add_model_parameter(conn: pyodbc.Connection, model_id: int, parameter_id: int) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[EquipmentModelHasParameter] ([EquipmentModel_ID], [Parameter_ID])"
+            " VALUES (?, ?)",
+            model_id,
+            parameter_id,
+        )
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        if "PRIMARY KEY" in str(exc) or "UNIQUE" in str(exc) or "Violation" in str(exc):
+            raise ValueError("Already linked") from exc
+        raise
+    return {"model_id": model_id, "parameter_id": parameter_id}
+
+
+def remove_model_parameter(conn: pyodbc.Connection, model_id: int, parameter_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM [dbo].[EquipmentModelHasParameter]"
+        " WHERE [EquipmentModel_ID] = ? AND [Parameter_ID] = ?",
+        model_id,
+        parameter_id,
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# EquipmentModelHasProcedures
+# ---------------------------------------------------------------------------
+
+
+def list_model_procedures(conn: pyodbc.Connection, model_id: int) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT p.[Procedure_ID], p.[ProcedureName]
+        FROM [dbo].[EquipmentModelHasProcedures] emp
+        JOIN [dbo].[Procedures] p ON p.[Procedure_ID] = emp.[Procedure_ID]
+        WHERE emp.[EquipmentModel_ID] = ?
+        ORDER BY p.[ProcedureName]
+        """,
+        model_id,
+    )
+    return [
+        {"model_id": model_id, "procedure_id": row[0], "procedure_name": row[1]}
+        for row in cursor.fetchall()
+    ]
+
+
+def add_model_procedure(conn: pyodbc.Connection, model_id: int, procedure_id: int) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[EquipmentModelHasProcedures] ([EquipmentModel_ID], [Procedure_ID])"
+            " VALUES (?, ?)",
+            model_id,
+            procedure_id,
+        )
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        if "PRIMARY KEY" in str(exc) or "UNIQUE" in str(exc) or "Violation" in str(exc):
+            raise ValueError("Already linked") from exc
+        raise
+    return {"model_id": model_id, "procedure_id": procedure_id}
+
+
+def remove_model_procedure(conn: pyodbc.Connection, model_id: int, procedure_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM [dbo].[EquipmentModelHasProcedures]"
+        " WHERE [EquipmentModel_ID] = ? AND [Procedure_ID] = ?",
+        model_id,
+        procedure_id,
+    )
+    conn.commit()
+    return cursor.rowcount > 0

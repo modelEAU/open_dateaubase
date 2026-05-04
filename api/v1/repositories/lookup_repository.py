@@ -48,6 +48,34 @@ def get_units_valid_for_parameter(conn: pyodbc.Connection, parameter_id: int) ->
     ]
 
 
+def add_parameter_unit(conn: pyodbc.Connection, parameter_id: int, unit_id: int) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (?, ?)",
+            parameter_id,
+            unit_id,
+        )
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        if "PRIMARY KEY" in str(exc) or "UNIQUE" in str(exc) or "Violation" in str(exc):
+            raise ValueError("Already linked") from exc
+        raise
+    return {"parameter_id": parameter_id, "unit_id": unit_id}
+
+
+def remove_parameter_unit(conn: pyodbc.Connection, parameter_id: int, unit_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM [dbo].[ParameterHasUnit] WHERE [Parameter_ID] = ? AND [Unit_ID] = ?",
+        parameter_id,
+        unit_id,
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def get_units_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(

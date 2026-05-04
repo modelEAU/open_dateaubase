@@ -91,7 +91,7 @@ class EquipmentLifecycleOut(BaseModel):
     events: list[EquipmentEventOut]
 
 
-class EquipmentEventTypeOut(BaseModel):
+class EquipmentEventKindOut(BaseModel):
     event_type_id: int
     event_type_name: str
 
@@ -119,3 +119,23 @@ class EquipmentLifecycleActionResponse(BaseModel):
     equipment_id: int
     is_active: bool
     equipment_event_id: int
+
+
+class EquipmentModelParameterIn(BaseModel):
+    parameter_id: int
+
+
+class EquipmentModelParameterOut(BaseModel):
+    model_id: int
+    parameter_id: int
+    parameter_name: str | None = None
+
+
+class EquipmentModelProcedureIn(BaseModel):
+    procedure_id: int
+
+
+class EquipmentModelProcedureOut(BaseModel):
+    model_id: int
+    procedure_id: int
+    procedure_name: str | None = None

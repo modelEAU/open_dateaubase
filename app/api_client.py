@@ -124,41 +124,41 @@ def list_sites_lookup() -> list[dict]:
     return r.json()
 
 
-def list_site_types() -> list[dict]:
-    """Return all site types for dropdowns."""
+def list_site_kinds() -> list[dict]:
+    """Return all site kinds for dropdowns."""
     try:
         with _get_client() as client:
-            r = client.get("/sites/site-types")
+            r = client.get("/sites/site-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def create_site_type(data: dict) -> dict:
+def create_site_kind(data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.post("/sites/site-types", json=data)
+            r = client.post("/sites/site-kinds", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def update_site_type(site_type_id: int, data: dict) -> dict:
+def update_site_kind(site_kind_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.put(f"/sites/site-types/{site_type_id}", json=data)
+            r = client.put(f"/sites/site-kinds/{site_kind_id}", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def delete_site_type(site_type_id: int) -> None:
+def delete_site_kind(site_kind_id: int) -> None:
     try:
         with _get_client() as client:
-            r = client.delete(f"/sites/site-types/{site_type_id}")
+            r = client.delete(f"/sites/site-kinds/{site_kind_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -365,7 +365,7 @@ def patch_campaign(campaign_id: int, data: dict) -> dict:
     return r.json()
 
 
-def list_campaign_types() -> list[dict]:
+def list_campaign_kinds() -> list[dict]:
     """Return all campaign types for dropdowns."""
     try:
         with _get_client() as client:
@@ -427,8 +427,8 @@ def delete_campaign_deployment(campaign_id: int, installation_id: int) -> None:
 def list_channels(
     parameter_id: int | None = None,
     equipment_id: int | None = None,
-    processing_degree_id: int | None = None,
-    value_type_id: int | None = None,
+    processing_kind_id: int | None = None,
+    value_kind_id: int | None = None,
     campaign_id: int | None = None,
     signal_interface_id: int | None = None,
     page: int = 1,
@@ -439,10 +439,10 @@ def list_channels(
         params["parameter_id"] = parameter_id
     if equipment_id is not None:
         params["equipment_id"] = equipment_id
-    if processing_degree_id is not None:
-        params["processing_degree_id"] = processing_degree_id
-    if value_type_id is not None:
-        params["value_type_id"] = value_type_id
+    if processing_kind_id is not None:
+        params["processing_kind_id"] = processing_kind_id
+    if value_kind_id is not None:
+        params["value_kind_id"] = value_kind_id
     if campaign_id is not None:
         params["campaign_id"] = campaign_id
     if signal_interface_id is not None:
@@ -517,11 +517,11 @@ def list_parameters_lookup() -> list[dict]:
     return r.json()
 
 
-def list_processing_degrees_lookup() -> list[dict]:
+def list_processing_kinds_lookup() -> list[dict]:
     """Return processing degrees list for dropdowns."""
     try:
         with _get_client() as client:
-            r = client.get("/channels/lookup/processing-degrees")
+            r = client.get("/channels/lookup/processing-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -625,14 +625,14 @@ def delete_signal_interface_port(si_id: int, port_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# SignalInterfaceType CRUD
+# SignalInterfaceKind CRUD
 # ---------------------------------------------------------------------------
 
 
 def list_signal_interface_types() -> list[dict]:
     try:
         with _get_client() as client:
-            r = client.get("/signal-interface-types")
+            r = client.get("/signal-interface-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -642,7 +642,7 @@ def list_signal_interface_types() -> list[dict]:
 def create_signal_interface_type(data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.post("/signal-interface-types", json=data)
+            r = client.post("/signal-interface-kinds", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -652,7 +652,7 @@ def create_signal_interface_type(data: dict) -> dict:
 def update_signal_interface_type(si_type_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.put(f"/signal-interface-types/{si_type_id}", json=data)
+            r = client.put(f"/signal-interface-kinds/{si_type_id}", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -662,7 +662,7 @@ def update_signal_interface_type(si_type_id: int, data: dict) -> dict:
 def delete_signal_interface_type(si_type_id: int) -> None:
     try:
         with _get_client() as client:
-            r = client.delete(f"/signal-interface-types/{si_type_id}")
+            r = client.delete(f"/signal-interface-kinds/{si_type_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -684,14 +684,14 @@ def list_signal_interface_port_kinds() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# ChannelRole
+# ChannelKind
 # ---------------------------------------------------------------------------
 
 
 def list_channel_roles() -> list[dict]:
     try:
         with _get_client() as client:
-            r = client.get("/channels/lookup/channel-roles")
+            r = client.get("/channels/lookup/channel-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -882,11 +882,11 @@ def delete_sampling_point_picture(site_id: int, sp_id: int) -> None:
 # ---------------------------------------------------------------------------
 
 
-def list_annotation_types() -> list[dict]:
+def list_annotation_kinds() -> list[dict]:
     """Return all annotation types for dropdowns."""
     try:
         with _get_client() as client:
-            r = client.get("/annotation-types")
+            r = client.get("/annotation-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -894,30 +894,30 @@ def list_annotation_types() -> list[dict]:
     return data.get("annotation_types", data) if isinstance(data, dict) else data
 
 
-def create_annotation_type(data: dict) -> dict:
+def create_annotation_kind(data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.post("/annotation-types", json=data)
+            r = client.post("/annotation-kinds", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def update_annotation_type(annotation_type_id: int, data: dict) -> dict:
+def update_annotation_kind(annotation_kind_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.put(f"/annotation-types/{annotation_type_id}", json=data)
+            r = client.put(f"/annotation-kinds/{annotation_kind_id}", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def delete_annotation_type(annotation_type_id: int) -> None:
+def delete_annotation_kind(annotation_kind_id: int) -> None:
     try:
         with _get_client() as client:
-            r = client.delete(f"/annotation-types/{annotation_type_id}")
+            r = client.delete(f"/annotation-kinds/{annotation_kind_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1105,7 +1105,7 @@ def list_equipment_events_lookup() -> list[dict]:
     return r.json()
 
 
-def list_equipment_event_types() -> list[dict]:
+def list_equipment_event_kinds() -> list[dict]:
     """Return all equipment event types for dropdowns."""
     try:
         with _get_client() as client:
@@ -1172,7 +1172,7 @@ def ingest_sensor_image(
     filename: str,
     quality_code: int | None = None,
     data_provenance_id: int = 1,
-    processing_degree_id: int = 1,
+    processing_kind_id: int = 1,
 ) -> dict:
     """Upload an image file with metadata to POST /ingest/sensor-image."""
     try:
@@ -1186,7 +1186,7 @@ def ingest_sensor_image(
                     "timestamp": timestamp,
                     "quality_code": quality_code,
                     "data_provenance_id": data_provenance_id,
-                    "processing_degree_id": processing_degree_id,
+                    "processing_kind_id": processing_kind_id,
                 },
                 files={"image": (filename, image_bytes)},
             )
@@ -1644,88 +1644,88 @@ def bulk_set_quality_code(
 
 
 # ---------------------------------------------------------------------------
-# SampleType
+# SampleKind
 # ---------------------------------------------------------------------------
 
 
-def list_sample_types() -> list[dict]:
+def list_sample_kinds() -> list[dict]:
     try:
         with _get_client() as client:
-            r = client.get("/sample-types")
+            r = client.get("/sample-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def create_sample_type(data: dict) -> dict:
+def create_sample_kind(data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.post("/sample-types", json=data)
+            r = client.post("/sample-kinds", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def update_sample_type(sample_type_id: int, data: dict) -> dict:
+def update_sample_kind(sample_kind_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.put(f"/sample-types/{sample_type_id}", json=data)
+            r = client.put(f"/sample-kinds/{sample_kind_id}", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def delete_sample_type(sample_type_id: int) -> None:
+def delete_sample_kind(sample_kind_id: int) -> None:
     try:
         with _get_client() as client:
-            r = client.delete(f"/sample-types/{sample_type_id}")
+            r = client.delete(f"/sample-kinds/{sample_kind_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
 
 
 # ---------------------------------------------------------------------------
-# SampleMethod
+# SampleCollectionKind
 # ---------------------------------------------------------------------------
 
 
-def list_sample_methods() -> list[dict]:
+def list_sample_collection_kinds() -> list[dict]:
     try:
         with _get_client() as client:
-            r = client.get("/sample-methods")
+            r = client.get("/sample-collection-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def create_sample_method(data: dict) -> dict:
+def create_sample_collection_kind(data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.post("/sample-methods", json=data)
+            r = client.post("/sample-collection-kinds", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def update_sample_method(sample_method_id: int, data: dict) -> dict:
+def update_sample_collection_kind(sample_collection_kind_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.put(f"/sample-methods/{sample_method_id}", json=data)
+            r = client.put(f"/sample-collection-kinds/{sample_collection_kind_id}", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def delete_sample_method(sample_method_id: int) -> None:
+def delete_sample_collection_kind(sample_collection_kind_id: int) -> None:
     try:
         with _get_client() as client:
-            r = client.delete(f"/sample-methods/{sample_method_id}")
+            r = client.delete(f"/sample-collection-kinds/{sample_collection_kind_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1739,7 +1739,7 @@ def delete_sample_method(sample_method_id: int) -> None:
 def list_process_unit_types() -> list[dict]:
     try:
         with _get_client() as client:
-            r = client.get("/process-unit-types")
+            r = client.get("/process-unit-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1749,27 +1749,27 @@ def list_process_unit_types() -> list[dict]:
 def create_process_unit_type(data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.post("/process-unit-types", json=data)
+            r = client.post("/process-unit-kinds", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def update_process_unit_type(process_unit_type_id: int, data: dict) -> dict:
+def update_process_unit_type(process_unit_kind_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.put(f"/process-unit-types/{process_unit_type_id}", json=data)
+            r = client.put(f"/process-unit-kinds/{process_unit_kind_id}", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def delete_process_unit_type(process_unit_type_id: int) -> None:
+def delete_process_unit_type(process_unit_kind_id: int) -> None:
     try:
         with _get_client() as client:
-            r = client.delete(f"/process-unit-types/{process_unit_type_id}")
+            r = client.delete(f"/process-unit-kinds/{process_unit_kind_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1853,11 +1853,11 @@ def delete_process_unit(process_unit_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# CampaignType
+# CampaignKind
 # ---------------------------------------------------------------------------
 
 
-def create_campaign_type(data: dict) -> dict:
+def create_campaign_kind(data: dict) -> dict:
     try:
         with _get_client() as client:
             r = client.post("/campaigns/types", json=data)
@@ -1867,49 +1867,34 @@ def create_campaign_type(data: dict) -> dict:
     return r.json()
 
 
-def update_campaign_type(campaign_type_id: int, data: dict) -> dict:
+def update_campaign_kind(campaign_kind_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:
-            r = client.put(f"/campaigns/types/{campaign_type_id}", json=data)
+            r = client.put(f"/campaigns/types/{campaign_kind_id}", json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
 
 
-def delete_campaign_type(campaign_type_id: int) -> None:
+def delete_campaign_kind(campaign_kind_id: int) -> None:
     try:
         with _get_client() as client:
-            r = client.delete(f"/campaigns/types/{campaign_type_id}")
+            r = client.delete(f"/campaigns/types/{campaign_kind_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
 
 
 # ---------------------------------------------------------------------------
-# BinMode (read-only)
+# BinKind (read-only)
 # ---------------------------------------------------------------------------
 
 
-def list_bin_modes() -> list[dict]:
+def list_bin_kinds() -> list[dict]:
     try:
         with _get_client() as client:
-            r = client.get("/value-binning-axes/bin-modes")
-    except httpx.ConnectError:
-        raise APIError(503, "Cannot reach API")
-    _raise_for_status(r)
-    return r.json()
-
-
-# ---------------------------------------------------------------------------
-# ProcessingDegree (read-only)
-# ---------------------------------------------------------------------------
-
-
-def list_processing_degrees() -> list[dict]:
-    try:
-        with _get_client() as client:
-            r = client.get("/vocab/processing-degrees")
+            r = client.get("/value-binning-axes/bin-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1917,11 +1902,26 @@ def list_processing_degrees() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# EquipmentEventType CRUD (list already exists above at /equipment/event-types)
+# ProcessingKind (read-only)
 # ---------------------------------------------------------------------------
 
 
-def create_equipment_event_type(data: dict) -> dict:
+def list_processing_kinds() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/processing-kinds")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+# ---------------------------------------------------------------------------
+# EquipmentEventKind CRUD (list already exists above at /equipment/event-types)
+# ---------------------------------------------------------------------------
+
+
+def create_equipment_event_kind(data: dict) -> dict:
     try:
         with _get_client() as client:
             r = client.post("/equipment/event-types", json=data)
@@ -1931,7 +1931,7 @@ def create_equipment_event_type(data: dict) -> dict:
     return r.json()
 
 
-def update_equipment_event_type(event_type_id: int, data: dict) -> dict:
+def update_equipment_event_kind(event_type_id: int, data: dict) -> dict:
     try:
         with _get_client() as client:
             r = client.put(f"/equipment/event-types/{event_type_id}", json=data)
@@ -1941,7 +1941,7 @@ def update_equipment_event_type(event_type_id: int, data: dict) -> dict:
     return r.json()
 
 
-def delete_equipment_event_type(event_type_id: int) -> None:
+def delete_equipment_event_kind(event_type_id: int) -> None:
     try:
         with _get_client() as client:
             r = client.delete(f"/equipment/event-types/{event_type_id}")
@@ -2033,6 +2033,204 @@ def delete_watershed(watershed_id: int) -> None:
     try:
         with _get_client() as client:
             r = client.delete(f"/vocab/watersheds/{watershed_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# FK lookup aliases used by schema_registry.fk_lookup_fn()
+#
+# schema_registry derives the options_fn name as:
+#   "list_" + snake_case(TableName) + "_lookup"
+# e.g. SiteKind → list_site_kind_lookup
+#      CampaignKind → list_campaign_kind_lookup
+#
+# These thin wrappers make the auto-derived names resolvable via getattr()
+# without duplicating any HTTP calls.
+# ---------------------------------------------------------------------------
+
+
+def list_site_kind_lookup() -> list[dict]:
+    return list_site_kinds()
+
+
+def list_campaign_kind_lookup() -> list[dict]:
+    return list_campaign_kinds()
+
+
+def list_watershed_lookup() -> list[dict]:
+    return list_watersheds()
+
+
+def list_site_lookup() -> list[dict]:
+    return list_sites_lookup()
+
+
+def list_person_lookup() -> list[dict]:
+    return list_persons_lookup()
+
+
+def list_process_unit_kind_lookup() -> list[dict]:
+    return list_process_unit_types()
+
+
+def list_signal_interface_kind_lookup() -> list[dict]:
+    return list_signal_interface_types()
+
+
+def list_annotation_kind_lookup() -> list[dict]:
+    return list_annotation_kinds()
+
+
+def list_bin_kind_lookup() -> list[dict]:
+    return list_bin_kinds()
+
+
+def list_processing_kind_lookup() -> list[dict]:
+    return list_processing_kinds()
+
+
+def list_quality_code_lookup() -> list[dict]:
+    return list_quality_codes()
+
+
+def list_sample_kind_lookup() -> list[dict]:
+    return list_sample_kinds()
+
+
+def list_sample_collection_kind_lookup() -> list[dict]:
+    return list_sample_collection_kinds()
+
+
+def list_equipment_event_kind_lookup() -> list[dict]:
+    return list_equipment_event_kinds()
+
+
+def list_data_acquisition_system_lookup() -> list[dict]:
+    return list_das_lookup()
+
+
+def list_signal_interface_port_kind_lookup() -> list[dict]:
+    return list_signal_interface_port_kinds()
+
+
+def list_parameter_lookup() -> list[dict]:
+    return list_parameters_lookup()
+
+
+def list_unit_lookup() -> list[dict]:
+    return list_units_lookup()
+
+
+def list_signal_interface_lookup() -> list[dict]:
+    return list_signal_interfaces_lookup()
+
+
+def list_process_unit_lookup(site_id: int | None = None) -> list[dict]:
+    return list_process_units_lookup(site_id=site_id)
+
+
+def list_laboratory_lookup() -> list[dict]:
+    return list_laboratories_lookup()
+
+
+def list_value_binning_axis_lookup() -> list[dict]:
+    return list_binning_axes_lookup()
+
+
+# ---------------------------------------------------------------------------
+# EquipmentModel associations
+# ---------------------------------------------------------------------------
+
+
+def list_model_parameters(model_id: int) -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/equipment/models/{model_id}/parameters")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def add_model_parameter(model_id: int, parameter_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/equipment/models/{model_id}/parameters", json={"parameter_id": parameter_id})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def remove_model_parameter(model_id: int, parameter_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/equipment/models/{model_id}/parameters/{parameter_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+def list_model_procedures(model_id: int) -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/equipment/models/{model_id}/procedures")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def add_model_procedure(model_id: int, procedure_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/equipment/models/{model_id}/procedures", json={"procedure_id": procedure_id})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def remove_model_procedure(model_id: int, procedure_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/equipment/models/{model_id}/procedures/{procedure_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
+# ParameterHasUnit associations
+# ---------------------------------------------------------------------------
+
+
+def list_parameter_units(parameter_id: int) -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get(f"/parameters/{parameter_id}/units")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def add_parameter_unit(parameter_id: int, unit_id: int) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post(f"/parameters/{parameter_id}/units", json={"unit_id": unit_id})
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def remove_parameter_unit(parameter_id: int, unit_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/parameters/{parameter_id}/units/{unit_id}")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)

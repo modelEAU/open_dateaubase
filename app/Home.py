@@ -32,8 +32,8 @@ def _home() -> None:
         st.markdown("### API Status")
         try:
             health = get_health()
-            st.metric("API version", health.get("version", "—"))
-            st.metric("Database", health.get("db_status", health.get("status", "—")))
+            st.metric("API version", health.get("api_version", "—"))
+            st.metric("Database", health.get("db", health.get("db_status", "—")))
             schema = health.get("schema_version") or health.get("db_schema_version")
             if schema:
                 st.metric("Schema version", schema)
@@ -54,6 +54,7 @@ def _home() -> None:
 - **Explore** — browse and plot time series
 - **Campaigns** — sampling campaign wizard
 - **Entities** — manage sites, equipment, channels, and signal sources
+- **Associations** — equipment model parameters/procedures, parameter units
 - **Vocabulary** — lookup tables and controlled vocabularies
             """
         )
@@ -99,29 +100,41 @@ pg = st.navigation(
             st.Page(str(_pages / "persons.py"), title="Persons"),
             st.Page(str(_pages / "procedures.py"), title="Procedures"),
         ],
+        "Associations": [
+            st.Page(
+                str(_pages / "equipment_model_associations.py"),
+                title="Equipment Model Associations",
+                icon="🔗",
+            ),
+            st.Page(
+                str(_pages / "parameter_units.py"),
+                title="Parameter Units",
+                icon="📐",
+            ),
+        ],
         "Signal Sources": [
             st.Page(
                 str(_pages / "signal_interfaces.py"),
                 title="Signal Interfaces",
                 icon="🔌",
             ),
-            st.Page(str(_pages / "signal_interface_types.py"), title="Interface Types"),
+            st.Page(str(_pages / "signal_interface_kinds.py"), title="Interface Kinds"),
             st.Page(str(_pages / "signal_interface_port_kinds.py"), title="Port Kinds"),
         ],
         "Vocabulary": [
-            st.Page(str(_pages / "site_types.py"), title="Site Types"),
-            st.Page(str(_pages / "campaign_types.py"), title="Campaign Types"),
-            st.Page(str(_pages / "process_unit_types.py"), title="Process Unit Types"),
+            st.Page(str(_pages / "site_kinds.py"), title="Site Kinds"),
+            st.Page(str(_pages / "campaign_kinds.py"), title="Campaign Kinds"),
+            st.Page(str(_pages / "process_unit_kinds.py"), title="Process Unit Kinds"),
             st.Page(
-                str(_pages / "equipment_event_types.py"), title="Equipment Event Types"
+                str(_pages / "equipment_event_kinds.py"), title="Equipment Event Kinds"
             ),
-            st.Page(str(_pages / "annotation_types.py"), title="Annotation Types"),
-            st.Page(str(_pages / "sample_types.py"), title="Sample Types"),
-            st.Page(str(_pages / "sample_methods.py"), title="Sample Methods"),
+            st.Page(str(_pages / "annotation_kinds.py"), title="Annotation Kinds"),
+            st.Page(str(_pages / "sample_kinds.py"), title="Sample Kinds"),
+            st.Page(str(_pages / "sample_collection_kinds.py"), title="Sample Collection Kinds"),
             st.Page(str(_pages / "quality_codes.py"), title="Quality Codes"),
             st.Page(str(_pages / "units.py"), title="Units"),
-            st.Page(str(_pages / "bin_modes.py"), title="Bin Modes"),
-            st.Page(str(_pages / "processing_degrees.py"), title="Processing Degrees"),
+            st.Page(str(_pages / "bin_kinds.py"), title="Bin Kinds"),
+            st.Page(str(_pages / "processing_kinds.py"), title="Processing Kinds"),
         ],
         "Workflows": [
             st.Page(str(_pages / "equipment_move.py"), title="Equipment Move"),

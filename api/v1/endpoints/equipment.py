@@ -15,14 +15,18 @@ from ..schemas.equipment import (
     EquipmentLifecycleOut,
     EquipmentModelIn,
     EquipmentModelOut,
+    EquipmentModelParameterIn,
+    EquipmentModelParameterOut,
+    EquipmentModelProcedureIn,
+    EquipmentModelProcedureOut,
     EquipmentOut,
     EquipmentPatch,
     EquipmentModelLookupOut,
-    EquipmentEventTypeOut,
+    EquipmentEventKindOut,
     EquipmentEventCreate,
     EquipmentEventOut,
 )
-from ..schemas.metadata import EquipmentEventTypeIn
+from ..schemas.metadata import EquipmentEventKindIn
 
 router = APIRouter()
 
@@ -110,36 +114,74 @@ def delete_equipment_model(model_id: int, conn=Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"EquipmentModel {model_id} not found.")
 
 
+@router.get("/models/{model_id}/parameters", response_model=list[EquipmentModelParameterOut])
+def list_model_parameters(model_id: int, conn=Depends(get_db)):
+    return equipment_repository.list_model_parameters(conn, model_id)
+
+
+@router.post("/models/{model_id}/parameters", response_model=EquipmentModelParameterOut, status_code=201)
+def add_model_parameter(model_id: int, body: EquipmentModelParameterIn, conn=Depends(get_db)):
+    try:
+        return equipment_repository.add_model_parameter(conn, model_id, body.parameter_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.delete("/models/{model_id}/parameters/{parameter_id}", status_code=204)
+def remove_model_parameter(model_id: int, parameter_id: int, conn=Depends(get_db)):
+    if not equipment_repository.remove_model_parameter(conn, model_id, parameter_id):
+        raise HTTPException(status_code=404, detail="Association not found.")
+
+
+@router.get("/models/{model_id}/procedures", response_model=list[EquipmentModelProcedureOut])
+def list_model_procedures(model_id: int, conn=Depends(get_db)):
+    return equipment_repository.list_model_procedures(conn, model_id)
+
+
+@router.post("/models/{model_id}/procedures", response_model=EquipmentModelProcedureOut, status_code=201)
+def add_model_procedure(model_id: int, body: EquipmentModelProcedureIn, conn=Depends(get_db)):
+    try:
+        return equipment_repository.add_model_procedure(conn, model_id, body.procedure_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.delete("/models/{model_id}/procedures/{procedure_id}", status_code=204)
+def remove_model_procedure(model_id: int, procedure_id: int, conn=Depends(get_db)):
+    if not equipment_repository.remove_model_procedure(conn, model_id, procedure_id):
+        raise HTTPException(status_code=404, detail="Association not found.")
+
+
 @router.get("/lookup", response_model=list[dict])
 def list_equipment_lookup(conn=Depends(get_db)):
     """Return all equipment for dropdowns (id + identifier)."""
     return equipment_repository.get_equipment_lookup(conn)
 
 
-@router.get("/event-types", response_model=list[EquipmentEventTypeOut])
-def list_equipment_event_types(conn=Depends(get_db)):
-    """Return all EquipmentEventType values for dropdowns."""
-    return equipment_repository.get_equipment_event_types(conn)
+@router.get("/event-types", response_model=list[EquipmentEventKindOut])
+def list_equipment_event_kinds(conn=Depends(get_db)):
+    """Return all EquipmentEventKind values for dropdowns."""
+    return equipment_repository.get_equipment_event_kinds(conn)
 
 
-@router.post("/event-types", response_model=EquipmentEventTypeOut, status_code=201)
-def create_equipment_event_type(body: EquipmentEventTypeIn, conn=Depends(get_db)):
-    return equipment_repository.insert_equipment_event_type(conn, body.name)
+@router.post("/event-types", response_model=EquipmentEventKindOut, status_code=201)
+def create_equipment_event_kind(body: EquipmentEventKindIn, conn=Depends(get_db)):
+    return equipment_repository.insert_equipment_event_kind(conn, body.name)
 
 
-@router.put("/event-types/{event_type_id}", response_model=EquipmentEventTypeOut)
-def update_equipment_event_type(event_type_id: int, body: EquipmentEventTypeIn, conn=Depends(get_db)):
-    updated = equipment_repository.update_equipment_event_type(conn, event_type_id, body.name)
+@router.put("/event-types/{event_type_id}", response_model=EquipmentEventKindOut)
+def update_equipment_event_kind(event_type_id: int, body: EquipmentEventKindIn, conn=Depends(get_db)):
+    updated = equipment_repository.update_equipment_event_kind(conn, event_type_id, body.name)
     if updated is None:
-        raise HTTPException(status_code=404, detail=f"EquipmentEventType {event_type_id} not found.")
+        raise HTTPException(status_code=404, detail=f"EquipmentEventKind {event_type_id} not found.")
     return updated
 
 
 @router.delete("/event-types/{event_type_id}", status_code=204)
-def delete_equipment_event_type(event_type_id: int, conn=Depends(get_db)):
-    deleted = equipment_repository.delete_equipment_event_type(conn, event_type_id)
+def delete_equipment_event_kind(event_type_id: int, conn=Depends(get_db)):
+    deleted = equipment_repository.delete_equipment_event_kind(conn, event_type_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail=f"EquipmentEventType {event_type_id} not found.")
+        raise HTTPException(status_code=404, detail=f"EquipmentEventKind {event_type_id} not found.")
 
 
 @router.post("/events", response_model=EquipmentEventOut, status_code=201)
