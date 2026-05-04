@@ -12,7 +12,7 @@ file_configs:
   # Uses equipment_name for channel resolution (tagless mode)
   - name: rodtox
     mode: tagless
-    das_name: rodtox_das
+    das_name: pilEAUte_monEAU
     file_structure:
       extension: ".csv"
       separator: ";"
@@ -56,7 +56,7 @@ tsdb_configs:
   # Uses equipment_name for channel resolution (tagless mode)
   - name: basestation
     mode: tagless
-    das_name: basestation_das
+    das_name: pilEAUte_monEAU
     tsdb_structure:
       extension: ".tsdb"
       timezone: "America/Montreal"
@@ -74,7 +74,7 @@ tsdb_configs:
 scada_sql_configs:
   # Tagged SCADA SQL import using local SQLite test fixture (pilEAUte schema)
   - name: pilEAUte
-    das_name: pilEAUte_das
+    das_name: pilEAUte_SCADA
     scada_structure:
       sqlite_path: "/test-data/scada_sql/float_table.db"
       timezone: "America/Montreal"
@@ -92,7 +92,7 @@ vector_file_configs:
   # Tagged spectrophotometer import (spectro::lyser .fp files from basestation)
   - name: spectrolyser_basestation
     mode: tagged
-    das_name: basestation
+    das_name: pilEAUte_monEAU
     file_structure:
       extension: ".fp"
       separator: "\t"
@@ -353,8 +353,8 @@ image_folder_configs:
       timezone: "America/Montreal"
       timestamp_source: mtime
     variables:
-      - name: felinoscope_2000_turbidity_image
-        parameter_name: turbidity_image
+      - name: felinoscope_2000_floc_morphology
+        parameter_name: floc_morphology
         source_unit_name: "-"
         destination_unit_name: "-"
         directory_path: "/test-data/images/felinoscope_2000"

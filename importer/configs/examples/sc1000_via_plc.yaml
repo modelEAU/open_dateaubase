@@ -1,40 +1,8 @@
-# Example: Hach SC1000 controller accessed via a Logix5000 PLC.
-#
-# The SC1000 manages one or more digital probes (ISE, optical, etc.).
-# The PLC reads the SC1000 over Profibus/HART and exposes its channels
-# as controller-scope tags that mirror the SC1000 slot assignment.
-# DAS = the PLC (hedi_plc); SI = the SC1000 unit (sc1000_ammonium).
-# This split means swapping out the SC1000 does not orphan channel history.
 api_config:
-  api_url: http://localhost:8000/api/v1
+api_url: http://localhost:8000/api/v1
 
-file_configs:
-- name: sc1000_via_plc
-  mode: tagged
-  das_name: hedi_plc
-  signal_interface_name: sc1000_ammonium
-  file_structure:
-    extension: .csv
-    separator: ","
-    encoding: utf-8
-    dt_format: '%Y-%m-%d %H:%M:%S'
-    time_column: Timestamp
-    value_column: Value
-    timezone: America/Montreal
-    first_valid_row_idx: 1
-    last_valid_row_idx: -1
-    header_row_idx: 0
-  variables:
-  - name: sc1000_nh4_meas
-    parameter_name: Ammonium-N
-    source_unit_name: mg/L
-    destination_unit_name: mg/L
-    directory_path: data/hedi/sc1000
-    tag: SC1000_CH1_NH4_MEAS
+## enter configuration for all scada tags in the PLC here. We are using a the SCADA database impporter.
 
-  - name: sc1000_ph_meas
-    parameter_name: pH
-    source_unit_name: pH units
-    destination_unit_name: pH units
-    directory_path: data/hedi/sc1000
-    tag: SC1000_CH2_PH_MEAS
+mode: tagged
+das_name: pilEAUTE_SCADA
+signal_interface_name: pilEAUTE_PLC
