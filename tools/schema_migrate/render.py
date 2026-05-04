@@ -660,12 +660,17 @@ def _render_insert_block(table_name: str, table_dict: dict, platform: str) -> st
     if has_identity:
         lines.append(f"SET IDENTITY_INSERT {full_table} ON;")
 
+    # Collect declared column names so build-time-only keys are silently dropped.
+    declared_cols: set[str] = {col["name"] for col in tbl.get("columns", []) or []}
+
     for row in seed_rows:
+        # Filter to only declared column keys (drops e.g. manual_units)
+        filtered = {k: v for k, v in row.items() if k in declared_cols}
         if platform == "mssql":
-            cols = ", ".join(f"[{col}]" for col in row)
+            cols = ", ".join(f"[{col}]" for col in filtered)
         else:
-            cols = ", ".join(f'"{col}"' for col in row)
-        vals = ", ".join(_render_seed_value(v) for v in row.values())
+            cols = ", ".join(f'"{col}"' for col in filtered)
+        vals = ", ".join(_render_seed_value(v) for v in filtered.values())
         lines.append(f"INSERT INTO {full_table} ({cols}) VALUES ({vals});")
 
     if has_identity:

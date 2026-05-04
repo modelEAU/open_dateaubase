@@ -285,6 +285,14 @@ def generate_all_from_yaml(
     seed_path.write_text(seed_script, encoding="utf-8")
     print(f"Generated SQL seed script: {seed_path}")
 
+    # Step 8: Append ParameterHasUnit rows (QUDT + manual_units)
+    from tools.ontology_query import build_parameter_has_unit_inserts
+    phu_sql = build_parameter_has_unit_inserts(schema, platform)
+    if phu_sql:
+        with seed_path.open("a", encoding="utf-8") as f:
+            f.write("\n" + phu_sql)
+        print("Appended ParameterHasUnit rows to seed script")
+
 
 def main() -> None:
     """CLI entry point.
