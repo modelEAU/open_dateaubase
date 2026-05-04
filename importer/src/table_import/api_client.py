@@ -25,6 +25,10 @@ import httpx
 from table_import.config import AxisConfig
 
 
+class ConfigValidationError(Exception):
+    """Raised when a config (parameter, unit) pair is not in ParameterHasUnit."""
+
+
 class ApiError(Exception):
     """Raised when the API returns an unexpected HTTP status."""
 
@@ -441,6 +445,30 @@ class DateaubaseClient:
             body["value_type_id"] = value_type_id
         payload = self._post("/api/v1/channels/provision", body)
         return payload["channel_id"]
+
+    # ------------------------------------------------------------------
+    # Config validation
+    # ------------------------------------------------------------------
+
+    def validate_parameter_unit_pair(self, *, parameter_name: str, unit_name: str) -> None:
+        """Raise ConfigValidationError if unit_name is not valid for parameter_name.
+
+        Image parameters (ValueKind_ID == 4) are skipped entirely.
+        Raises ConfigValidationError before any ingestion if the pair is absent
+        from ParameterHasUnit.
+        """
+        param = self._get(f"/api/v1/parameters/by-name/{parameter_name}")
+        value_kind_id = param.get("value_kind_id", 1)
+        if value_kind_id == 4:
+            return
+        parameter_id = param["parameter_id"]
+        valid_units = self._get(f"/api/v1/units/valid-for/{parameter_id}")
+        valid_names = {u["unit"] for u in valid_units}
+        if unit_name not in valid_names:
+            raise ConfigValidationError(
+                f"Unit '{unit_name}' is not registered as valid for parameter "
+                f"'{parameter_name}'. Check ParameterHasUnit."
+            )
 
     def open_channel_port_history(
         self,

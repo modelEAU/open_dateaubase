@@ -52,7 +52,7 @@ file_configs:
     last_valid_row_idx: -2
   variables:
   - name: rodtox_do
-    parameter_name: Dissolved oxygen
+    parameter_name: Dissolved oxygen concentration
     source_unit_name: mg/L
     destination_unit_name: mg/L
     directory_path: test_data/rodtox/DO

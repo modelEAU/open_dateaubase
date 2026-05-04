@@ -5,7 +5,7 @@ from pathlib import Path, PurePath
 import yaml
 
 from table_import import config
-from table_import.api_client import DateaubaseClient
+from table_import.api_client import ConfigValidationError, DateaubaseClient
 from table_import.data_file import (
     DataCombiner,
     DataFile,
@@ -151,6 +151,23 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
     """
     print(datetime.now())
     api_conf = settings.api_config
+
+    # Pre-flight: validate every (parameter_name, destination_unit_name) pair before
+    # any data is ingested. Raises ConfigValidationError on first invalid pair.
+    with DateaubaseClient(api_conf.api_url) as preflight_client:
+        all_sources: list = (
+            list(settings.file_configs)
+            + list(settings.tsdb_configs)
+            + list(settings.scada_sql_configs)
+            + list(settings.vector_file_configs)
+            + list(settings.image_folder_configs)
+        )
+        for src in all_sources:
+            for variable in src.variables:
+                preflight_client.validate_parameter_unit_pair(
+                    parameter_name=variable.parameter_name,
+                    unit_name=variable.destination_unit_name,
+                )
 
     min_unix_ts: float | None = None
     if api_conf.min_timestamp:

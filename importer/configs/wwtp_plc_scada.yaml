@@ -51,6 +51,6 @@ scada_sql_configs:
 
   - name: plc_do
     tag: HMI_DO
-    parameter_name: Dissolved oxygen
+    parameter_name: Dissolved oxygen concentration
     source_unit_name: mg/L
     destination_unit_name: mg/L

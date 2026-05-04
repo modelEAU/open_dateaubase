@@ -33,7 +33,7 @@ file_configs:
     tag: HED_TEMP_LIT001
 
   - name: plc_do
-    parameter_name: Dissolved oxygen
+    parameter_name: Dissolved oxygen concentration
     source_unit_name: mg/L
     destination_unit_name: mg/L
     directory_path: data/hedi/plc

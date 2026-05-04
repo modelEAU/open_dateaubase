@@ -47,7 +47,7 @@ file_configs:
       default_quality_code: 2
   variables:
   - name: scan_tss
-    parameter_name: TSS
+    parameter_name: TSS concentration
     source_unit_name: mg/L
     destination_unit_name: mg/L
     directory_path: test_data/scan
@@ -76,7 +76,7 @@ file_configs:
       default_quality_code: 2
   variables:
   - name: scan_cod
-    parameter_name: COD
+    parameter_name: COD concentration
     source_unit_name: mg/L
     destination_unit_name: mg/L
     directory_path: test_data/scan
@@ -105,7 +105,7 @@ file_configs:
       default_quality_code: 2
   variables:
   - name: scan_nh4n
-    parameter_name: Ammonium-N
+    parameter_name: Ammonium-N concentration
     source_unit_name: mg/L
     destination_unit_name: mg/L
     directory_path: test_data/scan
@@ -168,7 +168,7 @@ vector_file_configs:
       default_quality_code: 2
   variables:
   - name: scan_absorbance
-    parameter_name: absorbance
+    parameter_name: Absorbance spectrum
     source_unit_name: AU
     destination_unit_name: AU
     directory_path: test_data/scan

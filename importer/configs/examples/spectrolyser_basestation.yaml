@@ -21,7 +21,7 @@ vector_file_configs:
       default_quality_code: 2
   variables:
   - name: spectrolyser_basestation_absorbance
-    parameter_name: absorbance
+    parameter_name: Absorbance spectrum
     source_unit_name: AU
     destination_unit_name: AU
     directory_path: test_data/basestation

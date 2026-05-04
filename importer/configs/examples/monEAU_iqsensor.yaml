@@ -35,7 +35,7 @@ file_configs:
     tag: IQ_PROBE1_PH
 
   - name: iqsensor_do
-    parameter_name: Dissolved oxygen
+    parameter_name: Dissolved oxygen concentration
     source_unit_name: mg/L
     destination_unit_name: mg/L
     directory_path: data/monEAU/iqsensor
