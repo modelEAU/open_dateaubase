@@ -13,23 +13,23 @@ _METADATA_SELECT = """
         u.[Unit]                 AS UnitName,
         m.[Equipment_ID],
         e.[Identifier]           AS EquipmentIdentifier,
-        m.[DataProvenance_ID],
-        dp.[DataProvenance_Name] AS DataProvenanceName,
-        m.[ProcessingDegree],
+        m.[DataProvenanceKind_ID],
+        dp.[Name] AS DataProvenanceKindName,
+        m.[ProcessingKind],
         m.[Laboratory_ID],
         lab.[Name]               AS LaboratoryName,
         m.[AnalystPerson_ID],
         CONCAT(an.[FirstName], ' ', an.[LastName]) AS AnalystName,
-        m.[ValueType_ID],
-        vt.[ValueType_Name]
+        m.[ValueKind_ID],
+        vt.[Name]
     FROM [dbo].[MetaData] m
     LEFT JOIN [dbo].[Parameter]      p   ON p.[Parameter_ID]       = m.[Parameter_ID]
     LEFT JOIN [dbo].[Unit]           u   ON u.[Unit_ID]            = m.[Unit_ID]
     LEFT JOIN [dbo].[Equipment]      e   ON e.[Equipment_ID]       = m.[Equipment_ID]
-    LEFT JOIN [dbo].[DataProvenance] dp  ON dp.[DataProvenance_ID] = m.[DataProvenance_ID]
+    LEFT JOIN [dbo].[DataProvenanceKind] dp  ON dp.[DataProvenanceKind_ID] = m.[DataProvenanceKind_ID]
     LEFT JOIN [dbo].[Laboratory]     lab ON lab.[Laboratory_ID]    = m.[Laboratory_ID]
     LEFT JOIN [dbo].[Person]         an  ON an.[Person_ID]         = m.[AnalystPerson_ID]
-    LEFT JOIN [dbo].[ValueType]      vt  ON vt.[ValueType_ID]      = m.[ValueType_ID]
+    LEFT JOIN [dbo].[ValueKind]      vt  ON vt.[ValueKind_ID]      = m.[ValueKind_ID]
 """
 
 
@@ -49,7 +49,7 @@ def _row_to_dict(row) -> dict:
         "laboratory_name": row[11],
         "analyst_id": row[12],
         "analyst_name": row[13],
-        "value_type_id": row[14],
+        "value_kind_id": row[14],
         "value_type_name": row[15],
     }
 
@@ -72,10 +72,10 @@ def list_metadata(
         where_parts.append("m.[Parameter_ID] = ?")
         params.append(parameter_id)
     if data_provenance_id is not None:
-        where_parts.append("m.[DataProvenance_ID] = ?")
+        where_parts.append("m.[DataProvenanceKind_ID] = ?")
         params.append(data_provenance_id)
     if processing_degree is not None:
-        where_parts.append("m.[ProcessingDegree] = ?")
+        where_parts.append("m.[ProcessingKind] = ?")
         params.append(processing_degree)
     if equipment_id is not None:
         where_parts.append("m.[Equipment_ID] = ?")
@@ -87,7 +87,9 @@ def list_metadata(
     count_sql = f"SELECT COUNT(*) FROM [dbo].[MetaData] m {where_clause}"
     cursor = conn.cursor()
     cursor.execute(count_sql, *params)
-    total: int = cursor.fetchone()[0]
+    _count_row = cursor.fetchone()
+    assert _count_row is not None
+    total: int = _count_row[0]
 
     # Paginated rows
     offset = (page - 1) * page_size
@@ -120,14 +122,14 @@ def get_parameters_lookup(conn: pyodbc.Connection) -> list[dict]:
     ]
 
 
-def get_processing_degrees_lookup(conn: pyodbc.Connection) -> list[dict]:
-    """Return all processing degrees for dropdowns (id + name)."""
+def get_processing_kinds_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return all processing kinds for dropdowns (id + name)."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ProcessingDegree_ID], [Name] FROM [dbo].[ProcessingDegree] ORDER BY [ProcessingDegree_ID]"
+        "SELECT [ProcessingKind_ID], [Name] FROM [dbo].[ProcessingKind] ORDER BY [ProcessingKind_ID]"
     )
     return [
-        {"processing_degree_id": row[0], "name": row[1]} for row in cursor.fetchall()
+        {"processing_kind_id": row[0], "name": row[1]} for row in cursor.fetchall()
     ]
 
 
@@ -135,7 +137,7 @@ def list_parameters(conn: pyodbc.Connection) -> list[dict]:
     """Return all parameters (full rows)."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Parameter_ID], [Parameter], [Description]"
+        "SELECT [Parameter_ID], [Parameter], [Description], [ENVO_IRI]"
         " FROM [dbo].[Parameter] ORDER BY [Parameter_ID]"
     )
     return [
@@ -143,6 +145,7 @@ def list_parameters(conn: pyodbc.Connection) -> list[dict]:
             "parameter_id": row[0],
             "parameter_name": row[1],
             "description": row[2],
+            "envo_iri": row[3],
         }
         for row in cursor.fetchall()
     ]
@@ -151,7 +154,7 @@ def list_parameters(conn: pyodbc.Connection) -> list[dict]:
 def get_parameter_by_id(conn: pyodbc.Connection, param_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Parameter_ID], [Parameter], [Description]"
+        "SELECT [Parameter_ID], [Parameter], [Description], [ENVO_IRI]"
         " FROM [dbo].[Parameter] WHERE [Parameter_ID]=?",
         param_id,
     )
@@ -162,18 +165,41 @@ def get_parameter_by_id(conn: pyodbc.Connection, param_id: int) -> dict | None:
         "parameter_id": row[0],
         "parameter_name": row[1],
         "description": row[2],
+        "envo_iri": row[3],
     }
 
 
-def insert_parameter(conn: pyodbc.Connection, data: dict) -> dict:
+def get_parameter_by_name(conn: pyodbc.Connection, name: str) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO [dbo].[Parameter] ([Parameter], [Description]) VALUES (?, ?)",
+        "SELECT [Parameter_ID], [Parameter], [Description], [ENVO_IRI], [ValueKind_ID]"
+        " FROM [dbo].[Parameter] WHERE [Parameter]=?",
+        name,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "parameter_id": row[0],
+        "parameter_name": row[1],
+        "description": row[2],
+        "envo_iri": row[3],
+        "value_kind_id": row[4],
+    }
+
+
+def insert_parameter(conn: pyodbc.Connection, data: dict) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO [dbo].[Parameter] ([Parameter], [Description], [ENVO_IRI]) VALUES (?, ?, ?)",
         data.get("parameter"),
         data.get("description"),
+        data.get("envo_iri"),
     )
     cursor.execute("SELECT @@IDENTITY")
-    new_id = int(cursor.fetchone()[0])
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id = int(_row[0])
     conn.commit()
     return get_parameter_by_id(conn, new_id)
 
@@ -182,10 +208,11 @@ def update_parameter(conn: pyodbc.Connection, param_id: int, data: dict) -> dict
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE [dbo].[Parameter]"
-        " SET [Parameter]=?, [Description]=?"
+        " SET [Parameter]=?, [Description]=?, [ENVO_IRI]=?"
         " WHERE [Parameter_ID]=?",
         data.get("parameter"),
         data.get("description"),
+        data.get("envo_iri"),
         param_id,
     )
     conn.commit()

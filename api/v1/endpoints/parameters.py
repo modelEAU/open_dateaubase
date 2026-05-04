@@ -22,6 +22,14 @@ def create_parameter(body: ParameterIn, conn=Depends(get_db)):
     return metadata_repository.insert_parameter(conn, body.model_dump())
 
 
+@router.get("/by-name/{name}", response_model=ParameterOut)
+def get_parameter_by_name(name: str, conn=Depends(get_db)):
+    param = metadata_repository.get_parameter_by_name(conn, name)
+    if param is None:
+        raise HTTPException(status_code=404, detail=f"Parameter '{name}' not found.")
+    return param
+
+
 @router.get("/{parameter_id}", response_model=ParameterOut)
 def get_parameter(parameter_id: int, conn=Depends(get_db)):
     param = metadata_repository.get_parameter_by_id(conn, parameter_id)
