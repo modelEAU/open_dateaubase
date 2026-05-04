@@ -12,10 +12,10 @@ def list_binning_axes(conn: pyodbc.Connection) -> list[dict]:
         """
         SELECT vba.ValueBinningAxis_ID, vba.Name, vba.Description,
                vba.NumberOfBins, vba.Unit_ID, u.Unit AS UnitName,
-               bm.Name AS BinModeName
+               bm.Name AS BinKindName
         FROM [dbo].[ValueBinningAxis] vba
         LEFT JOIN [dbo].[Unit] u ON u.Unit_ID = vba.Unit_ID
-        LEFT JOIN [dbo].[BinMode] bm ON bm.BinMode_ID = vba.BinMode_ID
+        LEFT JOIN [dbo].[BinKind] bm ON bm.BinKind_ID = vba.BinKind_ID
         ORDER BY vba.Name
         """
     )
@@ -27,7 +27,7 @@ def list_binning_axes(conn: pyodbc.Connection) -> list[dict]:
             "number_of_bins": row[3],
             "unit_id": row[4],
             "unit_name": row[5],
-            "bin_mode": row[6],
+            "bin_kind": row[6],
         }
         for row in cursor.fetchall()
     ]
@@ -40,10 +40,10 @@ def get_binning_axis(conn: pyodbc.Connection, axis_id: int) -> dict | None:
         """
         SELECT vba.ValueBinningAxis_ID, vba.Name, vba.Description,
                vba.NumberOfBins, vba.Unit_ID, u.Unit AS UnitName,
-               bm.Name AS BinModeName
+               bm.Name AS BinKindName
         FROM [dbo].[ValueBinningAxis] vba
         LEFT JOIN [dbo].[Unit] u ON u.Unit_ID = vba.Unit_ID
-        LEFT JOIN [dbo].[BinMode] bm ON bm.BinMode_ID = vba.BinMode_ID
+        LEFT JOIN [dbo].[BinKind] bm ON bm.BinKind_ID = vba.BinKind_ID
         WHERE vba.ValueBinningAxis_ID = ?
         """,
         axis_id,
@@ -59,7 +59,7 @@ def get_binning_axis(conn: pyodbc.Connection, axis_id: int) -> dict | None:
         "number_of_bins": row[3],
         "unit_id": row[4],
         "unit_name": row[5],
-        "bin_mode": row[6],
+        "bin_kind": row[6],
         "bins": [],
     }
 
@@ -84,15 +84,15 @@ def get_binning_axis(conn: pyodbc.Connection, axis_id: int) -> dict | None:
     return result
 
 
-def _resolve_bin_mode_id(cursor: pyodbc.Cursor, bin_mode_name: str) -> int:
-    """Look up BinMode_ID by name. Raises ValueError if not found."""
+def _resolve_bin_kind_id(cursor: pyodbc.Cursor, bin_kind_name: str) -> int:
+    """Look up BinKind_ID by name. Raises ValueError if not found."""
     cursor.execute(
-        "SELECT BinMode_ID FROM [dbo].[BinMode] WHERE Name = ?",
-        bin_mode_name,
+        "SELECT BinKind_ID FROM [dbo].[BinKind] WHERE Name = ?",
+        bin_kind_name,
     )
     row = cursor.fetchone()
     if row is None:
-        raise ValueError(f"Unknown bin_mode: {bin_mode_name!r}")
+        raise ValueError(f"Unknown bin_kind: {bin_kind_name!r}")
     return int(row[0])
 
 
@@ -101,18 +101,18 @@ def insert_binning_axis(conn: pyodbc.Connection, data: dict) -> int:
     cursor = conn.cursor()
     bins = data["bins"]
     number_of_bins = len(bins)
-    bin_mode_id = _resolve_bin_mode_id(cursor, data["bin_mode"])
+    bin_kind_id = _resolve_bin_kind_id(cursor, data["bin_kind"])
 
     cursor.execute(
         """
-        INSERT INTO [dbo].[ValueBinningAxis] (Name, Description, NumberOfBins, Unit_ID, BinMode_ID)
+        INSERT INTO [dbo].[ValueBinningAxis] (Name, Description, NumberOfBins, Unit_ID, BinKind_ID)
         VALUES (?, ?, ?, ?, ?)
         """,
         data["name"],
         data.get("description"),
         number_of_bins,
         data["unit_id"],
-        bin_mode_id,
+        bin_kind_id,
     )
     cursor.execute("SELECT @@IDENTITY")
     axis_id = int(cursor.fetchone()[0])
@@ -153,10 +153,10 @@ def patch_binning_axis(conn: pyodbc.Connection, axis_id: int, data: dict) -> dic
     if "unit_id" in data:
         fields.append("[Unit_ID]=?")
         values.append(data["unit_id"])
-    if "bin_mode" in data:
-        bin_mode_id = _resolve_bin_mode_id(cursor, data["bin_mode"])
-        fields.append("[BinMode_ID]=?")
-        values.append(bin_mode_id)
+    if "bin_kind" in data:
+        bin_kind_id = _resolve_bin_kind_id(cursor, data["bin_kind"])
+        fields.append("[BinKind_ID]=?")
+        values.append(bin_kind_id)
 
     bins = data.get("bins")
     if bins is not None:
@@ -252,7 +252,7 @@ def resolve_binning_axis(conn: pyodbc.Connection, data: dict) -> dict:
                 "name": data["name"],
                 "description": data.get("description"),
                 "unit_id": unit_id,
-                "bin_mode": data["bin_mode"],
+                "bin_kind": data["bin_kind"],
                 "bins": data["bins"],
             },
         )
@@ -305,9 +305,9 @@ def lookup_binning_axes(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT vba.ValueBinningAxis_ID, vba.Name, vba.NumberOfBins, bm.Name AS BinModeName
+        SELECT vba.ValueBinningAxis_ID, vba.Name, vba.NumberOfBins, bm.Name AS BinKindName
         FROM [dbo].[ValueBinningAxis] vba
-        LEFT JOIN [dbo].[BinMode] bm ON bm.BinMode_ID = vba.BinMode_ID
+        LEFT JOIN [dbo].[BinKind] bm ON bm.BinKind_ID = vba.BinKind_ID
         ORDER BY vba.Name
         """
     )
@@ -316,7 +316,7 @@ def lookup_binning_axes(conn: pyodbc.Connection) -> list[dict]:
             "value_binning_axis_id": row[0],
             "name": row[1],
             "number_of_bins": row[2],
-            "bin_mode": row[3],
+            "bin_kind": row[3],
         }
         for row in cursor.fetchall()
     ]

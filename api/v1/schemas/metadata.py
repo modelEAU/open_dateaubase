@@ -28,8 +28,8 @@ class SamplingLocationOut(BaseModel):
 class SiteOut(BaseModel):
     id: int
     name: str
-    site_type_id: int | None
-    site_type_name: str | None
+    site_kind_id: int | None
+    site_kind_name: str | None
     description: str | None
     lat_wgs84: float | None
     long_wgs84: float | None
@@ -40,7 +40,7 @@ class SiteOut(BaseModel):
 
 class SiteIn(BaseModel):
     name: str
-    site_type_id: int | None = None
+    site_kind_id: int | None = None
     description: str | None = None
     lat_wgs84: float | None = None
     long_wgs84: float | None = None
@@ -53,7 +53,7 @@ class SitePatch(BaseModel):
     """Partial update schema for Site - all fields optional."""
 
     name: str | None = None
-    site_type_id: int | None = None
+    site_kind_id: int | None = None
     description: str | None = None
     lat_wgs84: float | None = None
     long_wgs84: float | None = None
@@ -69,15 +69,15 @@ class SiteLookupOut(BaseModel):
     name: str
 
 
-class SiteTypeOut(BaseModel):
-    """Lookup model for SiteType."""
+class SiteKindOut(BaseModel):
+    """Lookup model for SiteKind."""
 
     id: int
     name: str
     description: str | None
 
 
-class SiteTypeIn(BaseModel):
+class SiteKindIn(BaseModel):
     name: str
     description: str | None = None
 
@@ -95,56 +95,88 @@ class QualityCodeIn(BaseModel):
     is_usable: bool = True
 
 
-class SampleTypeOut(BaseModel):
-    sample_type_id: int
+class SampleKindOut(BaseModel):
+    sample_kind_id: int
     name: str
     description: str | None
 
 
-class SampleTypeIn(BaseModel):
+class SampleKindIn(BaseModel):
     name: str
     description: str | None = None
 
 
-class SampleMethodOut(BaseModel):
-    sample_method_id: int
+class SampleCollectionKindOut(BaseModel):
+    sample_collection_kind_id: int
     name: str
     description: str | None
 
 
-class SampleMethodIn(BaseModel):
+class SampleCollectionKindIn(BaseModel):
     name: str
     description: str | None = None
 
 
-class BinModeOut(BaseModel):
-    bin_mode_id: int
+class BinKindOut(BaseModel):
+    bin_kind_id: int
     name: str
     description: str | None
 
 
-class SignalPortTypeOut(BaseModel):
-    signal_port_type_id: int
+class ProcessingKindOut(BaseModel):
+    processing_kind_id: int
     name: str
     description: str | None
 
 
-class ProcessingDegreeOut(BaseModel):
-    processing_degree_id: int
+class CampaignKindOut(BaseModel):
+    campaign_kind_id: int
     name: str
+    description: str | None
 
 
-class CampaignTypeIn(BaseModel):
+class CampaignKindIn(BaseModel):
     name: str
+    description: str | None = None
 
 
-class EquipmentEventTypeOut(BaseModel):
-    equipment_event_type_id: int
+class EquipmentEventKindOut(BaseModel):
+    equipment_event_kind_id: int
     name: str
+    description: str | None
 
 
-class EquipmentEventTypeIn(BaseModel):
+class EquipmentEventKindIn(BaseModel):
     name: str
+    description: str | None = None
+
+
+class SignalInterfaceKindOut(BaseModel):
+    signal_interface_kind_id: int
+    name: str
+    description: str | None
+
+
+class SignalInterfaceKindIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class ChannelKindOut(BaseModel):
+    channel_kind_id: int
+    name: str
+    description: str | None
+
+
+class ProcessUnitKindOut(BaseModel):
+    process_unit_kind_id: int
+    name: str
+    description: str | None
+
+
+class ProcessUnitKindIn(BaseModel):
+    name: str
+    description: str | None = None
 
 
 class ProcedureOut(BaseModel):
@@ -189,12 +221,12 @@ class MetadataOut(BaseModel):
     unit_name: str | None
     equipment_id: int | None
     equipment_identifier: str | None
-    data_provenance_id: int | None
+    data_provenance_kind_id: int | None
     data_provenance: str | None
     processing_degree: str | None
     laboratory_id: int | None
     laboratory_name: str | None
     analyst_id: int | None
     analyst_name: str | None
-    value_type_id: int | None
-    value_type_name: str | None
+    value_kind_id: int | None
+    value_kind_name: str | None

@@ -1,0 +1,32 @@
+_format_version: "1.0"
+table:
+  name: ValueKind
+  schema: dbo
+  description: "Controlled vocabulary defining the shape of stored measurement values (Scalar, Vector, Matrix, Image)"
+
+  columns:
+    - name: ValueKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Human-readable name of the value kind (Scalar, Vector, Matrix, or Image)"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this value kind represents structurally"
+
+  primary_key: [ValueKind_ID]
+
+  seed_data:
+    - { ValueKind_ID: 1, Name: "Scalar", Description: "A single numeric measurement value (e.g. temperature, concentration)" }
+    - { ValueKind_ID: 2, Name: "Vector", Description: "An ordered sequence of numeric values (e.g. particle size distribution)" }
+    - { ValueKind_ID: 3, Name: "Matrix", Description: "A two-dimensional array of values (e.g. excitation-emission matrix)" }
+    - { ValueKind_ID: 4, Name: "Image",  Description: "A raster image stored as a binary file" }

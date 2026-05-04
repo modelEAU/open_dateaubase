@@ -32,8 +32,8 @@ _VALID_PAYLOAD = {
     "equipment_name": "Probe_A",
     "parameter_name": "dissolved oxygen",
     "unit_name": "mg/L",
-    "data_provenance_id": 1,
-    "processing_degree_id": 1,
+    "data_provenance_kind_id": 1,
+    "processing_kind_id": 1,
     "values": [{"timestamp": "2024-01-01T00:00:00", "value": 8.1}],
 }
 

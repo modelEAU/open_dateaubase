@@ -1,0 +1,36 @@
+_format_version: "1.0"
+table:
+  name: ControlLoopPortKind
+  schema: dbo
+  description: >
+    Controlled vocabulary for the functional kind of a Channel within a ControlLoop.
+    'Other' is an explicit escape hatch for novel control schemes;
+    its use should be accompanied by a description in ControlLoop.Description.
+
+  columns:
+    - name: ControlLoopPortKind_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Short name for this control loop port kind"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of the kind within a control loop"
+
+  primary_key: [ControlLoopPortKind_ID]
+
+  seed_data:
+    - { ControlLoopPortKind_ID: 1, Name: "MeasuredVariable",    Description: "The controlled or observed process variable" }
+    - { ControlLoopPortKind_ID: 2, Name: "ManipulatedVariable", Description: "The actuator or output adjusted by the controller" }
+    - { ControlLoopPortKind_ID: 3, Name: "SetPoint",            Description: "Target value supplied to the controller" }
+    - { ControlLoopPortKind_ID: 4, Name: "Disturbance",         Description: "Measured input that affects the process; not manipulated" }
+    - { ControlLoopPortKind_ID: 5, Name: "PredictedOutput",     Description: "Model-predicted value of the controlled variable" }
+    - { ControlLoopPortKind_ID: 6, Name: "Other",               Description: "Escape hatch for novel kinds; describe in ControlLoop.Description" }

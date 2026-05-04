@@ -584,11 +584,11 @@ def list_model_parameters(conn: pyodbc.Connection, model_id: int) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT p.[Parameter_ID], p.[ParameterName], p.[Description]
+        SELECT p.[Parameter_ID], p.[Parameter] AS ParameterName, p.[Description]
         FROM [dbo].[EquipmentModelHasParameter] emp
         JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = emp.[Parameter_ID]
         WHERE emp.[EquipmentModel_ID] = ?
-        ORDER BY p.[ParameterName]
+        ORDER BY p.[Parameter]
         """,
         model_id,
     )

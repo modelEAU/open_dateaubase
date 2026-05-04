@@ -64,16 +64,16 @@ table:
         table: Channel
         column: Channel_ID
 
-    - name: ChannelRole_ID
+    - name: ChannelKind_ID
       logical_type: integer
       nullable: false
       default: 1
       description: >
         Kind of information this Channel carries (1=Value, 2=Status,
-        3=Alarm, 4=Uncertainty). Replaces the former SignalPortType role.
+        3=Alarm, 4=Uncertainty).
       foreign_key:
-        table: ChannelRole
-        column: ChannelRole_ID
+        table: ChannelKind
+        column: ChannelKind_ID
 
     - name: Parameter_ID
       logical_type: integer
@@ -83,37 +83,37 @@ table:
         table: Parameter
         column: Parameter_ID
 
-    - name: DataProvenance_ID
+    - name: DataProvenanceKind_ID
       logical_type: integer
       nullable: true
       description: >
         How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3,
         Model Output=4, External Source=5, Forecast=6)
       foreign_key:
-        table: DataProvenance
-        column: DataProvenance_ID
+        table: DataProvenanceKind
+        column: DataProvenanceKind_ID
 
-    - name: ProcessingDegree_ID
+    - name: ProcessingKind_ID
       logical_type: integer
       nullable: true
       default: 1
       description: >
-        Level of processing applied to this time series (FK to ProcessingDegree lookup).
+        Level of processing applied to this time series (FK to ProcessingKind lookup).
         Ground truth is the DataLineage graph; this field exists for fast filtering.
-        Set once at row creation — if the processing degree changes, a new Channel row is created.
+        Set once at row creation — if the processing kind changes, a new Channel row is created.
         Default 1 = Raw.
       foreign_key:
-        table: ProcessingDegree
-        column: ProcessingDegree_ID
+        table: ProcessingKind
+        column: ProcessingKind_ID
 
-    - name: ValueType_ID
+    - name: ValueKind_ID
       logical_type: integer
       nullable: false
       default: 1
       description: "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
       foreign_key:
-        table: ValueType
-        column: ValueType_ID
+        table: ValueKind
+        column: ValueKind_ID
 
     - name: Unit_ID
       logical_type: integer
@@ -128,7 +128,7 @@ table:
 
   indexes:
     - name: UQ_Channel_SignalStream
-      columns: [SignalInterface_ID, TagName, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID]
+      columns: [SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID, ProcessingKind_ID]
       unique: true
       description: >
         Guarantees at most one Channel row per signal stream.

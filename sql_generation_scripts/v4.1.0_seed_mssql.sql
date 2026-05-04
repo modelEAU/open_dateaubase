@@ -190,3 +190,7 @@ INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (14, 12)
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (15, 13);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (17, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (18, 10);
+
+INSERT INTO [dbo].[SchemaVersion] ([Version], [AppliedDateTime], [Description], [MigrationScript])
+VALUES ('4.1.0', SYSUTCDATETIME(), 'Fresh install baseline', 'v4.1.0_create_mssql.sql');
+GO

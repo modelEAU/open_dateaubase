@@ -26,10 +26,9 @@ from app.api_client import (
     list_data_provenance_lookup,
     list_equipment_lookup,
     list_parameters_lookup,
-    list_processing_degrees_lookup,
+    list_processing_kinds_lookup,
     list_units_lookup,
 )
-
 
 
 st.title("Sensor Data Ingest")
@@ -73,17 +72,17 @@ with tab_scalar:
             parameters_lookup = list_parameters_lookup()
             units_lookup = list_units_lookup()
             provenance_lookup = list_data_provenance_lookup()
-            processing_degrees_lookup = list_processing_degrees_lookup()
+            processing_degrees_lookup = list_processing_kinds_lookup()
     except APIError as e:
         st.error(f"Cannot load lookup data: {e.message}")
         st.stop()
 
     # Get Sensor provenance name from database (ID=1 is Sensor)
     sensor_provenance = next(
-        (p for p in provenance_lookup if p["data_provenance_id"] == 1),
-        {"data_provenance_name": "Sensor"},
+        (p for p in provenance_lookup if p["data_provenance_kind_id"] == 1),
+        {"name": "Sensor"},
     )
-    sensor_provenance_name = sensor_provenance["data_provenance_name"]
+    sensor_provenance_name = sensor_provenance["name"]
 
     # Channel Identification Section
     with st.container(border=True):
@@ -116,10 +115,11 @@ with tab_scalar:
                     index=None,
                     placeholder="Select equipment...",
                     key="scalar_equipment_tagless",
+                    help="Physical instrument this channel is directly connected to",
                 )
             scalar_equipment_name = selected_equipment_label  # identifier is the name
             scalar_tag = None
-            scalar_signal_port_type = None
+            scalar_channel_role = None
         else:
             col_das, col_tag, col_spt = st.columns(3)
             with col_das:
@@ -137,11 +137,11 @@ with tab_scalar:
                     key="scalar_tag",
                 )
             with col_spt:
-                scalar_signal_port_type = st.selectbox(
-                    "Signal port type",
+                scalar_channel_role = st.selectbox(
+                    "Channel role",
                     options=["value", "status", "alarm", "uncertainty"],
                     index=0,
-                    key="scalar_signal_port_type",
+                    key="scalar_channel_role",
                 )
             scalar_equipment_name = None
 
@@ -159,6 +159,7 @@ with tab_scalar:
                 index=None,
                 placeholder="Select parameter...",
                 key="scalar_parameter",
+                help="Measured analyte or parameter (e.g. TSS, pH)",
             )
             scalar_parameter_name = selected_parameter_label
 
@@ -173,6 +174,7 @@ with tab_scalar:
                 index=None,
                 placeholder="Select unit...",
                 key="scalar_unit",
+                help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
             )
             scalar_unit_name = selected_unit_label
 
@@ -184,7 +186,7 @@ with tab_scalar:
 
         with col5:
             processing_options = [
-                {"id": d["processing_degree_id"], "label": d["name"]}
+                {"id": d["processing_kind_id"], "label": d["name"]}
                 for d in processing_degrees_lookup
             ]
             processing_labels = [opt["label"] for opt in processing_options]
@@ -195,7 +197,7 @@ with tab_scalar:
                 help="Auto-created if new channel",
                 key="scalar_processing",
             )
-            scalar_processing_degree_id = next(
+            scalar_processing_kind_id = next(
                 (
                     opt["id"]
                     for opt in processing_options
@@ -408,7 +410,7 @@ with tab_scalar:
                         "parameter_name": scalar_parameter_name,
                         "unit_name": scalar_unit_name,
                         "data_provenance_id": scalar_data_provenance_id,
-                        "processing_degree_id": scalar_processing_degree_id,
+                        "processing_kind_id": scalar_processing_kind_id,
                         "values": values_payload,
                     }
                     result = ingest_sensor_tagless(payload)
@@ -416,11 +418,11 @@ with tab_scalar:
                     payload = {
                         "das_name": scalar_das_name,
                         "tag": scalar_tag,
-                        "signal_port_type": scalar_signal_port_type,
+                        "channel_role": scalar_channel_role,
                         "parameter_name": scalar_parameter_name,
                         "unit_name": scalar_unit_name,
                         "data_provenance_id": scalar_data_provenance_id,
-                        "processing_degree_id": scalar_processing_degree_id,
+                        "processing_kind_id": scalar_processing_kind_id,
                         "values": values_payload,
                     }
                     result = ingest_sensor(payload)
@@ -452,16 +454,16 @@ with tab_vector:
             units_lookup = list_units_lookup()
             axes_lookup = list_binning_axes_lookup()
             provenance_lookup = list_data_provenance_lookup()
-            processing_degrees_lookup = list_processing_degrees_lookup()
+            processing_degrees_lookup = list_processing_kinds_lookup()
     except APIError as e:
         st.error(f"Cannot load lookup data: {e.message}")
         st.stop()
 
     sensor_provenance = next(
-        (p for p in provenance_lookup if p["data_provenance_id"] == 1),
-        {"data_provenance_name": "Sensor"},
+        (p for p in provenance_lookup if p["data_provenance_kind_id"] == 1),
+        {"name": "Sensor"},
     )
-    sensor_provenance_name = sensor_provenance["data_provenance_name"]
+    sensor_provenance_name = sensor_provenance["name"]
 
     # Channel Identity
     with st.container(border=True):
@@ -494,10 +496,11 @@ with tab_vector:
                     index=None,
                     placeholder="Select equipment...",
                     key="vector_equipment_tagless",
+                    help="Physical instrument this channel is directly connected to",
                 )
             vector_equipment_name = selected_equipment_label  # identifier is the name
             vector_tag = None
-            vector_signal_port_type = None
+            vector_channel_role = None
         else:
             col_das, col_tag, col_spt = st.columns(3)
             with col_das:
@@ -515,11 +518,11 @@ with tab_vector:
                     key="vector_tag",
                 )
             with col_spt:
-                vector_signal_port_type = st.selectbox(
-                    "Signal port type",
+                vector_channel_role = st.selectbox(
+                    "Channel role",
                     options=["value", "status", "alarm", "uncertainty"],
                     index=0,
-                    key="vector_signal_port_type",
+                    key="vector_channel_role",
                 )
             vector_equipment_name = None
 
@@ -537,6 +540,7 @@ with tab_vector:
                 index=None,
                 placeholder="Select parameter...",
                 key="vector_parameter",
+                help="Measured analyte or parameter (e.g. TSS, pH)",
             )
             vector_parameter_name = selected_parameter_label
 
@@ -551,6 +555,7 @@ with tab_vector:
                 index=None,
                 placeholder="Select unit...",
                 key="vector_unit",
+                help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
             )
             vector_unit_name = selected_unit_label
 
@@ -562,7 +567,7 @@ with tab_vector:
 
         with col5:
             processing_options = [
-                {"id": d["processing_degree_id"], "label": d["name"]}
+                {"id": d["processing_kind_id"], "label": d["name"]}
                 for d in processing_degrees_lookup
             ]
             processing_labels = [opt["label"] for opt in processing_options]
@@ -572,7 +577,7 @@ with tab_vector:
                 index=0,
                 key="vector_processing",
             )
-            vector_processing_degree_id = next(
+            vector_processing_kind_id = next(
                 (
                     opt["id"]
                     for opt in processing_options
@@ -822,7 +827,7 @@ with tab_vector:
                 "unit_name": vector_unit_name,
                 "binning_axis_id": vector_axis_id,
                 "data_provenance_id": vector_data_provenance_id,
-                "processing_degree_id": vector_processing_degree_id,
+                "processing_kind_id": vector_processing_kind_id,
                 "observations": [
                     {
                         "timestamp": obs["timestamp"].isoformat(),
@@ -836,12 +841,12 @@ with tab_vector:
             payload = {
                 "das_name": vector_das_name,
                 "tag": vector_tag,
-                "signal_port_type": vector_signal_port_type,
+                "channel_role": vector_channel_role,
                 "parameter_name": vector_parameter_name,
                 "unit_name": vector_unit_name,
                 "binning_axis_id": vector_axis_id,
                 "data_provenance_id": vector_data_provenance_id,
-                "processing_degree_id": vector_processing_degree_id,
+                "processing_kind_id": vector_processing_kind_id,
                 "observations": [
                     {
                         "timestamp": obs["timestamp"].isoformat(),
@@ -884,16 +889,16 @@ with tab_matrix:
             units_lookup = list_units_lookup()
             axes_lookup = list_binning_axes_lookup()
             provenance_lookup = list_data_provenance_lookup()
-            processing_degrees_lookup = list_processing_degrees_lookup()
+            processing_degrees_lookup = list_processing_kinds_lookup()
     except APIError as e:
         st.error(f"Cannot load lookup data: {e.message}")
         st.stop()
 
     sensor_provenance = next(
-        (p for p in provenance_lookup if p["data_provenance_id"] == 1),
-        {"data_provenance_name": "Sensor"},
+        (p for p in provenance_lookup if p["data_provenance_kind_id"] == 1),
+        {"name": "Sensor"},
     )
-    sensor_provenance_name = sensor_provenance["data_provenance_name"]
+    sensor_provenance_name = sensor_provenance["name"]
 
     # Channel Identity
     with st.container(border=True):
@@ -926,10 +931,11 @@ with tab_matrix:
                     index=None,
                     placeholder="Select equipment...",
                     key="matrix_equipment_tagless",
+                    help="Physical instrument this channel is directly connected to",
                 )
             matrix_equipment_name = selected_equipment_label  # identifier is the name
             matrix_tag = None
-            matrix_signal_port_type = None
+            matrix_channel_role = None
         else:
             col_das, col_tag, col_spt = st.columns(3)
             with col_das:
@@ -947,11 +953,11 @@ with tab_matrix:
                     key="matrix_tag",
                 )
             with col_spt:
-                matrix_signal_port_type = st.selectbox(
-                    "Signal port type",
+                matrix_channel_role = st.selectbox(
+                    "Channel role",
                     options=["value", "status", "alarm", "uncertainty"],
                     index=0,
-                    key="matrix_signal_port_type",
+                    key="matrix_channel_role",
                 )
             matrix_equipment_name = None
 
@@ -969,6 +975,7 @@ with tab_matrix:
                 index=None,
                 placeholder="Select parameter...",
                 key="matrix_parameter",
+                help="Measured analyte or parameter (e.g. TSS, pH)",
             )
             matrix_parameter_name = selected_parameter_label
 
@@ -983,6 +990,7 @@ with tab_matrix:
                 index=None,
                 placeholder="Select unit...",
                 key="matrix_unit",
+                help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
             )
             matrix_unit_name = selected_unit_label
 
@@ -994,7 +1002,7 @@ with tab_matrix:
 
         with col5:
             processing_options = [
-                {"id": d["processing_degree_id"], "label": d["name"]}
+                {"id": d["processing_kind_id"], "label": d["name"]}
                 for d in processing_degrees_lookup
             ]
             processing_labels = [opt["label"] for opt in processing_options]
@@ -1004,7 +1012,7 @@ with tab_matrix:
                 index=0,
                 key="matrix_processing",
             )
-            matrix_processing_degree_id = next(
+            matrix_processing_kind_id = next(
                 (
                     opt["id"]
                     for opt in processing_options
@@ -1305,7 +1313,7 @@ with tab_matrix:
                 "row_axis_id": matrix_row_axis_id,
                 "col_axis_id": matrix_col_axis_id,
                 "data_provenance_id": matrix_data_provenance_id,
-                "processing_degree_id": matrix_processing_degree_id,
+                "processing_kind_id": matrix_processing_kind_id,
                 "observations": [
                     {
                         "timestamp": obs["timestamp"].isoformat(),
@@ -1319,13 +1327,13 @@ with tab_matrix:
             payload = {
                 "das_name": matrix_das_name,
                 "tag": matrix_tag,
-                "signal_port_type": matrix_signal_port_type,
+                "channel_role": matrix_channel_role,
                 "parameter_name": matrix_parameter_name,
                 "unit_name": matrix_unit_name,
                 "row_axis_id": matrix_row_axis_id,
                 "col_axis_id": matrix_col_axis_id,
                 "data_provenance_id": matrix_data_provenance_id,
-                "processing_degree_id": matrix_processing_degree_id,
+                "processing_kind_id": matrix_processing_kind_id,
                 "observations": [
                     {
                         "timestamp": obs["timestamp"].isoformat(),
@@ -1366,16 +1374,16 @@ with tab_image:
             parameters_lookup = list_parameters_lookup()
             units_lookup = list_units_lookup()
             provenance_lookup = list_data_provenance_lookup()
-            processing_degrees_lookup = list_processing_degrees_lookup()
+            processing_degrees_lookup = list_processing_kinds_lookup()
     except APIError as e:
         st.error(f"Cannot load lookup data: {e.message}")
         st.stop()
 
     sensor_provenance = next(
-        (p for p in provenance_lookup if p["data_provenance_id"] == 1),
-        {"data_provenance_name": "Sensor"},
+        (p for p in provenance_lookup if p["data_provenance_kind_id"] == 1),
+        {"name": "Sensor"},
     )
-    sensor_provenance_name = sensor_provenance["data_provenance_name"]
+    sensor_provenance_name = sensor_provenance["name"]
 
     # Channel Identity
     with st.container(border=True):
@@ -1395,6 +1403,7 @@ with tab_image:
                 index=None,
                 placeholder="Select equipment...",
                 key="img_equipment",
+                help="Physical instrument this channel is directly connected to",
             )
             img_equipment_id = next(
                 (
@@ -1417,6 +1426,7 @@ with tab_image:
                 index=None,
                 placeholder="Select parameter...",
                 key="img_parameter",
+                help="Measured analyte or parameter (e.g. TSS, pH)",
             )
             img_parameter_id = next(
                 (
@@ -1438,6 +1448,7 @@ with tab_image:
                 index=None,
                 placeholder="Select unit...",
                 key="img_unit",
+                help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
             )
             img_unit_id = next(
                 (
@@ -1456,7 +1467,7 @@ with tab_image:
 
         with col5:
             processing_options = [
-                {"id": d["processing_degree_id"], "label": d["name"]}
+                {"id": d["processing_kind_id"], "label": d["name"]}
                 for d in processing_degrees_lookup
             ]
             processing_labels = [opt["label"] for opt in processing_options]
@@ -1535,7 +1546,7 @@ with tab_image:
                             filename=uploaded_image.name,
                             quality_code=img_quality_code,
                             data_provenance_id=img_provenance_id,
-                            processing_degree_id=img_processing_id,
+                            processing_kind_id=img_processing_id,
                         )
                     st.success(f"✅ Image stored at **{result['storage_path']}**")
                     st.info(

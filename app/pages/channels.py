@@ -17,13 +17,13 @@ from app.api_client import (
     create_channel,
     delete_channel,
     list_channels,
+    list_channel_roles,
     list_parameters_lookup,
-    list_processing_degrees_lookup,
-    list_signal_ports,
+    list_processing_kinds_lookup,
+    list_signal_interfaces_lookup,
     update_channel,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
-
 
 
 st.title("Channels")
@@ -31,24 +31,31 @@ st.title("Channels")
 # Load lookup data for dropdowns
 try:
     with st.spinner("Loading..."):
-        signal_ports_data = list_signal_ports(page_size=500)
+        signal_interfaces_lookup = list_signal_interfaces_lookup()
         parameters_lookup = list_parameters_lookup()
-        processing_degrees_lookup = list_processing_degrees_lookup()
+        processing_degrees_lookup = list_processing_kinds_lookup()
+        channel_roles_lookup = list_channel_roles()
 except APIError as e:
     st.error(f"Cannot load lookup data: {e.message}")
     st.stop()
 
 # Prepare dropdown options
-signal_port_options = [
-    {"id": sp["signal_port_id"], "label": f"{sp['das_name']} / {sp['tag']}"}
-    for sp in signal_ports_data.get("items", [])
+signal_interface_options = [
+    {
+        "id": si["signal_interface_id"],
+        "label": si.get("name", f"SI-{si['signal_interface_id']}"),
+    }
+    for si in signal_interfaces_lookup
 ]
 parameter_options = [
     {"id": p["parameter_id"], "label": p["parameter_name"]} for p in parameters_lookup
 ]
 degree_options = [
-    {"id": d["processing_degree_id"], "label": d["name"]}
+    {"id": d["processing_kind_id"], "label": d["name"]}
     for d in processing_degrees_lookup
+]
+channel_role_options = [
+    {"id": cr["channel_kind_id"], "label": cr["name"]} for cr in channel_roles_lookup
 ]
 
 # Filter section
@@ -56,18 +63,21 @@ st.markdown("### Filters")
 filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
 
 with filter_col1:
-    signal_port_filter_options = [{"id": None, "label": "All"}] + signal_port_options
-    selected_signal_port_label = st.selectbox(
-        "Signal Port",
-        options=[opt["label"] for opt in signal_port_filter_options],
+    signal_interface_filter_options = [
+        {"id": None, "label": "All"}
+    ] + signal_interface_options
+    selected_signal_interface_label = st.selectbox(
+        "Signal Interface",
+        options=[opt["label"] for opt in signal_interface_filter_options],
         index=0,
-        key="filter_signal_port",
+        key="filter_signal_interface",
+        help="Filter channels by their publishing interface (PLC, SCADA, basestation, ...)",
     )
-    signal_port_id_filter = next(
+    signal_interface_id_filter = next(
         (
             opt["id"]
-            for opt in signal_port_filter_options
-            if opt["label"] == selected_signal_port_label
+            for opt in signal_interface_filter_options
+            if opt["label"] == selected_signal_interface_label
         ),
         None,
     )
@@ -79,6 +89,7 @@ with filter_col2:
         options=[opt["label"] for opt in parameter_filter_options],
         index=0,
         key="filter_parameter",
+        help="Filter channels by measured analyte or parameter",
     )
     parameter_id_filter = next(
         (
@@ -96,6 +107,7 @@ with filter_col3:
         options=[opt["label"] for opt in degree_filter_options],
         index=0,
         key="filter_degree",
+        help="Filter channels by level of processing applied to the time series",
     )
     degree_id_filter = next(
         (
@@ -115,9 +127,9 @@ if apply_filters or "channels_loaded" not in st.session_state:
     try:
         with st.spinner("Loading channels..."):
             channels_data = list_channels(
-                signal_port_id=signal_port_id_filter,
+                signal_interface_id=signal_interface_id_filter,
                 parameter_id=parameter_id_filter,
-                processing_degree_id=degree_id_filter,
+                processing_kind_id=degree_id_filter,
             )
             channels = (
                 channels_data.get("items", [])
@@ -163,41 +175,83 @@ def handle_delete_channel(channel_id: int) -> None:
         st.error(f"Failed to delete channel: {e.message}")
 
 
+# Form field definitions (shared between create and edit)
+_FORM_FIELDS = [
+    {
+        "name": "signal_interface_id",
+        "label": "Signal Interface",
+        "type": "select",
+        "required": True,
+        "options": signal_interface_options,
+        "help": "The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag",
+    },
+    {
+        "name": "signal_interface_port_id",
+        "label": "Signal Interface Port",
+        "type": "number",
+        "required": False,
+        "help": "Current physical port (if known) this Channel is gated through",
+    },
+    {
+        "name": "tag_name",
+        "label": "Tag Name",
+        "type": "text",
+        "required": True,
+        "help": "Tag string as published by the SignalInterface (case-preserved)",
+    },
+    {
+        "name": "parent_channel_id",
+        "label": "Parent Channel",
+        "type": "number",
+        "required": False,
+        "help": "For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent Value Channel",
+    },
+    {
+        "name": "channel_kind_id",
+        "label": "Channel Kind",
+        "type": "select",
+        "required": False,
+        "options": channel_role_options,
+        "help": "Kind of information this Channel carries (Value, Status, Alarm, Uncertainty)",
+    },
+    {
+        "name": "parameter_id",
+        "label": "Parameter",
+        "type": "select",
+        "required": False,
+        "options": parameter_options,
+        "help": "Measured analyte or parameter (e.g. TSS, pH)",
+    },
+    {
+        "name": "data_provenance_id",
+        "label": "Data Provenance",
+        "type": "number",
+        "required": False,
+        "help": "How this data was produced (Sensor, Laboratory, Manual Entry, ...)",
+    },
+    {
+        "name": "processing_kind_id",
+        "label": "Processing Kind",
+        "type": "select",
+        "required": False,
+        "options": degree_options,
+        "help": "Level of processing applied to this time series (e.g. Raw, Validated, Processed)",
+    },
+    {
+        "name": "value_kind_id",
+        "label": "Value Kind",
+        "type": "number",
+        "required": False,
+        "help": "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)",
+    },
+]
+
 # Action buttons
 col1, col2, col3 = st.columns([1, 1, 8])
 with col1:
     if st.button("➕ New", type="primary"):
         create_form_dialog(
-            fields=[
-                {
-                    "name": "signal_port_id",
-                    "type": "select",
-                    "required": True,
-                    "options": signal_port_options,
-                },
-                {
-                    "name": "parameter_id",
-                    "type": "select",
-                    "required": False,
-                    "options": parameter_options,
-                },
-                {
-                    "name": "data_provenance_id",
-                    "type": "number",
-                    "required": False,
-                },
-                {
-                    "name": "processing_degree_id",
-                    "type": "select",
-                    "required": False,
-                    "options": degree_options,
-                },
-                {
-                    "name": "value_type_id",
-                    "type": "number",
-                    "required": False,
-                },
-            ],
+            fields=_FORM_FIELDS,
             on_submit=lambda data: handle_create_channel(data),
             title="Create New Channel",
         )
@@ -231,36 +285,7 @@ with col2:
         if selected_item:
             edit_form_dialog(
                 item_data=selected_item,
-                fields=[
-                    {
-                        "name": "signal_port_id",
-                        "type": "select",
-                        "required": True,
-                        "options": signal_port_options,
-                    },
-                    {
-                        "name": "parameter_id",
-                        "type": "select",
-                        "required": False,
-                        "options": parameter_options,
-                    },
-                    {
-                        "name": "data_provenance_id",
-                        "type": "number",
-                        "required": False,
-                    },
-                    {
-                        "name": "processing_degree_id",
-                        "type": "select",
-                        "required": False,
-                        "options": degree_options,
-                    },
-                    {
-                        "name": "value_type_id",
-                        "type": "number",
-                        "required": False,
-                    },
-                ],
+                fields=_FORM_FIELDS,
                 on_submit=lambda data: handle_update_channel(
                     selected_item["channel_id"], data
                 ),

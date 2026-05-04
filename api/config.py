@@ -31,7 +31,7 @@ class Settings:
         "ingestion routes, and processing lineage."
     )
     api_version: str = "1.0.0"
-    schema_version: str = "2.1.0"
+    schema_version: str = "4.1.0"
 
     upload_dir: str = "./uploads/images"
 

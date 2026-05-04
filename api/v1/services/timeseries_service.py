@@ -1,6 +1,6 @@
 """Service for assembling TimeseriesOut responses.
 
-Handles ValueType dispatch and builds the uniform response format regardless
+Handles ValueKind dispatch and builds the uniform response format regardless
 of whether data lives in Value, ValueVector, ValueMatrix, or ValueImage.
 """
 
@@ -29,7 +29,7 @@ def get_timeseries(
     data = value_repository.get_values_for_metadata(
         conn,
         channel_id,
-        channel.get("value_type_id"),
+        channel.get("value_kind_id"),
         from_dt,
         to_dt,
         operational_only=operational_only,
@@ -42,9 +42,9 @@ def get_timeseries(
         "site": None,
         "parameter": channel.get("parameter_name"),
         "unit": channel.get("unit_name"),
-        "data_shape": channel.get("value_type_name") or "Scalar",
-        "provenance": channel.get("data_provenance_name"),
-        "processing_degree": channel.get("processing_degree_name"),
+        "data_shape": channel.get("value_kind_name") or "Scalar",
+        "provenance": channel.get("data_provenance_kind_name"),
+        "processing_degree": channel.get("processing_kind_name"),
         "campaign": None,
         "from_timestamp": min(timestamps) if timestamps else None,
         "to_timestamp": max(timestamps) if timestamps else None,
@@ -58,7 +58,7 @@ def get_timeseries_by_context(
     *,
     equipment_id: int | None,
     parameter_id: int | None,
-    processing_degree_id: int | None,
+    processing_kind_id: int | None,
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
@@ -67,7 +67,7 @@ def get_timeseries_by_context(
         conn,
         equipment_id=equipment_id,
         parameter_id=parameter_id,
-        processing_degree_id=processing_degree_id,
+        processing_kind_id=processing_kind_id,
         page=1,
         page_size=50,
     )
@@ -92,7 +92,7 @@ def get_full_context(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT c.[Channel_ID], c.[ProcessingDegree_ID],
+        SELECT c.[Channel_ID], c.[ProcessingKind_ID],
                COUNT(v.[Timestamp]) AS ValueCount
         FROM [dbo].[Channel] c
         LEFT JOIN [dbo].[Value] v
@@ -101,8 +101,8 @@ def get_full_context(
            AND (? IS NULL OR v.[Timestamp] <= ?)
         WHERE c.[Equipment_ID] = ?
           AND c.[Parameter_ID] = ?
-        GROUP BY c.[Channel_ID], c.[ProcessingDegree_ID]
-        ORDER BY c.[ProcessingDegree_ID], c.[Channel_ID]
+        GROUP BY c.[Channel_ID], c.[ProcessingKind_ID]
+        ORDER BY c.[ProcessingKind_ID], c.[Channel_ID]
         """,
         from_dt,
         from_dt,
@@ -112,7 +112,7 @@ def get_full_context(
         channel.get("parameter_id"),
     )
     processing_degrees = [
-        {"channel_id": r[0], "processing_degree_id": r[1], "value_count": r[2]}
+        {"channel_id": r[0], "processing_kind_id": r[1], "value_count": r[2]}
         for r in cursor.fetchall()
     ]
 

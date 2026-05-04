@@ -51,8 +51,8 @@ def _row_to_signal_interface_out(row: dict) -> SignalInterfaceOut:
         is_active=bool(row["IsActive"]),
         data_acquisition_system_id=row["DataAcquisitionSystem_ID"],
         das_name=row["das_name"],
-        signal_interface_type_id=row["SignalInterfaceType_ID"],
-        signal_interface_type_name=row["signal_interface_type_name"],
+        signal_interface_kind_id=row["SignalInterfaceKind_ID"],
+        signal_interface_kind_name=row["signal_interface_kind_name"],
     )
 
 
@@ -80,8 +80,8 @@ def list_signal_interfaces(
         default=None, description="Filter by DataAcquisitionSystem_ID"
     ),
     is_active: bool | None = Query(default=None, description="Filter by IsActive flag"),
-    signal_interface_type_id: int | None = Query(
-        default=None, description="Filter by SignalInterfaceType_ID"
+    signal_interface_kind_id: int | None = Query(
+        default=None, description="Filter by SignalInterfaceKind_ID"
     ),
     equipment_id: int | None = Query(
         default=None, description="Filter by active Equipment_ID"
@@ -95,7 +95,7 @@ def list_signal_interfaces(
         conn,
         das_id=das_id,
         is_active=is_active,
-        signal_interface_type_id=signal_interface_type_id,
+        signal_interface_kind_id=signal_interface_kind_id,
         equipment_id=equipment_id,
         page=page,
         page_size=page_size,
@@ -192,10 +192,10 @@ def provision_signal_interface(body: SignalInterfaceProvisionIn, conn=Depends(ge
     if type_id is None:
         raise HTTPException(
             status_code=422,
-            detail=f"SignalInterfaceType {body.type_name!r} not found.",
+            detail=f"SignalInterfaceKind {body.type_name!r} not found.",
         )
     si_id, _ = signal_interface_repository.find_or_create_signal_interface(
-        conn, das_id=das_id, name=body.name, signal_interface_type_id=type_id
+        conn, das_id=das_id, name=body.name, signal_interface_kind_id=type_id
     )
     row = signal_interface_repository.get_signal_interface_by_id(conn, si_id)
     return _row_to_signal_interface_out(row)  # type: ignore[arg-type]
@@ -212,7 +212,7 @@ def create_signal_interface(body: SignalInterfaceIn, conn=Depends(get_db)):
             conn,
             das_id=body.data_acquisition_system_id,
             name=body.name,
-            signal_interface_type_id=body.signal_interface_type_id,
+            signal_interface_kind_id=body.signal_interface_kind_id,
             make=body.make,
             model=body.model,
             serial_number=body.serial_number,

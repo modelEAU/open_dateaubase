@@ -7,8 +7,8 @@ import pyodbc
 _CAMPAIGN_SELECT = """
     SELECT
         c.[Campaign_ID],
-        c.[CampaignType_ID],
-        ct.[CampaignType_Name],
+        c.[CampaignKind_ID],
+        ct.[Name],
         c.[Site_ID],
         s.[Name]            AS SiteName,
         c.[Name],
@@ -18,7 +18,7 @@ _CAMPAIGN_SELECT = """
         c.[ResponsiblePerson_ID],
         CONCAT(p.[FirstName], ' ', p.[LastName]) AS ResponsiblePersonName
     FROM [dbo].[Campaign] c
-    LEFT JOIN [dbo].[CampaignType] ct ON ct.[CampaignType_ID] = c.[CampaignType_ID]
+    LEFT JOIN [dbo].[CampaignKind] ct ON ct.[CampaignKind_ID] = c.[CampaignKind_ID]
     LEFT JOIN [dbo].[Site]         s  ON s.[Site_ID]          = c.[Site_ID]
     LEFT JOIN [dbo].[Person]       p  ON p.[Person_ID]        = c.[ResponsiblePerson_ID]
 """
@@ -27,8 +27,8 @@ _CAMPAIGN_SELECT = """
 def _row_to_dict(row) -> dict:
     return {
         "campaign_id": row[0],
-        "campaign_type_id": row[1],
-        "campaign_type_name": row[2],
+        "campaign_kind_id": row[1],
+        "campaign_kind_name": row[2],
         "site_id": row[3],
         "site_name": row[4],
         "name": row[5],
@@ -44,16 +44,16 @@ def list_campaigns(
     conn: pyodbc.Connection,
     *,
     site_id: int | None = None,
-    campaign_type_id: int | None = None,
+    campaign_kind_id: int | None = None,
 ) -> list[dict]:
     where_parts = []
     params = []
     if site_id is not None:
         where_parts.append("c.[Site_ID] = ?")
         params.append(site_id)
-    if campaign_type_id is not None:
-        where_parts.append("c.[CampaignType_ID] = ?")
-        params.append(campaign_type_id)
+    if campaign_kind_id is not None:
+        where_parts.append("c.[CampaignKind_ID] = ?")
+        params.append(campaign_kind_id)
 
     where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     cursor = conn.cursor()
@@ -70,15 +70,15 @@ def get_campaign_by_id(conn: pyodbc.Connection, campaign_id: int) -> dict | None
     return _row_to_dict(row) if row else None
 
 
-def insert_campaign(conn: pyodbc.Connection, data: dict) -> dict:
+def insert_campaign(conn: pyodbc.Connection, data: dict) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO [dbo].[Campaign]"
-        " ([Name], [CampaignType_ID], [Site_ID], [Description],"
+        " ([Name], [CampaignKind_ID], [Site_ID], [Description],"
         " [CampaignStartDateTime], [CampaignEndDateTime], [ResponsiblePerson_ID])"
         " VALUES (?, ?, ?, ?, ?, ?, ?)",
         data.get("name"),
-        data.get("campaign_type_id"),
+        data.get("campaign_kind_id"),
         data.get("site_id"),
         data.get("description"),
         data.get("start_date"),
@@ -86,7 +86,9 @@ def insert_campaign(conn: pyodbc.Connection, data: dict) -> dict:
         data.get("responsible_person_id"),
     )
     cursor.execute("SELECT @@IDENTITY")
-    new_id = int(cursor.fetchone()[0])
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id = int(_row[0])
     conn.commit()
     return get_campaign_by_id(conn, new_id)
 
@@ -97,11 +99,11 @@ def update_campaign(
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE [dbo].[Campaign]"
-        " SET [Name]=?, [CampaignType_ID]=?, [Site_ID]=?, [Description]=?,"
+        " SET [Name]=?, [CampaignKind_ID]=?, [Site_ID]=?, [Description]=?,"
         " [CampaignStartDateTime]=?, [CampaignEndDateTime]=?, [ResponsiblePerson_ID]=?"
         " WHERE [Campaign_ID]=?",
         data.get("name"),
-        data.get("campaign_type_id"),
+        data.get("campaign_kind_id"),
         data.get("site_id"),
         data.get("description"),
         data.get("start_date"),
@@ -134,9 +136,9 @@ def patch_campaign(
     if "name" in data:
         fields.append("[Name]=?")
         values.append(data.get("name"))
-    if "campaign_type_id" in data:
-        fields.append("[CampaignType_ID]=?")
-        values.append(data.get("campaign_type_id"))
+    if "campaign_kind_id" in data:
+        fields.append("[CampaignKind_ID]=?")
+        values.append(data.get("campaign_kind_id"))
     if "site_id" in data:
         fields.append("[Site_ID]=?")
         values.append(data.get("site_id"))
@@ -166,13 +168,13 @@ def patch_campaign(
     return get_campaign_by_id(conn, campaign_id)
 
 
-def get_campaign_types(conn: pyodbc.Connection) -> list[dict]:
-    """Return all campaign types for dropdowns."""
+def get_campaign_kinds(conn: pyodbc.Connection) -> list[dict]:
+    """Return all campaign kinds for dropdowns."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [CampaignType_ID], [CampaignType_Name] FROM [dbo].[CampaignType] ORDER BY [CampaignType_Name]"
+        "SELECT [CampaignKind_ID], [Name], [Description] FROM [dbo].[CampaignKind] ORDER BY [Name]"
     )
-    return [{"campaign_type_id": row[0], "name": row[1]} for row in cursor.fetchall()]
+    return [{"campaign_kind_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
 
 
 def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
@@ -314,7 +316,9 @@ def create_campaign_deployment(
         campaign_id,
         equipment_id,
     )
-    if cursor.fetchone()[0] > 0:
+    _count_row = cursor.fetchone()
+    assert _count_row is not None
+    if _count_row[0] > 0:
         raise ValueError(
             f"Equipment {equipment_id} is already deployed in this campaign"
         )

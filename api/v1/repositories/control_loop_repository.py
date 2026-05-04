@@ -50,7 +50,9 @@ def create_control_loop(
         algorithm_reference,
         description,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     return new_id
 
@@ -91,14 +93,16 @@ def add_loop_port(
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO [dbo].[ControlLoopPort]"
-        "    ([ControlLoop_ID], [Channel_ID], [ControlLoopPortRole_ID])"
+        "    ([ControlLoop_ID], [Channel_ID], [ControlLoopPortKind_ID])"
         " OUTPUT INSERTED.[ControlLoopPort_ID]"
         " VALUES (?, ?, ?)",
         loop_id,
         channel_id,
         role_id,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     return new_id
 
@@ -112,11 +116,11 @@ def get_loop_ports(conn: pyodbc.Connection, loop_id: int) -> list[dict]:
             lp.[ControlLoopPort_ID],
             lp.[ControlLoop_ID],
             lp.[Channel_ID],
-            lp.[ControlLoopPortRole_ID],
+            lp.[ControlLoopPortKind_ID],
             r.[Name] AS [role_name]
         FROM [dbo].[ControlLoopPort] lp
-        JOIN [dbo].[ControlLoopPortRole] r
-            ON r.[ControlLoopPortRole_ID] = lp.[ControlLoopPortRole_ID]
+        JOIN [dbo].[ControlLoopPortKind] r
+            ON r.[ControlLoopPortKind_ID] = lp.[ControlLoopPortKind_ID]
         WHERE lp.[ControlLoop_ID] = ?
         """,
         loop_id,
@@ -164,7 +168,9 @@ def open_application(
         applied_by_person_id,
         notes,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     return new_id
 
@@ -203,7 +209,7 @@ def retune(
     closed_id: int | None = None
 
     if active is not None:
-        closed_id = active["ControlLoopApplication_ID"]
+        closed_id = int(active["ControlLoopApplication_ID"])
         close_application(conn, closed_id, end_time=start_time)
 
     cursor = conn.cursor()
@@ -219,7 +225,9 @@ def retune(
         applied_by_person_id,
         notes,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     return new_id, closed_id
 
@@ -299,10 +307,10 @@ def get_fallback_chain(conn: pyodbc.Connection, loop_id: int) -> list[dict]:
 
 
 def find_role_by_name(conn: pyodbc.Connection, name: str) -> int | None:
-    """Return ControlLoopPortRole_ID for *name* (case-insensitive). None if not found."""
+    """Return ControlLoopPortKind_ID for *name* (case-insensitive). None if not found."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ControlLoopPortRole_ID] FROM [dbo].[ControlLoopPortRole]"
+        "SELECT [ControlLoopPortKind_ID] FROM [dbo].[ControlLoopPortKind]"
         " WHERE LOWER(LTRIM(RTRIM([Name]))) = ?",
         name.strip().lower(),
     )

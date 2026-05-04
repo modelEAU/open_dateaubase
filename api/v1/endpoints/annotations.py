@@ -3,7 +3,7 @@
 Three router groups registered in api/v1/router.py:
   - timeseries_router  → prefix /timeseries   (GET/POST /{channel_id}/annotations)
   - annotations_router → prefix /annotations  (GET/PUT/DELETE /{annotation_id}, /recent, /by-type/{type_name})
-  - annotation_types_router → prefix /annotation-types  (GET /)
+  - annotation_kinds_router → prefix /annotation-kinds  (GET /)
 """
 
 from __future__ import annotations
@@ -19,14 +19,14 @@ from ..schemas.annotations import (
     AnnotationCreate,
     AnnotationListResponse,
     AnnotationResponse,
-    AnnotationTypeListResponse,
-    AnnotationTypeResponse,
+    AnnotationKindListResponse,
+    AnnotationKindResponse,
     AnnotationUpdate,
 )
 from ..services import annotation_service
 
 
-class AnnotationTypeIn(BaseModel):
+class AnnotationKindIn(BaseModel):
     name: str
     description: str | None = None
     color: str | None = None
@@ -108,14 +108,14 @@ def get_recent_annotations(
 
 
 @annotations_router.get("/by-type/{type_name}", response_model=AnnotationListResponse)
-def get_annotations_by_type(
+def get_annotations_by_kind(
     type_name: str,
     from_dt: datetime = Query(..., alias="from", description="Start of query range (ISO 8601)"),
     to_dt: datetime = Query(..., alias="to", description="End of query range (ISO 8601)"),
     conn=Depends(get_db),
 ):
     """All annotations of a given type across all series in a time range."""
-    return annotation_service.get_annotations_by_type(conn, type_name, from_dt, to_dt)
+    return annotation_service.get_annotations_by_kind(conn, type_name, from_dt, to_dt)
 
 
 @annotations_router.put("/{annotation_id}", response_model=AnnotationResponse)
@@ -139,58 +139,58 @@ def delete_annotation(
 
 
 # ---------------------------------------------------------------------------
-# Annotation types lookup: /annotation-types
+# Annotation types lookup: /annotation-kinds
 # ---------------------------------------------------------------------------
 
-annotation_types_router = APIRouter()
+annotation_kinds_router = APIRouter()
 
 
-@annotation_types_router.get("", response_model=AnnotationTypeListResponse)
-def list_annotation_types(conn=Depends(get_db)):
+@annotation_kinds_router.get("", response_model=AnnotationKindListResponse)
+def list_annotation_kinds(conn=Depends(get_db)):
     """List all available annotation types (for UI dropdowns)."""
-    return annotation_service.get_annotation_types(conn)
+    return annotation_service.get_annotation_kinds(conn)
 
 
-@annotation_types_router.post("", response_model=AnnotationTypeResponse, status_code=201)
-def create_annotation_type(body: AnnotationTypeIn, conn=Depends(get_db)):
-    """Create a new AnnotationType."""
-    row = annotation_repository.insert_annotation_type(
+@annotation_kinds_router.post("", response_model=AnnotationKindResponse, status_code=201)
+def create_annotation_kind(body: AnnotationKindIn, conn=Depends(get_db)):
+    """Create a new AnnotationKind."""
+    row = annotation_repository.insert_annotation_kind(
         conn, body.name, body.description, body.color
     )
-    return AnnotationTypeResponse(
-        id=row["annotation_type_id"],
+    return AnnotationKindResponse(
+        id=row["annotation_kind_id"],
         name=row["annotation_type_name"],
         description=row.get("description"),
         color=row.get("color"),
     )
 
 
-@annotation_types_router.put("/{annotation_type_id}", response_model=AnnotationTypeResponse)
-def update_annotation_type(
-    annotation_type_id: int, body: AnnotationTypeIn, conn=Depends(get_db)
+@annotation_kinds_router.put("/{annotation_kind_id}", response_model=AnnotationKindResponse)
+def update_annotation_kind(
+    annotation_kind_id: int, body: AnnotationKindIn, conn=Depends(get_db)
 ):
-    """Update an existing AnnotationType."""
-    row = annotation_repository.update_annotation_type(
-        conn, annotation_type_id, body.name, body.description, body.color
+    """Update an existing AnnotationKind."""
+    row = annotation_repository.update_annotation_kind(
+        conn, annotation_kind_id, body.name, body.description, body.color
     )
     if row is None:
         raise HTTPException(
-            status_code=404, detail=f"AnnotationType {annotation_type_id} not found."
+            status_code=404, detail=f"AnnotationKind {annotation_kind_id} not found."
         )
-    return AnnotationTypeResponse(
-        id=row["annotation_type_id"],
+    return AnnotationKindResponse(
+        id=row["annotation_kind_id"],
         name=row["annotation_type_name"],
         description=row.get("description"),
         color=row.get("color"),
     )
 
 
-@annotation_types_router.delete("/{annotation_type_id}", status_code=204)
-def delete_annotation_type(annotation_type_id: int, conn=Depends(get_db)):
-    """Delete an AnnotationType by ID."""
-    deleted = annotation_repository.delete_annotation_type(conn, annotation_type_id)
+@annotation_kinds_router.delete("/{annotation_kind_id}", status_code=204)
+def delete_annotation_kind(annotation_kind_id: int, conn=Depends(get_db)):
+    """Delete an AnnotationKind by ID."""
+    deleted = annotation_repository.delete_annotation_kind(conn, annotation_kind_id)
     if not deleted:
         raise HTTPException(
-            status_code=404, detail=f"AnnotationType {annotation_type_id} not found."
+            status_code=404, detail=f"AnnotationKind {annotation_kind_id} not found."
         )
     return Response(status_code=204)

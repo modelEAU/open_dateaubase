@@ -52,7 +52,7 @@ BIN_MODE_LABELS = {
 }
 
 
-def _bin_mode_columns(mode: str) -> list[str]:
+def _bin_kind_columns(mode: str) -> list[str]:
     if mode == "interval":
         return ["lower_bound", "upper_bound"]
     if mode == "interval_with_nominal":
@@ -71,14 +71,14 @@ def _editor_column_config(mode: str) -> dict:
 
 
 def _empty_bins_df(mode: str, n: int) -> pd.DataFrame:
-    cols = _bin_mode_columns(mode)
+    cols = _bin_kind_columns(mode)
     return pd.DataFrame({c: [None] * n for c in cols})
 
 
 def _bins_from_editor(df: pd.DataFrame, mode: str) -> list[dict]:
     """Convert data_editor DataFrame to API bin dicts, filtering incomplete rows."""
     bins = []
-    cols = _bin_mode_columns(mode)
+    cols = _bin_kind_columns(mode)
     for i, row in enumerate(df.itertuples(index=False)):
         vals = {c: getattr(row, c, None) for c in cols}
         # Skip entirely empty rows
@@ -94,7 +94,7 @@ def _bins_from_editor(df: pd.DataFrame, mode: str) -> list[dict]:
 
 def _bins_to_df(bins: list[dict], mode: str) -> pd.DataFrame:
     """Convert API bin dicts to a DataFrame for data_editor."""
-    cols = _bin_mode_columns(mode)
+    cols = _bin_kind_columns(mode)
     rows = []
     for b in sorted(bins, key=lambda x: x["bin_index"]):
         rows.append({c: b.get(c) for c in cols})
@@ -104,7 +104,7 @@ def _bins_to_df(bins: list[dict], mode: str) -> pd.DataFrame:
 # Show axes table
 if axes:
     df = pd.DataFrame(axes)
-    df_display = df[["name", "bin_mode", "unit_name", "number_of_bins", "description"]].copy()
+    df_display = df[["name", "bin_kind", "unit_name", "number_of_bins", "description"]].copy()
     df_display.columns = ["Name", "Bin Mode", "Unit", "Bins", "Description"]
 
     event = st.dataframe(
@@ -145,17 +145,26 @@ with col3:
 @st.dialog("Define New Axis")
 def new_axis_dialog():
     """Dialog for creating a new measurement axis."""
-    name = st.text_input("Name *", placeholder="e.g., UV-Vis 200-700nm 2nm")
-    description = st.text_area("Description", placeholder="Optional description")
+    name = st.text_input(
+        "Name *",
+        placeholder="e.g., UV-Vis 200-700nm 2nm",
+        help="Human-readable name identifying this axis configuration (e.g. 'S::CAN spectro::lyser UV-Vis')",
+    )
+    description = st.text_area(
+        "Description",
+        placeholder="Optional description",
+        help="Optional description of this axis",
+    )
 
     unit_id = st.selectbox(
         "Unit *",
         options=list(unit_options.keys()),
         format_func=lambda x: unit_options.get(x, "Unknown"),
+        help="Physical unit of the axis coordinates (e.g. nm, µm, m/s) — distinct from the measured value unit stored in Channel",
     )
 
     st.markdown("### Bin Mode")
-    bin_mode = st.radio(
+    bin_kind = st.radio(
         "How are bins defined?",
         options=BIN_MODE_OPTIONS,
         format_func=lambda x: BIN_MODE_LABELS[x],
@@ -164,22 +173,27 @@ def new_axis_dialog():
 
     st.markdown("### Bins")
     n_initial = st.number_input(
-        "Initial number of rows", min_value=1, max_value=1000, value=10, step=1
+        "Initial number of rows",
+        min_value=1,
+        max_value=1000,
+        value=10,
+        step=1,
+        help="Total number of bins defined on this axis",
     )
 
-    init_key = f"new_axis_bins_{bin_mode}"
+    init_key = f"new_axis_bins_{bin_kind}"
     if init_key not in st.session_state:
-        st.session_state[init_key] = _empty_bins_df(bin_mode, int(n_initial))
+        st.session_state[init_key] = _empty_bins_df(bin_kind, int(n_initial))
 
     edited_df = st.data_editor(
         st.session_state[init_key],
-        column_config=_editor_column_config(bin_mode),
+        column_config=_editor_column_config(bin_kind),
         num_rows="dynamic",
         use_container_width=True,
-        key=f"new_axis_editor_{bin_mode}",
+        key=f"new_axis_editor_{bin_kind}",
     )
 
-    bins = _bins_from_editor(edited_df, bin_mode)
+    bins = _bins_from_editor(edited_df, bin_kind)
     if bins:
         st.caption(f"{len(bins)} valid bin(s) ready to submit.")
 
@@ -201,7 +215,7 @@ def new_axis_dialog():
                 "name": name,
                 "description": description if description else None,
                 "unit_id": unit_id,
-                "bin_mode": bin_mode,
+                "bin_kind": bin_kind,
                 "bins": bins,
             }
             try:
@@ -229,10 +243,18 @@ def edit_axis_dialog():
         st.error("Axis not found")
         return
 
-    current_mode = current.get("bin_mode", "interval")
+    current_mode = current.get("bin_kind", "interval")
 
-    name = st.text_input("Name *", value=current["name"])
-    description = st.text_area("Description", value=current.get("description") or "")
+    name = st.text_input(
+        "Name *",
+        value=current["name"],
+        help="Human-readable name identifying this axis configuration (e.g. 'S::CAN spectro::lyser UV-Vis')",
+    )
+    description = st.text_area(
+        "Description",
+        value=current.get("description") or "",
+        help="Optional description of this axis",
+    )
 
     unit_id = st.selectbox(
         "Unit *",
@@ -241,6 +263,7 @@ def edit_axis_dialog():
         if current["unit_id"] in unit_options
         else 0,
         format_func=lambda x: unit_options.get(x, "Unknown"),
+        help="Physical unit of the axis coordinates (e.g. nm, µm, m/s) — distinct from the measured value unit stored in Channel",
     )
 
     st.markdown("### Bins")
@@ -257,7 +280,7 @@ def edit_axis_dialog():
             format_func=lambda x: BIN_MODE_LABELS[x],
             index=BIN_MODE_OPTIONS.index(current_mode),
             horizontal=True,
-            key="edit_bin_mode",
+            key="edit_bin_kind",
         )
 
         # Load current bins to pre-populate the editor
@@ -308,7 +331,7 @@ def edit_axis_dialog():
                 payload["unit_id"] = unit_id
             if replace_bins and new_bins is not None:
                 payload["bins"] = new_bins
-                payload["bin_mode"] = new_mode
+                payload["bin_kind"] = new_mode
 
             if not payload:
                 st.info("No changes to save.")
@@ -370,8 +393,8 @@ if selected_axis_id:
         try:
             axis_detail = get_binning_axis(selected_axis_id)
             if axis_detail and axis_detail.get("bins"):
-                mode = axis_detail.get("bin_mode", "interval")
-                cols = ["bin_index"] + _bin_mode_columns(mode)
+                mode = axis_detail.get("bin_kind", "interval")
+                cols = ["bin_index"] + _bin_kind_columns(mode)
                 bins_df = pd.DataFrame(axis_detail["bins"])[cols]
                 st.dataframe(bins_df, use_container_width=True, hide_index=True)
                 st.caption(f"Total bins: {len(axis_detail['bins'])} — mode: {BIN_MODE_LABELS.get(mode, mode)}")

@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 def find_signal_interface_type_by_name(
     conn: pyodbc.Connection, name: str
 ) -> int | None:
-    """Return SignalInterfaceType_ID for *name* (case-insensitive, trimmed). None if not found."""
+    """Return SignalInterfaceKind_ID for *name* (case-insensitive, trimmed). None if not found."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [SignalInterfaceType_ID] FROM [dbo].[SignalInterfaceType]"
+        "SELECT [SignalInterfaceKind_ID] FROM [dbo].[SignalInterfaceKind]"
         " WHERE LOWER(LTRIM(RTRIM([Name]))) = ?",
         name.strip().lower(),
     )
@@ -42,11 +42,11 @@ def find_signal_interface_port_kind_by_name(
     return row[0] if row else None
 
 
-def find_channel_role_by_name(conn: pyodbc.Connection, name: str) -> int | None:
-    """Return ChannelRole_ID for *name* (case-insensitive, trimmed). None if not found."""
+def find_channel_kind_by_name(conn: pyodbc.Connection, name: str) -> int | None:
+    """Return ChannelKind_ID for *name* (case-insensitive, trimmed). None if not found."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ChannelRole_ID] FROM [dbo].[ChannelRole]"
+        "SELECT [ChannelKind_ID] FROM [dbo].[ChannelKind]"
         " WHERE LOWER(LTRIM(RTRIM([Name]))) = ?",
         name.strip().lower(),
     )
@@ -105,12 +105,12 @@ def find_signal_interface_by_das_and_name(
     return row[0] if row else None
 
 
-def get_first_signal_interface_type_id(conn: pyodbc.Connection) -> int | None:
-    """Return the smallest SignalInterfaceType_ID as a fallback default."""
+def get_first_signal_interface_kind_id(conn: pyodbc.Connection) -> int | None:
+    """Return the smallest SignalInterfaceKind_ID as a fallback default."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT TOP 1 [SignalInterfaceType_ID] FROM [dbo].[SignalInterfaceType]"
-        " ORDER BY [SignalInterfaceType_ID]"
+        "SELECT TOP 1 [SignalInterfaceKind_ID] FROM [dbo].[SignalInterfaceKind]"
+        " ORDER BY [SignalInterfaceKind_ID]"
     )
     row = cursor.fetchone()
     return row[0] if row else None
@@ -144,7 +144,9 @@ def find_or_create_das(conn: pyodbc.Connection, das_name: str) -> tuple[int, boo
         " OUTPUT INSERTED.[DataAcquisitionSystem_ID] VALUES (?)",
         stored_name,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     logger.warning(
         "DataAcquisitionSystem %r not found — auto-created (ID=%d)", stored_name, new_id
@@ -156,7 +158,7 @@ def find_or_create_signal_interface(
     conn: pyodbc.Connection,
     das_id: int,
     name: str,
-    signal_interface_type_id: int,
+    signal_interface_kind_id: int,
 ) -> tuple[int, bool]:
     """Find or create a SignalInterface by (DAS_ID, name) with case-insensitive name lookup.
 
@@ -180,14 +182,16 @@ def find_or_create_signal_interface(
     stored_name = name.strip()
     cursor.execute(
         "INSERT INTO [dbo].[SignalInterface]"
-        "    ([DataAcquisitionSystem_ID], [Name], [SignalInterfaceType_ID])"
+        "    ([DataAcquisitionSystem_ID], [Name], [SignalInterfaceKind_ID])"
         " OUTPUT INSERTED.[SignalInterface_ID]"
         " VALUES (?, ?, ?)",
         das_id,
         stored_name,
-        signal_interface_type_id,
+        signal_interface_kind_id,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     logger.warning(
         "SignalInterface name=%r (DAS ID=%d) not found — auto-created (ID=%d)",
@@ -233,7 +237,9 @@ def find_or_create_signal_interface_port(
         stored_id,
         signal_interface_port_kind_id,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     logger.warning(
         "SignalInterfacePort identifier=%r (Interface ID=%d) not found — auto-created (ID=%d)",
@@ -269,7 +275,9 @@ def find_or_create_equipment_by_identifier(
         " OUTPUT INSERTED.[Equipment_ID] VALUES (?)",
         stored_identifier,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     logger.warning(
         "Equipment identifier=%r not found — auto-created (ID=%d)",
@@ -324,7 +332,9 @@ def open_equipment_wiring_history(
         signal_interface_id,
         signal_interface_port_id,
     )
-    new_id: int = cursor.fetchone()[0]
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id: int = _row[0]
     conn.commit()
     return new_id
 
@@ -374,6 +384,7 @@ def insert_das(
             description,
         )
         row = cursor.fetchone()
+        assert row is not None
         conn.commit()
         return {"das_id": row[0], "name": row[1], "description": row[2]}
     except Exception:
@@ -429,36 +440,41 @@ _SELECT_SIGNAL_INTERFACE = """
     SELECT
         si.[SignalInterface_ID],
         si.[DataAcquisitionSystem_ID],
-        si.[SignalInterfaceType_ID],
+        si.[SignalInterfaceKind_ID],
         si.[Name],
         si.[Make],
         si.[Model],
         si.[SerialNumber],
         si.[Description],
         si.[IsActive],
-        sit.[Name] AS [signal_interface_type_name],
+        sit.[Name] AS [signal_interface_kind_name],
         das.[Name] AS [das_name]
     FROM [dbo].[SignalInterface] si
-    JOIN [dbo].[SignalInterfaceType] sit
-        ON sit.[SignalInterfaceType_ID] = si.[SignalInterfaceType_ID]
+    JOIN [dbo].[SignalInterfaceKind] sit
+        ON sit.[SignalInterfaceKind_ID] = si.[SignalInterfaceKind_ID]
     JOIN [dbo].[DataAcquisitionSystem] das
         ON das.[DataAcquisitionSystem_ID] = si.[DataAcquisitionSystem_ID]
 """
 
 
 def list_signal_interfaces_lookup(conn: pyodbc.Connection) -> list[dict]:
-    """Return a lightweight list of all SignalInterfaces as ``{signal_interface_id, name}``.
+    """Return a lightweight list of all SignalInterfaces for dropdowns.
 
-    Used by the ``GET /signal-interfaces/lookup`` endpoint so clients can populate
-    dropdowns without fetching full paginated detail.
+    Includes ``das_name`` so callers can build ``DAS › name`` labels without
+    a second round-trip.
     """
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [SignalInterface_ID], [Name]"
-        " FROM [dbo].[SignalInterface]"
-        " ORDER BY [Name]"
+        "SELECT si.[SignalInterface_ID], si.[Name], das.[Name] AS [das_name]"
+        " FROM [dbo].[SignalInterface] si"
+        " JOIN [dbo].[DataAcquisitionSystem] das"
+        "     ON das.[DataAcquisitionSystem_ID] = si.[DataAcquisitionSystem_ID]"
+        " ORDER BY das.[Name], si.[Name]"
     )
-    return [{"signal_interface_id": row[0], "name": row[1]} for row in cursor.fetchall()]
+    return [
+        {"signal_interface_id": row[0], "name": row[1], "das_name": row[2]}
+        for row in cursor.fetchall()
+    ]
 
 
 def list_signal_interfaces(
@@ -466,7 +482,7 @@ def list_signal_interfaces(
     *,
     das_id: int | None = None,
     is_active: bool | None = None,
-    signal_interface_type_id: int | None = None,
+    signal_interface_kind_id: int | None = None,
     equipment_id: int | None = None,
     page: int = 1,
     page_size: int = 100,
@@ -485,9 +501,9 @@ def list_signal_interfaces(
     if is_active is not None:
         where_clauses.append("si.[IsActive] = ?")
         params.append(1 if is_active else 0)
-    if signal_interface_type_id is not None:
-        where_clauses.append("si.[SignalInterfaceType_ID] = ?")
-        params.append(signal_interface_type_id)
+    if signal_interface_kind_id is not None:
+        where_clauses.append("si.[SignalInterfaceKind_ID] = ?")
+        params.append(signal_interface_kind_id)
     if equipment_id is not None:
         where_clauses.append(
             "EXISTS ("
@@ -508,7 +524,9 @@ def list_signal_interfaces(
         "SELECT COUNT(*) FROM [dbo].[SignalInterface] si" + where_sql,
         *params,
     )
-    total: int = cursor.fetchone()[0]
+    _count_row = cursor.fetchone()
+    assert _count_row is not None
+    total: int = _count_row[0]
 
     # Paginated rows
     offset = (page - 1) * page_size
@@ -545,7 +563,7 @@ def create_signal_interface(
     *,
     das_id: int,
     name: str,
-    signal_interface_type_id: int,
+    signal_interface_kind_id: int,
     make: str | None = None,
     model: str | None = None,
     serial_number: str | None = None,
@@ -556,19 +574,21 @@ def create_signal_interface(
     try:
         cursor.execute(
             "INSERT INTO [dbo].[SignalInterface]"
-            "    ([DataAcquisitionSystem_ID], [Name], [SignalInterfaceType_ID],"
+            "    ([DataAcquisitionSystem_ID], [Name], [SignalInterfaceKind_ID],"
             "     [Make], [Model], [SerialNumber], [Description])"
             " OUTPUT INSERTED.[SignalInterface_ID]"
             " VALUES (?, ?, ?, ?, ?, ?, ?)",
             das_id,
             name.strip(),
-            signal_interface_type_id,
+            signal_interface_kind_id,
             make,
             model,
             serial_number,
             description,
         )
-        new_id: int = cursor.fetchone()[0]
+        _row = cursor.fetchone()
+        assert _row is not None
+        new_id: int = _row[0]
         conn.commit()
         return new_id
     except Exception:
@@ -678,7 +698,9 @@ def list_signal_interface_ports(
         "SELECT COUNT(*) FROM [dbo].[SignalInterfacePort] sip" + where_sql,
         *params,
     )
-    total: int = cursor.fetchone()[0]
+    _count_row = cursor.fetchone()
+    assert _count_row is not None
+    total: int = _count_row[0]
 
     # Paginated rows
     offset = (page - 1) * page_size
@@ -731,7 +753,9 @@ def create_signal_interface_port(
             signal_interface_port_kind_id,
             description,
         )
-        new_id: int = cursor.fetchone()[0]
+        _row = cursor.fetchone()
+        assert _row is not None
+        new_id: int = _row[0]
         conn.commit()
         return new_id
     except Exception:
@@ -790,14 +814,14 @@ def patch_signal_interface_port(
 
 
 def list_signal_interface_types(conn: pyodbc.Connection) -> list[dict]:
-    """Return all SignalInterfaceType rows ordered by ID."""
+    """Return all SignalInterfaceKind rows ordered by ID."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [SignalInterfaceType_ID], [Name], [Description]"
-        " FROM [dbo].[SignalInterfaceType] ORDER BY [SignalInterfaceType_ID]"
+        "SELECT [SignalInterfaceKind_ID], [Name], [Description]"
+        " FROM [dbo].[SignalInterfaceKind] ORDER BY [SignalInterfaceKind_ID]"
     )
     return [
-        {"signal_interface_type_id": row[0], "name": row[1], "description": row[2]}
+        {"signal_interface_kind_id": row[0], "name": row[1], "description": row[2]}
         for row in cursor.fetchall()
     ]
 
@@ -858,12 +882,12 @@ def delete_signal_interface_port(
 
 
 def find_signal_port_type_by_name(conn: pyodbc.Connection, name: str) -> int | None:
-    """Deprecated stub — maps to ChannelRole lookup for backward compatibility.
+    """Deprecated stub — maps to ChannelKind lookup for backward compatibility.
 
     Old signal_port_type values (value, status, alarm, uncertainty) now map
-    to ChannelRole names.
+    to ChannelKind names.
     """
-    return find_channel_role_by_name(conn, name)
+    return find_channel_kind_by_name(conn, name)
 
 
 def find_or_create_signal_port(
@@ -920,14 +944,14 @@ def generate_tagless_tag(equipment_identifier: str, parameter_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def list_channel_roles(conn: pyodbc.Connection) -> list[dict]:
-    """Return all ChannelRole rows ordered by ID."""
+def list_channel_kinds(conn: pyodbc.Connection) -> list[dict]:
+    """Return all ChannelKind rows ordered by ID."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ChannelRole_ID], [Name], [Description]"
-        " FROM [dbo].[ChannelRole] ORDER BY [ChannelRole_ID]"
+        "SELECT [ChannelKind_ID], [Name], [Description]"
+        " FROM [dbo].[ChannelKind] ORDER BY [ChannelKind_ID]"
     )
     return [
-        {"channel_role_id": row[0], "name": row[1], "description": row[2]}
+        {"channel_kind_id": row[0], "name": row[1], "description": row[2]}
         for row in cursor.fetchall()
     ]

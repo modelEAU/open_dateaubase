@@ -9,11 +9,11 @@ def get_all_sites(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT s.[Site_ID], s.[Name], s.[SiteType_ID], st.[Name] AS SiteTypeName, s.[Description],
+        SELECT s.[Site_ID], s.[Name], s.[SiteKind_ID], st.[Name] AS SiteKindName, s.[Description],
                s.[LatitudeWGS84], s.[LongitudeWGS84],
                s.[City], s.[Province], s.[Country]
         FROM [dbo].[Site] s
-        LEFT JOIN [dbo].[SiteType] st ON s.[SiteType_ID] = st.[SiteType_ID]
+        LEFT JOIN [dbo].[SiteKind] st ON s.[SiteKind_ID] = st.[SiteKind_ID]
         ORDER BY s.[Site_ID]
         """
     )
@@ -21,8 +21,8 @@ def get_all_sites(conn: pyodbc.Connection) -> list[dict]:
         {
             "id": row[0],
             "name": row[1],
-            "site_type_id": row[2],
-            "site_type_name": row[3],
+            "site_kind_id": row[2],
+            "site_kind_name": row[3],
             "description": row[4],
             "lat_wgs84": row[5],
             "long_wgs84": row[6],
@@ -38,11 +38,11 @@ def get_site_by_id(conn: pyodbc.Connection, site_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT s.[Site_ID], s.[Name], s.[SiteType_ID], st.[Name] AS SiteTypeName, s.[Description],
+        SELECT s.[Site_ID], s.[Name], s.[SiteKind_ID], st.[Name] AS SiteKindName, s.[Description],
                s.[LatitudeWGS84], s.[LongitudeWGS84],
                s.[City], s.[Province], s.[Country]
         FROM [dbo].[Site] s
-        LEFT JOIN [dbo].[SiteType] st ON s.[SiteType_ID] = st.[SiteType_ID]
+        LEFT JOIN [dbo].[SiteKind] st ON s.[SiteKind_ID] = st.[SiteKind_ID]
         WHERE s.[Site_ID] = ?
         """,
         site_id,
@@ -53,8 +53,8 @@ def get_site_by_id(conn: pyodbc.Connection, site_id: int) -> dict | None:
     return {
         "id": row[0],
         "name": row[1],
-        "site_type_id": row[2],
-        "site_type_name": row[3],
+        "site_kind_id": row[2],
+        "site_kind_name": row[3],
         "description": row[4],
         "lat_wgs84": row[5],
         "long_wgs84": row[6],
@@ -69,12 +69,12 @@ def insert_site(conn: pyodbc.Connection, data: dict) -> dict:
     cursor.execute(
         """
         INSERT INTO [dbo].[Site]
-            ([Name], [SiteType_ID], [Description], [LatitudeWGS84], [LongitudeWGS84],
+            ([Name], [SiteKind_ID], [Description], [LatitudeWGS84], [LongitudeWGS84],
              [City], [Province], [Country])
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         data["name"],
-        data.get("site_type_id"),
+        data.get("site_kind_id"),
         data.get("description"),
         data.get("lat_wgs84"),
         data.get("long_wgs84"),
@@ -83,7 +83,9 @@ def insert_site(conn: pyodbc.Connection, data: dict) -> dict:
         data.get("country"),
     )
     cursor.execute("SELECT @@IDENTITY")
-    new_id = int(cursor.fetchone()[0])
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id = int(_row[0])
     conn.commit()
     return get_site_by_id(conn, new_id)  # type: ignore[return-value]
 
@@ -93,13 +95,13 @@ def update_site(conn: pyodbc.Connection, site_id: int, data: dict) -> dict | Non
     cursor.execute(
         """
         UPDATE [dbo].[Site]
-        SET [Name]=?, [SiteType_ID]=?, [Description]=?,
+        SET [Name]=?, [SiteKind_ID]=?, [Description]=?,
             [LatitudeWGS84]=?, [LongitudeWGS84]=?,
             [City]=?, [Province]=?, [Country]=?
         WHERE [Site_ID]=?
         """,
         data["name"],
-        data.get("site_type_id"),
+        data.get("site_kind_id"),
         data.get("description"),
         data.get("lat_wgs84"),
         data.get("long_wgs84"),
@@ -136,9 +138,9 @@ def patch_site(conn: pyodbc.Connection, site_id: int, data: dict) -> dict | None
     if "name" in data:
         fields.append("[Name]=?")
         values.append(data["name"])
-    if "site_type_id" in data:
-        fields.append("[SiteType_ID]=?")
-        values.append(data.get("site_type_id"))
+    if "site_kind_id" in data:
+        fields.append("[SiteKind_ID]=?")
+        values.append(data.get("site_kind_id"))
     if "description" in data:
         fields.append("[Description]=?")
         values.append(data.get("description"))
@@ -171,19 +173,19 @@ def patch_site(conn: pyodbc.Connection, site_id: int, data: dict) -> dict | None
     return get_site_by_id(conn, site_id)
 
 
-def get_all_site_types(conn: pyodbc.Connection) -> list[dict]:
-    """Return all site types for dropdowns."""
+def get_all_site_kinds(conn: pyodbc.Connection) -> list[dict]:
+    """Return all site kinds for dropdowns."""
     cursor = conn.cursor()
-    cursor.execute("SELECT [SiteType_ID], [Name], [Description] FROM [dbo].[SiteType] ORDER BY [Name]")
+    cursor.execute("SELECT [SiteKind_ID], [Name], [Description] FROM [dbo].[SiteKind] ORDER BY [Name]")
     return [{"id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
 
 
-def get_site_type_by_id(conn: pyodbc.Connection, site_type_id: int) -> dict | None:
-    """Return a single SiteType by ID."""
+def get_site_kind_by_id(conn: pyodbc.Connection, site_kind_id: int) -> dict | None:
+    """Return a single SiteKind by ID."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [SiteType_ID], [Name], [Description] FROM [dbo].[SiteType] WHERE [SiteType_ID]=?",
-        site_type_id,
+        "SELECT [SiteKind_ID], [Name], [Description] FROM [dbo].[SiteKind] WHERE [SiteKind_ID]=?",
+        site_kind_id,
     )
     row = cursor.fetchone()
     if row is None:
@@ -191,18 +193,19 @@ def get_site_type_by_id(conn: pyodbc.Connection, site_type_id: int) -> dict | No
     return {"id": row[0], "name": row[1], "description": row[2]}
 
 
-def insert_site_type(conn: pyodbc.Connection, name: str, description: str | None) -> dict:
-    """Insert a new SiteType row and return it."""
+def insert_site_kind(conn: pyodbc.Connection, name: str, description: str | None) -> dict:
+    """Insert a new SiteKind row and return it."""
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO [dbo].[SiteType] ([Name], [Description])"
-            " OUTPUT inserted.[SiteType_ID], inserted.[Name], inserted.[Description]"
+            "INSERT INTO [dbo].[SiteKind] ([Name], [Description])"
+            " OUTPUT inserted.[SiteKind_ID], inserted.[Name], inserted.[Description]"
             " VALUES (?, ?)",
             name,
             description,
         )
         row = cursor.fetchone()
+        assert row is not None
         conn.commit()
         return {"id": row[0], "name": row[1], "description": row[2]}
     except Exception:
@@ -210,20 +213,20 @@ def insert_site_type(conn: pyodbc.Connection, name: str, description: str | None
         raise
 
 
-def update_site_type(
-    conn: pyodbc.Connection, site_type_id: int, name: str, description: str | None
+def update_site_kind(
+    conn: pyodbc.Connection, site_kind_id: int, name: str, description: str | None
 ) -> dict | None:
-    """Update a SiteType row and return it, or None if not found."""
+    """Update a SiteKind row and return it, or None if not found."""
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "UPDATE [dbo].[SiteType]"
+            "UPDATE [dbo].[SiteKind]"
             " SET [Name]=?, [Description]=?"
-            " OUTPUT inserted.[SiteType_ID], inserted.[Name], inserted.[Description]"
-            " WHERE [SiteType_ID]=?",
+            " OUTPUT inserted.[SiteKind_ID], inserted.[Name], inserted.[Description]"
+            " WHERE [SiteKind_ID]=?",
             name,
             description,
-            site_type_id,
+            site_kind_id,
         )
         row = cursor.fetchone()
         conn.commit()
@@ -235,13 +238,13 @@ def update_site_type(
         raise
 
 
-def delete_site_type(conn: pyodbc.Connection, site_type_id: int) -> bool:
-    """Delete a SiteType row. Returns True if a row was deleted."""
+def delete_site_kind(conn: pyodbc.Connection, site_kind_id: int) -> bool:
+    """Delete a SiteKind row. Returns True if a row was deleted."""
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "DELETE FROM [dbo].[SiteType] WHERE [SiteType_ID]=?",
-            site_type_id,
+            "DELETE FROM [dbo].[SiteKind] WHERE [SiteKind_ID]=?",
+            site_kind_id,
         )
         conn.commit()
         return cursor.rowcount > 0
@@ -275,7 +278,9 @@ def insert_sampling_location(
         data.get("process_unit_id"),
     )
     cursor.execute("SELECT @@IDENTITY")
-    new_id = int(cursor.fetchone()[0])
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id = int(_row[0])
     conn.commit()
     rows = get_sampling_locations_for_site(conn, site_id)
     match = next((r for r in rows if r["id"] == new_id), None)

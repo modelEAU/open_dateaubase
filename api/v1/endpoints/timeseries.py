@@ -71,8 +71,8 @@ def get_channel_stats(
     channel = channel_repository.get_channel_by_id(conn, channel_id)
     if channel is None:
         raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
-    value_type_id = channel.get("value_type_id") or 1
-    return value_repository.get_channel_stats(conn, channel_id, value_type_id)
+    value_kind_id = channel.get("value_kind_id") or 1
+    return value_repository.get_channel_stats(conn, channel_id, value_kind_id)
 
 
 @router.get("/{channel_id}/full-context")
@@ -90,7 +90,7 @@ def get_full_context(
 def get_timeseries_by_context(
     equipment_id: int | None = Query(None, description="Equipment ID"),
     parameter_id: int | None = Query(None, description="Parameter ID"),
-    processing_degree_id: int | None = Query(None),
+    processing_kind_id: int | None = Query(None),
     from_dt: datetime | None = Query(None, alias="from"),
     to_dt: datetime | None = Query(None, alias="to"),
     conn=Depends(get_db),
@@ -100,7 +100,7 @@ def get_timeseries_by_context(
         conn,
         equipment_id=equipment_id,
         parameter_id=parameter_id,
-        processing_degree_id=processing_degree_id,
+        processing_kind_id=processing_kind_id,
         from_dt=from_dt,
         to_dt=to_dt,
     )
@@ -120,7 +120,7 @@ def bulk_set_quality_code(
     updated = value_repository.bulk_set_quality_code(
         conn,
         channel_id=channel_id,
-        value_type_id=channel.get("value_type_id") or 1,
+        value_kind_id=channel.get("value_kind_id") or 1,
         from_dt=body.start_time,
         to_dt=body.end_time,
         quality_code=body.quality_code_id,

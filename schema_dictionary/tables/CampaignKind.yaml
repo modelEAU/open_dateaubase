@@ -1,0 +1,31 @@
+_format_version: "1.0"
+table:
+  name: CampaignKind
+  schema: dbo
+  description: "Controlled vocabulary classifying the nature of a Campaign (Experiment, Operations, Commissioning)"
+
+  columns:
+    - name: CampaignKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the campaign kind"
+
+    - name: Description
+      logical_type: string
+      max_length: 300
+      nullable: true
+      description: "Explanation of this campaign kind"
+
+  primary_key: [CampaignKind_ID]
+
+  seed_data:
+    - { CampaignKind_ID: 1, Name: "Experiment",    Description: "Planned scientific investigation under controlled or semi-controlled conditions" }
+    - { CampaignKind_ID: 2, Name: "Operations",    Description: "Routine monitoring or operational run of the monitored process" }
+    - { CampaignKind_ID: 3, Name: "Commissioning", Description: "Initial setup, calibration, and qualification of equipment or a process" }

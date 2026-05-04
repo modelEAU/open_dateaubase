@@ -67,7 +67,7 @@ SCADA_DB_PATH = TEST_DATA_DIR / "scada_sql" / "float_table.db"
 # Test Configuration
 # -----------------------------------------------------------------------------
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 TEST_DAS_NAME = "e2e_test_das"
 TEST_TAG = "e2e/test/do"
@@ -126,30 +126,86 @@ def setup_test_data(db_connection):
     cursor.close()
 
 
+def _das_channels_subquery(das_name_placeholder: str = "?") -> str:
+    return f"""
+        SELECT c.Channel_ID FROM Channel c
+        JOIN SignalInterface si ON c.SignalInterface_ID = si.SignalInterface_ID
+        JOIN DataAcquisitionSystem das ON si.DataAcquisitionSystem_ID = das.DataAcquisitionSystem_ID
+        WHERE das.Name = {das_name_placeholder}
+    """
+
+
+def _das_signal_interfaces_subquery(das_name_placeholder: str = "?") -> str:
+    return f"""
+        SELECT si.SignalInterface_ID FROM SignalInterface si
+        JOIN DataAcquisitionSystem das ON si.DataAcquisitionSystem_ID = das.DataAcquisitionSystem_ID
+        WHERE das.Name = {das_name_placeholder}
+    """
+
+
 def cleanup_test_data(cursor):
-    cursor.execute("""
-        DELETE FROM Value WHERE Channel_ID IN (
-            SELECT c.Channel_ID FROM Channel c
-            JOIN SignalPort sp ON c.SignalPort_ID = sp.SignalPort_ID
-            JOIN DataAcquisitionSystem das ON sp.DAS_ID = das.DAS_ID
-            WHERE das.DAS_Name = ?
+    # Delete leaf rows first, working up the FK chain.
+    cursor.execute(f"""
+        DELETE FROM Value WHERE Observation_ID IN (
+            SELECT o.Observation_ID FROM Observation o
+            WHERE o.Channel_ID IN ({_das_channels_subquery()})
         )
     """, (TEST_DAS_NAME,))
-    cursor.execute("""
-        DELETE FROM Channel WHERE SignalPort_ID IN (
-            SELECT sp.SignalPort_ID FROM SignalPort sp
-            JOIN DataAcquisitionSystem das ON sp.DAS_ID = das.DAS_ID
-            WHERE das.DAS_Name = ?
-        )
+    cursor.execute(f"""
+        DELETE FROM Observation WHERE Channel_ID IN ({_das_channels_subquery()})
+    """, (TEST_DAS_NAME,))
+    cursor.execute(f"""
+        DELETE FROM ChannelPortHistory WHERE Channel_ID IN ({_das_channels_subquery()})
+    """, (TEST_DAS_NAME,))
+    cursor.execute(f"""
+        DELETE FROM Channel WHERE Channel_ID IN ({_das_channels_subquery()})
+    """, (TEST_DAS_NAME,))
+    cursor.execute(f"""
+        DELETE FROM EquipmentWiringHistory WHERE SignalInterface_ID IN ({_das_signal_interfaces_subquery()})
+    """, (TEST_DAS_NAME,))
+    cursor.execute(f"""
+        DELETE FROM SignalInterfacePort WHERE SignalInterface_ID IN ({_das_signal_interfaces_subquery()})
     """, (TEST_DAS_NAME,))
     cursor.execute("""
-        DELETE FROM SignalPort WHERE DAS_ID IN (
-            SELECT DAS_ID FROM DataAcquisitionSystem WHERE DAS_Name = ?
+        DELETE FROM SignalInterface WHERE DataAcquisitionSystem_ID IN (
+            SELECT DataAcquisitionSystem_ID FROM DataAcquisitionSystem WHERE Name = ?
         )
     """, (TEST_DAS_NAME,))
-    cursor.execute("DELETE FROM DataAcquisitionSystem WHERE DAS_Name = ?", (TEST_DAS_NAME,))
-    cursor.execute("DELETE FROM Parameter WHERE Parameter_name = ?", (TEST_PARAMETER_NAME,))
+    cursor.execute("DELETE FROM DataAcquisitionSystem WHERE Name = ?", (TEST_DAS_NAME,))
+    cursor.execute("DELETE FROM Parameter WHERE Parameter = ?", (TEST_PARAMETER_NAME,))
     cursor.execute("DELETE FROM Unit WHERE Unit = ?", (TEST_UNIT_NAME,))
+
+
+def cleanup_parameter_and_channels(cursor, parameter_name: str) -> None:
+    """Delete a test parameter and all channels (plus their dependents) that reference it."""
+    cursor.execute("""
+        DELETE FROM Value WHERE Observation_ID IN (
+            SELECT o.Observation_ID FROM Observation o
+            JOIN Channel c ON o.Channel_ID = c.Channel_ID
+            JOIN Parameter p ON c.Parameter_ID = p.Parameter_ID
+            WHERE p.Parameter = ?
+        )
+    """, (parameter_name,))
+    cursor.execute("""
+        DELETE FROM Observation WHERE Channel_ID IN (
+            SELECT c.Channel_ID FROM Channel c
+            JOIN Parameter p ON c.Parameter_ID = p.Parameter_ID
+            WHERE p.Parameter = ?
+        )
+    """, (parameter_name,))
+    cursor.execute("""
+        DELETE FROM ChannelPortHistory WHERE Channel_ID IN (
+            SELECT c.Channel_ID FROM Channel c
+            JOIN Parameter p ON c.Parameter_ID = p.Parameter_ID
+            WHERE p.Parameter = ?
+        )
+    """, (parameter_name,))
+    cursor.execute("""
+        DELETE FROM Channel WHERE Parameter_ID IN (
+            SELECT Parameter_ID FROM Parameter WHERE Parameter = ?
+        )
+    """, (parameter_name,))
+    cursor.execute("DELETE FROM Parameter WHERE Parameter = ?", (parameter_name,))
 
 
 # -----------------------------------------------------------------------------
@@ -159,7 +215,12 @@ def cleanup_test_data(cursor):
 
 def count_values_for_channel(db_connection, channel_id: int) -> int:
     cursor = db_connection.cursor()
-    cursor.execute("SELECT COUNT(*) FROM Value WHERE Channel_ID = ?", (channel_id,))
+    cursor.execute(
+        "SELECT COUNT(*) FROM Value v"
+        " JOIN Observation o ON v.Observation_ID = o.Observation_ID"
+        " WHERE o.Channel_ID = ?",
+        (channel_id,),
+    )
     result = cursor.fetchone()
     return result[0] if result else 0
 
@@ -298,7 +359,8 @@ def test_e2e_tsdb_import(api_client, db_connection):
 
     finally:
         with pyodbc.connect(conn_str) as conn:
-            conn.cursor().execute("DELETE FROM Parameter WHERE Parameter_name = ?", (test_param,))
+            cur = conn.cursor()
+            cleanup_parameter_and_channels(cur, test_param)
             conn.commit()
 
 
@@ -329,20 +391,7 @@ def test_e2e_scada_sql_import(api_client, db_connection):
         )
         conn.commit()
 
-    credentials_path = TEST_DATA_DIR / "scada_sql" / "test_credentials.txt"
-    credentials_path.write_text("SA\nStrongPwd123!\n")
-
     try:
-        # Monkey-patch engine to use SQLite fixture instead of SQL Server
-        from sqlalchemy import create_engine
-        from table_import import pilEAUte_scada_source as _mod
-        _original_build = _mod._build_scada_engine
-
-        def _sqlite_engine(_struct):
-            return create_engine(f"sqlite:///{SCADA_DB_PATH}")
-
-        _mod._build_scada_engine = _sqlite_engine
-
         cfg = Config(
             api_config=ApiConfig(api_url=API_BASE_URL),
             scada_sql_configs=[
@@ -350,9 +399,7 @@ def test_e2e_scada_sql_import(api_client, db_connection):
                     name="scada",
                     das_name=TEST_DAS_NAME,
                     scada_structure=PilEAUteSCADAStructure(
-                        server="localhost",
-                        database="test",
-                        credentials_path=str(credentials_path),
+                        sqlite_path=str(SCADA_DB_PATH),
                         timezone="America/Montreal",
                     ),
                     variables=[
@@ -383,10 +430,9 @@ def test_e2e_scada_sql_import(api_client, db_connection):
         print(f"✓ SCADA SQL: {count} values imported")
 
     finally:
-        _mod._build_scada_engine = _original_build
-        credentials_path.unlink(missing_ok=True)
         with pyodbc.connect(conn_str) as conn:
-            conn.cursor().execute("DELETE FROM Parameter WHERE Parameter_name = ?", (test_param,))
+            cur = conn.cursor()
+            cleanup_parameter_and_channels(cur, test_param)
             conn.commit()
 
 
@@ -478,7 +524,8 @@ def test_e2e_idempotent_import(api_client, db_connection):
 
     finally:
         with pyodbc.connect(conn_str) as conn:
-            conn.cursor().execute("DELETE FROM Parameter WHERE Parameter_name = ?", (test_param,))
+            cur = conn.cursor()
+            cleanup_parameter_and_channels(cur, test_param)
             conn.commit()
 
 

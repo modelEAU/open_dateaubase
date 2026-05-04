@@ -22,15 +22,15 @@ from ..schemas.channel import (
     ChannelProvisionIn,
     ChannelResolveIn,
     ChannelResolveOut,
-    ChannelRoleLookupOut,
+    ChannelKindLookupOut,
     EquipmentLookupOut,
     ParameterLookupOut,
-    ProcessingDegreeLookupOut,
+    ProcessingKindLookupOut,
 )
 from ..repositories.equipment_repository import get_equipment_lookup
 from ..repositories.metadata_repository import (
     get_parameters_lookup,
-    get_processing_degrees_lookup,
+    get_processing_kinds_lookup,
 )
 
 router = APIRouter()
@@ -50,7 +50,7 @@ def provision_derived_channel(
     channel_id = ingestion_repository.find_or_create_derived_metadata(
         conn,
         source_channel_id=body.source_channel_id,
-        processing_degree_id=body.processing_degree_id,
+        processing_kind_id=body.processing_kind_id,
     )
     return ChannelDerivedOut(channel_id=channel_id)
 
@@ -61,7 +61,7 @@ def list_channels(
     data_provenance_id: int | None = Query(
         None, description="Filter by data provenance ID"
     ),
-    processing_degree_id: int | None = Query(
+    processing_kind_id: int | None = Query(
         None, description="Filter by processing degree ID (1=Raw, 2=Cleaned, etc.)"
     ),
     equipment_id: int | None = Query(
@@ -71,7 +71,7 @@ def list_channels(
     signal_interface_id: int | None = Query(
         None, description="Filter by signal interface ID"
     ),
-    value_type_id: int | None = Query(
+    value_kind_id: int | None = Query(
         None, description="Filter by value type (1=Scalar,2=Vector,3=Matrix,4=Image)"
     ),
     campaign_id: int | None = Query(
@@ -85,11 +85,11 @@ def list_channels(
     items, total = channel_repository.list_channels(
         conn,
         parameter_id=parameter_id,
-        data_provenance_id=data_provenance_id,
-        processing_degree_id=processing_degree_id,
+        data_provenance_kind_id=data_provenance_id,
+        processing_kind_id=processing_kind_id,
         equipment_id=equipment_id,
         signal_interface_id=signal_interface_id,
-        value_type_id=value_type_id,
+        value_kind_id=value_kind_id,
         campaign_id=campaign_id,
         page=page,
         page_size=page_size,
@@ -139,7 +139,7 @@ def resolve_channel(body: ChannelResolveIn, conn=Depends(get_db)):
     """Resolve a channel by its natural keys (signal interface name + tag + optional parameter).
 
     If ``create_missing`` is True and no channel exists, a minimal channel row is
-    created with default ChannelRole_ID=1 (Value) and ValueType_ID=1 (Scalar).
+    created with default ChannelKind_ID=1 (Value) and ValueKind_ID=1 (Scalar).
     """
     signal_interface_id = signal_interface_repository.find_signal_interface_by_name(
         conn, body.signal_interface_name
@@ -206,7 +206,7 @@ def provision_channel(body: ChannelProvisionIn, conn=Depends(get_db)):
     unit_id = None
     if body.unit_name:
         unit_id = signal_interface_repository.find_unit_by_name(conn, body.unit_name)
-    channel_role_id = (
+    channel_kind_id = (
         signal_interface_repository.find_channel_role_by_name(conn, body.channel_role) or 1
     )
     existing = channel_repository.find_channel_by_signal_interface_tag(
@@ -219,12 +219,12 @@ def provision_channel(body: ChannelProvisionIn, conn=Depends(get_db)):
         "tag_name": body.tag_name,
         "signal_interface_port_id": body.signal_interface_port_id,
         "parent_channel_id": body.parent_channel_id,
-        "channel_role_id": channel_role_id,
+        "channel_kind_id": channel_kind_id,
         "parameter_id": parameter_id,
         "unit_id": unit_id,
         "data_provenance_id": body.data_provenance_id,
-        "processing_degree_id": body.processing_degree_id,
-        "value_type_id": body.value_type_id,
+        "processing_kind_id": body.processing_kind_id,
+        "value_kind_id": body.value_kind_id,
     }
     return channel_repository.insert_channel(conn, data)
 
@@ -274,14 +274,14 @@ def list_parameters_lookup(conn=Depends(get_db)):
 
 
 @router.get(
-    "/lookup/processing-degrees", response_model=list[ProcessingDegreeLookupOut]
+    "/lookup/processing-kinds", response_model=list[ProcessingKindLookupOut]
 )
-def list_processing_degrees_lookup(conn=Depends(get_db)):
-    """Return processing degrees for dropdowns."""
-    return get_processing_degrees_lookup(conn)
+def list_processing_kinds_lookup(conn=Depends(get_db)):
+    """Return processing kinds for dropdowns."""
+    return get_processing_kinds_lookup(conn)
 
 
-@router.get("/lookup/channel-roles", response_model=list[ChannelRoleLookupOut])
+@router.get("/lookup/channel-kinds", response_model=list[ChannelKindLookupOut])
 def list_channel_roles(conn=Depends(get_db)):
     """Return channel roles for dropdowns."""
-    return lookup_repository.get_channel_roles(conn)
+    return lookup_repository.get_channel_kinds(conn)

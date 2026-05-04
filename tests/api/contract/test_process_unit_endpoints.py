@@ -3,8 +3,8 @@
 Tests run without a live database using dependency_overrides and MagicMock.
 
 Covers:
-  - GET  /process-unit-types: returns list
-  - POST /process-unit-types: creates type, returns 201
+  - GET  /process-unit-kinds: returns list
+  - POST /process-unit-kinds: creates type, returns 201
   - GET  /process-units: returns list, accepts site_id filter
   - GET  /process-units/{id}: 200 on found, 404 on miss
   - POST /process-units: creates unit, returns 201
@@ -55,7 +55,7 @@ def client():
 # Sample data
 # ---------------------------------------------------------------------------
 
-_TYPE_ROW = {"id": 1, "name": "Reactor", "description": None}
+_TYPE_ROW = {"process_unit_kind_id": 1, "name": "Reactor", "description": None}
 
 _UNIT_ROW = {
     "id": 1,
@@ -63,8 +63,8 @@ _UNIT_ROW = {
     "tag": "R-210",
     "name": "Reacteur R-210",
     "description": None,
-    "process_unit_type_id": 1,
-    "process_unit_type_name": "Reactor",
+    "process_unit_kind_id": 1,
+    "process_unit_kind_name": "Reactor",
     "parent_id": None,
     "parent_name": None,
 }
@@ -78,7 +78,7 @@ _UNIT_ROW = {
 class TestListProcessUnitTypes:
     def test_returns_list(self, client, mock_conn):
         with patch(f"{_TYPES_REPO}.get_all_process_unit_types", return_value=[_TYPE_ROW]):
-            resp = client.get("/api/v1/process-unit-types")
+            resp = client.get("/api/v1/process-unit-kinds")
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
@@ -86,7 +86,7 @@ class TestListProcessUnitTypes:
 
     def test_empty_list(self, client, mock_conn):
         with patch(f"{_TYPES_REPO}.get_all_process_unit_types", return_value=[]):
-            resp = client.get("/api/v1/process-unit-types")
+            resp = client.get("/api/v1/process-unit-kinds")
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -94,7 +94,7 @@ class TestListProcessUnitTypes:
 class TestCreateProcessUnitType:
     def test_returns_201(self, client, mock_conn):
         with patch(f"{_TYPES_REPO}.insert_process_unit_type", return_value=_TYPE_ROW):
-            resp = client.post("/api/v1/process-unit-types", json={"name": "Reactor"})
+            resp = client.post("/api/v1/process-unit-kinds", json={"name": "Reactor"})
         assert resp.status_code == 201
         assert resp.json()["name"] == "Reactor"
 
@@ -102,24 +102,24 @@ class TestCreateProcessUnitType:
 class TestUpdateProcessUnitType:
     def test_returns_200_on_found(self, client, mock_conn):
         with patch(f"{_TYPES_REPO}.update_process_unit_type", return_value=_TYPE_ROW):
-            resp = client.put("/api/v1/process-unit-types/1", json={"name": "Reactor"})
+            resp = client.put("/api/v1/process-unit-kinds/1", json={"name": "Reactor"})
         assert resp.status_code == 200
 
     def test_returns_404_on_miss(self, client, mock_conn):
         with patch(f"{_TYPES_REPO}.update_process_unit_type", return_value=None):
-            resp = client.put("/api/v1/process-unit-types/999", json={"name": "X"})
+            resp = client.put("/api/v1/process-unit-kinds/999", json={"name": "X"})
         assert resp.status_code == 404
 
 
 class TestDeleteProcessUnitType:
     def test_returns_204_on_success(self, client, mock_conn):
         with patch(f"{_TYPES_REPO}.delete_process_unit_type", return_value=True):
-            resp = client.delete("/api/v1/process-unit-types/1")
+            resp = client.delete("/api/v1/process-unit-kinds/1")
         assert resp.status_code == 204
 
     def test_returns_404_on_miss(self, client, mock_conn):
         with patch(f"{_TYPES_REPO}.delete_process_unit_type", return_value=False):
-            resp = client.delete("/api/v1/process-unit-types/999")
+            resp = client.delete("/api/v1/process-unit-kinds/999")
         assert resp.status_code == 404
 
 

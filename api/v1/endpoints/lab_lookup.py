@@ -1,4 +1,4 @@
-"""Lab lookup table CRUD endpoints: SampleType and SampleMethod."""
+"""Lab lookup table CRUD endpoints: SampleKind and SampleCollectionKind."""
 
 from __future__ import annotations
 
@@ -7,91 +7,91 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.database import get_db
 from ..repositories import lookup_repository
 from ..schemas.metadata import (
-    SampleMethodIn,
-    SampleMethodOut,
-    SampleTypeIn,
-    SampleTypeOut,
+    SampleCollectionKindIn,
+    SampleCollectionKindOut,
+    SampleKindIn,
+    SampleKindOut,
 )
 
-sample_types_router = APIRouter()
-sample_methods_router = APIRouter()
+sample_kinds_router = APIRouter()
+sample_collection_kinds_router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# SampleType
+# SampleKind
 # ---------------------------------------------------------------------------
 
 
-@sample_types_router.get("", response_model=list[SampleTypeOut])
-def list_sample_types(conn=Depends(get_db)):
+@sample_kinds_router.get("", response_model=list[SampleKindOut])
+def list_sample_kinds(conn=Depends(get_db)):
     """Return all sample types."""
-    return lookup_repository.get_sample_types(conn)
+    return lookup_repository.get_sample_kinds(conn)
 
 
-@sample_types_router.post("", response_model=SampleTypeOut, status_code=201)
-def create_sample_type(body: SampleTypeIn, conn=Depends(get_db)):
-    """Create a new SampleType."""
-    return lookup_repository.insert_sample_type(conn, body.name, body.description)
+@sample_kinds_router.post("", response_model=SampleKindOut, status_code=201)
+def create_sample_kind(body: SampleKindIn, conn=Depends(get_db)):
+    """Create a new SampleKind."""
+    return lookup_repository.insert_sample_kind(conn, body.name, body.description)
 
 
-@sample_types_router.put("/{sample_type_id}", response_model=SampleTypeOut)
-def update_sample_type(sample_type_id: int, body: SampleTypeIn, conn=Depends(get_db)):
-    """Update an existing SampleType."""
-    updated = lookup_repository.update_sample_type(
-        conn, sample_type_id, body.name, body.description
+@sample_kinds_router.put("/{sample_kind_id}", response_model=SampleKindOut)
+def update_sample_kind(sample_kind_id: int, body: SampleKindIn, conn=Depends(get_db)):
+    """Update an existing SampleKind."""
+    updated = lookup_repository.update_sample_kind(
+        conn, sample_kind_id, body.name, body.description
     )
     if updated is None:
         raise HTTPException(
-            status_code=404, detail=f"SampleType {sample_type_id} not found."
+            status_code=404, detail=f"SampleKind {sample_kind_id} not found."
         )
     return updated
 
 
-@sample_types_router.delete("/{sample_type_id}", status_code=204)
-def delete_sample_type(sample_type_id: int, conn=Depends(get_db)):
-    """Delete a SampleType by ID."""
-    deleted = lookup_repository.delete_sample_type(conn, sample_type_id)
+@sample_kinds_router.delete("/{sample_kind_id}", status_code=204)
+def delete_sample_kind(sample_kind_id: int, conn=Depends(get_db)):
+    """Delete a SampleKind by ID."""
+    deleted = lookup_repository.delete_sample_kind(conn, sample_kind_id)
     if not deleted:
         raise HTTPException(
-            status_code=404, detail=f"SampleType {sample_type_id} not found."
+            status_code=404, detail=f"SampleKind {sample_kind_id} not found."
         )
 
 
 # ---------------------------------------------------------------------------
-# SampleMethod
+# SampleCollectionKind
 # ---------------------------------------------------------------------------
 
 
-@sample_methods_router.get("", response_model=list[SampleMethodOut])
-def list_sample_methods(conn=Depends(get_db)):
-    """Return all sample methods."""
-    return lookup_repository.get_sample_methods(conn)
+@sample_collection_kinds_router.get("", response_model=list[SampleCollectionKindOut])
+def list_sample_collection_kinds(conn=Depends(get_db)):
+    """Return all sample collection kinds."""
+    return lookup_repository.get_sample_collection_kinds(conn)
 
 
-@sample_methods_router.post("", response_model=SampleMethodOut, status_code=201)
-def create_sample_method(body: SampleMethodIn, conn=Depends(get_db)):
-    """Create a new SampleMethod."""
-    return lookup_repository.insert_sample_method(conn, body.name, body.description)
+@sample_collection_kinds_router.post("", response_model=SampleCollectionKindOut, status_code=201)
+def create_sample_collection_kind(body: SampleCollectionKindIn, conn=Depends(get_db)):
+    """Create a new SampleCollectionKind."""
+    return lookup_repository.insert_sample_collection_kind(conn, body.name, body.description)
 
 
-@sample_methods_router.put("/{sample_method_id}", response_model=SampleMethodOut)
-def update_sample_method(sample_method_id: int, body: SampleMethodIn, conn=Depends(get_db)):
-    """Update an existing SampleMethod."""
-    updated = lookup_repository.update_sample_method(
-        conn, sample_method_id, body.name, body.description
+@sample_collection_kinds_router.put("/{sample_collection_kind_id}", response_model=SampleCollectionKindOut)
+def update_sample_collection_kind(sample_collection_kind_id: int, body: SampleCollectionKindIn, conn=Depends(get_db)):
+    """Update an existing SampleCollectionKind."""
+    updated = lookup_repository.update_sample_collection_kind(
+        conn, sample_collection_kind_id, body.name, body.description
     )
     if updated is None:
         raise HTTPException(
-            status_code=404, detail=f"SampleMethod {sample_method_id} not found."
+            status_code=404, detail=f"SampleCollectionKind {sample_collection_kind_id} not found."
         )
     return updated
 
 
-@sample_methods_router.delete("/{sample_method_id}", status_code=204)
-def delete_sample_method(sample_method_id: int, conn=Depends(get_db)):
-    """Delete a SampleMethod by ID."""
-    deleted = lookup_repository.delete_sample_method(conn, sample_method_id)
+@sample_collection_kinds_router.delete("/{sample_collection_kind_id}", status_code=204)
+def delete_sample_collection_kind(sample_collection_kind_id: int, conn=Depends(get_db)):
+    """Delete a SampleCollectionKind by ID."""
+    deleted = lookup_repository.delete_sample_collection_kind(conn, sample_collection_kind_id)
     if not deleted:
         raise HTTPException(
-            status_code=404, detail=f"SampleMethod {sample_method_id} not found."
+            status_code=404, detail=f"SampleCollectionKind {sample_collection_kind_id} not found."
         )

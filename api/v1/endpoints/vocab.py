@@ -1,7 +1,7 @@
 """Vocabulary and entity CRUD endpoints.
 
 Covers:
-  GET  /vocab/processing-degrees                 — list (read-only)
+  GET  /vocab/processing-kinds                 — list (read-only)
 
   GET  /vocab/procedures                         — list all
   POST /vocab/procedures                         — create
@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.database import get_db
 from ..repositories import lookup_repository
 from ..schemas.metadata import (
-    ProcessingDegreeOut,
+    ProcessingKindOut,
     ProcedureIn,
     ProcedureOut,
     WatershedIn,
@@ -32,13 +32,13 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# ProcessingDegree (read-only)
+# ProcessingKind (read-only)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/processing-degrees", response_model=list[ProcessingDegreeOut])
-def list_processing_degrees(conn=Depends(get_db)):
-    return lookup_repository.get_processing_degrees(conn)
+@router.get("/processing-kinds", response_model=list[ProcessingKindOut])
+def list_processing_kinds(conn=Depends(get_db)):
+    return lookup_repository.get_processing_kinds(conn)
 
 
 # ---------------------------------------------------------------------------

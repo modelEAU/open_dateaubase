@@ -8,7 +8,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-class AnnotationTypeResponse(BaseModel):
+class AnnotationKindResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
@@ -23,7 +23,7 @@ class AnnotationAuthor(BaseModel):
 class AnnotationResponse(BaseModel):
     annotation_id: int
     channel_id: int
-    type: AnnotationTypeResponse
+    type: AnnotationKindResponse
     start_time: datetime
     end_time: Optional[datetime] = None
     title: Optional[str] = None
@@ -44,7 +44,7 @@ class AnnotationListResponse(BaseModel):
 
 
 class AnnotationCreate(BaseModel):
-    annotation_type: str | int  # AnnotationTypeName (str) or AnnotationType_ID (int)
+    annotation_type: str | int  # Name (str) or AnnotationKind_ID (int)
     start_time: datetime
     end_time: Optional[datetime] = None
     title: Optional[str] = Field(None, max_length=200)
@@ -78,5 +78,5 @@ class AnnotationUpdate(BaseModel):
         return v
 
 
-class AnnotationTypeListResponse(BaseModel):
-    annotation_types: list[AnnotationTypeResponse]
+class AnnotationKindListResponse(BaseModel):
+    annotation_types: list[AnnotationKindResponse]

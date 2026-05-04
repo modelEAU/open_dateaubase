@@ -54,40 +54,40 @@ class TestSignalInterfacePortKindSchema:
         }
 
 
-class TestChannelRoleSchema:
-    """Tests for ChannelRole.yaml — Value, Status, Alarm, Uncertainty."""
+class TestChannelKindSchema:
+    """Tests for ChannelKind.yaml — Value, Status, Alarm, Uncertainty."""
 
-    def test_channel_role_table_exists(self, tables_dir):
-        """ChannelRole table should exist in schema."""
+    def test_channel_kind_table_exists(self, tables_dir):
+        """ChannelKind table should exist in schema."""
         schema = load_schema(tables_dir)
-        assert "ChannelRole" in schema
+        assert "ChannelKind" in schema
 
-    def test_channel_role_has_all_columns(self, tables_dir):
-        """ChannelRole should have required columns."""
+    def test_channel_kind_has_all_columns(self, tables_dir):
+        """ChannelKind should have required columns."""
         schema = load_schema(tables_dir)
-        tbl = schema["ChannelRole"]["table"]
+        tbl = schema["ChannelKind"]["table"]
         col_names = [c["name"] for c in tbl["columns"]]
 
-        assert "ChannelRole_ID" in col_names
+        assert "ChannelKind_ID" in col_names
         assert "Name" in col_names
         assert "Description" in col_names
 
-    def test_channel_role_seed_data_has_four_types(self, tables_dir):
-        """ChannelRole should have Value, Status, Alarm, Uncertainty seed rows."""
+    def test_channel_kind_seed_data_has_four_types(self, tables_dir):
+        """ChannelKind should have Value, Status, Alarm, Uncertainty seed rows."""
         schema = load_schema(tables_dir)
-        tbl = schema["ChannelRole"]["table"]
+        tbl = schema["ChannelKind"]["table"]
         seed_data = tbl.get("seed_data", [])
 
         assert len(seed_data) == 4
         names = {row["Name"] for row in seed_data}
         assert names == {"Value", "Status", "Alarm", "Uncertainty"}
 
-    def test_channel_role_ids(self, tables_dir):
-        """ChannelRole IDs should follow the expected convention."""
+    def test_channel_kind_ids(self, tables_dir):
+        """ChannelKind IDs should follow the expected convention."""
         schema = load_schema(tables_dir)
-        tbl = schema["ChannelRole"]["table"]
+        tbl = schema["ChannelKind"]["table"]
         by_name = {
-            row["Name"]: row["ChannelRole_ID"] for row in tbl.get("seed_data", [])
+            row["Name"]: row["ChannelKind_ID"] for row in tbl.get("seed_data", [])
         }
 
         assert by_name["Value"] == 1
@@ -115,13 +115,13 @@ class TestChannelSubSignalColumns:
 
         assert cols["ParentChannel_ID"].get("nullable", True) is True
 
-    def test_channel_has_channel_role_id(self, tables_dir):
-        """Channel should have ChannelRole_ID FK."""
+    def test_channel_has_channel_kind_id(self, tables_dir):
+        """Channel should have ChannelKind_ID FK."""
         schema = load_schema(tables_dir)
         tbl = schema["Channel"]["table"]
         col_names = [c["name"] for c in tbl["columns"]]
 
-        assert "ChannelRole_ID" in col_names
+        assert "ChannelKind_ID" in col_names
 
     def test_deprecated_tables_not_active(self, tables_dir):
         """Deprecated v3 tables should not be active in v4.0.0 schema."""

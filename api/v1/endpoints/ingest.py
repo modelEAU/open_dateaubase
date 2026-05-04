@@ -923,11 +923,11 @@ def ingest_sensor_image(
             width, height = pil_img.size
             n_channels = len(pil_img.getbands())
             img_format = pil_img.format or file_ext.upper()
-            # Generate thumbnail (100x100 max, JPEG bytes)
+            # Generate thumbnail (400x400 max, JPEG bytes)
             thumb = pil_img.copy()
-            thumb.thumbnail((100, 100))
+            thumb.thumbnail((400, 400))
             thumb_buf = io.BytesIO()
-            thumb.convert("RGB").save(thumb_buf, format="JPEG")
+            thumb.convert("RGB").save(thumb_buf, format="JPEG", quality=85)
             thumbnail_bytes = thumb_buf.getvalue()
         except Exception:
             # Pillow failed — store without metadata

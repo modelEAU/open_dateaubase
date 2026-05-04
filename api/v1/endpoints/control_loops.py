@@ -148,7 +148,7 @@ def list_loop_ports(loop_id: int, conn=Depends(get_db)):
                 control_loop_port_id=r["ControlLoopPort_ID"],
                 control_loop_id=r["ControlLoop_ID"],
                 channel_id=r["Channel_ID"],
-                role_id=r["ControlLoopPortRole_ID"],
+                role_id=r["ControlLoopPortKind_ID"],
                 role_name=r["role_name"],
             )
             for r in rows
@@ -185,7 +185,7 @@ def add_port(
         if role_id is None:
             raise HTTPException(
                 status_code=422,
-                detail=f"ControlLoopPortRole name {body.role_name!r} not found.",
+                detail=f"ControlLoopPortKind name {body.role_name!r} not found.",
             )
 
     try:
@@ -211,7 +211,7 @@ def add_port(
         control_loop_port_id=port_row["ControlLoopPort_ID"],
         control_loop_id=port_row["ControlLoop_ID"],
         channel_id=port_row["Channel_ID"],
-        role_id=port_row["ControlLoopPortRole_ID"],
+        role_id=port_row["ControlLoopPortKind_ID"],
         role_name=port_row["role_name"],
     )
 

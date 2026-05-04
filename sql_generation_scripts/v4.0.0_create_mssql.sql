@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v4.0.0
 -- Platform: mssql
--- Generated: 2026-04-24 21:51:55 UTC
+-- Generated: 2026-05-03 17:26:58 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -66,6 +66,7 @@ CREATE TABLE [dbo].[Parameter] (
     [Parameter] NVARCHAR(100),
     [Parameter_ID] INT IDENTITY(1,1) NOT NULL,
     [Description] NVARCHAR(MAX),
+    [ENVO_IRI] NVARCHAR(256),
     CONSTRAINT [PK_Parameter] PRIMARY KEY ([Parameter_ID])
 );
 
@@ -161,6 +162,8 @@ CREATE TABLE [dbo].[SiteKind] (
 CREATE TABLE [dbo].[Unit] (
     [Unit_ID] INT IDENTITY(1,1) NOT NULL,
     [Unit] NVARCHAR(100),
+    [QUDT_IRI] NVARCHAR(256),
+    [UnitVector] NVARCHAR(64),
     CONSTRAINT [PK_Unit] PRIMARY KEY ([Unit_ID])
 );
 
@@ -483,6 +486,7 @@ CREATE TABLE [dbo].[SamplingPoint] (
     [PicturePath] NVARCHAR(500),
     [ValidFrom] DATETIME2(7),
     [ValidTo] DATETIME2(7),
+    [ProcessUnit_ID] INT,
     [CreatedByCampaign_ID] INT,
     CONSTRAINT [PK_SamplingPoint] PRIMARY KEY ([SamplingPoint_ID])
 );
@@ -756,6 +760,7 @@ ALTER TABLE [dbo].[Sample] ADD CONSTRAINT [FK_Sample_Campaign] FOREIGN KEY ([Cam
 ALTER TABLE [dbo].[Sample] ADD CONSTRAINT [FK_Sample_SampleCollectionKind] FOREIGN KEY ([SampleCollectionKind_ID]) REFERENCES [dbo].[SampleCollectionKind] ([SampleCollectionKind_ID]);
 ALTER TABLE [dbo].[Sample] ADD CONSTRAINT [FK_Sample_Equipment] FOREIGN KEY ([SampleEquipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
 ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_Site] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
+ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_ProcessUnit] FOREIGN KEY ([ProcessUnit_ID]) REFERENCES [dbo].[ProcessUnit] ([ProcessUnit_ID]);
 ALTER TABLE [dbo].[SamplingPoint] ADD CONSTRAINT [FK_SamplingPoint_Campaign] FOREIGN KEY ([CreatedByCampaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
 ALTER TABLE [dbo].[SignalInterface] ADD CONSTRAINT [FK_SignalInterface_DataAcquisitionSystem] FOREIGN KEY ([DataAcquisitionSystem_ID]) REFERENCES [dbo].[DataAcquisitionSystem] ([DataAcquisitionSystem_ID]);
 ALTER TABLE [dbo].[SignalInterface] ADD CONSTRAINT [FK_SignalInterface_SignalInterfaceKind] FOREIGN KEY ([SignalInterfaceKind_ID]) REFERENCES [dbo].[SignalInterfaceKind] ([SignalInterfaceKind_ID]);

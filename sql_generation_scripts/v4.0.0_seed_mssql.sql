@@ -1,6 +1,6 @@
 -- Seed data for schema v4.0.0
 -- Platform: mssql
--- Generated: 2026-05-02 20:23:01 UTC
+-- Generated: 2026-05-03 17:26:58 UTC
 -- AnnotationKind
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (1, N'Fault', N'Sensor or process fault', N'#FF4444');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (2, N'Maintenance', N'Sensor under maintenance', N'#FFA500');
@@ -111,6 +111,22 @@ INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name
 INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (6, N'Network', N'Ethernet/IP or other network-based port');
 INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (7, N'Virtual', N'Logical port with no dedicated physical terminal (e.g. multiplexed sub-channel)');
 INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (8, N'Unknown', N'Physical kind not yet traced');
+-- SiteKind
+SET IDENTITY_INSERT [dbo].[SiteKind] ON;
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (1, N'Wastewater Treatment Plant', N'Municipal or industrial facility treating wastewater before discharge');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (2, N'Combined Sewer Overflow', N'Point where combined sewer system discharges during high-flow events');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (3, N'River / Stream', N'Natural flowing surface water body');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (4, N'Lake / Reservoir', N'Natural or artificial standing body of water');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (5, N'Groundwater / Well', N'Subsurface water source accessed via a well or borehole');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (6, N'Drinking Water Distribution Network Access Point', N'Monitoring point within a potable water distribution network');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (7, N'Canal', N'Artificial waterway for water transport or drainage');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (8, N'Wastewater Pumping Station', N'Facility that pumps wastewater through the collection network');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (9, N'Combined Drainage Network Access Point', N'Monitoring point within a combined stormwater and wastewater network');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (10, N'Rainwater Drainage Network Access Point', N'Monitoring point within a stormwater-only drainage network');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (11, N'Wastewater Drainage Network Access Point', N'Monitoring point within a sanitary sewer network');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (12, N'Pilot Plant', N'Small-scale experimental treatment or process facility');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (13, N'Other', N'Site kind not covered by the standard vocabulary');
+SET IDENTITY_INSERT [dbo].[SiteKind] OFF;
 -- ValueKind
 SET IDENTITY_INSERT [dbo].[ValueKind] ON;
 INSERT INTO [dbo].[ValueKind] ([ValueKind_ID], [Name], [Description]) VALUES (1, N'Scalar', N'A single numeric measurement value (e.g. temperature, concentration)');

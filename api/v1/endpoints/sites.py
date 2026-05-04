@@ -18,8 +18,8 @@ from ..schemas.metadata import (
     SiteOut,
     SitePatch,
     SiteLookupOut,
-    SiteTypeIn,
-    SiteTypeOut,
+    SiteKindIn,
+    SiteKindOut,
 )
 
 router = APIRouter()
@@ -37,33 +37,33 @@ def list_sites_lookup(conn=Depends(get_db)):
     return site_repository.get_sites_lookup(conn)
 
 
-@router.get("/site-types", response_model=list[SiteTypeOut])
-def list_site_types(conn=Depends(get_db)):
-    """Return all site types."""
-    return site_repository.get_all_site_types(conn)
+@router.get("/site-kinds", response_model=list[SiteKindOut])
+def list_site_kinds(conn=Depends(get_db)):
+    """Return all site kinds."""
+    return site_repository.get_all_site_kinds(conn)
 
 
-@router.post("/site-types", response_model=SiteTypeOut, status_code=201)
-def create_site_type(body: SiteTypeIn, conn=Depends(get_db)):
-    """Create a new SiteType."""
-    return site_repository.insert_site_type(conn, body.name, body.description)
+@router.post("/site-kinds", response_model=SiteKindOut, status_code=201)
+def create_site_kind(body: SiteKindIn, conn=Depends(get_db)):
+    """Create a new SiteKind."""
+    return site_repository.insert_site_kind(conn, body.name, body.description)
 
 
-@router.put("/site-types/{site_type_id}", response_model=SiteTypeOut)
-def update_site_type(site_type_id: int, body: SiteTypeIn, conn=Depends(get_db)):
-    """Update an existing SiteType."""
-    updated = site_repository.update_site_type(conn, site_type_id, body.name, body.description)
+@router.put("/site-kinds/{site_kind_id}", response_model=SiteKindOut)
+def update_site_kind(site_kind_id: int, body: SiteKindIn, conn=Depends(get_db)):
+    """Update an existing SiteKind."""
+    updated = site_repository.update_site_kind(conn, site_kind_id, body.name, body.description)
     if updated is None:
-        raise HTTPException(status_code=404, detail=f"SiteType {site_type_id} not found.")
+        raise HTTPException(status_code=404, detail=f"SiteKind {site_kind_id} not found.")
     return updated
 
 
-@router.delete("/site-types/{site_type_id}", status_code=204)
-def delete_site_type(site_type_id: int, conn=Depends(get_db)):
-    """Delete a SiteType by ID."""
-    deleted = site_repository.delete_site_type(conn, site_type_id)
+@router.delete("/site-kinds/{site_kind_id}", status_code=204)
+def delete_site_kind(site_kind_id: int, conn=Depends(get_db)):
+    """Delete a SiteKind by ID."""
+    deleted = site_repository.delete_site_kind(conn, site_kind_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail=f"SiteType {site_type_id} not found.")
+        raise HTTPException(status_code=404, detail=f"SiteKind {site_kind_id} not found.")
 
 
 @router.get("/{site_id}", response_model=SiteOut)

@@ -7,7 +7,7 @@ from enum import Enum
 from pydantic import BaseModel, field_validator, model_validator
 
 
-class BinMode(str, Enum):
+class BinKind(str, Enum):
     interval = "interval"
     interval_with_nominal = "interval_with_nominal"
     nominal = "nominal"
@@ -40,23 +40,23 @@ class ValueBinItem(BaseModel):
         return self
 
 
-def _validate_bins_match_mode(bins: list[ValueBinItem], mode: BinMode) -> None:
+def _validate_bins_match_mode(bins: list[ValueBinItem], mode: BinKind) -> None:
     """Raise ValueError if any bin's populated fields don't match the declared mode."""
     for i, b in enumerate(bins):
         has_bounds = b.lower_bound is not None
         has_nominal = b.nominal_value is not None
         match mode:
-            case BinMode.interval:
+            case BinKind.interval:
                 if not has_bounds or has_nominal:
                     raise ValueError(
                         f"bin[{i}]: mode 'interval' requires lower_bound and upper_bound, no nominal_value"
                     )
-            case BinMode.interval_with_nominal:
+            case BinKind.interval_with_nominal:
                 if not has_bounds or not has_nominal:
                     raise ValueError(
                         f"bin[{i}]: mode 'interval_with_nominal' requires lower_bound, upper_bound, and nominal_value"
                     )
-            case BinMode.nominal:
+            case BinKind.nominal:
                 if has_bounds or not has_nominal:
                     raise ValueError(
                         f"bin[{i}]: mode 'nominal' requires nominal_value only, no bounds"
@@ -69,7 +69,7 @@ class ValueBinningAxisIn(BaseModel):
     name: str
     description: str | None = None
     unit_id: int
-    bin_mode: BinMode
+    bin_kind: BinKind
     bins: list[ValueBinItem]
 
     @field_validator("bins")
@@ -81,7 +81,7 @@ class ValueBinningAxisIn(BaseModel):
 
     @model_validator(mode="after")
     def bins_match_mode(self) -> ValueBinningAxisIn:
-        _validate_bins_match_mode(self.bins, self.bin_mode)
+        _validate_bins_match_mode(self.bins, self.bin_kind)
         return self
 
 
@@ -94,7 +94,7 @@ class ValueBinningAxisOut(BaseModel):
     unit_id: int
     unit_name: str | None
     number_of_bins: int
-    bin_mode: BinMode
+    bin_kind: BinKind
 
 
 class ValueBinningAxisDetail(ValueBinningAxisOut):
@@ -109,13 +109,13 @@ class ValueBinningAxisUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     unit_id: int | None = None
-    bin_mode: BinMode | None = None
+    bin_kind: BinKind | None = None
     bins: list[ValueBinItem] | None = None
 
     @model_validator(mode="after")
     def bins_match_mode_if_both_present(self) -> ValueBinningAxisUpdate:
-        if self.bins is not None and self.bin_mode is not None:
-            _validate_bins_match_mode(self.bins, self.bin_mode)
+        if self.bins is not None and self.bin_kind is not None:
+            _validate_bins_match_mode(self.bins, self.bin_kind)
         return self
 
 
@@ -132,7 +132,7 @@ class ValueBinningAxisResolveRequest(BaseModel):
     name: str
     description: str | None = None
     unit_name: str
-    bin_mode: BinMode
+    bin_kind: BinKind
     bins: list[ValueBinItem]
 
     @field_validator("bins")
@@ -144,7 +144,7 @@ class ValueBinningAxisResolveRequest(BaseModel):
 
     @model_validator(mode="after")
     def bins_match_mode(self) -> ValueBinningAxisResolveRequest:
-        _validate_bins_match_mode(self.bins, self.bin_mode)
+        _validate_bins_match_mode(self.bins, self.bin_kind)
         return self
 
 

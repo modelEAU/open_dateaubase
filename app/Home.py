@@ -80,6 +80,7 @@ pg = st.navigation(
         ],
         "Campaigns": [
             st.Page(str(_pages / "campaigns.py"), title="Campaigns", icon="🗂️"),
+            st.Page(str(_pages / "campaign_wizard_page.py"), title="New Campaign", icon="🪄"),
         ],
         "Entities": [
             st.Page(str(_pages / "watersheds.py"), title="Watersheds"),
@@ -138,6 +139,8 @@ pg = st.navigation(
         ],
         "Workflows": [
             st.Page(str(_pages / "equipment_move.py"), title="Equipment Move"),
+            st.Page(str(_pages / "site_wizard.py"), title="Site Setup Wizard", icon="🏭"),
+            st.Page(str(_pages / "field_system_wizard.py"), title="Field System Wizard", icon="📡"),
         ],
     }
 )

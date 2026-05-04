@@ -41,7 +41,7 @@ class ControlLoopPortAddRequest(BaseModel):
     """Associate a Channel with a loop.
 
     Provide either ``role_id`` (int) or ``role_name`` (string matching a
-    ControlLoopPortRole.Name). If both are given, ``role_id`` takes precedence.
+    ControlLoopPortKind.Name). If both are given, ``role_id`` takes precedence.
     """
 
     channel_id: int

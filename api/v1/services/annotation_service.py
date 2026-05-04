@@ -12,16 +12,16 @@ from ..schemas.annotations import AnnotationCreate, AnnotationUpdate
 
 
 def _resolve_annotation_type(conn: pyodbc.Connection, annotation_type: str | int) -> dict:
-    """Resolve annotation_type (name or ID) to a full AnnotationType dict. Raises 404 if not found."""
+    """Resolve annotation_type (name or ID) to a full AnnotationKind dict. Raises 404 if not found."""
     if isinstance(annotation_type, int):
-        at = annotation_repository.get_annotation_type_by_id(conn, annotation_type)
+        at = annotation_repository.get_annotation_kind_by_id(conn, annotation_type)
     else:
-        at = annotation_repository.get_annotation_type_by_name(conn, annotation_type)
+        at = annotation_repository.get_annotation_kind_by_name(conn, annotation_type)
 
     if at is None:
         raise HTTPException(
             status_code=404,
-            detail=f"AnnotationType '{annotation_type}' not found.",
+            detail=f"AnnotationKind '{annotation_type}' not found.",
         )
     return at
 
@@ -38,7 +38,7 @@ def _build_annotation_response(row: dict) -> dict:
         "annotation_id": row["annotation_id"],
         "channel_id": row["channel_id"],
         "type": {
-            "id": row["annotation_type_id"],
+            "id": row["annotation_kind_id"],
             "name": row["annotation_type_name"],
             "color": row.get("color"),
         },
@@ -55,12 +55,12 @@ def _build_annotation_response(row: dict) -> dict:
     }
 
 
-def get_annotation_types(conn: pyodbc.Connection) -> dict:
-    rows = annotation_repository.get_annotation_types(conn)
+def get_annotation_kinds(conn: pyodbc.Connection) -> dict:
+    rows = annotation_repository.get_annotation_kinds(conn)
     return {
         "annotation_types": [
             {
-                "id": r["annotation_type_id"],
+                "id": r["annotation_kind_id"],
                 "name": r["annotation_type_name"],
                 "description": r.get("description"),
                 "color": r.get("color"),
@@ -81,13 +81,13 @@ def get_annotations_for_timeseries(
     if ch is None:
         raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
 
-    annotation_type_id: int | None = None
+    annotation_kind_id: int | None = None
     if type_filter is not None:
         at = _resolve_annotation_type(conn, type_filter)
-        annotation_type_id = at["annotation_type_id"]
+        annotation_kind_id = at["annotation_kind_id"]
 
     rows = annotation_repository.get_annotations_for_timeseries(
-        conn, channel_id, from_dt, to_dt, annotation_type_id
+        conn, channel_id, from_dt, to_dt, annotation_kind_id
     )
     return {
         "channel_id": channel_id,
@@ -111,7 +111,7 @@ def create_annotation(
     created = annotation_repository.create_annotation(
         conn,
         channel_id=channel_id,
-        annotation_type_id=at["annotation_type_id"],
+        annotation_kind_id=at["annotation_kind_id"],
         start_time=data.start_time,
         end_time=data.end_time,
         author_person_id=data.author_person_id,
@@ -125,7 +125,7 @@ def create_annotation(
         "annotation_id": created["annotation_id"],
         "channel_id": channel_id,
         "type": {
-            "id": at["annotation_type_id"],
+            "id": at["annotation_kind_id"],
             "name": at["annotation_type_name"],
             "color": at.get("color"),
         },
@@ -145,15 +145,15 @@ def update_annotation(
     if existing is None:
         raise HTTPException(status_code=404, detail=f"Annotation {annotation_id} not found.")
 
-    annotation_type_id: int | None = None
+    annotation_kind_id: int | None = None
     if data.annotation_type is not None:
         at = _resolve_annotation_type(conn, data.annotation_type)
-        annotation_type_id = at["annotation_type_id"]
+        annotation_kind_id = at["annotation_kind_id"]
 
     updated = annotation_repository.update_annotation(
         conn,
         annotation_id,
-        annotation_type_id=annotation_type_id,
+        annotation_kind_id=annotation_kind_id,
         start_time=data.start_time,
         end_time=data.end_time,
         title=data.title,
@@ -177,12 +177,12 @@ def get_recent_annotations(
     limit: int = 20,
     type_filter: str | int | None = None,
 ) -> dict:
-    annotation_type_id: int | None = None
+    annotation_kind_id: int | None = None
     if type_filter is not None:
         at = _resolve_annotation_type(conn, type_filter)
-        annotation_type_id = at["annotation_type_id"]
+        annotation_kind_id = at["annotation_kind_id"]
 
-    rows = annotation_repository.get_recent_annotations(conn, limit, annotation_type_id)
+    rows = annotation_repository.get_recent_annotations(conn, limit, annotation_kind_id)
     annotations = []
     for r in rows:
         item = _build_annotation_response(r)
@@ -207,18 +207,18 @@ def list_annotations(
     }
 
 
-def get_annotations_by_type(
+def get_annotations_by_kind(
     conn: pyodbc.Connection,
     type_name: str,
     from_dt: datetime,
     to_dt: datetime,
 ) -> dict:
-    at = annotation_repository.get_annotation_type_by_name(conn, type_name)
+    at = annotation_repository.get_annotation_kind_by_name(conn, type_name)
     if at is None:
-        raise HTTPException(status_code=404, detail=f"AnnotationType '{type_name}' not found.")
+        raise HTTPException(status_code=404, detail=f"AnnotationKind '{type_name}' not found.")
 
-    rows = annotation_repository.get_annotations_by_type(
-        conn, at["annotation_type_id"], from_dt, to_dt
+    rows = annotation_repository.get_annotations_by_kind(
+        conn, at["annotation_kind_id"], from_dt, to_dt
     )
     annotations = []
     for r in rows:

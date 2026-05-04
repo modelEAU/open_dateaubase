@@ -9,8 +9,8 @@ from pydantic import BaseModel
 
 class CampaignOut(BaseModel):
     campaign_id: int
-    campaign_type_id: int
-    campaign_type_name: str | None
+    campaign_kind_id: int
+    campaign_kind_name: str | None
     site_id: int
     site_name: str | None
     name: str
@@ -23,7 +23,7 @@ class CampaignOut(BaseModel):
 
 class CampaignIn(BaseModel):
     name: str
-    campaign_type_id: int
+    campaign_kind_id: int
     site_id: int
     description: str | None = None
     start_date: str | None = None  # ISO datetime string e.g. "2024-06-01T00:00:00"
@@ -35,7 +35,7 @@ class CampaignPatch(BaseModel):
     """Partial update schema for Campaign - all fields optional."""
 
     name: str | None = None
-    campaign_type_id: int | None = None
+    campaign_kind_id: int | None = None
     site_id: int | None = None
     description: str | None = None
     start_date: str | None = None
@@ -43,10 +43,10 @@ class CampaignPatch(BaseModel):
     responsible_person_id: int | None = None
 
 
-class CampaignTypeOut(BaseModel):
+class CampaignKindOut(BaseModel):
     """Campaign type info for dropdowns."""
 
-    campaign_type_id: int
+    campaign_kind_id: int
     name: str
     description: str | None = None
 

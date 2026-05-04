@@ -537,7 +537,7 @@ class SiteBase(BaseModel):
         alias="Name", description="Name of the site", max_length=100
     )
     sitetypeID: Optional[int] = Field(
-        alias="SiteType_ID", description="Type of the site via SiteType lookup"
+        alias="SiteKind_ID", description="Type of the site via SiteKind lookup"
     )
     description: Optional[str] = Field(
         alias="Description", description="Description of the site"
@@ -1676,28 +1676,28 @@ class ControlLoop(ControlLoopBase):
     )
 
 
-class SiteTypeBase(BaseModel):
+class SiteKindBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     name: str = Field(
         alias="Name",
-        description="Name of the site type (e.g. Wastewater Treatment Plant)",
+        description="Name of the site kind (e.g. Wastewater Treatment Plant)",
         max_length=100,
     )
     description: Optional[str] = Field(
-        alias="Description", description="Detailed description of the site type"
+        alias="Description", description="Detailed description of the site kind"
     )
 
 
-class SiteTypeCreate(SiteTypeBase):
+class SiteKindCreate(SiteKindBase):
     pass
 
 
-class SiteType(SiteTypeBase):
+class SiteKind(SiteKindBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    sitetypeID: int = Field(
-        alias="SiteType_ID", description="Primary key for the SiteType lookup"
+    sitekindID: int = Field(
+        alias="SiteKind_ID", description="Primary key for the SiteKind lookup"
     )
 
 

@@ -308,7 +308,7 @@ def test_create_channel_passes_optional_fields(client):
         tag_name="TIT-102",
         parameter_name="temperature",
         unit_name="degC",
-        channel_role="value",
+        channel_kind="value",
         data_provenance_id=2,
     )
     import json

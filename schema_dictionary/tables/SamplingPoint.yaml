@@ -54,6 +54,13 @@ table:
       precision: 7
       nullable: true
       description: "Date until which this sampling point record is valid (UTC). NULL means currently active."
+    - name: ProcessUnit_ID
+      logical_type: integer
+      nullable: true
+      description: "Optional process unit this sampling point is located within (e.g. a tank or zone)"
+      foreign_key:
+        table: ProcessUnit
+        column: ProcessUnit_ID
     - name: CreatedByCampaign_ID
       logical_type: integer
       nullable: true

@@ -18,15 +18,15 @@ def find_or_create_sensor_metadata(
     parameter_id: int,
     unit_id: int | None = None,
     data_provenance_id: int,
-    processing_degree_id: int,
-    value_type_id: int = 1,
+    processing_kind_id: int,
+    value_kind_id: int = 1,
     parent_channel_id: int | None = None,
-    channel_role_id: int = 1,
+    channel_kind_id: int = 1,
 ) -> int:
     """Find or create a Channel row for a sensor stream. Returns Channel_ID.
 
     Uses the UNIQUE sensor stream constraint:
-    (SignalInterface_ID, TagName, Parameter_ID, DataProvenance_ID, ProcessingDegree_ID).
+    (SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID, ProcessingKind_ID).
 
     On first ingest, a new row is created with Unit_ID stored on the Channel.
     On subsequent calls for the same stream, the existing Channel_ID is returned.
@@ -41,28 +41,28 @@ def find_or_create_sensor_metadata(
             WHERE [SignalInterface_ID] = ?
               AND [TagName] = ?
               AND [Parameter_ID] = ?
-              AND [DataProvenance_ID] = ?
-              AND [ProcessingDegree_ID] = ?
+              AND [DataProvenanceKind_ID] = ?
+              AND [ProcessingKind_ID] = ?
         )
         INSERT INTO [dbo].[Channel]
-            ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenance_ID],
-             [ProcessingDegree_ID], [ValueType_ID], [Unit_ID], [ParentChannel_ID], [ChannelRole_ID])
+            ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID],
+             [ProcessingKind_ID], [ValueKind_ID], [Unit_ID], [ParentChannel_ID], [ChannelKind_ID])
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         signal_interface_id,
         tag_name,
         parameter_id,
         data_provenance_id,
-        processing_degree_id,
+        processing_kind_id,
         signal_interface_id,
         tag_name,
         parameter_id,
         data_provenance_id,
-        processing_degree_id,
-        value_type_id,
+        processing_kind_id,
+        value_kind_id,
         unit_id,
         parent_channel_id,
-        channel_role_id,
+        channel_kind_id,
     )
     conn.commit()
     cursor.execute(
@@ -71,14 +71,14 @@ def find_or_create_sensor_metadata(
         WHERE [SignalInterface_ID] = ?
           AND [TagName] = ?
           AND [Parameter_ID] = ?
-          AND [DataProvenance_ID] = ?
-          AND [ProcessingDegree_ID] = ?
+          AND [DataProvenanceKind_ID] = ?
+          AND [ProcessingKind_ID] = ?
         """,
         signal_interface_id,
         tag_name,
         parameter_id,
         data_provenance_id,
-        processing_degree_id,
+        processing_kind_id,
     )
     row = cursor.fetchone()
     channel_id, stored_unit_id = row[0], row[1]
@@ -97,12 +97,12 @@ def find_or_create_derived_metadata(
     conn: pyodbc.Connection,
     *,
     source_channel_id: int,
-    processing_degree_id: int,
+    processing_kind_id: int,
 ) -> int:
     """Find or create a Channel row for a processed output stream.
 
-    Clones identity fields (SignalInterface_ID, TagName, Parameter, Unit, DataProvenance, ValueType)
-    from the source Channel row and applies the new ProcessingDegree_ID.
+    Clones identity fields (SignalInterface_ID, TagName, Parameter, Unit, DataProvenanceKind, ValueKind)
+    from the source Channel row and applies the new ProcessingKind_ID.
     The new channel becomes a child of the source channel (ParentChannel_ID).
     """
     from fastapi import HTTPException
@@ -110,8 +110,8 @@ def find_or_create_derived_metadata(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenance_ID],
-               [ValueType_ID], [Unit_ID]
+        SELECT [SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID],
+               [ValueKind_ID], [Unit_ID]
         FROM [dbo].[Channel]
         WHERE [Channel_ID] = ?
         """,
@@ -128,7 +128,7 @@ def find_or_create_derived_metadata(
         tag_name,
         parameter_id,
         data_provenance_id,
-        value_type_id,
+        value_kind_id,
         unit_id,
     ) = row
     return find_or_create_sensor_metadata(
@@ -138,8 +138,8 @@ def find_or_create_derived_metadata(
         parameter_id=parameter_id,
         unit_id=unit_id,
         data_provenance_id=data_provenance_id,
-        processing_degree_id=processing_degree_id,
-        value_type_id=value_type_id or 1,
+        processing_kind_id=processing_kind_id,
+        value_kind_id=value_kind_id or 1,
     )
 
 

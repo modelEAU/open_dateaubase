@@ -12,12 +12,12 @@ from ..schemas.campaigns import (
     CampaignIn,
     CampaignOut,
     CampaignPatch,
-    CampaignTypeOut,
+    CampaignKindOut,
     DeploymentCreateIn,
     DeploymentCreateOut,
     DeploymentOut,
 )
-from ..schemas.metadata import CampaignTypeIn
+from ..schemas.metadata import CampaignKindIn
 
 router = APIRouter()
 
@@ -25,12 +25,12 @@ router = APIRouter()
 @router.get("", response_model=list[CampaignOut])
 def list_campaigns(
     site_id: int | None = Query(None),
-    campaign_type_id: int | None = Query(None),
+    campaign_kind_id: int | None = Query(None),
     conn=Depends(get_db),
 ):
     """Return all campaigns, optionally filtered by site or type."""
     return campaign_repository.list_campaigns(
-        conn, site_id=site_id, campaign_type_id=campaign_type_id
+        conn, site_id=site_id, campaign_kind_id=campaign_kind_id
     )
 
 
@@ -78,30 +78,30 @@ def get_campaigns_lookup(conn=Depends(get_db)):
     return [{"campaign_id": row[0], "name": row[1]} for row in cursor.fetchall()]
 
 
-@router.get("/types", response_model=list[CampaignTypeOut])
-def list_campaign_types(conn=Depends(get_db)):
+@router.get("/types", response_model=list[CampaignKindOut])
+def list_campaign_kinds(conn=Depends(get_db)):
     """Return all campaign types for dropdowns."""
-    return campaign_repository.get_campaign_types(conn)
+    return campaign_repository.get_campaign_kinds(conn)
 
 
-@router.post("/types", response_model=CampaignTypeOut, status_code=201)
-def create_campaign_type(body: CampaignTypeIn, conn=Depends(get_db)):
-    return lookup_repository.insert_campaign_type(conn, body.name)
+@router.post("/types", response_model=CampaignKindOut, status_code=201)
+def create_campaign_kind(body: CampaignKindIn, conn=Depends(get_db)):
+    return lookup_repository.insert_campaign_kind(conn, body.name)
 
 
-@router.put("/types/{campaign_type_id}", response_model=CampaignTypeOut)
-def update_campaign_type(campaign_type_id: int, body: CampaignTypeIn, conn=Depends(get_db)):
-    updated = lookup_repository.update_campaign_type(conn, campaign_type_id, body.name)
+@router.put("/types/{campaign_kind_id}", response_model=CampaignKindOut)
+def update_campaign_kind(campaign_kind_id: int, body: CampaignKindIn, conn=Depends(get_db)):
+    updated = lookup_repository.update_campaign_kind(conn, campaign_kind_id, body.name)
     if updated is None:
-        raise HTTPException(status_code=404, detail=f"CampaignType {campaign_type_id} not found.")
+        raise HTTPException(status_code=404, detail=f"CampaignKind {campaign_kind_id} not found.")
     return updated
 
 
-@router.delete("/types/{campaign_type_id}", status_code=204)
-def delete_campaign_type(campaign_type_id: int, conn=Depends(get_db)):
-    deleted = lookup_repository.delete_campaign_type(conn, campaign_type_id)
+@router.delete("/types/{campaign_kind_id}", status_code=204)
+def delete_campaign_kind(campaign_kind_id: int, conn=Depends(get_db)):
+    deleted = lookup_repository.delete_campaign_kind(conn, campaign_kind_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail=f"CampaignType {campaign_type_id} not found.")
+        raise HTTPException(status_code=404, detail=f"CampaignKind {campaign_kind_id} not found.")
 
 
 @router.get("/{campaign_id}", response_model=CampaignOut)

@@ -1,7 +1,7 @@
 """Contract tests for resolve-channel endpoints.
 
 Covers both tagged (/resolve-channel) and tagless (/resolve-channel-tagless):
-- 422 for unknown channel_role / parameter / unit -- fired before any DB write
+- 422 for unknown channel_kind / parameter / unit -- fired before any DB write
 - 200 happy path returns {channel_id, warnings}
 - Warnings present when DAS or SignalInterface auto-created
 - No data is written (value_repository never called)
@@ -27,11 +27,11 @@ _VAL_REPO = "api.v1.endpoints.ingest.value_repository"
 _TAGGED_PAYLOAD = {
     "das_name": "PlantSCADA",
     "tag": "TIT-101",
-    "channel_role": "value",
+    "channel_kind": "value",
     "parameter_name": "temperature",
     "unit_name": "degC",
-    "data_provenance_id": 1,
-    "processing_degree_id": 1,
+    "data_provenance_kind_id": 1,
+    "processing_kind_id": 1,
 }
 
 _TAGLESS_PAYLOAD = {
@@ -39,8 +39,8 @@ _TAGLESS_PAYLOAD = {
     "equipment_name": "Probe_A",
     "parameter_name": "dissolved oxygen",
     "unit_name": "mg/L",
-    "data_provenance_id": 1,
-    "processing_degree_id": 1,
+    "data_provenance_kind_id": 1,
+    "processing_kind_id": 1,
 }
 
 
@@ -78,7 +78,7 @@ def client():
 @contextlib.contextmanager
 def _patch_tagged_resolved(
     *,
-    channel_role_id: int = 1,
+    channel_kind_id: int = 1,
     param_id: int = 7,
     unit_id: int = 3,
     das_created: bool = False,
@@ -86,7 +86,7 @@ def _patch_tagged_resolved(
     channel_id: int = 42,
 ):
     with (
-        patch(f"{_REPO}.find_channel_role_by_name", return_value=channel_role_id),
+        patch(f"{_REPO}.find_channel_kind_by_name", return_value=channel_kind_id),
         patch(f"{_REPO}.find_parameter_by_name", return_value=param_id),
         patch(f"{_REPO}.find_unit_by_name", return_value=unit_id),
         patch(f"{_REPO}.find_or_create_das", return_value=(10, das_created)),
@@ -144,10 +144,10 @@ def _patch_tagless_resolved(
 
 
 class TestTaggedValidationErrors:
-    def test_unknown_channel_role_returns_422(self, client, mock_conn):
-        payload = {**_TAGGED_PAYLOAD, "channel_role": "not_a_type"}
+    def test_unknown_channel_kind_returns_422(self, client, mock_conn):
+        payload = {**_TAGGED_PAYLOAD, "channel_kind": "not_a_type"}
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=None),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=None),
             patch(f"{_REPO}.find_parameter_by_name") as mock_param,
             patch(f"{_REPO}.find_unit_by_name") as mock_unit,
             patch(f"{_REPO}.find_or_create_das") as mock_das,
@@ -157,7 +157,7 @@ class TestTaggedValidationErrors:
             resp = client.post("/api/v1/ingest/resolve-channel", json=payload)
 
         assert resp.status_code == 422
-        assert "channel_role" in resp.json()["detail"].lower()
+        assert "channel_kind" in resp.json()["detail"].lower()
         mock_param.assert_not_called()
         mock_unit.assert_not_called()
         mock_das.assert_not_called()
@@ -167,7 +167,7 @@ class TestTaggedValidationErrors:
     def test_unknown_parameter_returns_422(self, client, mock_conn):
         payload = {**_TAGGED_PAYLOAD, "parameter_name": "xyzzy"}
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=1),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=1),
             patch(f"{_REPO}.find_parameter_by_name", return_value=None),
             patch(f"{_REPO}.find_unit_by_name") as mock_unit,
             patch(f"{_REPO}.find_or_create_das") as mock_das,
@@ -186,7 +186,7 @@ class TestTaggedValidationErrors:
     def test_unknown_unit_returns_422(self, client, mock_conn):
         payload = {**_TAGGED_PAYLOAD, "unit_name": "flurbs"}
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=1),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=1),
             patch(f"{_REPO}.find_parameter_by_name", return_value=7),
             patch(f"{_REPO}.find_unit_by_name", return_value=None),
             patch(f"{_REPO}.find_or_create_das") as mock_das,

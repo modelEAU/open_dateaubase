@@ -37,7 +37,7 @@ from ..schemas.equipment_move import (
 
 router = APIRouter()
 
-# AnnotationType_ID for "Equipment Relocation" — seeded in migration v1.0.0_to_v3.0.0
+# AnnotationKind_ID for "Equipment Relocation" — seeded in migration v1.0.0_to_v3.0.0
 _EQUIPMENT_MOVE_ANNOTATION_TYPE_ID = 11
 
 
@@ -60,7 +60,7 @@ def _annotate_move(
     return annotation_repository.create_equipment_move_annotations(
         conn,
         channel_ids=channel_ids,
-        annotation_type_id=_EQUIPMENT_MOVE_ANNOTATION_TYPE_ID,
+        annotation_kind_id=_EQUIPMENT_MOVE_ANNOTATION_TYPE_ID,
         title=title,
         comment=comment,
         start_time=start_time,

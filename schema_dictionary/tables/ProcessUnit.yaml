@@ -35,13 +35,13 @@ table:
       logical_type: text
       nullable: true
       description: "Optional description of the process unit's role or function"
-    - name: ProcessUnitType_ID
+    - name: ProcessUnitKind_ID
       logical_type: integer
       nullable: true
-      description: "Foreign key to ProcessUnitType lookup"
+      description: "Foreign key to ProcessUnitKind lookup"
       foreign_key:
-        table: ProcessUnitType
-        column: ProcessUnitType_ID
+        table: ProcessUnitKind
+        column: ProcessUnitKind_ID
     - name: Parent_ID
       logical_type: integer
       nullable: true

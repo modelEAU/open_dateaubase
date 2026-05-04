@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 from api.database import get_db
 from ..schemas.lineage import (
     LineageTreeOut,
-    ProcessingDegreeSummaryOut,
+    ProcessingKindSummaryOut,
     ProcessingStepCreate,
     ProcessingStepOut,
 )
@@ -62,8 +62,8 @@ def get_lineage_tree(channel_id: int, conn=Depends(get_db)):
     return lineage_service.full_lineage_tree(conn, channel_id)
 
 
-@router.get("/by-equipment/degrees", response_model=list[ProcessingDegreeSummaryOut])
-def get_processing_degrees(
+@router.get("/by-equipment/degrees", response_model=list[ProcessingKindSummaryOut])
+def get_processing_kinds(
     equipment_id: int = Query(..., description="Equipment ID"),
     parameter_id: int = Query(..., description="Parameter ID"),
     from_dt: datetime | None = Query(None, alias="from"),
@@ -71,13 +71,13 @@ def get_processing_degrees(
     conn=Depends(get_db),
 ):
     """Show all processing degrees (versions) of a time series for a given equipment."""
-    from open_dateaubase.lineage import get_all_processing_degrees
+    from open_dateaubase.lineage import get_all_processing_kinds
     from datetime import datetime as dt
 
     from_effective = from_dt or dt(2000, 1, 1)
     to_effective = to_dt or dt(2100, 1, 1)
 
-    return get_all_processing_degrees(
+    return get_all_processing_kinds(
         equipment_id=equipment_id,
         parameter_id=parameter_id,
         from_dt=from_effective,

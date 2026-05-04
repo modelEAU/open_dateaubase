@@ -22,13 +22,13 @@ table:
       max_length: 100
       nullable: true
       description: "Name of the site"
-    - name: SiteType_ID
+    - name: SiteKind_ID
       logical_type: integer
       nullable: true
-      description: "Type of the site via SiteType lookup"
+      description: "Kind of the site via SiteKind lookup"
       foreign_key:
-        table: SiteType
-        column: SiteType_ID
+        table: SiteKind
+        column: SiteKind_ID
     - name: Description
       logical_type: text
       nullable: true

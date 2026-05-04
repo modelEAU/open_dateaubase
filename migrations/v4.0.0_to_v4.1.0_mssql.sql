@@ -23,3 +23,7 @@ ALTER TABLE [dbo].[ParameterHasUnit]
 ALTER TABLE [dbo].[ParameterHasUnit]
     ADD CONSTRAINT [FK_ParameterHasUnit_Unit]
     FOREIGN KEY ([Unit_ID]) REFERENCES [dbo].[Unit] ([Unit_ID]);
+
+INSERT INTO [dbo].[SchemaVersion] ([Version], [AppliedDateTime], [Description], [MigrationScript])
+VALUES ('4.1.0', SYSUTCDATETIME(), 'Add SI conversion columns, ValueKind_ID, QUDT IRI, ParameterHasUnit junction table', 'v4.0.0_to_v4.1.0_mssql.sql');
+GO

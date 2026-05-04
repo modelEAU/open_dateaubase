@@ -53,6 +53,7 @@ def create_form_dialog(
             required=field.get("required", False),
             options=field.get("options"),
             help_text=field.get("help"),
+            label=field.get("label"),
         )
 
     col1, col2, col3 = st.columns([1, 1, 4])
@@ -110,6 +111,7 @@ def edit_form_dialog(
             required=field.get("required", False),
             options=field.get("options"),
             help_text=field.get("help"),
+            label=field.get("label"),
         )
 
     col1, col2, col3 = st.columns([1, 1, 4])

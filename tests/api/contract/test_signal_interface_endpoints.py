@@ -3,10 +3,10 @@
 Tests run without a live database using dependency_overrides and MagicMock.
 
 Covers:
-  - GET    /signal-interface-types
-  - POST   /signal-interface-types
-  - PUT    /signal-interface-types/{id}
-  - DELETE /signal-interface-types/{id}
+  - GET    /signal-interface-kinds
+  - POST   /signal-interface-kinds
+  - PUT    /signal-interface-kinds/{id}
+  - DELETE /signal-interface-kinds/{id}
   - GET    /signal-interfaces
   - GET    /signal-interfaces/{id}
   - POST   /signal-interfaces
@@ -31,7 +31,7 @@ from fastapi.testclient import TestClient
 from api.database import get_db
 from api.main import app
 
-_LOOKUP_REPO = "api.v1.endpoints.signal_interface_types.lookup_repository"
+_LOOKUP_REPO = "api.v1.endpoints.signal_interface_kinds.lookup_repository"
 _SI_REPO = "api.v1.endpoints.signal_interfaces.signal_interface_repository"
 _SIP_REPO = "api.v1.endpoints.signal_interface_ports.signal_interface_repository"
 _CHANNEL_REPO = "api.v1.endpoints.signal_interfaces.channel_repository"
@@ -67,7 +67,7 @@ def client():
 # ---------------------------------------------------------------------------
 
 _TYPE_ROW = {
-    "signal_interface_type_id": 1,
+    "signal_interface_kind_id": 1,
     "name": "PLC",
     "description": "Programmable logic controller",
 }
@@ -75,14 +75,14 @@ _TYPE_ROW = {
 _INTERFACE_ROW = {
     "SignalInterface_ID": 1,
     "DataAcquisitionSystem_ID": 1,
-    "SignalInterfaceType_ID": 1,
+    "SignalInterfaceKind_ID": 1,
     "Name": "PLC-01",
     "Make": "Rockwell",
     "Model": "ControlLogix",
     "SerialNumber": "SN123",
     "Description": "Main PLC",
     "IsActive": 1,
-    "signal_interface_type_name": "PLC",
+    "signal_interface_kind_name": "PLC",
     "das_name": "DAS-A",
 }
 
@@ -106,16 +106,16 @@ _CHANNEL_ROW = {
     "signal_interface_port_identifier": "6/Ch0",
     "parent_channel_id": None,
     "parent_channel_tag_name": None,
-    "channel_role_id": 1,
-    "channel_role_name": "Value",
+    "channel_kind_id": 1,
+    "channel_kind_name": "Value",
     "parameter_id": 1,
     "parameter_name": "Temperature",
-    "data_provenance_id": 1,
-    "data_provenance_name": "SCADA",
-    "processing_degree_id": 1,
-    "processing_degree_name": "Raw",
-    "value_type_id": 1,
-    "value_type_name": "Scalar",
+    "data_provenance_kind_id": 1,
+    "data_provenance_kind_name": "SCADA",
+    "processing_kind_id": 1,
+    "processing_kind_name": "Raw",
+    "value_kind_id": 1,
+    "value_kind_name": "Scalar",
     "unit_id": 1,
     "unit_name": "degC",
     "equipment_id": None,
@@ -131,17 +131,17 @@ _CHANNEL_ROW = {
 class TestListSignalInterfaceTypes:
     def test_returns_list(self, client, mock_conn):
         with patch(
-            f"{_LOOKUP_REPO}.get_signal_interface_types", return_value=[_TYPE_ROW]
+            f"{_LOOKUP_REPO}.get_signal_interface_kinds", return_value=[_TYPE_ROW]
         ):
-            resp = client.get("/api/v1/signal-interface-types")
+            resp = client.get("/api/v1/signal-interface-kinds")
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
         assert data[0]["name"] == "PLC"
 
     def test_empty_list(self, client, mock_conn):
-        with patch(f"{_LOOKUP_REPO}.get_signal_interface_types", return_value=[]):
-            resp = client.get("/api/v1/signal-interface-types")
+        with patch(f"{_LOOKUP_REPO}.get_signal_interface_kinds", return_value=[]):
+            resp = client.get("/api/v1/signal-interface-kinds")
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -149,9 +149,9 @@ class TestListSignalInterfaceTypes:
 class TestCreateSignalInterfaceType:
     def test_returns_201(self, client, mock_conn):
         with patch(
-            f"{_LOOKUP_REPO}.insert_signal_interface_type", return_value=_TYPE_ROW
+            f"{_LOOKUP_REPO}.insert_signal_interface_kind", return_value=_TYPE_ROW
         ):
-            resp = client.post("/api/v1/signal-interface-types", json={"name": "PLC"})
+            resp = client.post("/api/v1/signal-interface-kinds", json={"name": "PLC"})
         assert resp.status_code == 201
         assert resp.json()["name"] == "PLC"
 
@@ -159,26 +159,26 @@ class TestCreateSignalInterfaceType:
 class TestUpdateSignalInterfaceType:
     def test_returns_200_on_found(self, client, mock_conn):
         with patch(
-            f"{_LOOKUP_REPO}.update_signal_interface_type", return_value=_TYPE_ROW
+            f"{_LOOKUP_REPO}.update_signal_interface_kind", return_value=_TYPE_ROW
         ):
-            resp = client.put("/api/v1/signal-interface-types/1", json={"name": "PLC"})
+            resp = client.put("/api/v1/signal-interface-kinds/1", json={"name": "PLC"})
         assert resp.status_code == 200
 
     def test_returns_404_on_miss(self, client, mock_conn):
-        with patch(f"{_LOOKUP_REPO}.update_signal_interface_type", return_value=None):
-            resp = client.put("/api/v1/signal-interface-types/999", json={"name": "X"})
+        with patch(f"{_LOOKUP_REPO}.update_signal_interface_kind", return_value=None):
+            resp = client.put("/api/v1/signal-interface-kinds/999", json={"name": "X"})
         assert resp.status_code == 404
 
 
 class TestDeleteSignalInterfaceType:
     def test_returns_204_on_success(self, client, mock_conn):
-        with patch(f"{_LOOKUP_REPO}.delete_signal_interface_type", return_value=True):
-            resp = client.delete("/api/v1/signal-interface-types/1")
+        with patch(f"{_LOOKUP_REPO}.delete_signal_interface_kind", return_value=True):
+            resp = client.delete("/api/v1/signal-interface-kinds/1")
         assert resp.status_code == 204
 
     def test_returns_404_on_miss(self, client, mock_conn):
-        with patch(f"{_LOOKUP_REPO}.delete_signal_interface_type", return_value=False):
-            resp = client.delete("/api/v1/signal-interface-types/999")
+        with patch(f"{_LOOKUP_REPO}.delete_signal_interface_kind", return_value=False):
+            resp = client.delete("/api/v1/signal-interface-kinds/999")
         assert resp.status_code == 404
 
 
@@ -234,7 +234,7 @@ class TestCreateSignalInterface:
                     json={
                         "data_acquisition_system_id": 1,
                         "name": "PLC-01",
-                        "signal_interface_type_id": 1,
+                        "signal_interface_kind_id": 1,
                     },
                 )
         assert resp.status_code == 201

@@ -24,8 +24,8 @@ class SignalInterfaceOut(BaseModel):
     is_active: bool
     data_acquisition_system_id: int
     das_name: str
-    signal_interface_type_id: int
-    signal_interface_type_name: str
+    signal_interface_kind_id: int
+    signal_interface_kind_name: str
 
 
 class SignalInterfaceIn(BaseModel):
@@ -33,7 +33,7 @@ class SignalInterfaceIn(BaseModel):
 
     data_acquisition_system_id: int
     name: str
-    signal_interface_type_id: int
+    signal_interface_kind_id: int
     make: str | None = None
     model: str | None = None
     serial_number: str | None = None
@@ -167,7 +167,7 @@ class SubSignalOut(BaseModel):
     is_active: bool
     description: str | None
     parent_channel_id: int
-    channel_role_id: int
+    channel_kind_id: int
     channel_role_name: str
 
 
@@ -201,13 +201,13 @@ class SignalInterfacePortProvisionIn(BaseModel):
     description: str | None = None
 
 
-class SignalInterfaceTypeIn(BaseModel):
+class SignalInterfaceKindIn(BaseModel):
     name: str
     description: str | None = None
 
 
-class SignalInterfaceTypeLookupOut(BaseModel):
-    signal_interface_type_id: int
+class SignalInterfaceKindLookupOut(BaseModel):
+    signal_interface_kind_id: int
     name: str
     description: str | None = None
 
@@ -223,6 +223,7 @@ class SignalInterfaceLookupOut(BaseModel):
 
     signal_interface_id: int
     name: str
+    das_name: str
 
 
 class DasOut(BaseModel):
@@ -256,7 +257,7 @@ class SignalInterfacePortCreateIn(BaseModel):
     description: str | None = None
 
 
-class ChannelRoleLookupOut(BaseModel):
-    channel_role_id: int
+class ChannelKindLookupOut(BaseModel):
+    channel_kind_id: int
     name: str
     description: str | None = None

@@ -151,7 +151,7 @@ class TestAddPort:
         "ControlLoopPort_ID": 5,
         "ControlLoop_ID": 1,
         "Channel_ID": 20,
-        "ControlLoopPortRole_ID": 1,
+        "ControlLoopPortKind_ID": 1,
         "role_name": "MeasuredVariable",
     }
 

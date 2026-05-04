@@ -1,0 +1,44 @@
+_format_version: "1.0"
+table:
+  name: ProcessUnitKind
+  schema: dbo
+  description: "Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)"
+
+  columns:
+    - name: ProcessUnitKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Primary key for the ProcessUnitKind lookup"
+
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the process unit kind (e.g. Reactor, Pipe, Clarifier)"
+
+    - name: Description
+      logical_type: string
+      max_length: 300
+      nullable: true
+      description: "Explanation of this process unit kind"
+
+  primary_key: [ProcessUnitKind_ID]
+
+  constraints:
+    - type: unique
+      columns: [Name]
+      name: UQ_ProcessUnitKind_Name
+
+  seed_data:
+    - { ProcessUnitKind_ID: 1,  Name: "Area",      Description: "Broad spatial zone (e.g. biological treatment area)" }
+    - { ProcessUnitKind_ID: 2,  Name: "Zone",      Description: "Defined functional sub-zone within a process area" }
+    - { ProcessUnitKind_ID: 3,  Name: "Tank",      Description: "Enclosed vessel for liquid storage or treatment" }
+    - { ProcessUnitKind_ID: 4,  Name: "Reactor",   Description: "Vessel designed for controlled biological or chemical reactions" }
+    - { ProcessUnitKind_ID: 5,  Name: "Pipe",      Description: "Conduit transporting liquid between process units" }
+    - { ProcessUnitKind_ID: 6,  Name: "Pump",      Description: "Mechanical device for moving liquid" }
+    - { ProcessUnitKind_ID: 7,  Name: "Valve",     Description: "Flow control device regulating liquid passage" }
+    - { ProcessUnitKind_ID: 8,  Name: "Clarifier", Description: "Gravity settling vessel separating solids from liquid" }
+    - { ProcessUnitKind_ID: 9,  Name: "Basin",     Description: "Open or partially open liquid containment structure" }
+    - { ProcessUnitKind_ID: 10, Name: "Blower",    Description: "Mechanical device for supplying air or gas" }
+    - { ProcessUnitKind_ID: 11, Name: "Other",     Description: "Process unit kind not covered by the standard vocabulary" }

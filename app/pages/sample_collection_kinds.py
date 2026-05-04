@@ -10,22 +10,22 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from app.api_client import (
-    create_sample_method,
-    delete_sample_method,
-    list_sample_methods,
-    update_sample_method,
+    create_sample_collection_kind,
+    delete_sample_collection_kind,
+    list_sample_collection_kinds,
+    update_sample_collection_kind,
 )
 from app.components.generic_crud import render_crud_page
 from app.components.schema_registry import load_table
 
-_schema = load_table("SampleMethod")
+_schema = load_table("SampleCollectionKind")
 
 render_crud_page(
     title="Sample Methods",
-    pk_field="sample_method_id",
+    pk_field="sample_collection_kind_id",
     form_fields=_schema.build_form_fields(),
-    list_fn=list_sample_methods,
-    create_fn=create_sample_method,
-    update_fn=update_sample_method,
-    delete_fn=delete_sample_method,
+    list_fn=list_sample_collection_kinds,
+    create_fn=create_sample_collection_kind,
+    update_fn=update_sample_collection_kind,
+    delete_fn=delete_sample_collection_kind,
 )

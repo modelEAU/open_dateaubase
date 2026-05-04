@@ -122,8 +122,8 @@ REQUIRED_SITE_FIELDS = {
     "id",
     "name",
     "description",
-    "site_type_id",
-    "site_type_name",
+    "site_kind_id",
+    "site_kind_name",
     "lat_wgs84",
     "long_wgs84",
     "city",
@@ -138,8 +138,8 @@ class TestSitesContract:
             "id": 1,
             "name": "WRRF",
             "description": "Main plant",
-            "site_type_id": None,
-            "site_type_name": None,
+            "site_kind_id": None,
+            "site_kind_name": None,
             "lat_wgs84": None,
             "long_wgs84": None,
             "city": None,
@@ -217,18 +217,18 @@ REQUIRED_CHANNEL_FIELDS = {
     "tag_name",
     "parent_channel_id",
     "parent_channel_tag_name",
-    "channel_role_id",
-    "channel_role_name",
+    "channel_kind_id",
+    "channel_kind_name",
     "parameter_id",
     "parameter_name",
     "equipment_id",
     "equipment_identifier",
-    "data_provenance_id",
-    "data_provenance_name",
-    "processing_degree_id",
-    "processing_degree_name",
-    "value_type_id",
-    "value_type_name",
+    "data_provenance_kind_id",
+    "data_provenance_kind_name",
+    "processing_kind_id",
+    "processing_kind_name",
+    "value_kind_id",
+    "value_kind_name",
     "unit_id",
     "unit_name",
 }
@@ -241,10 +241,10 @@ def _mock_channel():
         "channel_id": 1,
         "signal_interface_id": 1,
         "tag_name": "MOCK-001",
-        "processing_degree_id": 1,
-        "processing_degree_name": "Raw",
-        "channel_role_id": 1,
-        "channel_role_name": "Value",
+        "processing_kind_id": 1,
+        "processing_kind_name": "Raw",
+        "channel_kind_id": 1,
+        "channel_kind_name": "Value",
     }
 
 
@@ -301,7 +301,7 @@ class TestChannelsContract:
         with patch(
             "api.v1.repositories.channel_repository.list_channels", return_value=([], 0)
         ):
-            r = c.get("/api/v1/channels?page=2&page_size=10&processing_degree_id=1")
+            r = c.get("/api/v1/channels?page=2&page_size=10&processing_kind_id=1")
         assert r.status_code == 200
 
     def test_resolve_channel_returns_channel_id(self, patched_client):
@@ -435,8 +435,8 @@ class TestTimeseriesContract:
 
 REQUIRED_CAMPAIGN_FIELDS = {
     "campaign_id",
-    "campaign_type_id",
-    "campaign_type_name",
+    "campaign_kind_id",
+    "campaign_kind_name",
     "site_id",
     "site_name",
     "name",
@@ -449,7 +449,7 @@ REQUIRED_CAMPAIGN_FIELDS = {
 def _mock_campaign():
     return {f: None for f in REQUIRED_CAMPAIGN_FIELDS} | {
         "campaign_id": 1,
-        "campaign_type_id": 1,
+        "campaign_kind_id": 1,
         "site_id": 1,
         "name": "Ops 2025",
     }
@@ -703,7 +703,7 @@ class TestIngestionRequestValidation:
                 "processing_type": "Cleaning",
             },
             "output": {
-                "processing_degree_id": 2,
+                "processing_kind_id": 2,
                 "values": [{"timestamp": "2025-01-01T00:00:00", "value": 24.5}],
             },
         }
@@ -852,7 +852,7 @@ class TestObservationAwareIngest:
         client, _conn, _cursor = patched_client
         _REPO = "api.v1.endpoints.ingest.signal_interface_repository"
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=1),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=1),
             patch(f"{_REPO}.find_parameter_by_name", return_value=1),
             patch(f"{_REPO}.find_unit_by_name", return_value=1),
             patch(f"{_REPO}.find_or_create_das", return_value=(5, False)),
@@ -871,11 +871,11 @@ class TestObservationAwareIngest:
                 json={
                     "das_name": "PlantSCADA",
                     "tag": "TIT-101",
-                    "channel_role": "value",
+                    "channel_kind": "value",
                     "parameter_name": "temperature",
                     "unit_name": "degC",
-                    "data_provenance_id": 1,
-                    "processing_degree_id": 1,
+                    "data_provenance_kind_id": 1,
+                    "processing_kind_id": 1,
                     "values": [
                         {"timestamp": "2024-01-01T10:00:00", "value": 7.2},
                         {"timestamp": "2024-01-01T10:05:00", "value": 7.3},

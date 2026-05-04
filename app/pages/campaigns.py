@@ -20,13 +20,12 @@ from app.api_client import (
     delete_campaign_deployment,
     list_campaign_deployments,
     list_campaigns,
-    list_campaign_types,
+    list_campaign_kinds,
     list_equipment_lookup,
     list_sampling_points_lookup,
     list_sites_lookup,
     patch_campaign,
 )
-from app.components.campaign_wizard import render_wizard
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
 
 
@@ -65,6 +64,7 @@ def add_deployment_dialog(
         "Equipment *",
         options=[opt["label"] for opt in equipment_options],
         index=0 if equipment_options else None,
+        help="Equipment deployed during the campaign",
     )
     equipment_id = next(
         (opt["id"] for opt in equipment_options if opt["label"] == selected_equipment),
@@ -75,14 +75,18 @@ def add_deployment_dialog(
         "Sampling Point *",
         options=[opt["label"] for opt in sp_options],
         index=0 if sp_options else None,
+        help="Sampling location where this equipment is deployed",
     )
     sampling_point_id = next(
         (opt["id"] for opt in sp_options if opt["label"] == selected_sp),
         None,
     )
 
-    role = st.text_input("Role (optional)")
-    notes = st.text_area("Notes (optional)")
+    role = st.text_input(
+        "Role",
+        help="Role of this equipment in the campaign (e.g., 'Primary sensor', 'Auto-sampler')",
+    )
+    notes = st.text_area("Notes", help="Free-text notes about this deployment")
 
     if st.button("Add Deployment", type="primary"):
         if equipment_id is None or sampling_point_id is None:
@@ -116,11 +120,6 @@ def add_deployment_dialog(
 
 st.title("Campaigns")
 
-# Show wizard instead of normal page when active
-if st.session_state.get("wizard_active"):
-    render_wizard()
-    st.stop()
-
 # Load campaigns, sites, campaign types, equipment, and sampling points
 try:
     with st.spinner("Loading..."):
@@ -131,7 +130,7 @@ try:
             else campaigns_data
         )
         sites = list_sites_lookup()
-        campaign_types = list_campaign_types()
+        campaign_types = list_campaign_kinds()
         equipment_lookup = list_equipment_lookup()
         sampling_points_lookup = list_sampling_points_lookup()
 except APIError as e:
@@ -141,7 +140,7 @@ except APIError as e:
 # Prepare dropdown options
 site_options = [{"id": s["site_id"], "label": s["name"]} for s in sites]
 type_options = [
-    {"id": t["campaign_type_id"], "label": t["name"]} for t in campaign_types
+    {"id": t["campaign_kind_id"], "label": t["name"]} for t in campaign_types
 ]
 
 # Site filter for list view
@@ -152,6 +151,7 @@ with site_filter_col:
         "Filter by site",
         options=[opt["label"] for opt in filter_options],
         index=0,
+        help="Show only campaigns belonging to this site",
     )
     site_id_filter = next(
         (opt["id"] for opt in filter_options if opt["label"] == selected_site_filter),
@@ -196,31 +196,55 @@ def handle_delete_campaign(campaign_id: int) -> None:
 
 
 # Action buttons
-col1, col2, col3, col_wiz = st.columns([1, 1, 2, 6])
-with col_wiz:
-    if st.button("🪄 Campaign Wizard", type="secondary"):
-        st.session_state.wizard_active = True
-        st.rerun()
+col1, col2, col3 = st.columns([1, 1, 8])
 with col1:
     if st.button("➕ New", type="primary"):
         create_form_dialog(
             fields=[
-                {"name": "name", "type": "text", "required": True},
                 {
-                    "name": "campaign_type_id",
+                    "name": "name",
+                    "label": "Name",
+                    "type": "text",
+                    "required": True,
+                    "help": "Human-readable name for the campaign",
+                },
+                {
+                    "name": "campaign_kind_id",
+                    "label": "Campaign Kind",
                     "type": "select",
                     "required": True,
                     "options": type_options,
+                    "help": "Kind of campaign (Experiment, Operations, Commissioning)",
                 },
                 {
                     "name": "site_id",
+                    "label": "Site",
                     "type": "select",
                     "required": True,
                     "options": site_options,
+                    "help": "Site where the campaign is conducted",
                 },
-                {"name": "description", "type": "textarea", "required": False},
-                {"name": "start_date", "type": "date", "required": False},
-                {"name": "end_date", "type": "date", "required": False},
+                {
+                    "name": "description",
+                    "label": "Description",
+                    "type": "textarea",
+                    "required": False,
+                    "help": "Detailed description of the campaign objectives and scope",
+                },
+                {
+                    "name": "start_date",
+                    "label": "Start Date",
+                    "type": "date",
+                    "required": False,
+                    "help": "Date the campaign began",
+                },
+                {
+                    "name": "end_date",
+                    "label": "End Date",
+                    "type": "date",
+                    "required": False,
+                    "help": "Date the campaign ended; leave blank if ongoing",
+                },
             ],
             on_submit=lambda data: handle_create_campaign(data),
             title="Create New Campaign",
@@ -256,22 +280,50 @@ with col2:
             edit_form_dialog(
                 item_data=selected_campaign,
                 fields=[
-                    {"name": "name", "type": "text", "required": True},
                     {
-                        "name": "campaign_type_id",
+                        "name": "name",
+                        "label": "Name",
+                        "type": "text",
+                        "required": True,
+                        "help": "Human-readable name for the campaign",
+                    },
+                    {
+                        "name": "campaign_kind_id",
+                        "label": "Campaign Kind",
                         "type": "select",
                         "required": True,
                         "options": type_options,
+                        "help": "Kind of campaign (Experiment, Operations, Commissioning)",
                     },
                     {
                         "name": "site_id",
+                        "label": "Site",
                         "type": "select",
                         "required": True,
                         "options": site_options,
+                        "help": "Site where the campaign is conducted",
                     },
-                    {"name": "description", "type": "textarea", "required": False},
-                    {"name": "start_date", "type": "date", "required": False},
-                    {"name": "end_date", "type": "date", "required": False},
+                    {
+                        "name": "description",
+                        "label": "Description",
+                        "type": "textarea",
+                        "required": False,
+                        "help": "Detailed description of the campaign objectives and scope",
+                    },
+                    {
+                        "name": "start_date",
+                        "label": "Start Date",
+                        "type": "date",
+                        "required": False,
+                        "help": "Date the campaign began",
+                    },
+                    {
+                        "name": "end_date",
+                        "label": "End Date",
+                        "type": "date",
+                        "required": False,
+                        "help": "Date the campaign ended; leave blank if ongoing",
+                    },
                 ],
                 on_submit=lambda data: handle_patch_campaign(
                     selected_campaign["campaign_id"], data

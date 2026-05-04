@@ -283,7 +283,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
     }
 
 
-def get_all_processing_degrees(
+def get_all_processing_kinds(
     equipment_id: int,
     parameter_id: int,
     from_dt: datetime,
@@ -293,7 +293,7 @@ def get_all_processing_degrees(
     """Return all versions (Raw, Cleaned, Validated, …) of a time series.
 
     Finds all Channel rows matching the given equipment+parameter combination
-    that have values in the requested time window, grouped by ProcessingDegree.
+    that have values in the requested time window, grouped by ProcessingKind.
 
     Args:
         equipment_id: The equipment (sensor) ID.
@@ -305,17 +305,17 @@ def get_all_processing_degrees(
     Returns:
         List of dicts, each with keys:
           - channel_id: int
-          - processing_degree_name: str | None
+          - processing_kind_name: str | None
           - value_count: int (number of Value rows in the time window)
     """
     sql = """
         SELECT
             c.[Channel_ID],
-            pd.[Name]             AS [ProcessingDegreeName],
+            pd.[Name]             AS [ProcessingKindName],
             COUNT(v.[Timestamp])  AS [ValueCount]
         FROM [dbo].[Channel] c
-        LEFT JOIN [dbo].[ProcessingDegree] pd
-            ON pd.[ProcessingDegree_ID] = c.[ProcessingDegree_ID]
+        LEFT JOIN [dbo].[ProcessingKind] pd
+            ON pd.[ProcessingKind_ID] = c.[ProcessingKind_ID]
         JOIN [dbo].[Value]   v
             ON v.[Channel_ID] = c.[Channel_ID]
            AND v.[Timestamp] >= ?
@@ -332,7 +332,7 @@ def get_all_processing_degrees(
     return [
         {
             "channel_id": row[0],
-            "processing_degree_name": row[1],
+            "processing_kind_name": row[1],
             "value_count": row[2],
         }
         for row in rows

@@ -38,12 +38,12 @@ from app.api_client import (
     get_channel_thumbnail,
     get_channel_image,
     get_equipment_events,
-    list_annotation_types,
+    list_annotation_kinds,
     list_campaigns_lookup,
     list_equipment_lookup,
     list_parameters_lookup,
     list_channels,
-    list_equipment_event_types,
+    list_equipment_event_kinds,
     list_quality_codes,
     create_equipment_event,
 )
@@ -215,7 +215,7 @@ def _fetch_channels_for_filters(
     campaign_id: int | None,
     equipment_id: int | None,
     parameter_id: int | None,
-    value_type_id: int | None,
+    value_kind_id: int | None,
 ) -> list[dict]:
     """Return channel items matching ALL supplied filters (None = no filter)."""
     try:
@@ -223,7 +223,7 @@ def _fetch_channels_for_filters(
             campaign_id=campaign_id,
             equipment_id=equipment_id,
             parameter_id=parameter_id,
-            value_type_id=value_type_id,
+            value_kind_id=value_kind_id,
             page_size=1000,
         )
         return result.get("items", [])
@@ -242,7 +242,7 @@ def _derive_available_options(
     """
     eq_ids = {c["equipment_id"] for c in channels if c.get("equipment_id") is not None}
     param_ids = {c["parameter_id"] for c in channels if c.get("parameter_id") is not None}
-    vtype_ids = {c["value_type_id"] for c in channels if c.get("value_type_id") is not None}
+    vtype_ids = {c["value_kind_id"] for c in channels if c.get("value_kind_id") is not None}
 
     eq_opts: dict[str, int | None] = {"(all equipment)": None}
     eq_opts.update(
@@ -271,9 +271,9 @@ def _derive_available_options(
 
 
 def _channel_label(ch: dict) -> str:
-    eq = ch.get("equipment_identifier") or f"EQ-{ch.get('equipment_id', '?')}"
+    eq = ch.get("equipment_identifier") or ch.get("tag_name") or f"EQ-{ch.get('equipment_id') or '?'}"
     param = ch.get("parameter_name") or f"P-{ch.get('parameter_id', '?')}"
-    vtype = ch.get("value_type_name") or VALUE_TYPE_NAMES.get(ch.get("value_type_id"), "?")
+    vtype = ch.get("value_type_name") or VALUE_TYPE_NAMES.get(ch.get("value_kind_id"), "?")
     return f"CH-{ch['channel_id']}: {eq} / {param} [{vtype}]"
 
 
@@ -446,11 +446,23 @@ def _build_scalar_figure(
                 except AttributeError:
                     fig._drawn_eq_ids = {eq_id}  # type: ignore[attr-defined]
 
+    y_labels: list[str] = []
+    seen_labels: set[str] = set()
+    for ch_id in active_channels:
+        meta = channel_meta.get(ch_id, {})
+        param = meta.get("parameter_name") or ""
+        unit = meta.get("unit_name") or ""
+        lbl = f"{param} ({unit})" if param and unit else param or unit or "Value"
+        if lbl not in seen_labels:
+            seen_labels.add(lbl)
+            y_labels.append(lbl)
+    y_axis_title = " / ".join(y_labels) if y_labels else "Value"
+
     fig.update_layout(
         dragmode="select",
         selectdirection="any",
         xaxis_title="Time",
-        yaxis_title="Value",
+        yaxis_title=y_axis_title,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(l=50, r=20, t=40, b=50),
         height=480,
@@ -471,6 +483,12 @@ def _bin_label(row: dict) -> float:
     if lb is not None and ub is not None:
         return (lb + ub) / 2
     return row["bin_index"]
+
+
+def _vector_value_label(data: dict) -> str:
+    param = data.get("parameter") or ""
+    unit = data.get("unit") or ""
+    return f"{param} ({unit})" if param and unit else param or unit or "Value"
 
 
 def _build_vector_heatmap(data: dict, as_3d: bool = False) -> go.Figure:
@@ -498,6 +516,8 @@ def _build_vector_heatmap(data: dict, as_3d: bool = False) -> go.Figure:
     x = [str(c) for c in pivot.columns.tolist()]
     y = pivot.index.tolist()
 
+    value_label = _vector_value_label(data)
+
     if as_3d:
         # go.Surface requires numeric axes — use integer indices for time
         x_numeric = list(range(len(x)))
@@ -509,19 +529,77 @@ def _build_vector_heatmap(data: dict, as_3d: bool = False) -> go.Figure:
             scene=dict(
                 xaxis=dict(title="Time", tickvals=tickvals, ticktext=ticktext),
                 yaxis=dict(title="Bin"),
-                zaxis=dict(title="Value"),
+                zaxis=dict(title=value_label),
             ),
             height=520,
         )
     else:
         fig = go.Figure(
-            data=go.Heatmap(z=z, x=x, y=y, colorscale="Viridis", hoverongaps=False)
+            data=go.Heatmap(
+                z=z,
+                x=x,
+                y=y,
+                colorscale="Viridis",
+                hoverongaps=False,
+                colorbar=dict(title=value_label),
+            )
         )
         fig.update_layout(
             xaxis_title="Time",
             yaxis_title="Bin",
             height=420,
         )
+    return fig
+
+
+def _build_vector_slice_time(data: dict, timestamp: str) -> go.Figure:
+    """Vertical slice: value vs bin label at a fixed timestamp."""
+    rows = data.get("data", [])
+    if not rows:
+        return go.Figure()
+    df = pd.DataFrame(rows)
+    bin_label_map = (
+        df.drop_duplicates("bin_index")
+        .set_index("bin_index")
+        .apply(_bin_label, axis=1)
+    )
+    df["bin_label"] = df["bin_index"].map(bin_label_map)
+    slice_df = df[df["timestamp"].astype(str) == timestamp].sort_values("bin_label")
+    value_label = _vector_value_label(data)
+    fig = go.Figure(
+        go.Scatter(
+            x=slice_df["bin_label"].tolist(),
+            y=slice_df["value"].tolist(),
+            mode="lines+markers",
+        )
+    )
+    fig.update_layout(xaxis_title="Bin", yaxis_title=value_label, height=320)
+    return fig
+
+
+def _build_vector_slice_bin(data: dict, bin_idx: int) -> go.Figure:
+    """Horizontal slice: value vs time at a fixed bin."""
+    rows = data.get("data", [])
+    if not rows:
+        return go.Figure()
+    df = pd.DataFrame(rows)
+    bin_label_map = (
+        df.drop_duplicates("bin_index")
+        .set_index("bin_index")
+        .apply(_bin_label, axis=1)
+    )
+    slice_df = df[df["bin_index"] == bin_idx].sort_values("timestamp")
+    value_label = _vector_value_label(data)
+    label = bin_label_map.get(bin_idx, bin_idx)
+    fig = go.Figure(
+        go.Scatter(
+            x=slice_df["timestamp"].tolist(),
+            y=slice_df["value"].tolist(),
+            mode="lines+markers",
+            name=f"Bin {label}",
+        )
+    )
+    fig.update_layout(xaxis_title="Time", yaxis_title=value_label, height=320)
     return fig
 
 
@@ -870,7 +948,6 @@ def _render_top_bar() -> None:
             new_start = st.date_input(
                 "From",
                 value=st.session_state.explore_start,
-                key="date_from",
                 label_visibility="collapsed",
             )
             st.caption("From")
@@ -878,7 +955,6 @@ def _render_top_bar() -> None:
             new_end = st.date_input(
                 "To",
                 value=st.session_state.explore_end,
-                key="date_to",
                 label_visibility="collapsed",
             )
             st.caption("To")
@@ -1109,7 +1185,7 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
         meta = channel_meta.get(ch_id, {})
         eq = meta.get("equipment_identifier") or "EQ-?"
         param = meta.get("parameter_name") or "P-?"
-        vtype_id = meta.get("value_type_id")
+        vtype_id = meta.get("value_kind_id")
         vtype = VALUE_TYPE_NAMES.get(vtype_id, "?") if vtype_id else "?"
         label = f"CH-{ch_id}: {eq} / {param} [{vtype}]"
 
@@ -1152,9 +1228,6 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
         start, end = range_update
         st.session_state.explore_start = start
         st.session_state.explore_end = end
-        # Keep the date_input widgets in sync so the top bar doesn't override us on rerun
-        st.session_state["date_from"] = start
-        st.session_state["date_to"] = end
         _invalidate_data_cache()
         st.rerun()
 
@@ -1174,7 +1247,7 @@ def _render_scalar_view(
     scalar_channels = [
         ch
         for ch in active_channels
-        if channel_meta.get(ch, {}).get("value_type_id") in (None, VALUE_TYPE_SCALAR)
+        if channel_meta.get(ch, {}).get("value_kind_id") in (None, VALUE_TYPE_SCALAR)
     ]
     if not scalar_channels:
         st.info("No scalar channels in the active series.")
@@ -1269,7 +1342,7 @@ def _render_vector_view(
     vector_channels = [
         ch
         for ch in active_channels
-        if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_VECTOR
+        if channel_meta.get(ch, {}).get("value_kind_id") == VALUE_TYPE_VECTOR
     ]
     if not vector_channels:
         st.info("No vector channels in the active series.")
@@ -1297,6 +1370,31 @@ def _render_vector_view(
 
     fig = _build_vector_heatmap(data, as_3d=as_3d)
     st.plotly_chart(fig, use_container_width=True, key="vector_chart")
+
+    st.subheader("Slice view")
+    slice_type = st.radio(
+        "Slice type",
+        ["None", "Time slice (value vs bin)", "Bin slice (value vs time)"],
+        horizontal=True,
+        key="vec_slice_type",
+    )
+    if slice_type == "Time slice (value vs bin)":
+        timestamps = sorted({str(r.get("timestamp", "")) for r in rows})
+        sel_ts = st.select_slider("Timestamp", options=timestamps, key="vec_slice_ts")
+        slice_fig = _build_vector_slice_time(data, sel_ts)
+        st.plotly_chart(slice_fig, use_container_width=True, key="vec_slice_time_chart")
+    elif slice_type == "Bin slice (value vs time)":
+        df_rows = pd.DataFrame(rows)
+        bin_label_map = (
+            df_rows.drop_duplicates("bin_index")
+            .set_index("bin_index")
+            .apply(_bin_label, axis=1)
+        )
+        bin_options = {str(lbl): idx for idx, lbl in sorted(bin_label_map.items())}
+        sel_bin_label = st.select_slider("Bin", options=list(bin_options.keys()), key="vec_slice_bin")
+        sel_bin_idx = bin_options[sel_bin_label]
+        slice_fig = _build_vector_slice_bin(data, sel_bin_idx)
+        st.plotly_chart(slice_fig, use_container_width=True, key="vec_slice_bin_chart")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -1328,7 +1426,7 @@ def _render_matrix_view(
     matrix_channels = [
         ch
         for ch in active_channels
-        if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_MATRIX
+        if channel_meta.get(ch, {}).get("value_kind_id") == VALUE_TYPE_MATRIX
     ]
     if not matrix_channels:
         st.info("No matrix channels in the active series.")
@@ -1406,7 +1504,7 @@ def _render_image_view(
     image_channels = [
         ch
         for ch in active_channels
-        if channel_meta.get(ch, {}).get("value_type_id") == VALUE_TYPE_IMAGE
+        if channel_meta.get(ch, {}).get("value_kind_id") == VALUE_TYPE_IMAGE
     ]
     if not image_channels:
         st.info("No image channels in the active series.")
@@ -1532,7 +1630,7 @@ def _render_visualization_area(
     # Determine which value types are represented
     types_present: list[int] = []
     for ch_id in active_channels:
-        vt = channel_meta.get(ch_id, {}).get("value_type_id")
+        vt = channel_meta.get(ch_id, {}).get("value_kind_id")
         if vt is not None and vt not in types_present:
             types_present.append(vt)
     # Preserve natural order scalar < vector < matrix < image
@@ -1602,12 +1700,12 @@ def main() -> None:
         st.stop()
 
     try:
-        annotation_types = list_annotation_types()
+        annotation_types = list_annotation_kinds()
     except APIError:
         annotation_types = []
 
     try:
-        event_types = list_equipment_event_types()
+        event_types = list_equipment_event_kinds()
     except APIError:
         event_types = []
 

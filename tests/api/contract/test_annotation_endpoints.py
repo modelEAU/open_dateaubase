@@ -108,7 +108,7 @@ def _mock_recent_response():
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/annotation-types
+# GET /api/v1/annotation-kinds
 # ---------------------------------------------------------------------------
 
 REQUIRED_ANNOTATION_TYPE_FIELDS = {"id", "name"}
@@ -118,29 +118,29 @@ class TestAnnotationTypesContract:
     def test_list_types_returns_ok(self, patched_client):
         c, conn, cursor = patched_client
         with patch(
-            "api.v1.services.annotation_service.get_annotation_types",
+            "api.v1.services.annotation_service.get_annotation_kinds",
             return_value=_mock_annotation_types_response(),
         ):
-            r = c.get("/api/v1/annotation-types")
+            r = c.get("/api/v1/annotation-kinds")
         assert r.status_code == 200
 
     def test_list_types_has_annotation_types_key(self, patched_client):
         c, conn, cursor = patched_client
         with patch(
-            "api.v1.services.annotation_service.get_annotation_types",
+            "api.v1.services.annotation_service.get_annotation_kinds",
             return_value=_mock_annotation_types_response(),
         ):
-            r = c.get("/api/v1/annotation-types")
+            r = c.get("/api/v1/annotation-kinds")
         assert "annotation_types" in r.json()
         assert isinstance(r.json()["annotation_types"], list)
 
     def test_annotation_type_has_required_fields(self, patched_client):
         c, conn, cursor = patched_client
         with patch(
-            "api.v1.services.annotation_service.get_annotation_types",
+            "api.v1.services.annotation_service.get_annotation_kinds",
             return_value=_mock_annotation_types_response(),
         ):
-            r = c.get("/api/v1/annotation-types")
+            r = c.get("/api/v1/annotation-kinds")
         item = r.json()["annotation_types"][0]
         for field in REQUIRED_ANNOTATION_TYPE_FIELDS:
             assert field in item, f"Missing annotation type field: {field}"
@@ -148,10 +148,10 @@ class TestAnnotationTypesContract:
     def test_annotation_type_id_is_int(self, patched_client):
         c, conn, cursor = patched_client
         with patch(
-            "api.v1.services.annotation_service.get_annotation_types",
+            "api.v1.services.annotation_service.get_annotation_kinds",
             return_value=_mock_annotation_types_response(),
         ):
-            r = c.get("/api/v1/annotation-types")
+            r = c.get("/api/v1/annotation-kinds")
         assert isinstance(r.json()["annotation_types"][0]["id"], int)
 
 
@@ -474,7 +474,7 @@ class TestAnnotationsByType:
     def test_returns_ok(self, patched_client):
         c, conn, cursor = patched_client
         with patch(
-            "api.v1.services.annotation_service.get_annotations_by_type",
+            "api.v1.services.annotation_service.get_annotations_by_kind",
             return_value=_mock_recent_response(),
         ):
             r = c.get("/api/v1/annotations/by-type/Fault?from=2025-01-01T00:00:00&to=2025-12-31T23:59:59")
@@ -493,7 +493,7 @@ class TestAnnotationsByType:
     def test_response_has_annotations_and_count(self, patched_client):
         c, conn, cursor = patched_client
         with patch(
-            "api.v1.services.annotation_service.get_annotations_by_type",
+            "api.v1.services.annotation_service.get_annotations_by_kind",
             return_value=_mock_recent_response(),
         ):
             r = c.get("/api/v1/annotations/by-type/Fault?from=2025-01-01T00:00:00&to=2025-12-31T23:59:59")
@@ -506,7 +506,7 @@ class TestAnnotationsByType:
         from fastapi import HTTPException
 
         with patch(
-            "api.v1.services.annotation_service.get_annotations_by_type",
+            "api.v1.services.annotation_service.get_annotations_by_kind",
             side_effect=HTTPException(status_code=404, detail="AnnotationType 'DoesNotExist' not found."),
         ):
             r = c.get("/api/v1/annotations/by-type/DoesNotExist?from=2025-01-01T00:00:00&to=2025-12-31T23:59:59")
@@ -519,7 +519,7 @@ class TestAnnotationsByType:
 
 class TestAnnotationOpenAPISpec:
     REQUIRED_ANNOTATION_PATHS = [
-        "/api/v1/annotation-types",
+        "/api/v1/annotation-kinds",
         "/api/v1/timeseries/{channel_id}/annotations",
         "/api/v1/annotations/recent",
         "/api/v1/annotations/by-type/{type_name}",

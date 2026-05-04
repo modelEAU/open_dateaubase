@@ -22,12 +22,11 @@ from app.api_client import (
     get_fallback_chain,
     list_control_loop_ports,
     list_control_loops,
-    list_signal_ports,
+    list_channels,
     open_application,
     retune_control_loop,
 )
 from app.components.form_dialog import create_form_dialog
-
 
 
 st.title("Control Loops")
@@ -35,14 +34,17 @@ st.title("Control Loops")
 # Load lookup data
 try:
     with st.spinner("Loading..."):
-        signal_ports = list_signal_ports(page_size=1000).get("items", [])
+        channels = list_channels(page_size=1000).get("items", [])
 except APIError as e:
     st.error(f"Cannot load lookup data: {e.message}")
     st.stop()
 
-signal_port_options = [
-    {"id": sp["signal_port_id"], "label": f"{sp['das_name']} / {sp['tag']}"}
-    for sp in signal_ports
+channel_options = [
+    {
+        "id": ch["channel_id"],
+        "label": f"{ch.get('signal_interface_name', '—')} / {ch['tag_name']}",
+    }
+    for ch in channels
 ]
 
 # Load control loops
@@ -159,10 +161,10 @@ if selected_loop:
                 create_form_dialog(
                     fields=[
                         {
-                            "name": "signal_port_id",
+                            "name": "channel_id",
                             "type": "select",
                             "required": True,
-                            "options": signal_port_options,
+                            "options": channel_options,
                         },
                         {
                             "name": "role",

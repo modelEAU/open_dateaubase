@@ -35,13 +35,13 @@ table:
         table: Channel
         column: Channel_ID
 
-    - name: ControlLoopPortRole_ID
+    - name: ControlLoopPortKind_ID
       logical_type: integer
       nullable: false
-      description: "The functional role of this channel within the loop"
+      description: "The functional kind of this channel within the loop"
       foreign_key:
-        table: ControlLoopPortRole
-        column: ControlLoopPortRole_ID
+        table: ControlLoopPortKind
+        column: ControlLoopPortKind_ID
 
   indexes:
     - name: UQ_ControlLoopPort_LoopChannel

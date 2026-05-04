@@ -10,22 +10,22 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from app.api_client import (
-    create_sample_type,
-    delete_sample_type,
-    list_sample_types,
-    update_sample_type,
+    create_sample_kind,
+    delete_sample_kind,
+    list_sample_kinds,
+    update_sample_kind,
 )
 from app.components.generic_crud import render_crud_page
 from app.components.schema_registry import load_table
 
-_schema = load_table("SampleType")
+_schema = load_table("SampleKind")
 
 render_crud_page(
     title="Sample Types",
-    pk_field="sample_type_id",
+    pk_field="sample_kind_id",
     form_fields=_schema.build_form_fields(),
-    list_fn=list_sample_types,
-    create_fn=create_sample_type,
-    update_fn=update_sample_type,
-    delete_fn=delete_sample_type,
+    list_fn=list_sample_kinds,
+    create_fn=create_sample_kind,
+    update_fn=update_sample_kind,
+    delete_fn=delete_sample_kind,
 )

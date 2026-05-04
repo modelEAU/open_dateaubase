@@ -1,7 +1,7 @@
 """Contract tests for tag-mode sensor ingest endpoints.
 
 These tests verify:
-- Unknown channel_role / parameter_name / unit_name -> 422 before any DB write
+- Unknown channel_kind / parameter_name / unit_name -> 422 before any DB write
 - Auto-create warnings are returned in IngestResponse.warnings
 - Response shape matches IngestResponse schema
 - Normalisation: repository lookup functions are called with stripped+lowercased values
@@ -62,18 +62,18 @@ def client():
 _VALID_PAYLOAD = {
     "das_name": "PlantSCADA",
     "tag": "TIT-101",
-    "channel_role": "value",
+    "channel_kind": "value",
     "parameter_name": "temperature",
     "unit_name": "degC",
-    "data_provenance_id": 1,
-    "processing_degree_id": 1,
+    "data_provenance_kind_id": 1,
+    "processing_kind_id": 1,
     "values": [{"timestamp": "2024-01-01T00:00:00", "value": 22.5}],
 }
 
 
 def _patch_all_resolved(
     *,
-    channel_role_id: int = 1,
+    channel_kind_id: int = 1,
     param_id: int = 7,
     unit_id: int = 3,
     das_created: bool = False,
@@ -87,7 +87,7 @@ def _patch_all_resolved(
     @contextlib.contextmanager
     def _ctx():
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=channel_role_id),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=channel_kind_id),
             patch(f"{_REPO}.find_parameter_by_name", return_value=param_id),
             patch(f"{_REPO}.find_unit_by_name", return_value=unit_id),
             patch(f"{_REPO}.find_or_create_das", return_value=(10, das_created)),
@@ -116,10 +116,10 @@ def _patch_all_resolved(
 
 
 class TestValidationErrors:
-    def test_unknown_channel_role_returns_422(self, client, mock_conn):
-        payload = {**_VALID_PAYLOAD, "channel_role": "not_a_type"}
+    def test_unknown_channel_kind_returns_422(self, client, mock_conn):
+        payload = {**_VALID_PAYLOAD, "channel_kind": "not_a_type"}
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=None),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=None),
             patch(f"{_REPO}.find_parameter_by_name") as mock_param,
             patch(f"{_REPO}.find_unit_by_name") as mock_unit,
             patch(f"{_REPO}.find_or_create_das") as mock_das,
@@ -129,7 +129,7 @@ class TestValidationErrors:
             resp = client.post("/api/v1/ingest/sensor", json=payload)
 
         assert resp.status_code == 422
-        assert "channel_role" in resp.json()["detail"].lower()
+        assert "channel_kind" in resp.json()["detail"].lower()
         # Nothing written
         mock_param.assert_not_called()
         mock_unit.assert_not_called()
@@ -140,7 +140,7 @@ class TestValidationErrors:
     def test_unknown_parameter_name_returns_422(self, client, mock_conn):
         payload = {**_VALID_PAYLOAD, "parameter_name": "xyzzy"}
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=1),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=1),
             patch(f"{_REPO}.find_parameter_by_name", return_value=None),
             patch(f"{_REPO}.find_unit_by_name") as mock_unit,
             patch(f"{_REPO}.find_or_create_das") as mock_das,
@@ -159,7 +159,7 @@ class TestValidationErrors:
     def test_unknown_unit_name_returns_422(self, client, mock_conn):
         payload = {**_VALID_PAYLOAD, "unit_name": "flurbs"}
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=1),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=1),
             patch(f"{_REPO}.find_parameter_by_name", return_value=7),
             patch(f"{_REPO}.find_unit_by_name", return_value=None),
             patch(f"{_REPO}.find_or_create_das") as mock_das,
@@ -242,7 +242,7 @@ class TestNormalisation:
     def test_dirty_input_passed_to_repo_functions(self, client, mock_conn):
         dirty_payload = {
             **_VALID_PAYLOAD,
-            "channel_role": "  VALUE  ",
+            "channel_kind": "  VALUE  ",
             "parameter_name": "  Temperature  ",
             "unit_name": "  DegC  ",
             "das_name": "  PlantSCADA  ",
@@ -250,7 +250,7 @@ class TestNormalisation:
         }
 
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=1) as mock_role,
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=1) as mock_role,
             patch(f"{_REPO}.find_parameter_by_name", return_value=7) as mock_param,
             patch(f"{_REPO}.find_unit_by_name", return_value=3) as mock_unit,
             patch(f"{_REPO}.find_or_create_das", return_value=(10, False)) as mock_das,

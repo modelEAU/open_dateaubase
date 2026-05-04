@@ -58,18 +58,18 @@ def client():
 _BASE_SENSOR_PAYLOAD = {
     "das_name": "PlantSCADA",
     "tag": "TIT-101.status",
-    "channel_role": "status",
+    "channel_kind": "status",
     "parameter_name": "temperature",
     "unit_name": "degC",
-    "data_provenance_id": 1,
-    "processing_degree_id": 1,
+    "data_provenance_kind_id": 1,
+    "processing_kind_id": 1,
     "values": [{"timestamp": "2024-01-01T00:00:00", "value": 1.0}],
 }
 
 
 def _patch_ingest_resolved(
     *,
-    channel_role_id: int = 2,  # status type
+    channel_kind_id: int = 2,  # status type
     param_id: int = 7,
     unit_id: int = 3,
     das_id: int = 10,
@@ -84,7 +84,7 @@ def _patch_ingest_resolved(
     @contextlib.contextmanager
     def _ctx():
         with (
-            patch(f"{_REPO}.find_channel_role_by_name", return_value=channel_role_id),
+            patch(f"{_REPO}.find_channel_kind_by_name", return_value=channel_kind_id),
             patch(f"{_REPO}.find_parameter_by_name", return_value=param_id),
             patch(f"{_REPO}.find_unit_by_name", return_value=unit_id),
             patch(f"{_REPO}.find_or_create_das", return_value=(das_id, das_created)),

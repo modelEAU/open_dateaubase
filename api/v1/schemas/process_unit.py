@@ -1,17 +1,17 @@
-"""Pydantic schemas for ProcessUnit and ProcessUnitType resources."""
+"""Pydantic schemas for ProcessUnit and ProcessUnitKind resources."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 
-class ProcessUnitTypeIn(BaseModel):
+class ProcessUnitKindIn(BaseModel):
     name: str
     description: str | None = None
 
 
-class ProcessUnitTypeOut(BaseModel):
-    process_unit_type_id: int
+class ProcessUnitKindOut(BaseModel):
+    process_unit_kind_id: int
     name: str
     description: str | None
 
@@ -21,7 +21,7 @@ class ProcessUnitIn(BaseModel):
     tag: str
     name: str
     description: str | None = None
-    process_unit_type_id: int | None = None
+    process_unit_kind_id: int | None = None
     parent_id: int | None = None
 
 
@@ -31,8 +31,8 @@ class ProcessUnitOut(BaseModel):
     tag: str
     name: str
     description: str | None
-    process_unit_type_id: int | None
-    process_unit_type_name: str | None
+    process_unit_kind_id: int | None
+    process_unit_kind_name: str | None
     parent_id: int | None
     parent_name: str | None
 
@@ -41,7 +41,7 @@ class ProcessUnitPatch(BaseModel):
     tag: str | None = None
     name: str | None = None
     description: str | None = None
-    process_unit_type_id: int | None = None
+    process_unit_kind_id: int | None = None
     parent_id: int | None = None
 
 
@@ -58,8 +58,8 @@ class ProcessUnitTreeOut(BaseModel):
     tag: str
     name: str
     description: str | None
-    process_unit_type_id: int | None
-    process_unit_type_name: str | None
+    process_unit_kind_id: int | None
+    process_unit_kind_name: str | None
     children: list[ProcessUnitTreeOut] = []
 
 

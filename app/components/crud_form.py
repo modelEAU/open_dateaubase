@@ -15,12 +15,14 @@ def render_form_field(
     required: bool = False,
     options: list[dict] | None = None,  # For dropdowns: [{"id": 1, "label": "Name"}]
     help_text: str | None = None,
+    label: str | None = None,
 ) -> Any:
     """Render a single form field based on type.
 
     field_type: "text" | "number" | "select" | "date" | "datetime" | "textarea"
     """
-    label = f"{field_name}{' *' if required else ''}"
+    display_name = label if label else field_name
+    label = f"{display_name}{' *' if required else ''}"
 
     if field_type == "select" and options:
         # Map options to display labels, return ID

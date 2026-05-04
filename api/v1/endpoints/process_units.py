@@ -1,4 +1,4 @@
-"""ProcessUnit and ProcessUnitType endpoints."""
+"""ProcessUnit and ProcessUnitKind endpoints."""
 
 from __future__ import annotations
 
@@ -12,51 +12,51 @@ from ..schemas.process_unit import (
     ProcessUnitOut,
     ProcessUnitPatch,
     ProcessUnitTreeOut,
-    ProcessUnitTypeIn,
-    ProcessUnitTypeOut,
+    ProcessUnitKindIn,
+    ProcessUnitKindOut,
 )
 
-process_unit_types_router = APIRouter()
+process_unit_kinds_router = APIRouter()
 process_units_router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# ProcessUnitType
+# ProcessUnitKind
 # ---------------------------------------------------------------------------
 
 
-@process_unit_types_router.get("", response_model=list[ProcessUnitTypeOut])
+@process_unit_kinds_router.get("", response_model=list[ProcessUnitKindOut])
 def list_process_unit_types(conn=Depends(get_db)):
     return process_unit_repository.get_all_process_unit_types(conn)
 
 
-@process_unit_types_router.post("", response_model=ProcessUnitTypeOut, status_code=201)
-def create_process_unit_type(body: ProcessUnitTypeIn, conn=Depends(get_db)):
+@process_unit_kinds_router.post("", response_model=ProcessUnitKindOut, status_code=201)
+def create_process_unit_type(body: ProcessUnitKindIn, conn=Depends(get_db)):
     return process_unit_repository.insert_process_unit_type(conn, body.name, body.description)
 
 
-@process_unit_types_router.put("/{process_unit_type_id}", response_model=ProcessUnitTypeOut)
+@process_unit_kinds_router.put("/{process_unit_kind_id}", response_model=ProcessUnitKindOut)
 def update_process_unit_type(
-    process_unit_type_id: int, body: ProcessUnitTypeIn, conn=Depends(get_db)
+    process_unit_kind_id: int, body: ProcessUnitKindIn, conn=Depends(get_db)
 ):
     updated = process_unit_repository.update_process_unit_type(
-        conn, process_unit_type_id, body.name, body.description
+        conn, process_unit_kind_id, body.name, body.description
     )
     if updated is None:
         raise HTTPException(
             status_code=404,
-            detail=f"ProcessUnitType {process_unit_type_id} not found.",
+            detail=f"ProcessUnitKind {process_unit_kind_id} not found.",
         )
     return updated
 
 
-@process_unit_types_router.delete("/{process_unit_type_id}", status_code=204)
-def delete_process_unit_type(process_unit_type_id: int, conn=Depends(get_db)):
-    deleted = process_unit_repository.delete_process_unit_type(conn, process_unit_type_id)
+@process_unit_kinds_router.delete("/{process_unit_kind_id}", status_code=204)
+def delete_process_unit_type(process_unit_kind_id: int, conn=Depends(get_db)):
+    deleted = process_unit_repository.delete_process_unit_type(conn, process_unit_kind_id)
     if not deleted:
         raise HTTPException(
             status_code=404,
-            detail=f"ProcessUnitType {process_unit_type_id} not found.",
+            detail=f"ProcessUnitKind {process_unit_kind_id} not found.",
         )
 
 

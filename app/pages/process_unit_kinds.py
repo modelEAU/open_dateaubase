@@ -22,7 +22,7 @@ require_auth()
 
 render_crud_page(
     title="Process Unit Types",
-    pk_field="process_unit_type_id",
+    pk_field="process_unit_kind_id",
     form_fields=[
         {"name": "name", "type": "text", "required": True, "label": "Name", "help": "Name of the process unit type"},
         {"name": "description", "type": "textarea", "required": False, "label": "Description", "help": "Explanation of the process unit type"},

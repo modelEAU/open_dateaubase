@@ -25,13 +25,13 @@ table:
         table: DataAcquisitionSystem
         column: DataAcquisitionSystem_ID
 
-    - name: SignalInterfaceType_ID
+    - name: SignalInterfaceKind_ID
       logical_type: integer
       nullable: false
-      description: "Classification of this interface (PLC, SCADA, Basestation, ...)"
+      description: "Kind of this interface (PLC, SCADA, Basestation, ...)"
       foreign_key:
-        table: SignalInterfaceType
-        column: SignalInterfaceType_ID
+        table: SignalInterfaceKind
+        column: SignalInterfaceKind_ID
 
     - name: Name
       logical_type: string

@@ -44,6 +44,7 @@ selected_site_name = st.selectbox(
     "Filter by site",
     options=["(all sites)"] + list(site_options.keys()),
     key="pu_site_filter",
+    help="Show only process units belonging to this site",
 )
 selected_site_id: int | None = site_options.get(selected_site_name)  # type: ignore[arg-type]
 
@@ -53,7 +54,7 @@ selected_site_id: int | None = site_options.get(selected_site_name)  # type: ign
 
 try:
     unit_types = list_process_unit_types()
-    type_options = [{"id": t["process_unit_type_id"], "label": t["name"]} for t in unit_types]
+    type_options = [{"id": t["process_unit_kind_id"], "label": t["name"]} for t in unit_types]
 except APIError:
     unit_types = []
     type_options = []
@@ -75,15 +76,29 @@ form_fields = [
         "type": "select",
         "required": True,
         "options": [{"id": s["id"], "label": s["name"]} for s in sites_list],
+        "help": "Foreign key to Site — scopes the unit to a single site",
     },
-    {"name": "tag", "label": "Tag (P&ID)", "type": "text", "required": True},
-    {"name": "name", "label": "Name", "type": "text", "required": True},
     {
-        "name": "process_unit_type_id",
+        "name": "tag",
+        "label": "Tag (P&ID)",
+        "type": "text",
+        "required": True,
+        "help": "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site.",
+    },
+    {
+        "name": "name",
+        "label": "Name",
+        "type": "text",
+        "required": True,
+        "help": "Human-readable name for the process unit",
+    },
+    {
+        "name": "process_unit_kind_id",
         "label": "Type",
         "type": "select",
         "required": False,
         "options": type_options,
+        "help": "Foreign key to ProcessUnitKind lookup",
     },
     {
         "name": "parent_id",
@@ -91,8 +106,15 @@ form_fields = [
         "type": "select",
         "required": False,
         "options": parent_options,
+        "help": "Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree",
     },
-    {"name": "description", "label": "Description", "type": "textarea", "required": False},
+    {
+        "name": "description",
+        "label": "Description",
+        "type": "textarea",
+        "required": False,
+        "help": "Optional description of the process unit's role or function",
+    },
 ]
 
 render_crud_page(

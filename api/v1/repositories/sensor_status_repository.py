@@ -7,11 +7,11 @@ import pyodbc
 
 # Sub-query fragment: given a measurement channel_id (?), find the Channel_ID of its
 # Status sub-signal channel.  Used as an inline scalar subquery.
-# New schema: Status channels are linked via ParentChannel_ID + ChannelRole.Name = 'Status'
+# New schema: Status channels are linked via ParentChannel_ID + ChannelKind.Name = 'Status'
 _STATUS_CHANNEL_FOR_MEASUREMENT = """
     (SELECT sc.[Channel_ID]
      FROM   [dbo].[Channel]       sc
-     JOIN   [dbo].[ChannelRole]   cr  ON cr.[ChannelRole_ID]  = sc.[ChannelRole_ID]
+     JOIN   [dbo].[ChannelKind]   cr  ON cr.[ChannelKind_ID]  = sc.[ChannelKind_ID]
      WHERE  sc.[ParentChannel_ID] = ?
        AND  cr.[Name] = N'Status')
 """
@@ -172,7 +172,7 @@ class SensorStatusRepository:
                                                 OR ewh.[SignalInterfacePort_ID] IS NULL
                                             )
             JOIN [dbo].[Channel]        statusC ON statusC.[ParentChannel_ID] = valueC.[Channel_ID]
-            JOIN [dbo].[ChannelRole]    cr      ON cr.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+            JOIN [dbo].[ChannelKind]    cr      ON cr.[ChannelKind_ID] = statusC.[ChannelKind_ID]
                                                AND cr.[Name] = N'Status'
             JOIN [dbo].[Observation]   o       ON o.[Channel_ID] = statusC.[Channel_ID]
             JOIN [dbo].[Value]         v       ON v.[Observation_ID] = o.[Observation_ID]
@@ -296,7 +296,7 @@ class SensorStatusRepository:
                                               )
             JOIN [dbo].[Parameter]      p       ON p.[Parameter_ID]        = valueC.[Parameter_ID]
             JOIN [dbo].[Channel]        statusC ON statusC.[ParentChannel_ID] = valueC.[Channel_ID]
-            JOIN [dbo].[ChannelRole]    cr      ON cr.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+            JOIN [dbo].[ChannelKind]    cr      ON cr.[ChannelKind_ID] = statusC.[ChannelKind_ID]
                                                AND cr.[Name] = N'Status'
             CROSS APPLY (
                 SELECT TOP 1 o.[Timestamp], v.Value
@@ -347,7 +347,7 @@ class SensorStatusRepository:
                                                   OR ewh.[SignalInterfacePort_ID] IS NULL
                                               )
             JOIN [dbo].[Channel]        statusC ON statusC.[ParentChannel_ID] = valueC.[Channel_ID]
-            JOIN [dbo].[ChannelRole]    cr      ON cr.[ChannelRole_ID] = statusC.[ChannelRole_ID]
+            JOIN [dbo].[ChannelKind]    cr      ON cr.[ChannelKind_ID] = statusC.[ChannelKind_ID]
                                                AND cr.[Name] = N'Status'
             JOIN [dbo].[Observation]   o       ON o.[Channel_ID] = statusC.[Channel_ID]
             JOIN [dbo].[Value]         v       ON v.[Observation_ID] = o.[Observation_ID]

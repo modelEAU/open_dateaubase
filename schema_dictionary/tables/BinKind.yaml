@@ -1,0 +1,32 @@
+_format_version: "1.0"
+table:
+  name: BinKind
+  schema: dbo
+  description: >
+    Controlled vocabulary defining how bins on a ValueBinningAxis are specified.
+    Each axis declares exactly one kind, and all bins on that axis must conform to it.
+
+  columns:
+    - name: BinKind_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned"
+
+    - name: Name
+      logical_type: string
+      max_length: 30
+      nullable: false
+      description: "Kind name (e.g. 'interval', 'nominal', 'interval_with_nominal')"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this bin kind means"
+
+  primary_key: [BinKind_ID]
+
+  seed_data:
+    - { BinKind_ID: 1, Name: "interval",              Description: "Bins defined by lower and upper bounds only" }
+    - { BinKind_ID: 2, Name: "interval_with_nominal", Description: "Bins defined by bounds plus a nominal center value" }
+    - { BinKind_ID: 3, Name: "nominal",               Description: "Bins defined by a single nominal value only" }

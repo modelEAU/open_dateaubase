@@ -54,13 +54,13 @@ _SITE_SLS = [{"id": 1, "name": "Point A"}]
 # ---------------------------------------------------------------------------
 
 _LOOKUP_SPECS = [
-    (f"{MOD}.list_campaign_types", _CAMPAIGN_TYPES),
+    (f"{MOD}.list_campaign_kinds", _CAMPAIGN_TYPES),
     (f"{MOD}.list_sites_lookup", _SITES),
-    (f"{MOD}.list_site_types", _SITE_TYPES),
+    (f"{MOD}.list_site_kinds", _SITE_TYPES),
     (f"{MOD}.list_equipment_lookup", _EQUIPMENT),
     (f"{MOD}.list_equipment_models_lookup", _EQUIPMENT_MODELS),
     (f"{MOD}.list_parameters_lookup", _PARAMETERS),
-    (f"{MOD}.list_processing_degrees_lookup", _PROCESSING_DEGREES),
+    (f"{MOD}.list_processing_kinds_lookup", _PROCESSING_DEGREES),
     (f"{MOD}.list_das_lookup", _DAS),
     (f"{MOD}.list_signal_port_types_lookup", _SIGNAL_PORT_TYPES),
     (f"{MOD}.list_signal_ports", _SIGNAL_PORTS),

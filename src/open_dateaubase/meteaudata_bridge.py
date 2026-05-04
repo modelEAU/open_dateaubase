@@ -50,16 +50,16 @@ def load_signal_context(channel_id: int, conn) -> dict:
             -- Equipment
             e.[Equipment_ID],
             e.[Identifier]         AS [EquipmentName],
-            -- DataProvenance
+            -- DataProvenanceKind
             dp.[DataProvenance_Name] AS [DataProvenanceName],
-            -- ProcessingDegree
-            pd.[Name]              AS [ProcessingDegreeName]
+            -- ProcessingKind
+            pd.[Name]              AS [ProcessingKindName]
         FROM [dbo].[Channel] c
-        LEFT JOIN [dbo].[Parameter]       p   ON p.[Parameter_ID]          = c.[Parameter_ID]
-        LEFT JOIN [dbo].[Unit]            u   ON u.[Unit_ID]               = c.[Unit_ID]
-        LEFT JOIN [dbo].[Equipment]       e   ON e.[Equipment_ID]          = c.[Equipment_ID]
-        LEFT JOIN [dbo].[DataProvenance]  dp  ON dp.[DataProvenance_ID]    = c.[DataProvenance_ID]
-        LEFT JOIN [dbo].[ProcessingDegree] pd ON pd.[ProcessingDegree_ID]  = c.[ProcessingDegree_ID]
+        LEFT JOIN [dbo].[Parameter]           p   ON p.[Parameter_ID]          = c.[Parameter_ID]
+        LEFT JOIN [dbo].[Unit]                u   ON u.[Unit_ID]               = c.[Unit_ID]
+        LEFT JOIN [dbo].[Equipment]           e   ON e.[Equipment_ID]          = c.[Equipment_ID]
+        LEFT JOIN [dbo].[DataProvenanceKind]  dp  ON dp.[DataProvenance_ID]    = c.[DataProvenance_ID]
+        LEFT JOIN [dbo].[ProcessingKind]      pd  ON pd.[ProcessingKind_ID]    = c.[ProcessingKind_ID]
         WHERE c.[Channel_ID] = ?
     """
     cursor = conn.cursor()
@@ -75,7 +75,7 @@ def load_signal_context(channel_id: int, conn) -> dict:
         unit_id, unit_name,
         equip_id, equip_name,
         data_provenance_name,
-        processing_degree_name,
+        processing_kind_name,
     ) = row
 
     return {
@@ -84,7 +84,7 @@ def load_signal_context(channel_id: int, conn) -> dict:
         "unit": unit_name,
         "equipment": {"id": equip_id, "name": equip_name} if equip_id else None,
         "data_provenance": data_provenance_name,
-        "processing_degree_name": processing_degree_name,
+        "processing_kind_name": processing_kind_name,
     }
 
 

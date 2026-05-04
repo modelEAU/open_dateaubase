@@ -51,8 +51,8 @@ class LineageTreeOut(BaseModel):
     children: list[dict]
 
 
-class ProcessingDegreeSummaryOut(BaseModel):
-    """Summary of one version of a time series (one ProcessingDegree)."""
+class ProcessingKindSummaryOut(BaseModel):
+    """Summary of one version of a time series (one ProcessingKind)."""
 
     channel_id: int
     processing_degree: str | None

@@ -17,13 +17,13 @@ table:
       foreign_key:
         table: Sample
         column: Sample_ID
-    - name: SampleType_ID
+    - name: SampleKind_ID
       logical_type: integer
       nullable: true
-      description: "Nature of the sample (FK to SampleType lookup table)"
+      description: "Nature of the sample (FK to SampleKind lookup table)"
       foreign_key:
-        table: SampleType
-        column: SampleType_ID
+        table: SampleKind
+        column: SampleKind_ID
     - name: SamplingPoint_ID
       logical_type: integer
       nullable: false
@@ -55,13 +55,13 @@ table:
       precision: 7
       nullable: true
       description: "Date and time sampling ended (UTC). NULL for instantaneous grab samples."
-    - name: SampleMethod_ID
+    - name: SampleCollectionKind_ID
       logical_type: integer
       nullable: true
-      description: "Method of sample collection (FK to SampleMethod lookup table)"
+      description: "Method of sample collection (FK to SampleCollectionKind lookup table)"
       foreign_key:
-        table: SampleMethod
-        column: SampleMethod_ID
+        table: SampleCollectionKind
+        column: SampleCollectionKind_ID
     - name: SampleEquipment_ID
       logical_type: integer
       nullable: true

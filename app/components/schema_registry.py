@@ -32,16 +32,16 @@ def _to_snake(name: str) -> str:
 def fk_lookup_fn(table_name: str) -> str:
     """Derive the api_client lookup function name from a referenced table name.
 
-    'SiteType' → 'list_site_type_lookup'
-    'SignalPort' → 'list_signal_port_lookup'
+    'SiteKind' → 'list_site_kind_lookup'
+    'SignalInterface' → 'list_signal_interface_lookup'
     """
     return f"list_{_to_snake(table_name)}_lookup"
 
 
 @dataclass
 class ColumnMeta:
-    name: str          # original YAML column name, e.g. "Unit_ID"
-    field: str         # snake_case API field name, e.g. "unit_id"
+    name: str  # original YAML column name, e.g. "Unit_ID"
+    field: str  # snake_case API field name, e.g. "unit_id"
     logical_type: str
     nullable: bool
     is_pk: bool
@@ -65,7 +65,7 @@ class ColumnMeta:
 class TableMeta:
     table_name: str
     description: str
-    pk_field: str      # snake_case PK field name used in API responses
+    pk_field: str  # snake_case PK field name used in API responses
     columns: list[ColumnMeta]
 
     def form_columns(self) -> list[ColumnMeta]:

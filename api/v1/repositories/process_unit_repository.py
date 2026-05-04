@@ -1,4 +1,4 @@
-"""Data access for ProcessUnit and ProcessUnitType."""
+"""Data access for ProcessUnit and ProcessUnitKind."""
 
 from __future__ import annotations
 
@@ -6,17 +6,17 @@ import pyodbc
 
 
 # ---------------------------------------------------------------------------
-# ProcessUnitType
+# ProcessUnitKind
 # ---------------------------------------------------------------------------
 
 
 def get_all_process_unit_types(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ProcessUnitType_ID], [Name], [Description] "
-        "FROM [dbo].[ProcessUnitType] ORDER BY [Name]"
+        "SELECT [ProcessUnitKind_ID], [Name], [Description] "
+        "FROM [dbo].[ProcessUnitKind] ORDER BY [Name]"
     )
-    return [{"process_unit_type_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
+    return [{"process_unit_kind_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
 
 
 def insert_process_unit_type(
@@ -25,48 +25,51 @@ def insert_process_unit_type(
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO [dbo].[ProcessUnitType] ([Name], [Description])
-        OUTPUT inserted.[ProcessUnitType_ID], inserted.[Name], inserted.[Description]
+        INSERT INTO [dbo].[ProcessUnitKind] ([Name], [Description])
+        OUTPUT inserted.[ProcessUnitKind_ID], inserted.[Name], inserted.[Description]
         VALUES (?, ?)
         """,
         name,
         description,
     )
     row = cursor.fetchone()
+    assert row is not None
     conn.commit()
-    return {"process_unit_type_id": row[0], "name": row[1], "description": row[2]}
+    return {"process_unit_kind_id": row[0], "name": row[1], "description": row[2]}
 
 
 def update_process_unit_type(
-    conn: pyodbc.Connection, process_unit_type_id: int, name: str, description: str | None
+    conn: pyodbc.Connection, process_unit_kind_id: int, name: str, description: str | None
 ) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
-        UPDATE [dbo].[ProcessUnitType]
+        UPDATE [dbo].[ProcessUnitKind]
         SET [Name]=?, [Description]=?
-        OUTPUT inserted.[ProcessUnitType_ID], inserted.[Name], inserted.[Description]
-        WHERE [ProcessUnitType_ID]=?
+        OUTPUT inserted.[ProcessUnitKind_ID], inserted.[Name], inserted.[Description]
+        WHERE [ProcessUnitKind_ID]=?
         """,
         name,
         description,
-        process_unit_type_id,
+        process_unit_kind_id,
     )
     row = cursor.fetchone()
     conn.commit()
     if row is None:
         return None
-    return {"process_unit_type_id": row[0], "name": row[1], "description": row[2]}
+    return {"process_unit_kind_id": row[0], "name": row[1], "description": row[2]}
 
 
-def delete_process_unit_type(conn: pyodbc.Connection, process_unit_type_id: int) -> bool:
+def delete_process_unit_type(conn: pyodbc.Connection, process_unit_kind_id: int) -> bool:
     cursor = conn.cursor()
     cursor.execute(
-        "DELETE FROM [dbo].[ProcessUnitType] WHERE [ProcessUnitType_ID]=?",
-        process_unit_type_id,
+        "DELETE FROM [dbo].[ProcessUnitKind] WHERE [ProcessUnitKind_ID]=?",
+        process_unit_kind_id,
     )
     cursor.execute("SELECT @@ROWCOUNT")
-    deleted = cursor.fetchone()[0] > 0
+    _row = cursor.fetchone()
+    assert _row is not None
+    deleted = _row[0] > 0
     conn.commit()
     return deleted
 
@@ -82,13 +85,13 @@ _SELECT_UNIT = """
         pu.[Tag],
         pu.[Name],
         pu.[Description],
-        pu.[ProcessUnitType_ID],
+        pu.[ProcessUnitKind_ID],
         put.[Name] AS TypeName,
         pu.[Parent_ID],
         p.[Name]   AS ParentName
     FROM [dbo].[ProcessUnit] pu
-    LEFT JOIN [dbo].[ProcessUnitType] put
-        ON pu.[ProcessUnitType_ID] = put.[ProcessUnitType_ID]
+    LEFT JOIN [dbo].[ProcessUnitKind] put
+        ON pu.[ProcessUnitKind_ID] = put.[ProcessUnitKind_ID]
     LEFT JOIN [dbo].[ProcessUnit] p
         ON pu.[Parent_ID] = p.[ProcessUnit_ID]
 """
@@ -101,8 +104,8 @@ def _row_to_dict(row) -> dict:
         "tag": row[2],
         "name": row[3],
         "description": row[4],
-        "process_unit_type_id": row[5],
-        "process_unit_type_name": row[6],
+        "process_unit_kind_id": row[5],
+        "process_unit_kind_name": row[6],
         "parent_id": row[7],
         "parent_name": row[8],
     }
@@ -166,23 +169,25 @@ def get_process_unit_tree(conn: pyodbc.Connection, site_id: int) -> list[dict]:
     return roots
 
 
-def insert_process_unit(conn: pyodbc.Connection, data: dict) -> dict:
+def insert_process_unit(conn: pyodbc.Connection, data: dict) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
         INSERT INTO [dbo].[ProcessUnit]
-            ([Site_ID], [Tag], [Name], [Description], [ProcessUnitType_ID], [Parent_ID])
+            ([Site_ID], [Tag], [Name], [Description], [ProcessUnitKind_ID], [Parent_ID])
         VALUES (?, ?, ?, ?, ?, ?)
         """,
         data["site_id"],
         data["tag"],
         data["name"],
         data.get("description"),
-        data.get("process_unit_type_id"),
+        data.get("process_unit_kind_id"),
         data.get("parent_id"),
     )
     cursor.execute("SELECT @@IDENTITY")
-    new_id = int(cursor.fetchone()[0])
+    _row = cursor.fetchone()
+    assert _row is not None
+    new_id = int(_row[0])
     conn.commit()
     return get_process_unit_by_id(conn, new_id)
 
@@ -198,14 +203,14 @@ def update_process_unit(
         """
         UPDATE [dbo].[ProcessUnit]
         SET [Site_ID]=?, [Tag]=?, [Name]=?, [Description]=?,
-            [ProcessUnitType_ID]=?, [Parent_ID]=?
+            [ProcessUnitKind_ID]=?, [Parent_ID]=?
         WHERE [ProcessUnit_ID]=?
         """,
         data["site_id"],
         data["tag"],
         data["name"],
         data.get("description"),
-        data.get("process_unit_type_id"),
+        data.get("process_unit_kind_id"),
         data.get("parent_id"),
         process_unit_id,
     )
@@ -226,7 +231,7 @@ def patch_process_unit(
         "tag": "[Tag]",
         "name": "[Name]",
         "description": "[Description]",
-        "process_unit_type_id": "[ProcessUnitType_ID]",
+        "process_unit_kind_id": "[ProcessUnitKind_ID]",
         "parent_id": "[Parent_ID]",
     }
     fields = []
@@ -253,7 +258,9 @@ def delete_process_unit(conn: pyodbc.Connection, process_unit_id: int) -> bool:
         "SELECT COUNT(*) FROM [dbo].[ProcessUnit] WHERE [Parent_ID]=?",
         process_unit_id,
     )
-    child_count = cursor.fetchone()[0]
+    _r = cursor.fetchone()
+    assert _r is not None
+    child_count = _r[0]
     if child_count > 0:
         raise ValueError(
             f"ProcessUnit {process_unit_id} has {child_count} child unit(s). "
@@ -264,7 +271,9 @@ def delete_process_unit(conn: pyodbc.Connection, process_unit_id: int) -> bool:
         "SELECT COUNT(*) FROM [dbo].[SamplingPoint] WHERE [ProcessUnit_ID]=?",
         process_unit_id,
     )
-    sp_count = cursor.fetchone()[0]
+    _r2 = cursor.fetchone()
+    assert _r2 is not None
+    sp_count = _r2[0]
     if sp_count > 0:
         raise ValueError(
             f"ProcessUnit {process_unit_id} is linked to {sp_count} sampling point(s). "
@@ -276,6 +285,8 @@ def delete_process_unit(conn: pyodbc.Connection, process_unit_id: int) -> bool:
         process_unit_id,
     )
     cursor.execute("SELECT @@ROWCOUNT")
-    deleted = cursor.fetchone()[0] > 0
+    _r3 = cursor.fetchone()
+    assert _r3 is not None
+    deleted = _r3[0] > 0
     conn.commit()
     return deleted

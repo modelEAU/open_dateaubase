@@ -10,10 +10,10 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from app.api_client import (
-    create_equipment_event_type,
-    delete_equipment_event_type,
-    list_equipment_event_types,
-    update_equipment_event_type,
+    create_equipment_event_kind,
+    delete_equipment_event_kind,
+    list_equipment_event_kinds,
+    update_equipment_event_kind,
 )
 from app.auth import require_auth
 from app.components.generic_crud import render_crud_page
@@ -26,9 +26,9 @@ render_crud_page(
     form_fields=[
         {"name": "name", "type": "text", "required": True, "label": "Name", "help": "Name of the event type"},
     ],
-    list_fn=list_equipment_event_types,
-    create_fn=create_equipment_event_type,
-    update_fn=update_equipment_event_type,
-    delete_fn=delete_equipment_event_type,
+    list_fn=list_equipment_event_kinds,
+    create_fn=create_equipment_event_kind,
+    update_fn=update_equipment_event_kind,
+    delete_fn=delete_equipment_event_kind,
     label_field="event_type_name",
 )

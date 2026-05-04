@@ -992,13 +992,13 @@ def _generate_jointjs_html(
                 const isView = this.model.get('isView');
                 const data = isView ? this.model.get('viewData') : this.model.get('tableData');
 
-                // Escape string for usage in onclick
-                const entityJson = JSON.stringify({{
+                // URL-encode for safe embedding in onclick attribute strings
+                const entityJson = encodeURIComponent(JSON.stringify({{
                     name: data.label,
                     description: data.description,
                     type: isView ? 'view' : 'table',
                     definition: data.view_definition || null
-                }}).replace(/"/g, '&quot;');
+                }}));
 
                 let rowsHtml = '';
                 const items = isView ? data.columns : data.fields;
@@ -1011,8 +1011,7 @@ def _generate_jointjs_html(
                     // Add asterisk for required fields
                     const requiredMarker = field.is_required ? '<span style="color: #ef4444;">*</span>' : '';
 
-                    // Escape data for attribute usage
-                    const fieldJson = JSON.stringify(field).replace(/"/g, '&quot;');
+                    const fieldJson = encodeURIComponent(JSON.stringify(field));
 
                     rowsHtml += `
                         <div class="table-row" onclick="showFieldDetails('${{fieldJson}}', '${{data.label}}', event)">
@@ -1696,7 +1695,7 @@ def _generate_jointjs_html(
             }});
 
             const serializer = new XMLSerializer();
-            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(svgClone);
+            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\\n' + serializer.serializeToString(svgClone);
             const blob = new Blob([svgString], {{ type: 'image/svg+xml;charset=utf-8' }});
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1711,7 +1710,7 @@ def _generate_jointjs_html(
         // --- Sidebar Logic ---
         function showFieldDetails(fieldJson, tableName, event) {{
             event.stopPropagation(); // Prevent paper blank click from closing sidebar
-            const field = JSON.parse(fieldJson);
+            const field = JSON.parse(decodeURIComponent(fieldJson));
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('sidebar-details');
             
@@ -1756,7 +1755,7 @@ def _generate_jointjs_html(
         
         function showTableDetails(tableJson, event) {{
             event.stopPropagation();
-            const entity = JSON.parse(tableJson);
+            const entity = JSON.parse(decodeURIComponent(tableJson));
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('sidebar-details');
 

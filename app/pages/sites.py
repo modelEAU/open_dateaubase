@@ -18,7 +18,7 @@ from app.api_client import (
     delete_site,
     list_sites,
     patch_site,
-    list_site_types,
+    list_site_kinds,
     get_sampling_point_picture,
     upload_sampling_point_picture,
     delete_sampling_point_picture,
@@ -52,16 +52,33 @@ def _render_create_form() -> None:
         _go_table()
         return
 
-    name = render_form_field("name", "text", required=True)
-    
+    name = render_form_field(
+        "name",
+        "text",
+        required=True,
+        label="Name",
+        help_text="Name of the site",
+    )
+
     # Fetch site types for dropdown
-    site_types = list_site_types()
+    site_types = list_site_kinds()
     type_options = {t["name"]: t["id"] for t in site_types}
     type_names = [""] + list(type_options.keys())
-    selected_type_name = st.selectbox("Type", options=type_names, index=0)
-    site_type_id = type_options.get(selected_type_name)
+    selected_type_name = st.selectbox(
+        "Type",
+        options=type_names,
+        index=0,
+        help="Kind of the site via SiteKind lookup",
+    )
+    site_kind_id = type_options.get(selected_type_name)
 
-    description = render_form_field("description", "textarea", required=False)
+    description = render_form_field(
+        "description",
+        "textarea",
+        required=False,
+        label="Description",
+        help_text="Description of the site",
+    )
 
     st.divider()
     st.subheader("Location")
@@ -75,7 +92,7 @@ def _render_create_form() -> None:
             try:
                 create_site({
                     "name": name,
-                    "site_type_id": site_type_id or None,
+                    "site_kind_id": site_kind_id or None,
                     "description": description or None,
                     **location,
                 })
@@ -147,22 +164,41 @@ def _render_edit_form(site: dict) -> None:
         _go_table()
         return
 
-    name = render_form_field("name", "text", value=site.get("name"), required=True)
-    
-    site_types = list_site_types()
+    name = render_form_field(
+        "name",
+        "text",
+        value=site.get("name"),
+        required=True,
+        label="Name",
+        help_text="Name of the site",
+    )
+
+    site_types = list_site_kinds()
     type_options = {t["name"]: t["id"] for t in site_types}
     type_names = [""] + list(type_options.keys())
-    
-    current_type_name = site.get("site_type_name") or ""
+
+    current_type_name = site.get("site_kind_name") or ""
     try:
         type_index = type_names.index(current_type_name)
     except ValueError:
         type_index = 0
-        
-    selected_type_name = st.selectbox("Type", options=type_names, index=type_index)
-    site_type_id = type_options.get(selected_type_name)
 
-    description = render_form_field("description", "textarea", value=site.get("description"), required=False)
+    selected_type_name = st.selectbox(
+        "Type",
+        options=type_names,
+        index=type_index,
+        help="Kind of the site via SiteKind lookup",
+    )
+    site_kind_id = type_options.get(selected_type_name)
+
+    description = render_form_field(
+        "description",
+        "textarea",
+        value=site.get("description"),
+        required=False,
+        label="Description",
+        help_text="Description of the site",
+    )
 
     st.divider()
     st.subheader("Location")
@@ -183,7 +219,7 @@ def _render_edit_form(site: dict) -> None:
             try:
                 patch_site(site["id"], {
                     "name": name,
-                    "site_type_id": site_type_id or None,
+                    "site_kind_id": site_kind_id or None,
                     "description": description or None,
                     **location,
                 })
