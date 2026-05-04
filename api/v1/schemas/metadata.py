@@ -41,6 +41,7 @@ class SiteOut(BaseModel):
 class SiteIn(BaseModel):
     name: str
     site_kind_id: int | None = None
+    watershed_id: int | None = None
     description: str | None = None
     lat_wgs84: float | None = None
     long_wgs84: float | None = None

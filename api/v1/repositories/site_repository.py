@@ -69,12 +69,13 @@ def insert_site(conn: pyodbc.Connection, data: dict) -> dict:
     cursor.execute(
         """
         INSERT INTO [dbo].[Site]
-            ([Name], [SiteKind_ID], [Description], [LatitudeWGS84], [LongitudeWGS84],
+            ([Name], [SiteKind_ID], [Watershed_ID], [Description], [LatitudeWGS84], [LongitudeWGS84],
              [City], [Province], [Country])
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         data["name"],
         data.get("site_kind_id"),
+        data.get("watershed_id"),
         data.get("description"),
         data.get("lat_wgs84"),
         data.get("long_wgs84"),

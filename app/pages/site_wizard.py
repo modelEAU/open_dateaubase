@@ -9,9 +9,11 @@ from app.api_client import (
     create_process_unit,
     create_sampling_location,
     create_site,
+    create_watershed,
     list_process_unit_types,
     list_process_units_lookup,
     list_site_kinds,
+    list_watersheds,
 )
 from app.components.location_picker import render_location_picker
 from app.components.wizard_helpers import (
@@ -32,7 +34,7 @@ STEPS = [
 ]
 
 _STEP_PREFIXES: dict[int, list[str]] = {
-    0: [f"{_WIZ}_s0_", f"{_WIZ}_loc_"],
+    0: [f"{_WIZ}_s0_", f"{_WIZ}_loc_", f"{_WIZ}_ws_"],
     1: [f"{_WIZ}_pu_"],
     2: [f"{_WIZ}_sl_"],
     3: [],
@@ -62,6 +64,7 @@ def _load_lookups() -> dict | None:
             "site_kinds": list_site_kinds(),
             "pu_kinds": list_process_unit_types(),
             "process_units": list_process_units_lookup(),
+            "watersheds": list_watersheds(),
         }
     except APIError as e:
         st.error(f"Failed to load lookup data: {e.message}")
@@ -85,10 +88,33 @@ def _step_site(lookups: dict) -> None:
     st.markdown("#### Location")
     render_location_picker(key_prefix=f"{_WIZ}_loc")
 
+    st.markdown("#### Watershed (optional)")
+    st.caption("Does this site drain into a watershed you want to track?")
+    ws_mode = st.radio(
+        "Watershed",
+        ["None", "Select existing", "Create new"],
+        key=f"{_WIZ}_ws_mode",
+        label_visibility="collapsed",
+    )
+
+    if ws_mode == "Select existing":
+        ws_opts = [{"id": w["watershed_id"], "label": w["name"]} for w in lookups["watersheds"]]
+        ws_labels = ["(none)"] + [o["label"] for o in ws_opts]
+        st.selectbox("Watershed", ws_labels, key=f"{_WIZ}_ws_select")
+    elif ws_mode == "Create new":
+        st.text_input("Watershed name *", key=f"{_WIZ}_ws_new_name")
+        st.text_area("Description", key=f"{_WIZ}_ws_new_description")
+        st.number_input("Surface area (ha)", min_value=0.0, key=f"{_WIZ}_ws_new_surface_area")
+        st.number_input("Concentration time (min)", min_value=0, step=1, key=f"{_WIZ}_ws_new_concentration_time")
+        st.number_input("Impervious surface (%)", min_value=0.0, max_value=100.0, key=f"{_WIZ}_ws_new_impervious_surface")
+
     def on_next() -> list[str]:
         errors: list[str] = []
         if not (st.session_state.get(f"{_WIZ}_s0_name") or "").strip():
             errors.append("Site name is required.")
+        if st.session_state.get(f"{_WIZ}_ws_mode") == "Create new":
+            if not (st.session_state.get(f"{_WIZ}_ws_new_name") or "").strip():
+                errors.append("Watershed name is required when creating a new watershed.")
         return errors
 
     nav(
@@ -204,6 +230,7 @@ def _step_review(lookups: dict) -> None:
     lng = st.session_state.get(f"{_WIZ}_loc_lng_input")
     city = st.session_state.get(f"{_WIZ}_loc_city_input", "")
     country = st.session_state.get(f"{_WIZ}_loc_country_input", "")
+    ws_mode = st.session_state.get(f"{_WIZ}_ws_mode", "None")
 
     st.markdown("### Site")
     st.write(f"**Name:** {site_name}")
@@ -212,6 +239,12 @@ def _step_review(lookups: dict) -> None:
         st.write(f"**Description:** {description}")
     if lat and lng:
         st.write(f"**Location:** {lat:.5f}, {lng:.5f}  {city} {country}".strip())
+    if ws_mode == "Select existing":
+        ws_label = st.session_state.get(f"{_WIZ}_ws_select", "(none)")
+        st.write(f"**Watershed:** {ws_label}")
+    elif ws_mode == "Create new":
+        ws_name = st.session_state.get(f"{_WIZ}_ws_new_name", "")
+        st.write(f"**Watershed:** {ws_name} (new)")
 
     pu_ids = st.session_state.get(f"{_WIZ}_pu_ids", [])
     if pu_ids:
@@ -265,8 +298,32 @@ def _execute_creates(lookups: dict) -> list[str]:
         {"id": k["process_unit_kind_id"], "label": k["name"]}
         for k in lookups["pu_kinds"]
     ]
+    ws_opts = [{"id": w["watershed_id"], "label": w["name"]} for w in lookups["watersheds"]]
 
-    # 1. Create site
+    # 1. Resolve watershed
+    watershed_id: int | None = None
+    ws_mode = st.session_state.get(f"{_WIZ}_ws_mode", "None")
+    if ws_mode == "Create new":
+        try:
+            ws = create_watershed(
+                {
+                    "name": (st.session_state.get(f"{_WIZ}_ws_new_name") or "").strip(),
+                    "description": st.session_state.get(f"{_WIZ}_ws_new_description") or None,
+                    "surface_area": st.session_state.get(f"{_WIZ}_ws_new_surface_area") or None,
+                    "concentration_time": st.session_state.get(f"{_WIZ}_ws_new_concentration_time") or None,
+                    "impervious_surface": st.session_state.get(f"{_WIZ}_ws_new_impervious_surface") or None,
+                }
+            )
+            watershed_id = ws["watershed_id"]
+        except APIError as e:
+            errors.append(f"Watershed creation failed: {e.message}")
+            return errors
+    elif ws_mode == "Select existing":
+        ws_label = st.session_state.get(f"{_WIZ}_ws_select") or None
+        if ws_label and ws_label != "(none)":
+            watershed_id = resolve_id(ws_label, ws_opts)
+
+    # 2. Create site
     site_kind_label = st.session_state.get(f"{_WIZ}_s0_kind") or None
     site_kind_id = (
         resolve_id(site_kind_label, kind_opts)
@@ -278,6 +335,7 @@ def _execute_creates(lookups: dict) -> list[str]:
             {
                 "name": (st.session_state.get(f"{_WIZ}_s0_name") or "").strip(),
                 "site_kind_id": site_kind_id,
+                "watershed_id": watershed_id,
                 "description": st.session_state.get(f"{_WIZ}_s0_description") or None,
                 "lat_wgs84": st.session_state.get(f"{_WIZ}_loc_lat_input"),
                 "long_wgs84": st.session_state.get(f"{_WIZ}_loc_lng_input"),
@@ -291,7 +349,7 @@ def _execute_creates(lookups: dict) -> list[str]:
         errors.append(f"Site creation failed: {e.message}")
         return errors
 
-    # 2. Create process units
+    # 3. Create process units
     for pu_wiz_id in st.session_state.get(f"{_WIZ}_pu_ids", []):
         name = (st.session_state.get(f"{_WIZ}_pu_{pu_wiz_id}_name") or "").strip()
         tag = (st.session_state.get(f"{_WIZ}_pu_{pu_wiz_id}_tag") or "").strip()
@@ -328,7 +386,7 @@ def _execute_creates(lookups: dict) -> list[str]:
     for pu in lookups.get("process_units", []):
         pu_label_to_id[pu["name"]] = pu["id"]
 
-    # 3. Create sampling locations
+    # 4. Create sampling locations
     for sl_wiz_id in st.session_state.get(f"{_WIZ}_sl_ids", []):
         name = (st.session_state.get(f"{_WIZ}_sl_{sl_wiz_id}_name") or "").strip()
         if not name:
