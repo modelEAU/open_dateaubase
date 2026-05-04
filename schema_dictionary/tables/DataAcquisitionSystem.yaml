@@ -3,9 +3,12 @@ table:
   name: DataAcquisitionSystem
   schema: dbo
   description: >
-    Represents any upstream system that assigns tags to signals: SCADA servers,
-    PLCs, data loggers, OPC-UA servers, CSV importers, etc. Supports hierarchy
-    via ParentSystem_ID (e.g. plant SCADA → field PLC → sensor module).
+    The computer or device that collects measurements from your field equipment and
+    stores or transmits them. This is usually a box at the site — a logger, a SCADA
+    station, or even a laptop running your instrument software. Technically it is any
+    upstream system that assigns tags to signals: SCADA servers, PLCs, data loggers,
+    OPC-UA servers, CSV importers, etc. Supports hierarchy via ParentSystem_ID
+    (e.g. plant SCADA → field PLC → sensor module).
 
   columns:
     - name: DataAcquisitionSystem_ID

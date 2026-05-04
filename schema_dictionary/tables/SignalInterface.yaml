@@ -3,12 +3,13 @@ table:
   name: SignalInterface
   schema: dbo
   description: >
-    Physical or logical device that sits between field Equipment (sensors,
-    actuators) and a DataAcquisitionSystem. Examples: a Logix5000 PLC, a
-    Hach SC1000 controller, an IQ Sensor Net bus, a monEAU/TresCON
-    basestation. A SignalInterface owns one or more SignalInterfacePorts and
-    is the stable anchor that Channels reference via tag name — so tags keep
-    working when the wiring to individual Equipment changes.
+    A software or physical interface connected to the Data Acquisition System where
+    data from one or more instruments is displayed or logged. Typically, each equipment
+    vendor maintains their own interface. Examples: a Hach SC1000 controller, a WTW
+    IQ Sensor Net bus, a monEAU/TresCON basestation, a Logix5000 PLC.
+    A SignalInterface owns one or more SignalInterfacePorts and is the stable anchor
+    that Channels reference via tag name — so tags keep working when the wiring to
+    individual Equipment changes.
 
   columns:
     - name: SignalInterface_ID

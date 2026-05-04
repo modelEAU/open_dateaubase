@@ -96,6 +96,11 @@ def _model_label(m: dict) -> str:
 def _step_das(lookups: dict) -> None:  # lookups unused; consistent signature
     restore_snapshot(_WIZ, 0)
 
+    st.caption(
+        "A Data Acquisition System (DAS) is the computer or device at your field site "
+        "that collects measurements from instruments — a logger, a SCADA station, or a "
+        "laptop running your instrument software."
+    )
     st.text_input("DAS name *", key=f"{_WIZ}_s0_name")
     st.text_area("Description (optional)", key=f"{_WIZ}_s0_description")
 
@@ -115,15 +120,16 @@ def _step_das(lookups: dict) -> None:  # lookups unused; consistent signature
     )
 
 
-def _step_signal_interfaces(lookups: dict) -> None:
+def _step_signal_interfaces(lookups: dict) -> None:  # lookups unused; consistent signature
     restore_snapshot(_WIZ, 1)
 
-    si_type_opts = [
-        {"id": t["signal_interface_kind_id"], "label": t["name"]}
-        for t in lookups["si_types"]
-    ]
-    si_type_labels = [o["label"] for o in si_type_opts]
     si_ids: list[int] = st.session_state[f"{_WIZ}_si_ids"]
+
+    st.caption(
+        "Signal interfaces are the software windows or connections through which your "
+        "DAS receives data from instruments. Each vendor typically has its own interface "
+        "— for example, a Hach SC1000 controller or a WTW IQ Sensor Net basestation."
+    )
 
     if st.button("+ Add Signal Interface", key=f"{_WIZ}_si_add_btn"):
         nid = st.session_state[f"{_WIZ}_si_next_id"]
@@ -140,17 +146,18 @@ def _step_signal_interfaces(lookups: dict) -> None:
         label = st.session_state.get(f"{_WIZ}_si_{si_id}_name") or f"Signal Interface {si_id + 1}"
         with st.expander(label, expanded=True):
             st.text_input("Name *", key=f"{_WIZ}_si_{si_id}_name")
-            if si_type_labels:
-                st.selectbox("Kind *", si_type_labels, key=f"{_WIZ}_si_{si_id}_kind")
-            else:
-                st.warning("No signal interface kinds found.")
-            col_make, col_model, col_serial = st.columns(3)
-            with col_make:
-                st.text_input("Make", key=f"{_WIZ}_si_{si_id}_make")
-            with col_model:
-                st.text_input("Model", key=f"{_WIZ}_si_{si_id}_model_name")
-            with col_serial:
-                st.text_input("Serial number", key=f"{_WIZ}_si_{si_id}_serial")
+            show_advanced = st.checkbox(
+                "Show advanced fields (make, model, serial number)",
+                key=f"{_WIZ}_si_{si_id}_show_advanced",
+            )
+            if show_advanced:
+                col_make, col_model, col_serial = st.columns(3)
+                with col_make:
+                    st.text_input("Make", key=f"{_WIZ}_si_{si_id}_make")
+                with col_model:
+                    st.text_input("Model", key=f"{_WIZ}_si_{si_id}_model_name")
+                with col_serial:
+                    st.text_input("Serial number", key=f"{_WIZ}_si_{si_id}_serial")
             if st.button("Remove", key=f"{_WIZ}_si_{si_id}_remove_btn"):
                 st.session_state[f"{_WIZ}_si_ids"].remove(si_id)
                 st.rerun()
@@ -162,8 +169,6 @@ def _step_signal_interfaces(lookups: dict) -> None:
         for si_id in st.session_state[f"{_WIZ}_si_ids"]:
             if not (st.session_state.get(f"{_WIZ}_si_{si_id}_name") or "").strip():
                 errors.append(f"Signal Interface {si_id + 1}: name is required.")
-            if si_type_labels and not st.session_state.get(f"{_WIZ}_si_{si_id}_kind"):
-                errors.append(f"Signal Interface {si_id + 1}: kind is required.")
         return errors
 
     nav(
@@ -349,8 +354,7 @@ def _step_review(lookups: dict) -> None:
 
     for si_id in si_ids:
         si_name = st.session_state.get(f"{_WIZ}_si_{si_id}_name", "")
-        si_kind = st.session_state.get(f"{_WIZ}_si_{si_id}_kind", "")
-        with st.expander(f"Signal Interface: {si_name} ({si_kind})", expanded=True):
+        with st.expander(f"Signal Interface: {si_name}", expanded=True):
             eq_ids = st.session_state.get(f"{_WIZ}_eq_{si_id}_ids", [])
             if eq_ids:
                 st.markdown("**Equipment:**")
@@ -422,6 +426,12 @@ def _execute_creates(lookups: dict) -> list[str]:
         {"id": t["signal_interface_kind_id"], "label": t["name"]}
         for t in lookups["si_types"]
     ]
+    # Kind is hidden from the user — auto-select "Unknown"; fall back to first available.
+    _unknown = next(
+        (t for t in si_type_opts if t["label"].lower() == "unknown"),
+        si_type_opts[0] if si_type_opts else None,
+    )
+    default_kind_id: int | None = _unknown["id"] if _unknown else None
 
     # 1. Create DAS
     try:
@@ -439,8 +449,7 @@ def _execute_creates(lookups: dict) -> list[str]:
     # 2. Create signal interfaces
     for si_wiz_id in st.session_state.get(f"{_WIZ}_si_ids", []):
         si_name = (st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_name") or "").strip()
-        si_kind_label = st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_kind") or None
-        si_kind_id = resolve_id(si_kind_label, si_type_opts)
+        si_kind_id = default_kind_id
         try:
             si = create_signal_interface(
                 {

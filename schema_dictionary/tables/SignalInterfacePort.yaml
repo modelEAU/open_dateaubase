@@ -3,14 +3,12 @@ table:
   name: SignalInterfacePort
   schema: dbo
   description: >
-    A physical or logical port on a SignalInterface (e.g. analog input 6
-    channel 0 on a PLC rack, an RS-485 port on a basestation). Represents
-    the wiring point an Equipment is physically connected to. A Channel is
-    NOT required to reference a port — when the wire has not yet been
-    traced, Channel.SignalInterfacePort_ID is left NULL and the Channel is
-    addressable by (SignalInterface_ID, TagName) alone. Multiple Channels
-    can share a single port (multiplexer case, e.g. TresCON), distinguished
-    by ChannelPortHistory.GatingNote.
+    A specific physical or logical connection point on a Signal Interface — for example,
+    an analog input slot on a controller, an RS-485 serial port on a basestation, or a
+    probe socket on a sensor hub. This represents exactly where an instrument is wired in.
+    Ports are optional: if you have not yet traced the wiring, a Channel can exist with
+    no port assigned and is still addressable by its tag name alone. Multiple sensors can
+    share one port (multiplexer case), distinguished by a gating note.
 
   columns:
     - name: SignalInterfacePort_ID
