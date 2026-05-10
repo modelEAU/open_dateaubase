@@ -133,10 +133,9 @@ class ObservationBase(BaseModel):
     timestamp: datetime = Field(
         alias="Timestamp", description="UTC timestamp of the observation"
     )
-    datatype: str = Field(
-        alias="DataType",
-        description="Payload type: Scalar, Vector, Matrix, or Image. Must match the Channel's ValueType.",
-        max_length=10,
+    valuekindID: int = Field(
+        alias="ValueKind_ID",
+        description="Payload kind FK (1=Scalar, 2=Vector, 3=Matrix, 4=Image). Must match the Channel's ValueKind.",
     )
 
 
@@ -860,10 +859,9 @@ class DataAcquisitionSystemBase(BaseModel):
         description="Human-readable name of the system (e.g. 'Plant SCADA', 'CommCube-A')",
         max_length=200,
     )
-    systemtype: Optional[str] = Field(
-        alias="SystemType",
-        description="Category of system: SCADA, PLC, DataLogger, OPC-UA, CSV, etc.",
-        max_length=50,
+    dataacquisitionsystemkindID: Optional[int] = Field(
+        alias="DataAcquisitionSystemKind_ID",
+        description="Category of DAS (FK to DataAcquisitionSystemKind)",
     )
     manufacturer: Optional[str] = Field(
         alias="Manufacturer",
@@ -1578,7 +1576,7 @@ class LabAnalysis(LabAnalysisBase):
     )
 
 
-class UrbanCharacteristicsBase(BaseModel):
+class LandUseBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     commercial: Optional[Any] = Field(
@@ -1610,11 +1608,11 @@ class UrbanCharacteristicsBase(BaseModel):
     )
 
 
-class UrbanCharacteristicsCreate(UrbanCharacteristicsBase):
+class LandUseCreate(LandUseBase):
     pass
 
 
-class UrbanCharacteristics(UrbanCharacteristicsBase):
+class LandUse(LandUseBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     watershedID: int = Field(
@@ -1645,10 +1643,9 @@ class ProcessingStepBase(BaseModel):
         description="Version of the method or library used (e.g. 'meteaudata 0.5.1')",
         max_length=100,
     )
-    processingtype: Optional[str] = Field(
-        alias="ProcessingType",
-        description="Category of processing applied. Stored as a string mirroring metEAUdata's ProcessingType enum values (e.g. 'Smoothing', 'Filtering', 'Resampling', 'GapFilling'). No lookup table — metEAUdata's enum is the source of truth. Controlled vocabulary: see ProcessingType_set.\n",
-        max_length=100,
+    processingkindid: Optional[int] = Field(
+        alias="ProcessingKind_ID",
+        description="Category of processing applied (FK to ProcessingKind lookup). Replaces former free-text ProcessingType column.\n",
     )
     parameters: Optional[str] = Field(
         alias="Parameters",
@@ -1688,10 +1685,9 @@ class ControlLoopBase(BaseModel):
         description="Human-readable name for this control loop",
         max_length=200,
     )
-    controllertype: str = Field(
-        alias="ControllerType",
-        description="Controller algorithm class: PID, PI, P, BangBang, Custom, Manual, MPC, Cascade, Feedforward, etc.",
-        max_length=50,
+    controllerkindID: int = Field(
+        alias="ControllerKind_ID",
+        description="Controller algorithm class (FK to ControllerKind)",
     )
     fallbackcontrolloopID: Optional[int] = Field(
         alias="FallbackControlLoop_ID",

@@ -29,8 +29,8 @@ def get_lineage_forward(channel_id: int, conn) -> list[dict]:
             ps.[Description],
             ps.[MethodName],
             ps.[MethodVersion],
-            ps.[ProcessingType],
-            ps.[Parameters],
+            ps.[ProcessingKind_ID],
+            ps.[MethodParameters],
             ps.[ExecutedDateTime],
             ps.[ExecutedByPerson_ID],
             out_dl.[Channel_ID]  AS [OutputChannel_ID]
@@ -60,8 +60,8 @@ def get_lineage_forward(channel_id: int, conn) -> list[dict]:
                     "Description": row[2],
                     "MethodName": row[3],
                     "MethodVersion": row[4],
-                    "ProcessingType": row[5],
-                    "Parameters": row[6],
+                    "ProcessingKind_ID": row[5],
+                    "MethodParameters": row[6],
                     "ExecutedDateTime": row[7],
                     "ExecutedByPerson_ID": row[8],
                 },
@@ -92,8 +92,8 @@ def get_lineage_backward(channel_id: int, conn) -> list[dict]:
             ps.[Description],
             ps.[MethodName],
             ps.[MethodVersion],
-            ps.[ProcessingType],
-            ps.[Parameters],
+            ps.[ProcessingKind_ID],
+            ps.[MethodParameters],
             ps.[ExecutedDateTime],
             ps.[ExecutedByPerson_ID],
             in_dl.[Channel_ID]  AS [InputChannel_ID]
@@ -122,8 +122,8 @@ def get_lineage_backward(channel_id: int, conn) -> list[dict]:
                     "Description": row[2],
                     "MethodName": row[3],
                     "MethodVersion": row[4],
-                    "ProcessingType": row[5],
-                    "Parameters": row[6],
+                    "ProcessingKind_ID": row[5],
+                    "MethodParameters": row[6],
                     "ExecutedDateTime": row[7],
                     "ExecutedByPerson_ID": row[8],
                 },
@@ -161,7 +161,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                 in_dl.[Channel_ID]        AS [AncestorChannel_ID],
                 ps.[ProcessingStep_ID],
                 ps.[Name],
-                ps.[ProcessingType],
+                ps.[ProcessingKind_ID],
                 out_dl.[Channel_ID]       AS [ChildChannel_ID],
                 1                          AS [Depth]
             FROM [dbo].[ProcessingLineage]    AS out_dl
@@ -180,7 +180,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                 in_dl.[Channel_ID],
                 ps.[ProcessingStep_ID],
                 ps.[Name],
-                ps.[ProcessingType],
+                ps.[ProcessingKind_ID],
                 a.[AncestorChannel_ID],
                 a.[Depth] + 1
             FROM Ancestors a
@@ -194,7 +194,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                AND in_dl.[RoleInProcessingStep] = 'Input'
         )
         SELECT DISTINCT [AncestorChannel_ID], [ProcessingStep_ID], [Name],
-                        [ProcessingType], [ChildChannel_ID], [Depth]
+                        [ProcessingKind_ID], [ChildChannel_ID], [Depth]
         FROM Ancestors
         ORDER BY [Depth], [AncestorChannel_ID]
     """
@@ -206,7 +206,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                 out_dl.[Channel_ID]       AS [DescendantChannel_ID],
                 ps.[ProcessingStep_ID],
                 ps.[Name],
-                ps.[ProcessingType],
+                ps.[ProcessingKind_ID],
                 in_dl.[Channel_ID]        AS [ParentChannel_ID],
                 1                          AS [Depth]
             FROM [dbo].[ProcessingLineage]    AS in_dl
@@ -224,7 +224,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                 out_dl.[Channel_ID],
                 ps.[ProcessingStep_ID],
                 ps.[Name],
-                ps.[ProcessingType],
+                ps.[ProcessingKind_ID],
                 d.[DescendantChannel_ID],
                 d.[Depth] + 1
             FROM Descendants d
@@ -238,7 +238,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
                AND out_dl.[RoleInProcessingStep] = 'Output'
         )
         SELECT DISTINCT [DescendantChannel_ID], [ProcessingStep_ID], [Name],
-                        [ProcessingType], [ParentChannel_ID], [Depth]
+                        [ProcessingKind_ID], [ParentChannel_ID], [Depth]
         FROM Descendants
         ORDER BY [Depth], [DescendantChannel_ID]
     """
@@ -257,7 +257,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
             "channel_id": row[0],
             "processing_step_id": row[1],
             "processing_step_name": row[2],
-            "processing_type": row[3],
+            "processing_kind_id": row[3],
             "child_channel_id": row[4],
             "depth": row[5],
         }
@@ -269,7 +269,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
             "channel_id": row[0],
             "processing_step_id": row[1],
             "processing_step_name": row[2],
-            "processing_type": row[3],
+            "processing_kind_id": row[3],
             "parent_channel_id": row[4],
             "depth": row[5],
         }

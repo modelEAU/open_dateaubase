@@ -92,8 +92,8 @@ def record_processing(
     source_metadata_ids: list[int],
     method_name: str,
     method_version: str | None,
-    processing_type: str,
-    parameters: dict,
+    processing_kind_id: int,
+    method_parameters: dict,
     executed_at: datetime,
     executed_by_person_id: int | None,
     output_metadata_id: int,
@@ -101,8 +101,8 @@ def record_processing(
 ) -> int:
     """Insert a ProcessingStep row and its ProcessingLineage edges.
 
-    Idempotent: if a ProcessingStep with the same MethodName, ProcessingType,
-    Parameters (JSON-serialised), ExecutedDateTime, and the same set of source and
+    Idempotent: if a ProcessingStep with the same MethodName, ProcessingKind_ID,
+    MethodParameters (JSON-serialised), ExecutedDateTime, and the same set of source and
     output channel IDs already exists, the function returns its ID without
     inserting duplicates.
 
@@ -110,8 +110,8 @@ def record_processing(
         source_metadata_ids: Channel IDs that were consumed as inputs.
         method_name: Machine-readable method identifier (e.g. 'outlier_removal').
         method_version: Library/method version string, or None.
-        processing_type: ProcessingType enum value string (e.g. 'Smoothing').
-        parameters: Dict of method parameters; serialised to JSON for storage.
+        processing_kind_id: FK to ProcessingKind (replaces free-text ProcessingType).
+        method_parameters: Dict of method parameters; serialised to JSON for storage.
         executed_at: UTC datetime when the processing ran.
         executed_by_person_id: Person_ID of the operator, or None.
         output_metadata_id: Channel ID of the result time series.
@@ -120,7 +120,7 @@ def record_processing(
     Returns:
         The ProcessingStep_ID of the (new or existing) row.
     """
-    params_json = json.dumps(parameters, default=str) if parameters else None
+    params_json = json.dumps(method_parameters, default=str) if method_parameters else None
 
     # ----------------------------------------------------------------
     # Idempotency check: look for an existing step with identical
@@ -133,9 +133,9 @@ def record_processing(
             ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
            AND out_dl.[RoleInProcessingStep] = 'Output'
            AND out_dl.[Channel_ID] = ?
-        WHERE ps.[MethodName]       = ?
-          AND ps.[ProcessingType]   = ?
-          AND ISNULL(ps.[Parameters], '')   = ISNULL(?, '')
+        WHERE ps.[MethodName]           = ?
+          AND ISNULL(ps.[ProcessingKind_ID], 0) = ISNULL(?, 0)
+          AND ISNULL(ps.[MethodParameters], '')   = ISNULL(?, '')
           AND ISNULL(CONVERT(NVARCHAR(30), ps.[ExecutedDateTime], 126), '')
             = ISNULL(CONVERT(NVARCHAR(30), CAST(? AS DATETIME2(7)), 126), '')
     """
@@ -144,7 +144,7 @@ def record_processing(
         check_sql,
         output_metadata_id,
         method_name,
-        processing_type,
+        processing_kind_id,
         params_json,
         executed_at,
     )
@@ -157,18 +157,18 @@ def record_processing(
     # ----------------------------------------------------------------
     insert_step_sql = """
         INSERT INTO [dbo].[ProcessingStep]
-            ([Name], [MethodName], [MethodVersion], [ProcessingType],
-             [Parameters], [ExecutedDateTime], [ExecutedByPerson_ID])
+            ([Name], [MethodName], [MethodVersion], [ProcessingKind_ID],
+             [MethodParameters], [ExecutedDateTime], [ExecutedByPerson_ID])
         OUTPUT INSERTED.[ProcessingStep_ID]
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """
-    name = method_name or processing_type or "Processing step"
+    name = method_name or "Processing step"
     cursor.execute(
         insert_step_sql,
         name,
         method_name,
         method_version,
-        processing_type,
+        processing_kind_id,
         params_json,
         executed_at,
         executed_by_person_id,
