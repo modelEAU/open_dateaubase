@@ -31,5 +31,16 @@ table:
       logical_type: float32
       nullable: true
       description: "Percentage of the impervious surface of the watershed in percentage [%]"
+    - name: ParentWatershed_ID
+      logical_type: integer
+      nullable: true
+      description: "Optional parent watershed for nested/hierarchical watershed relationships"
+      foreign_key:
+        table: Watershed
+        column: Watershed_ID
+    - name: GeometryGeoJSON
+      logical_type: text
+      nullable: true
+      description: "GeoJSON string representing the watershed boundary (Polygon or MultiPolygon only)"
 
   primary_key: [Watershed_ID]

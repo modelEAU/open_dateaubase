@@ -16,7 +16,7 @@ table:
     - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "The channel this observation belongs to"
+      description: "The channel this observation belongs to."
       foreign_key:
         table: Channel
         column: Channel_ID
@@ -25,12 +25,14 @@ table:
       precision: 7
       nullable: false
       description: "UTC timestamp of the observation"
-    - name: DataType
-      logical_type: string
-      max_length: 10
+    - name: ValueKind_ID
+      logical_type: integer
       nullable: false
-      description: "Payload type: Scalar, Vector, Matrix, or Image. Must match the Channel's ValueType."
+      description: "Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). Must match the Channel's ValueKind."
+      foreign_key:
+        table: ValueKind
+        column: ValueKind_ID
   primary_key: [Observation_ID]
   unique_constraints:
-    - name: UQ_Observation_ChannelTimestampDataType
-      columns: [Channel_ID, Timestamp, DataType]
+    - name: UQ_Observation_ChannelTimestampValueKind
+      columns: [Channel_ID, Timestamp, ValueKind_ID]

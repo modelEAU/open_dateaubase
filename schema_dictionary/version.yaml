@@ -2,9 +2,10 @@ schema_version: "4.1.0"
 description: >
   SignalInterface redesign. SignalPort, SignalPortType,
   SignalPortEquipmentHistory, SignalPortLocationHistory are removed.
-  New first-class tables: SignalInterface, SignalInterfaceType,
-  SignalInterfacePort, SignalInterfacePortKind, EquipmentWiringHistory,
-  EquipmentLocationHistory, ChannelPortHistory, ChannelRole.
+  New first-class tables: SignalInterface, SignalInterfacePort,
+  EquipmentWiringHistory, EquipmentLocationHistory, ChannelPortHistory,
+  ChannelRole. SignalInterfaceKind and SignalInterfacePortKind removed —
+  interfaces are categorised by name/model, not a controlled-vocab kind.
   Channel keeps its name and gains SignalInterface_ID, TagName,
   SignalInterfacePort_ID (nullable), ParentChannel_ID, ChannelRole_ID —
   replacing the old SignalPort_ID column. ControlLoopPort now references

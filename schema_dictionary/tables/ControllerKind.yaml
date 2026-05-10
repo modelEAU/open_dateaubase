@@ -1,0 +1,34 @@
+_format_version: "1.0"
+table:
+  name: ControllerKind
+  schema: dbo
+  description: "Controlled vocabulary for control loop algorithm classes"
+
+  columns:
+    - name: ControllerKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Human-readable name of the controller algorithm class"
+
+    - name: Description
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Explanation of the controller algorithm"
+
+  primary_key: [ControllerKind_ID]
+
+  seed_data:
+    - { ControllerKind_ID: 1, Name: "PID",         Description: "Proportional-Integral-Derivative controller" }
+    - { ControllerKind_ID: 2, Name: "Feedforward",  Description: "Open-loop controller that acts on predicted disturbances" }
+    - { ControllerKind_ID: 3, Name: "MPC",          Description: "Model Predictive Controller using an internal process model" }
+    - { ControllerKind_ID: 4, Name: "On-Off",       Description: "Bang-bang (on/off) controller with fixed setpoint" }
+    - { ControllerKind_ID: 5, Name: "Manual",       Description: "Operator-driven manual control with no automated loop" }
+    - { ControllerKind_ID: 6, Name: "Other",        Description: "Controller type not covered by the other categories" }

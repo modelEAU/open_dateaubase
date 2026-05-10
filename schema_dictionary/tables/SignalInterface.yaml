@@ -21,26 +21,18 @@ table:
     - name: DataAcquisitionSystem_ID
       logical_type: integer
       nullable: false
-      description: "The DAS that reads data from this interface"
+      description: "The data acquisition system that reads data from this interface"
       foreign_key:
         table: DataAcquisitionSystem
         column: DataAcquisitionSystem_ID
-
-    - name: SignalInterfaceKind_ID
-      logical_type: integer
-      nullable: false
-      description: "Kind of this interface (PLC, SCADA, Basestation, ...)"
-      foreign_key:
-        table: SignalInterfaceKind
-        column: SignalInterfaceKind_ID
 
     - name: Name
       logical_type: string
       max_length: 200
       nullable: false
-      description: "Human-readable unique name of this interface (e.g. 'hedi_plc', 'sc1000_primary')"
+      description: "Human-readable unique name of this interface (e.g. 'pileaute_plc', 'monEAU01_sc1000')"
 
-    - name: Make
+    - name: Manufacturer
       logical_type: string
       max_length: 100
       nullable: true

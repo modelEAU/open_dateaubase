@@ -1,0 +1,33 @@
+_format_version: "1.0"
+table:
+  name: ProcedureKind
+  schema: dbo
+  description: "Controlled vocabulary classifying the type of a Procedure (Calibration Protocol, SOP, etc.)"
+
+  columns:
+    - name: ProcedureKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the procedure kind"
+
+    - name: Description
+      logical_type: string
+      max_length: 300
+      nullable: true
+      description: "Explanation of this procedure kind"
+
+  primary_key: [ProcedureKind_ID]
+
+  seed_data:
+    - { ProcedureKind_ID: 1, Name: "Maintenance and Cleaning Protocol", Description: "Procedures for routine maintenance, cleaning, and upkeep of equipment" }
+    - { ProcedureKind_ID: 2, Name: "Calibration Protocol",             Description: "Step-by-step instructions for calibrating instruments or sensors" }
+    - { ProcedureKind_ID: 3, Name: "Validation Protocol",              Description: "Procedures for validating measurements, methods, or models" }
+    - { ProcedureKind_ID: 4, Name: "Laboratory Method Protocol",       Description: "Standardised laboratory analytical methods (e.g. ISO, ASTM, APHA)" }
+    - { ProcedureKind_ID: 5, Name: "Software Manual",                  Description: "User or operational manuals for software tools used in data acquisition or processing" }

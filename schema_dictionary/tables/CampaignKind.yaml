@@ -26,6 +26,6 @@ table:
   primary_key: [CampaignKind_ID]
 
   seed_data:
-    - { CampaignKind_ID: 1, Name: "Experiment",    Description: "Planned scientific investigation under controlled or semi-controlled conditions" }
-    - { CampaignKind_ID: 2, Name: "Operations",    Description: "Routine monitoring or operational run of the monitored process" }
-    - { CampaignKind_ID: 3, Name: "Commissioning", Description: "Initial setup, calibration, and qualification of equipment or a process" }
+    - { CampaignKind_ID: 1, Name: "Experiment",        Description: "Planned scientific investigation under controlled or semi-controlled conditions" }
+    - { CampaignKind_ID: 2, Name: "Regular operation", Description: "Routine monitoring or operational run of the monitored process" }
+    - { CampaignKind_ID: 3, Name: "Commissioning",     Description: "Initial setup, calibration, and qualification of equipment or a process" }

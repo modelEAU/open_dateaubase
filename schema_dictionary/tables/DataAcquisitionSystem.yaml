@@ -31,11 +31,13 @@ table:
       nullable: false
       description: "Human-readable name of the system (e.g. 'Plant SCADA', 'CommCube-A')"
 
-    - name: SystemType
-      logical_type: string
-      max_length: 50
+    - name: DataAcquisitionSystemKind_ID
+      logical_type: integer
       nullable: true
-      description: "Category of system: SCADA, PLC, DataLogger, OPC-UA, CSV, etc."
+      description: "Category of DAS (FK to DataAcquisitionSystemKind)"
+      foreign_key:
+        table: DataAcquisitionSystemKind
+        column: DataAcquisitionSystemKind_ID
 
     - name: Manufacturer
       logical_type: string

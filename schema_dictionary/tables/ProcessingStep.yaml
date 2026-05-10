@@ -20,7 +20,7 @@ table:
       logical_type: string
       max_length: 200
       nullable: false
-      description: "Human-readable name for this processing step (e.g. 'Outlier removal — Hampel filter')"
+      description: "Human-readable name for this processing step"
 
     - name: Description
       logical_type: string
@@ -40,18 +40,17 @@ table:
       nullable: true
       description: "Version of the method or library used (e.g. 'meteaudata 0.5.1')"
 
-    - name: ProcessingType
-      logical_type: string
-      max_length: 100
+    - name: ProcessingKind_ID
+      logical_type: integer
       nullable: true
       description: >
-        Category of processing applied. Stored as a string mirroring
-        metEAUdata's ProcessingType enum values (e.g. 'Smoothing', 'Filtering',
-        'Resampling', 'GapFilling'). No lookup table — metEAUdata's enum is the
-        source of truth. Controlled vocabulary: see ProcessingType_set.
-      value_set: processing_type_set
+        Category of processing applied (FK to ProcessingKind lookup).
+        Replaces the former free-text ProcessingType column.
+      foreign_key:
+        table: ProcessingKind
+        column: ProcessingKind_ID
 
-    - name: Parameters
+    - name: MethodParameters
       logical_type: text
       nullable: true
       description: "JSON blob of method parameters (e.g. '{\"window\": 5, \"threshold\": 3.0}')"

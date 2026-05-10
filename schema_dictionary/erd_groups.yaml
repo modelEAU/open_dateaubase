@@ -11,7 +11,7 @@ groups:
       - SamplingPoint
       - Watershed
       - HydrologicalCharacteristics
-      - UrbanCharacteristics
+      - LandUse
 
   equipment:
     name: Equipment & Instruments
@@ -26,15 +26,14 @@ groups:
       - EquipmentWiringHistory
       - EquipmentLocationHistory
       - DataAcquisitionSystem
+      - DataAcquisitionSystemKind
 
   signal_channel:
     name: Signal / Channel
     color: "#7c3aed"
     tables:
       - SignalInterface
-      - SignalInterfaceType
       - SignalInterfacePort
-      - SignalInterfacePortKind
       - Channel
       - ChannelAxis
       - ChannelPortHistory
@@ -94,6 +93,7 @@ groups:
       - ControlLoopPort
       - ControlLoopPortRole
       - ControlLoopApplication
+      - ControllerKind
 
   reference:
     name: Lookup / Reference

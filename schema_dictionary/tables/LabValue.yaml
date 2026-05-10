@@ -24,7 +24,7 @@ table:
     - name: Parameter_ID
       logical_type: integer
       nullable: false
-      description: "Measured analyte (e.g. TSS, COD)"
+      description: "Measured analyte (e.g. TSS concentration, COD concentration)"
       foreign_key:
         table: Parameter
         column: Parameter_ID

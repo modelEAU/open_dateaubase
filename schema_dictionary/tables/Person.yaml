@@ -30,10 +30,10 @@ table:
       nullable: true
       description: "Role of the person. Controlled vocabulary: MSc, Postdoc, Intern, PhD, Professor, Research Professional, Technician, Administrator, Guest"
       value_set: person_role_set
-    - name: Function
+    - name: AssignedFunctions
       logical_type: text
       nullable: true
-      description: "Detailed description of the person's assigned duties"
+      description: "Detailed description of the person's assigned duties."
     - name: Email
       logical_type: string
       max_length: 100

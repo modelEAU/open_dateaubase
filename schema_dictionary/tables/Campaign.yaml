@@ -2,25 +2,25 @@ _format_version: "1.0"
 table:
   name: Campaign
   schema: dbo
-  description: "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Supersedes Project for all organisational grouping."
+  description: "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Supersedes Project (defunct table) for all organisational grouping."
 
   columns:
     - name: Campaign_ID
       logical_type: integer
       nullable: false
       identity: true
-      description: "Surrogate primary key"
+      description: "Surrogate primary key."
     - name: CampaignKind_ID
       logical_type: integer
       nullable: false
-      description: "Kind of campaign (Experiment, Operations, Commissioning)"
+      description: "Kind of campaign (See CampaignKind table. E.g., Experiment, Monitoring, Facility Commissioning)."
       foreign_key:
         table: CampaignKind
         column: CampaignKind_ID
     - name: Site_ID
       logical_type: integer
       nullable: false
-      description: "Site where the campaign is conducted"
+      description: "Site where the campaign is conducted."
       foreign_key:
         table: Site
         column: Site_ID
@@ -28,22 +28,22 @@ table:
       logical_type: string
       max_length: 200
       nullable: false
-      description: "Human-readable name for the campaign"
+      description: "Human-readable name for the campaign."
     - name: Description
       logical_type: string
       max_length: 2000
       nullable: true
-      description: "Detailed description of the campaign objectives and scope"
+      description: "Detailed description of the campaign objectives and scope."
     - name: CampaignStartDateTime
       logical_type: timestamp
       precision: 7
       nullable: true
-      description: "Date and time the campaign began (UTC)"
+      description: "Date and time the campaign began (UTC)."
     - name: CampaignEndDateTime
       logical_type: timestamp
       precision: 7
       nullable: true
-      description: "Date and time the campaign ended (UTC); NULL if ongoing"
+      description: "Date and time the campaign ended (UTC); NULL if the campaign is ongoing."
     - name: ResponsiblePerson_ID
       logical_type: integer
       nullable: true

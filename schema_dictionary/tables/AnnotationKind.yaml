@@ -33,13 +33,13 @@ table:
   primary_key: [AnnotationKind_ID]
 
   seed_data:
-    - { AnnotationKind_ID: 1,  Name: "Fault",              Description: "Sensor or process fault",                   Color: "#FF4444" }
-    - { AnnotationKind_ID: 2,  Name: "Maintenance",        Description: "Sensor under maintenance",                  Color: "#FFA500" }
-    - { AnnotationKind_ID: 3,  Name: "Calibration Period", Description: "Data during calibration — may be invalid",  Color: "#FFD700" }
-    - { AnnotationKind_ID: 4,  Name: "Anomaly",            Description: "Unexpected behavior, needs investigation",  Color: "#FF69B4" }
-    - { AnnotationKind_ID: 5,  Name: "Experiment",         Description: "Data collected during a specific experiment", Color: "#4488FF" }
-    - { AnnotationKind_ID: 6,  Name: "Process Event",      Description: "Known process event (storm, dosing, etc.)", Color: "#44BB44" }
-    - { AnnotationKind_ID: 7,  Name: "Data Quality",       Description: "Suspect data quality (drift, fouling)",     Color: "#AA44FF" }
-    - { AnnotationKind_ID: 8,  Name: "Note",               Description: "General commentary",                        Color: "#888888" }
-    - { AnnotationKind_ID: 9,  Name: "Exclusion",          Description: "Data should be excluded from analysis",     Color: "#CC0000" }
-    - { AnnotationKind_ID: 10, Name: "Validated",          Description: "Data has been reviewed and accepted",       Color: "#00AA00" }
+    - { AnnotationKind_ID: 1,  Name: "Fault",              Description: "Sensor or process fault",                      Color: "#FF4444" }
+    - { AnnotationKind_ID: 2,  Name: "Maintenance",        Description: "Sensor under maintenance",                     Color: "#FFA500" }
+    - { AnnotationKind_ID: 3,  Name: "Calibration Period", Description: "Data during calibration — may be invalid",     Color: "#FFD700" }
+    - { AnnotationKind_ID: 4,  Name: "Anomaly",            Description: "Unexpected behavior, needs investigation",     Color: "#FF69B4" }
+    - { AnnotationKind_ID: 5,  Name: "Experiment",         Description: "Data collected for a specific experiment",     Color: "#4488FF" }
+    - { AnnotationKind_ID: 6,  Name: "Process Event",      Description: "Known process event (storm, dosing, etc.)",    Color: "#44BB44" }
+    - { AnnotationKind_ID: 7,  Name: "Data Quality",       Description: "Suspect data quality (drift, fouling)",        Color: "#AA44FF" }
+    - { AnnotationKind_ID: 8,  Name: "Note",               Description: "General commentary",                           Color: "#888888" }
+    - { AnnotationKind_ID: 9,  Name: "Exclusion",          Description: "Data should be excluded from analysis",        Color: "#CC0000" }
+    - { AnnotationKind_ID: 10, Name: "Confirmed",          Description: "Data has been reviewed and accepted as valid", Color: "#00AA00" }

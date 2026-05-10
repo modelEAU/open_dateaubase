@@ -20,7 +20,7 @@ table:
     - name: Channel_ID
       logical_type: integer
       nullable: false
-      description: "The channel (signal) included in this dataset"
+      description: "The channel (signal in metEAUdata terms) included in this dataset"
       foreign_key:
         table: Channel
         column: Channel_ID

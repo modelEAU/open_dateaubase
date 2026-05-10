@@ -21,11 +21,13 @@ table:
       nullable: false
       description: "Human-readable name for this control loop"
 
-    - name: ControllerType
-      logical_type: string
-      max_length: 50
+    - name: ControllerKind_ID
+      logical_type: integer
       nullable: false
-      description: "Controller algorithm class: PID, PI, P, BangBang, Custom, Manual, MPC, Cascade, Feedforward, etc."
+      description: "Controller algorithm class (FK to ControllerKind)"
+      foreign_key:
+        table: ControllerKind
+        column: ControllerKind_ID
 
     - name: FallbackControlLoop_ID
       logical_type: integer

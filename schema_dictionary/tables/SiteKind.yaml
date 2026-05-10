@@ -26,16 +26,16 @@ table:
   primary_key: [SiteKind_ID]
 
   seed_data:
-    - { SiteKind_ID: 1,  Name: "Wastewater Treatment Plant",                    Description: "Municipal or industrial facility treating wastewater before discharge" }
-    - { SiteKind_ID: 2,  Name: "Combined Sewer Overflow",                        Description: "Point where combined sewer system discharges during high-flow events" }
-    - { SiteKind_ID: 3,  Name: "River / Stream",                                 Description: "Natural flowing surface water body" }
-    - { SiteKind_ID: 4,  Name: "Lake / Reservoir",                               Description: "Natural or artificial standing body of water" }
-    - { SiteKind_ID: 5,  Name: "Groundwater / Well",                             Description: "Subsurface water source accessed via a well or borehole" }
+    - { SiteKind_ID: 1,  Name: "Municipal Wastewater Treatment Plant",             Description: "Municipal or industrial facility treating wastewater before discharge" }
+    - { SiteKind_ID: 2,  Name: "Combined Sewer Overflow",                          Description: "Point where combined sewer system discharges during high-flow events" }
+    - { SiteKind_ID: 3,  Name: "River / Stream",                                   Description: "Natural flowing surface water body" }
+    - { SiteKind_ID: 4,  Name: "Lake / Reservoir",                                 Description: "Natural or artificial standing body of water" }
+    - { SiteKind_ID: 5,  Name: "Groundwater / Well",                               Description: "Subsurface water source accessed via a well or borehole" }
     - { SiteKind_ID: 6,  Name: "Drinking Water Distribution Network Access Point", Description: "Monitoring point within a potable water distribution network" }
-    - { SiteKind_ID: 7,  Name: "Canal",                                           Description: "Artificial waterway for water transport or drainage" }
-    - { SiteKind_ID: 8,  Name: "Wastewater Pumping Station",                     Description: "Facility that pumps wastewater through the collection network" }
-    - { SiteKind_ID: 9,  Name: "Combined Drainage Network Access Point",          Description: "Monitoring point within a combined stormwater and wastewater network" }
-    - { SiteKind_ID: 10, Name: "Rainwater Drainage Network Access Point",         Description: "Monitoring point within a stormwater-only drainage network" }
-    - { SiteKind_ID: 11, Name: "Wastewater Drainage Network Access Point",        Description: "Monitoring point within a sanitary sewer network" }
-    - { SiteKind_ID: 12, Name: "Pilot Plant",                                     Description: "Small-scale experimental treatment or process facility" }
-    - { SiteKind_ID: 13, Name: "Other",                                           Description: "Site kind not covered by the standard vocabulary" }
+    - { SiteKind_ID: 7,  Name: "Canal",                                            Description: "Artificial waterway for water transport or drainage" }
+    - { SiteKind_ID: 8,  Name: "Wastewater Pumping Station",                       Description: "Facility that pumps wastewater through the collection network" }
+    - { SiteKind_ID: 9,  Name: "Combined Drainage Network Access Point",           Description: "Monitoring point within a combined stormwater and wastewater network" }
+    - { SiteKind_ID: 10, Name: "Rainwater Drainage Network Access Point",          Description: "Monitoring point within a stormwater-only drainage network" }
+    - { SiteKind_ID: 11, Name: "Wastewater Drainage Network Access Point",         Description: "Monitoring point within a sanitary sewer network" }
+    - { SiteKind_ID: 12, Name: "Experimental Wastewater Treatment Plant",          Description: "Small-scale experimental treatment or process facility" }
+    - { SiteKind_ID: 13, Name: "Other",                                            Description: "Site kind not covered by the standard vocabulary" }

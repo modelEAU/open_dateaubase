@@ -15,11 +15,13 @@ table:
       max_length: 100
       nullable: true
       description: "Title name of the procedure"
-    - name: ProcedureType
-      logical_type: string
-      max_length: 255
+    - name: ProcedureKind_ID
+      logical_type: integer
       nullable: true
-      description: "Type of the procedure. For example, SOP"
+      description: "FK to ProcedureKind — controlled vocabulary for the type of procedure"
+      foreign_key:
+        table: ProcedureKind
+        column: ProcedureKind_ID
     - name: Description
       logical_type: text
       nullable: true
@@ -28,6 +30,6 @@ table:
       logical_type: string
       max_length: 100
       nullable: true
-      description: "Where is the procedure stored"
+      description: "Where is the procedure stored (URL)"
 
   primary_key: [Procedure_ID]

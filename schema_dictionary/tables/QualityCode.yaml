@@ -3,9 +3,8 @@ table:
   name: QualityCode
   schema: dbo
   description: >
-    Controlled dictionary of quality flags for laboratory measurement results.
-    Each LabValue row may reference one QualityCode. IsUsable indicates whether
-    the value should be included in downstream analysis.
+    Controlled dictionary of quality flags for measurements.
+    IsUsable indicates whether the value should be included in downstream analysis.
 
   columns:
     - name: QualityCode_ID

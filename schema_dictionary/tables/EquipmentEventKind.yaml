@@ -27,7 +27,6 @@ table:
 
   seed_data:
     - { EquipmentEventKind_ID: 1, Name: "Calibration",     Description: "Adjustment of sensor output to match a known reference standard" }
-    - { EquipmentEventKind_ID: 2, Name: "Validation",      Description: "Verification that sensor output meets accuracy requirements without adjustment" }
     - { EquipmentEventKind_ID: 3, Name: "Maintenance",     Description: "Physical cleaning, inspection, or servicing of equipment" }
     - { EquipmentEventKind_ID: 4, Name: "Installation",    Description: "First-time mounting or connection of equipment at its deployment site" }
     - { EquipmentEventKind_ID: 5, Name: "Removal",         Description: "Decommissioning or retrieval of equipment from its deployment site" }

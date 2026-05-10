@@ -78,7 +78,7 @@ table:
     - name: Parameter_ID
       logical_type: integer
       nullable: true
-      description: "Measured analyte or parameter (e.g. TSS, pH)"
+      description: "Measured analyte or parameter (e.g. TSS concetration, pH)"
       foreign_key:
         table: Parameter
         column: Parameter_ID
@@ -128,10 +128,13 @@ table:
 
   indexes:
     - name: UQ_Channel_SignalStream
-      columns: [SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID, ProcessingKind_ID]
+      columns: [SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID]
       unique: true
       description: >
-        Guarantees at most one Channel row per signal stream.
+        Guarantees at most one Channel row per signal stream (wiring identity).
+        ProcessingKind_ID is intentionally excluded: multiple processing-level
+        variants of the same physical stream are allowed to co-exist.
+        The authoritative processing level is tracked via ProcessingLineage (Output role).
         Filtered: WHERE Parameter_ID IS NOT NULL.
         Enables the self-configuring INSERT-if-not-exists ingestion pattern.
     - name: IX_Channel_ParentChannel

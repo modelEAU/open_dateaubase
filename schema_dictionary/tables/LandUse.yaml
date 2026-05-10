@@ -1,8 +1,8 @@
 _format_version: "1.0"
 table:
-  name: UrbanCharacteristics
+  name: LandUse
   schema: dbo
-  description: "Stores the urban land use percentages (e.g., commercial, residential, green spaces) within the watershed"
+  description: "Stores the land use percentages (e.g., commercial, residential, green spaces) within the watershed"
 
   columns:
     - name: Watershed_ID

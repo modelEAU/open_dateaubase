@@ -8,8 +8,7 @@ table:
     swapped, rewired to a different input, or temporarily disconnected, a
     closed row is written and (usually) a new open row is opened. The port
     reference is nullable: at ingest time the interface + tag are always
-    known, but the physical port may not have been traced yet.
-    Replaces SignalPortEquipmentHistory. At most one row per Equipment may
+    known, but the physical port may not have been traced yet. At most one row per Equipment may
     have ValidTo IS NULL (the equipment's current wiring).
 
   columns:

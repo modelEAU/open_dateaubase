@@ -6,8 +6,7 @@ table:
     Temporal record of where a piece of Equipment is physically installed
     (which SamplingPoint). Independent from EquipmentWiringHistory: a probe
     can be relocated without changing its wiring, and vice versa.
-    Absorbs the former EquipmentInstallation role and the location aspect
-    of SignalPortLocationHistory. At most one row per Equipment may have
+    At most one row per Equipment may have
     ValidTo IS NULL (the equipment's current location).
 
   columns:

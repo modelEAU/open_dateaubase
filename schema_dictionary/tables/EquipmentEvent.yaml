@@ -29,25 +29,30 @@ table:
       precision: 7
       nullable: false
       description: "Date and time the event began (UTC)"
+    - name: IsInstantaneous
+      logical_type: boolean
+      nullable: false
+      default: false
+      description: "True if the event occurred at a single point in time. When true, EventDateTimeEnd must be NULL. When false and EventDateTimeEnd is NULL, the event is ongoing."
     - name: EventDateTimeEnd
       logical_type: timestamp
       precision: 7
       nullable: true
-      description: "Date and time the event ended (UTC). NULL if instantaneous or ongoing."
+      description: "Date and time the event ended (UTC). NULL when IsInstantaneous=1 (point-in-time) or when the event is still ongoing (IsInstantaneous=0)."
     - name: PerformedByPerson_ID
       logical_type: integer
       nullable: true
-      description: "Person who performed or recorded the event"
+      description: "Person who physically performed the event (e.g. technician on site)"
       foreign_key:
         table: Person
         column: Person_ID
-    - name: Campaign_ID
+    - name: RecordedByPerson_ID
       logical_type: integer
       nullable: true
-      description: "Campaign during which this event occurred (if applicable)"
+      description: "Person who entered this record into the system (may differ from PerformedByPerson_ID)"
       foreign_key:
-        table: Campaign
-        column: Campaign_ID
+        table: Person
+        column: Person_ID
     - name: Notes
       logical_type: string
       max_length: max
