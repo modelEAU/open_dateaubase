@@ -20,7 +20,7 @@ table:
 
     - name: Description
       logical_type: string
-      max_length: 200
+      max_length: 300
       nullable: true
       description: "Explanation of what this bin kind means"
 
@@ -28,5 +28,5 @@ table:
 
   seed_data:
     - { BinKind_ID: 1, Name: "interval",              Description: "Bins defined by lower and upper bounds only" }
-    - { BinKind_ID: 2, Name: "interval_with_nominal", Description: "Bins defined by bounds plus a nominal center value" }
-    - { BinKind_ID: 3, Name: "nominal",               Description: "Bins defined by a single nominal value only" }
+    - { BinKind_ID: 2, Name: "interval_with_nominal", Description: "Bins defined by bounds plus a nominal center value (e.g., comes from a table with columns showing the mean settling velocity, but the bin in fact collects data between a min and max value (not a point value))." }
+    - { BinKind_ID: 3, Name: "nominal",               Description: "Bins defined by a single nominal (exact) value only (e.g., absorbance at exactly 200 nm)." }

@@ -1,25 +1,25 @@
 -- Seed data for schema v4.1.0
 -- Platform: mssql
--- Generated: 2026-05-04 12:04:46 UTC
+-- Generated: 2026-05-10 18:58:24 UTC
 -- AnnotationKind
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (1, N'Fault', N'Sensor or process fault', N'#FF4444');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (2, N'Maintenance', N'Sensor under maintenance', N'#FFA500');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (3, N'Calibration Period', N'Data during calibration — may be invalid', N'#FFD700');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (4, N'Anomaly', N'Unexpected behavior, needs investigation', N'#FF69B4');
-INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (5, N'Experiment', N'Data collected during a specific experiment', N'#4488FF');
+INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (5, N'Experiment', N'Data collected for a specific experiment', N'#4488FF');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (6, N'Process Event', N'Known process event (storm, dosing, etc.)', N'#44BB44');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (7, N'Data Quality', N'Suspect data quality (drift, fouling)', N'#AA44FF');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (8, N'Note', N'General commentary', N'#888888');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (9, N'Exclusion', N'Data should be excluded from analysis', N'#CC0000');
-INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (10, N'Validated', N'Data has been reviewed and accepted', N'#00AA00');
+INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (10, N'Confirmed', N'Data has been reviewed and accepted as valid', N'#00AA00');
 -- BinKind
 INSERT INTO [dbo].[BinKind] ([BinKind_ID], [Name], [Description]) VALUES (1, N'interval', N'Bins defined by lower and upper bounds only');
-INSERT INTO [dbo].[BinKind] ([BinKind_ID], [Name], [Description]) VALUES (2, N'interval_with_nominal', N'Bins defined by bounds plus a nominal center value');
-INSERT INTO [dbo].[BinKind] ([BinKind_ID], [Name], [Description]) VALUES (3, N'nominal', N'Bins defined by a single nominal value only');
+INSERT INTO [dbo].[BinKind] ([BinKind_ID], [Name], [Description]) VALUES (2, N'interval_with_nominal', N'Bins defined by bounds plus a nominal center value (e.g., comes from a table with columns showing the mean settling velocity, but the bin in fact collects data between a min and max value (not a point value)).');
+INSERT INTO [dbo].[BinKind] ([BinKind_ID], [Name], [Description]) VALUES (3, N'nominal', N'Bins defined by a single nominal (exact) value only (e.g., absorbance at exactly 200 nm).');
 -- CampaignKind
 SET IDENTITY_INSERT [dbo].[CampaignKind] ON;
 INSERT INTO [dbo].[CampaignKind] ([CampaignKind_ID], [Name], [Description]) VALUES (1, N'Experiment', N'Planned scientific investigation under controlled or semi-controlled conditions');
-INSERT INTO [dbo].[CampaignKind] ([CampaignKind_ID], [Name], [Description]) VALUES (2, N'Operations', N'Routine monitoring or operational run of the monitored process');
+INSERT INTO [dbo].[CampaignKind] ([CampaignKind_ID], [Name], [Description]) VALUES (2, N'Regular operation', N'Routine monitoring or operational run of the monitored process');
 INSERT INTO [dbo].[CampaignKind] ([CampaignKind_ID], [Name], [Description]) VALUES (3, N'Commissioning', N'Initial setup, calibration, and qualification of equipment or a process');
 SET IDENTITY_INSERT [dbo].[CampaignKind] OFF;
 -- ChannelKind
@@ -34,19 +34,36 @@ INSERT INTO [dbo].[ControlLoopPortKind] ([ControlLoopPortKind_ID], [Name], [Desc
 INSERT INTO [dbo].[ControlLoopPortKind] ([ControlLoopPortKind_ID], [Name], [Description]) VALUES (4, N'Disturbance', N'Measured input that affects the process; not manipulated');
 INSERT INTO [dbo].[ControlLoopPortKind] ([ControlLoopPortKind_ID], [Name], [Description]) VALUES (5, N'PredictedOutput', N'Model-predicted value of the controlled variable');
 INSERT INTO [dbo].[ControlLoopPortKind] ([ControlLoopPortKind_ID], [Name], [Description]) VALUES (6, N'Other', N'Escape hatch for novel kinds; describe in ControlLoop.Description');
+-- ControllerKind
+SET IDENTITY_INSERT [dbo].[ControllerKind] ON;
+INSERT INTO [dbo].[ControllerKind] ([ControllerKind_ID], [Name], [Description]) VALUES (1, N'PID', N'Proportional-Integral-Derivative controller');
+INSERT INTO [dbo].[ControllerKind] ([ControllerKind_ID], [Name], [Description]) VALUES (2, N'Feedforward', N'Open-loop controller that acts on predicted disturbances');
+INSERT INTO [dbo].[ControllerKind] ([ControllerKind_ID], [Name], [Description]) VALUES (3, N'MPC', N'Model Predictive Controller using an internal process model');
+INSERT INTO [dbo].[ControllerKind] ([ControllerKind_ID], [Name], [Description]) VALUES (4, N'On-Off', N'Bang-bang (on/off) controller with fixed setpoint');
+INSERT INTO [dbo].[ControllerKind] ([ControllerKind_ID], [Name], [Description]) VALUES (5, N'Manual', N'Operator-driven manual control with no automated loop');
+INSERT INTO [dbo].[ControllerKind] ([ControllerKind_ID], [Name], [Description]) VALUES (6, N'Other', N'Controller type not covered by the other categories');
+SET IDENTITY_INSERT [dbo].[ControllerKind] OFF;
+-- DataAcquisitionSystemKind
+SET IDENTITY_INSERT [dbo].[DataAcquisitionSystemKind] ON;
+INSERT INTO [dbo].[DataAcquisitionSystemKind] ([DataAcquisitionSystemKind_ID], [Name], [Description]) VALUES (1, N'SCADA', N'Supervisory Control and Data Acquisition system');
+INSERT INTO [dbo].[DataAcquisitionSystemKind] ([DataAcquisitionSystemKind_ID], [Name], [Description]) VALUES (2, N'PLC', N'Programmable Logic Controller');
+INSERT INTO [dbo].[DataAcquisitionSystemKind] ([DataAcquisitionSystemKind_ID], [Name], [Description]) VALUES (3, N'Datalogger', N'Dedicated field data logger (e.g. Campbell, CR1000)');
+INSERT INTO [dbo].[DataAcquisitionSystemKind] ([DataAcquisitionSystemKind_ID], [Name], [Description]) VALUES (4, N'IoT Gateway', N'Internet-of-Things gateway aggregating sensor streams');
+INSERT INTO [dbo].[DataAcquisitionSystemKind] ([DataAcquisitionSystemKind_ID], [Name], [Description]) VALUES (5, N'Manual entry', N'Data entered manually by an operator (spreadsheet, form)');
+INSERT INTO [dbo].[DataAcquisitionSystemKind] ([DataAcquisitionSystemKind_ID], [Name], [Description]) VALUES (6, N'Other', N'System type not covered by the other categories');
+SET IDENTITY_INSERT [dbo].[DataAcquisitionSystemKind] OFF;
 -- DataProvenanceKind
 SET IDENTITY_INSERT [dbo].[DataProvenanceKind] ON;
 INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (1, N'Sensor', N'Value acquired directly from an instrument or sensor in the field');
 INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (2, N'Laboratory', N'Value determined by laboratory chemical or physical analysis');
-INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (3, N'Manual Entry', N'Value entered manually by an operator or scientist');
-INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (4, N'Model Output', N'Value generated by a simulation, model, or prediction algorithm');
+INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (3, N'Controller Output', N'Value generated by a control algorithm.');
+INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (4, N'Model Output', N'Value generated by a simulation, model, or prediction algorithm not involved in control.');
 INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (5, N'External Source', N'Value imported from an external dataset or third-party system');
 INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (6, N'Forecast', N'Future-dated value produced by a forecasting model');
 SET IDENTITY_INSERT [dbo].[DataProvenanceKind] OFF;
 -- EquipmentEventKind
 SET IDENTITY_INSERT [dbo].[EquipmentEventKind] ON;
 INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (1, N'Calibration', N'Adjustment of sensor output to match a known reference standard');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (2, N'Validation', N'Verification that sensor output meets accuracy requirements without adjustment');
 INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (3, N'Maintenance', N'Physical cleaning, inspection, or servicing of equipment');
 INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (4, N'Installation', N'First-time mounting or connection of equipment at its deployment site');
 INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (5, N'Removal', N'Decommissioning or retrieval of equipment from its deployment site');
@@ -54,6 +71,14 @@ INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Descri
 INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (7, N'Failure', N'Unplanned malfunction or breakdown requiring corrective action');
 INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (8, N'Repair', N'Corrective action performed following a recorded failure');
 SET IDENTITY_INSERT [dbo].[EquipmentEventKind] OFF;
+-- ProcedureKind
+SET IDENTITY_INSERT [dbo].[ProcedureKind] ON;
+INSERT INTO [dbo].[ProcedureKind] ([ProcedureKind_ID], [Name], [Description]) VALUES (1, N'Maintenance and Cleaning Protocol', N'Procedures for routine maintenance, cleaning, and upkeep of equipment');
+INSERT INTO [dbo].[ProcedureKind] ([ProcedureKind_ID], [Name], [Description]) VALUES (2, N'Calibration Protocol', N'Step-by-step instructions for calibrating instruments or sensors');
+INSERT INTO [dbo].[ProcedureKind] ([ProcedureKind_ID], [Name], [Description]) VALUES (3, N'Validation Protocol', N'Procedures for validating measurements, methods, or models');
+INSERT INTO [dbo].[ProcedureKind] ([ProcedureKind_ID], [Name], [Description]) VALUES (4, N'Laboratory Method Protocol', N'Standardised laboratory analytical methods (e.g. ISO, ASTM, APHA)');
+INSERT INTO [dbo].[ProcedureKind] ([ProcedureKind_ID], [Name], [Description]) VALUES (5, N'Software Manual', N'User or operational manuals for software tools used in data acquisition or processing');
+SET IDENTITY_INSERT [dbo].[ProcedureKind] OFF;
 -- ProcessUnitKind
 SET IDENTITY_INSERT [dbo].[ProcessUnitKind] ON;
 INSERT INTO [dbo].[ProcessUnitKind] ([ProcessUnitKind_ID], [Name], [Description]) VALUES (1, N'Area', N'Broad spatial zone (e.g. biological treatment area)');
@@ -70,11 +95,13 @@ INSERT INTO [dbo].[ProcessUnitKind] ([ProcessUnitKind_ID], [Name], [Description]
 SET IDENTITY_INSERT [dbo].[ProcessUnitKind] OFF;
 -- ProcessingKind
 INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (1, N'Raw', N'Original, unmodified data as received from the source');
-INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (2, N'Cleaned', N'Outliers removed and obvious errors corrected');
-INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (3, N'Calibrated', N'Calibration corrections applied');
-INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (4, N'Validated', N'Manually reviewed and approved for use');
-INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (5, N'Filtered', N'Signal filtering or smoothing applied');
-INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (6, N'Predicted', N'Values generated by a model or prediction algorithm');
+INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (2, N'Free of outliers', N'Spikes and statistical outliers have been removed or flagged');
+INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (3, N'Free of drift', N'Sensor drift or baseline shift has been corrected');
+INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (4, N'Free of faults', N'Instrument faults and implausible values have been removed');
+INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (5, N'Smoothed', N'Noise reduced by a smoothing or averaging algorithm');
+INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (6, N'Interpolated', N'Missing values filled by interpolation');
+INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (7, N'Predicted', N'Values generated by a predictive model or algorithm');
+INSERT INTO [dbo].[ProcessingKind] ([ProcessingKind_ID], [Name], [Description]) VALUES (8, N'Derived', N'Computed from one or more other channels (e.g. dimensionality reduction, transformation)');
 -- QualityCode
 INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [Name], [Description], [IsUsable]) VALUES (1, N'Accepted', N'Measurement meets quality criteria and is fit for use', 1);
 INSERT INTO [dbo].[QualityCode] ([QualityCode_ID], [Name], [Description], [IsUsable]) VALUES (2, N'Suspect', N'Measurement may be unreliable; flagged for manual review', 1);
@@ -94,26 +121,9 @@ INSERT INTO [dbo].[SampleKind] ([SampleKind_ID], [Name], [Description]) VALUES (
 INSERT INTO [dbo].[SampleKind] ([SampleKind_ID], [Name], [Description]) VALUES (3, N'Master Standard', N'Reference standard used to prepare derived standards');
 INSERT INTO [dbo].[SampleKind] ([SampleKind_ID], [Name], [Description]) VALUES (4, N'Derived Standard', N'Dilution or aliquot derived from a master standard');
 INSERT INTO [dbo].[SampleKind] ([SampleKind_ID], [Name], [Description]) VALUES (5, N'Blank', N'Blank sample used to detect contamination or baseline');
--- SignalInterfaceKind
-INSERT INTO [dbo].[SignalInterfaceKind] ([SignalInterfaceKind_ID], [Name], [Description]) VALUES (1, N'PLC', N'Programmable Logic Controller exposing tags (e.g. Logix5000)');
-INSERT INTO [dbo].[SignalInterfaceKind] ([SignalInterfaceKind_ID], [Name], [Description]) VALUES (2, N'SCADA', N'SCADA / HMI system publishing tag strings (e.g. Wonderware, Ignition)');
-INSERT INTO [dbo].[SignalInterfaceKind] ([SignalInterfaceKind_ID], [Name], [Description]) VALUES (3, N'Basestation', N'Vendor basestation or sensor hub relaying one or more probes');
-INSERT INTO [dbo].[SignalInterfaceKind] ([SignalInterfaceKind_ID], [Name], [Description]) VALUES (4, N'IQSensorBus', N'Hach/WTW IQ Sensor Net or similar multi-probe sensor bus');
-INSERT INTO [dbo].[SignalInterfaceKind] ([SignalInterfaceKind_ID], [Name], [Description]) VALUES (5, N'DirectConnect', N'Single-sensor direct serial/analog link — no upstream controller');
-INSERT INTO [dbo].[SignalInterfaceKind] ([SignalInterfaceKind_ID], [Name], [Description]) VALUES (6, N'Multiplexer', N'Physical multiplexer (e.g. TresCON) where one port relays many streams');
-INSERT INTO [dbo].[SignalInterfaceKind] ([SignalInterfaceKind_ID], [Name], [Description]) VALUES (7, N'GatewayOther', N'Other gateway/bridge device not covered by the categories above');
--- SignalInterfacePortKind
-INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (1, N'AnalogIn', N'Analog input (4-20 mA, 0-10 V, etc.)');
-INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (2, N'AnalogOut', N'Analog output to a field device');
-INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (3, N'DigitalIn', N'Discrete digital input');
-INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (4, N'DigitalOut', N'Discrete digital output');
-INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (5, N'Serial', N'Serial fieldbus link (RS-232/485, Modbus, Profibus)');
-INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (6, N'Network', N'Ethernet/IP or other network-based port');
-INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (7, N'Virtual', N'Logical port with no dedicated physical terminal (e.g. multiplexed sub-channel)');
-INSERT INTO [dbo].[SignalInterfacePortKind] ([SignalInterfacePortKind_ID], [Name], [Description]) VALUES (8, N'Unknown', N'Physical kind not yet traced');
 -- SiteKind
 SET IDENTITY_INSERT [dbo].[SiteKind] ON;
-INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (1, N'Wastewater Treatment Plant', N'Municipal or industrial facility treating wastewater before discharge');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (1, N'Municipal Wastewater Treatment Plant', N'Municipal or industrial facility treating wastewater before discharge');
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (2, N'Combined Sewer Overflow', N'Point where combined sewer system discharges during high-flow events');
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (3, N'River / Stream', N'Natural flowing surface water body');
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (4, N'Lake / Reservoir', N'Natural or artificial standing body of water');
@@ -124,7 +134,7 @@ INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (8, N
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (9, N'Combined Drainage Network Access Point', N'Monitoring point within a combined stormwater and wastewater network');
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (10, N'Rainwater Drainage Network Access Point', N'Monitoring point within a stormwater-only drainage network');
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (11, N'Wastewater Drainage Network Access Point', N'Monitoring point within a sanitary sewer network');
-INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (12, N'Pilot Plant', N'Small-scale experimental treatment or process facility');
+INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (12, N'Experimental Wastewater Treatment Plant', N'Small-scale experimental treatment or process facility');
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (13, N'Other', N'Site kind not covered by the standard vocabulary');
 SET IDENTITY_INSERT [dbo].[SiteKind] OFF;
 -- Unit
@@ -178,8 +188,6 @@ INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (2, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (3, 3);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (4, 4);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (5, 5);
-INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (6, 9);
-INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (7, 9);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (8, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (9, 2);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (10, 10);
@@ -187,10 +195,8 @@ INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (11, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (12, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (13, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (14, 12);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (15, 6);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (15, 7);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (15, 13);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (17, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (18, 10);
-
-INSERT INTO [dbo].[SchemaVersion] ([Version], [AppliedDateTime], [Description], [MigrationScript])
-VALUES ('4.1.0', SYSUTCDATETIME(), 'Fresh install baseline', 'v4.1.0_create_mssql.sql');
-GO

@@ -26,14 +26,14 @@ SET NOCOUNT ON;
 -- ============================================================
 -- Procedures (3 standard ones)
 -- ============================================================
-INSERT INTO [dbo].[Procedures] ([ProcedureName], [ProcedureType], [Description], [ProcedureLocation])
-VALUES (N'Grab sampling', N'Sampling', N'Manual grab sample collected at water surface', N'/procedures/grab_sampling.pdf');
+INSERT INTO [dbo].[Procedures] ([ProcedureName], [Description], [ProcedureLocation])
+VALUES (N'Grab sampling', N'Manual grab sample collected at water surface', N'/procedures/grab_sampling.pdf');
 
-INSERT INTO [dbo].[Procedures] ([ProcedureName], [ProcedureType], [Description], [ProcedureLocation])
-VALUES (N'24h composite', N'Sampling', N'Time-weighted 24-hour composite sample via autosampler', N'/procedures/composite_24h.pdf');
+INSERT INTO [dbo].[Procedures] ([ProcedureName], [Description], [ProcedureLocation])
+VALUES (N'24h composite', N'Time-weighted 24-hour composite sample via autosampler', N'/procedures/composite_24h.pdf');
 
-INSERT INTO [dbo].[Procedures] ([ProcedureName], [ProcedureType], [Description], [ProcedureLocation])
-VALUES (N'Online continuous', N'Measurement', N'Continuous in-situ measurement with data logging', N'/procedures/online_continuous.pdf');
+INSERT INTO [dbo].[Procedures] ([ProcedureName], [Description], [ProcedureLocation])
+VALUES (N'Online continuous', N'Continuous in-situ measurement with data logging', N'/procedures/online_continuous.pdf');
 
 -- ============================================================
 -- Watershed (1 row, TEST_ prefix)
@@ -44,7 +44,7 @@ VALUES (N'TEST_Rivière Saint-Charles', N'TEST watershed — Quebec City urban c
 INSERT INTO [dbo].[HydrologicalCharacteristics] ([UrbanArea], [Forest], [Wetlands], [Cropland], [Meadow], [Grassland])
 VALUES (35.5, 25.0, 5.0, 10.0, 12.5, 12.0);
 
-INSERT INTO [dbo].[UrbanCharacteristics] ([Commercial], [GreenSpaces], [Industrial], [Institutional], [Residential], [Agricultural], [Recreational])
+INSERT INTO [dbo].[LandUse] ([Commercial], [GreenSpaces], [Industrial], [Institutional], [Residential], [Agricultural], [Recreational])
 VALUES (15.0, 8.0, 12.0, 5.0, 45.0, 5.0, 10.0);
 
 -- ============================================================

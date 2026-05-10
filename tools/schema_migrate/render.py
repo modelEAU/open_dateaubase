@@ -204,7 +204,7 @@ def _render_add_fk(table_name: str, fk: dict, table_dict: dict, platform: str) -
     child_col = fk["column"]
     ref_table = fk["ref_table"]
     ref_col = fk["ref_column"]
-    fk_name = fk.get("constraint_name") or f"FK_{table_name}_{ref_table}"
+    fk_name = fk.get("constraint_name") or f"FK_{table_name}_{child_col}"
 
     if platform == "mssql":
         return (
@@ -224,8 +224,8 @@ def _render_add_fk(table_name: str, fk: dict, table_dict: dict, platform: str) -
 def _render_drop_fk(table_name: str, fk: dict, table_dict: dict, platform: str) -> str:
     tbl = table_dict["table"]
     schema = tbl.get("schema", "dbo")
-    ref_table = fk["ref_table"]
-    fk_name = fk.get("constraint_name") or f"FK_{table_name}_{ref_table}"
+    child_col = fk["column"]
+    fk_name = fk.get("constraint_name") or f"FK_{table_name}_{child_col}"
 
     if platform == "mssql":
         return (

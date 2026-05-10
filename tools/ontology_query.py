@@ -49,13 +49,16 @@ def build_parameter_has_unit_inserts(schema: dict[str, Any], platform: str = "ms
     unit_table = schema.get("Unit", {}).get("table", {})
     unit_rows: list[dict] = unit_table.get("seed_data") or []
 
+    def _norm_iri(iri: str) -> str:
+        return iri.replace("http://", "https://", 1) if iri.startswith("http://") else iri
+
     name_to_id: dict[str, int] = {}
     iri_to_id: dict[str, int] = {}
     for row in unit_rows:
         uid = row["Unit_ID"]
         name_to_id[row["Unit"]] = uid
         if row.get("QUDT_IRI"):
-            iri_to_id[row["QUDT_IRI"]] = uid
+            iri_to_id[_norm_iri(row["QUDT_IRI"])] = uid
 
     param_table = schema.get("Parameter", {}).get("table", {})
     param_rows: list[dict] = param_table.get("seed_data") or []
@@ -79,8 +82,9 @@ def build_parameter_has_unit_inserts(schema: dict[str, Any], platform: str = "ms
         if qudt_iri:
             applicable = fetch_applicable_units(qudt_iri)
             for unit_iri in applicable:
-                if unit_iri in iri_to_id:
-                    unit_ids.add(iri_to_id[unit_iri])
+                normalised = _norm_iri(unit_iri)
+                if normalised in iri_to_id:
+                    unit_ids.add(iri_to_id[normalised])
 
         for unit_name in param.get("manual_units", []):
             if unit_name not in name_to_id:
