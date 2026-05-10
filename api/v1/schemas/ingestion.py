@@ -66,8 +66,8 @@ class LabIngestRequest(BaseModel):
 class ProcessingInfo(BaseModel):
     method_name: str
     method_version: str | None = None
-    processing_type: str
-    parameters: dict = {}
+    processing_kind_id: int
+    method_parameters: dict = {}
     executed_at: datetime | None = None
     executed_by_person_id: int | None = None
 

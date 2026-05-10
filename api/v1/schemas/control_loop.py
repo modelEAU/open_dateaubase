@@ -3,12 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
-
-from pydantic import BaseModel, Field
-
-ControllerType = Literal["PID", "PI", "P", "BangBang", "Custom", "Manual"]
-
+from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
 # ControlLoop
@@ -17,7 +12,7 @@ ControllerType = Literal["PID", "PI", "P", "BangBang", "Custom", "Manual"]
 
 class ControlLoopCreateRequest(BaseModel):
     name: str
-    controller_type: ControllerType
+    controller_kind_id: int
     fallback_control_loop_id: int | None = None
     algorithm_reference: str | None = None
     description: str | None = None
@@ -26,7 +21,8 @@ class ControlLoopCreateRequest(BaseModel):
 class ControlLoopOut(BaseModel):
     control_loop_id: int
     name: str
-    controller_type: str
+    controller_kind_id: int
+    controller_kind_name: str | None
     fallback_control_loop_id: int | None
     algorithm_reference: str | None
     description: str | None

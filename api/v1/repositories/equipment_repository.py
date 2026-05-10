@@ -271,16 +271,18 @@ def get_equipment_events(
         f"""
         SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventKind_ID],
                eet.[Name],
+               ee.[IsInstantaneous],
                ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
                ee.[PerformedByPerson_ID],
-               CONCAT(per.[FirstName], ' ', per.[LastName]) AS PersonName,
-               ee.[Campaign_ID], c.[Name] AS CampaignName,
+               CONCAT(per.[FirstName], ' ', per.[LastName]) AS PerformedByName,
+               ee.[RecordedByPerson_ID],
+               CONCAT(rec.[FirstName], ' ', rec.[LastName]) AS RecordedByName,
                ee.[Notes]
         FROM [dbo].[EquipmentEvent] ee
         LEFT JOIN [dbo].[EquipmentEventKind] eet
             ON eet.[EquipmentEventKind_ID] = ee.[EquipmentEventKind_ID]
         LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = ee.[PerformedByPerson_ID]
-        LEFT JOIN [dbo].[Campaign] c  ON c.[Campaign_ID]  = ee.[Campaign_ID]
+        LEFT JOIN [dbo].[Person] rec ON rec.[Person_ID] = ee.[RecordedByPerson_ID]
         {where}
         ORDER BY ee.[EventDateTimeStart]
         """,
@@ -291,13 +293,14 @@ def get_equipment_events(
             "event_id": row[0],
             "event_type_id": row[1],
             "event_type_name": row[2],
-            "start_datetime": row[3],
-            "end_datetime": row[4],
-            "performed_by_person_id": row[5],
-            "performed_by_name": row[6],
-            "campaign_id": row[7],
-            "campaign_name": row[8],
-            "notes": row[9],
+            "is_instantaneous": bool(row[3]),
+            "start_datetime": row[4],
+            "end_datetime": row[5],
+            "performed_by_person_id": row[6],
+            "performed_by_name": row[7],
+            "recorded_by_person_id": row[8],
+            "recorded_by_name": row[9],
+            "notes": row[10],
         }
         for row in cursor.fetchall()
     ]
@@ -417,17 +420,19 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
     cursor.execute(
         """
         INSERT INTO [dbo].[EquipmentEvent]
-            ([Equipment_ID], [EquipmentEventKind_ID], [EventDateTimeStart], [EventDateTimeEnd],
-             [PerformedByPerson_ID], [Campaign_ID], [Notes])
+            ([Equipment_ID], [EquipmentEventKind_ID], [IsInstantaneous],
+             [EventDateTimeStart], [EventDateTimeEnd],
+             [PerformedByPerson_ID], [RecordedByPerson_ID], [Notes])
         OUTPUT INSERTED.[EquipmentEvent_ID]
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         data["equipment_id"],
         data["event_type_id"],
+        int(data.get("is_instantaneous", False)),
         data["start_datetime"],
         data.get("end_datetime"),
         data.get("performed_by_person_id"),
-        data.get("campaign_id"),
+        data.get("recorded_by_person_id"),
         data.get("notes"),
     )
     _id_row = cursor.fetchone()
@@ -440,15 +445,17 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
         """
         SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventKind_ID],
                eet.[Name],
+               ee.[IsInstantaneous],
                ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
                ee.[PerformedByPerson_ID],
-               CONCAT(per.[FirstName], ' ', per.[LastName]) AS PersonName,
-               ee.[Campaign_ID], c.[Name] AS CampaignName,
+               CONCAT(per.[FirstName], ' ', per.[LastName]) AS PerformedByName,
+               ee.[RecordedByPerson_ID],
+               CONCAT(rec.[FirstName], ' ', rec.[LastName]) AS RecordedByName,
                ee.[Notes]
         FROM [dbo].[EquipmentEvent] ee
         LEFT JOIN [dbo].[EquipmentEventKind] eet ON eet.[EquipmentEventKind_ID] = ee.[EquipmentEventKind_ID]
         LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = ee.[PerformedByPerson_ID]
-        LEFT JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = ee.[Campaign_ID]
+        LEFT JOIN [dbo].[Person] rec ON rec.[Person_ID] = ee.[RecordedByPerson_ID]
         WHERE ee.[EquipmentEvent_ID] = ?
         """,
         event_id,
@@ -457,15 +464,16 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
     assert row is not None
     return {
         "event_id": row[0],
-        "event_kind_id": row[1],
-        "event_kind_name": row[2],
-        "start_datetime": row[3],
-        "end_datetime": row[4],
-        "performed_by_person_id": row[5],
-        "performed_by_name": row[6],
-        "campaign_id": row[7],
-        "campaign_name": row[8],
-        "notes": row[9],
+        "event_type_id": row[1],
+        "event_type_name": row[2],
+        "is_instantaneous": bool(row[3]),
+        "start_datetime": row[4],
+        "end_datetime": row[5],
+        "performed_by_person_id": row[6],
+        "performed_by_name": row[7],
+        "recorded_by_person_id": row[8],
+        "recorded_by_name": row[9],
+        "notes": row[10],
     }
 
 

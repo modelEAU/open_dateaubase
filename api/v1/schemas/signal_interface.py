@@ -13,19 +13,17 @@ from pydantic import BaseModel
 
 
 class SignalInterfaceOut(BaseModel):
-    """Full SignalInterface representation with resolved DAS and type names."""
+    """Full SignalInterface representation with resolved DAS name."""
 
     signal_interface_id: int
     name: str
-    make: str | None
+    manufacturer: str | None
     model: str | None
     serial_number: str | None
     description: str | None
     is_active: bool
     data_acquisition_system_id: int
     das_name: str
-    signal_interface_kind_id: int
-    signal_interface_kind_name: str
 
 
 class SignalInterfaceIn(BaseModel):
@@ -33,8 +31,7 @@ class SignalInterfaceIn(BaseModel):
 
     data_acquisition_system_id: int
     name: str
-    signal_interface_kind_id: int
-    make: str | None = None
+    manufacturer: str | None = None
     model: str | None = None
     serial_number: str | None = None
     description: str | None = None
@@ -45,7 +42,7 @@ class SignalInterfacePatchRequest(BaseModel):
     """Partial update for a SignalInterface — only supplied fields are written."""
 
     name: str | None = None
-    make: str | None = None
+    manufacturer: str | None = None
     model: str | None = None
     serial_number: str | None = None
     description: str | None = None
@@ -66,8 +63,6 @@ class SignalInterfacePortOut(BaseModel):
     is_active: bool
     signal_interface_id: int
     signal_interface_name: str | None
-    signal_interface_port_kind_id: int
-    signal_interface_port_kind_name: str
 
 
 class SignalInterfacePortIn(BaseModel):
@@ -75,7 +70,6 @@ class SignalInterfacePortIn(BaseModel):
 
     signal_interface_id: int
     port_identifier: str
-    signal_interface_port_kind_id: int
     description: str | None = None
     is_active: bool = True
 
@@ -186,8 +180,7 @@ class SignalInterfaceProvisionIn(BaseModel):
 
     das_name: str
     name: str
-    type_name: str
-    make: str | None = None
+    manufacturer: str | None = None
     model: str | None = None
     description: str | None = None
 
@@ -197,24 +190,6 @@ class SignalInterfacePortProvisionIn(BaseModel):
 
     signal_interface_id: int
     port_identifier: str
-    kind_name: str
-    description: str | None = None
-
-
-class SignalInterfaceKindIn(BaseModel):
-    name: str
-    description: str | None = None
-
-
-class SignalInterfaceKindLookupOut(BaseModel):
-    signal_interface_kind_id: int
-    name: str
-    description: str | None = None
-
-
-class SignalInterfacePortKindLookupOut(BaseModel):
-    signal_interface_port_kind_id: int
-    name: str
     description: str | None = None
 
 
@@ -232,6 +207,8 @@ class DasOut(BaseModel):
     das_id: int
     name: str
     description: str | None = None
+    das_kind_id: int | None = None
+    das_kind_name: str | None = None
 
 
 class DasLookupOut(BaseModel):
@@ -242,18 +219,19 @@ class DasLookupOut(BaseModel):
 class DasCreateIn(BaseModel):
     name: str
     description: str | None = None
+    das_kind_id: int | None = None
 
 
 class DasUpdateIn(BaseModel):
     name: str
     description: str | None = None
+    das_kind_id: int | None = None
 
 
 class SignalInterfacePortCreateIn(BaseModel):
     """Payload for creating a port under a specific interface (signal_interface_id comes from path)."""
 
     port_identifier: str
-    signal_interface_port_kind_id: int
     description: str | None = None
 
 

@@ -13,8 +13,8 @@ class ProcessingStepDetailOut(BaseModel):
     description: str | None
     method_name: str | None
     method_version: str | None
-    processing_type: str | None
-    parameters: str | None
+    processing_kind_id: int | None
+    method_parameters: str | None
     executed_at: datetime | None
     executed_by_person_id: int | None
 
@@ -33,8 +33,8 @@ class ProcessingStepCreate(BaseModel):
     output_channel_id: int
     method_name: str
     method_version: str | None = None
-    processing_type: str
-    parameters: dict = {}
+    processing_kind_id: int
+    method_parameters: dict = {}
     executed_at: datetime | None = None
     executed_by_person_id: int | None = None
 

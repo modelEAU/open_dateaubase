@@ -14,34 +14,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def find_signal_interface_type_by_name(
-    conn: pyodbc.Connection, name: str
-) -> int | None:
-    """Return SignalInterfaceKind_ID for *name* (case-insensitive, trimmed). None if not found."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [SignalInterfaceKind_ID] FROM [dbo].[SignalInterfaceKind]"
-        " WHERE LOWER(LTRIM(RTRIM([Name]))) = ?",
-        name.strip().lower(),
-    )
-    row = cursor.fetchone()
-    return row[0] if row else None
-
-
-def find_signal_interface_port_kind_by_name(
-    conn: pyodbc.Connection, name: str
-) -> int | None:
-    """Return SignalInterfacePortKind_ID for *name* (case-insensitive, trimmed). None if not found."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [SignalInterfacePortKind_ID] FROM [dbo].[SignalInterfacePortKind]"
-        " WHERE LOWER(LTRIM(RTRIM([Name]))) = ?",
-        name.strip().lower(),
-    )
-    row = cursor.fetchone()
-    return row[0] if row else None
-
-
 def find_channel_kind_by_name(conn: pyodbc.Connection, name: str) -> int | None:
     """Return ChannelKind_ID for *name* (case-insensitive, trimmed). None if not found."""
     cursor = conn.cursor()
@@ -105,17 +77,6 @@ def find_signal_interface_by_das_and_name(
     return row[0] if row else None
 
 
-def get_first_signal_interface_kind_id(conn: pyodbc.Connection) -> int | None:
-    """Return the smallest SignalInterfaceKind_ID as a fallback default."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT TOP 1 [SignalInterfaceKind_ID] FROM [dbo].[SignalInterfaceKind]"
-        " ORDER BY [SignalInterfaceKind_ID]"
-    )
-    row = cursor.fetchone()
-    return row[0] if row else None
-
-
 # ---------------------------------------------------------------------------
 # Find-or-create helpers (auto-create with warning on miss)
 # ---------------------------------------------------------------------------
@@ -158,7 +119,6 @@ def find_or_create_signal_interface(
     conn: pyodbc.Connection,
     das_id: int,
     name: str,
-    signal_interface_kind_id: int,
 ) -> tuple[int, bool]:
     """Find or create a SignalInterface by (DAS_ID, name) with case-insensitive name lookup.
 
@@ -182,12 +142,11 @@ def find_or_create_signal_interface(
     stored_name = name.strip()
     cursor.execute(
         "INSERT INTO [dbo].[SignalInterface]"
-        "    ([DataAcquisitionSystem_ID], [Name], [SignalInterfaceKind_ID])"
+        "    ([DataAcquisitionSystem_ID], [Name])"
         " OUTPUT INSERTED.[SignalInterface_ID]"
-        " VALUES (?, ?, ?)",
+        " VALUES (?, ?)",
         das_id,
         stored_name,
-        signal_interface_kind_id,
     )
     _row = cursor.fetchone()
     assert _row is not None
@@ -206,7 +165,6 @@ def find_or_create_signal_interface_port(
     conn: pyodbc.Connection,
     signal_interface_id: int,
     port_identifier: str,
-    signal_interface_port_kind_id: int,
 ) -> tuple[int, bool]:
     """Find or create a SignalInterfacePort by (SignalInterface_ID, PortIdentifier).
 
@@ -230,12 +188,11 @@ def find_or_create_signal_interface_port(
     stored_id = port_identifier.strip()
     cursor.execute(
         "INSERT INTO [dbo].[SignalInterfacePort]"
-        "    ([SignalInterface_ID], [PortIdentifier], [SignalInterfacePortKind_ID])"
+        "    ([SignalInterface_ID], [PortIdentifier])"
         " OUTPUT INSERTED.[SignalInterfacePort_ID]"
-        " VALUES (?, ?, ?)",
+        " VALUES (?, ?)",
         signal_interface_id,
         stored_id,
-        signal_interface_port_kind_id,
     )
     _row = cursor.fetchone()
     assert _row is not None
@@ -362,56 +319,83 @@ def list_das(conn: pyodbc.Connection) -> list[dict]:
     """Return all DataAcquisitionSystem rows ordered by name."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [DataAcquisitionSystem_ID], [Name], [Description]"
-        " FROM [dbo].[DataAcquisitionSystem]"
-        " ORDER BY [Name]"
+        "SELECT d.[DataAcquisitionSystem_ID], d.[Name], d.[Description],"
+        "       d.[DataAcquisitionSystemKind_ID], k.[Name] AS [das_kind_name]"
+        " FROM [dbo].[DataAcquisitionSystem] d"
+        " LEFT JOIN [dbo].[DataAcquisitionSystemKind] k"
+        "   ON k.[DataAcquisitionSystemKind_ID] = d.[DataAcquisitionSystemKind_ID]"
+        " ORDER BY d.[Name]"
     )
     cols = [col[0] for col in cursor.description]
     return [dict(zip(cols, row)) for row in cursor.fetchall()]
 
 
 def insert_das(
-    conn: pyodbc.Connection, name: str, description: str | None = None
+    conn: pyodbc.Connection,
+    name: str,
+    description: str | None = None,
+    das_kind_id: int | None = None,
 ) -> dict:
-    """Create a new DataAcquisitionSystem row and return {das_id, name, description}."""
+    """Create a new DataAcquisitionSystem row and return a dict with all fields."""
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO [dbo].[DataAcquisitionSystem] ([Name], [Description])"
-            " OUTPUT INSERTED.[DataAcquisitionSystem_ID], INSERTED.[Name], INSERTED.[Description]"
-            " VALUES (?, ?)",
+            "INSERT INTO [dbo].[DataAcquisitionSystem]"
+            "    ([Name], [Description], [DataAcquisitionSystemKind_ID])"
+            " OUTPUT INSERTED.[DataAcquisitionSystem_ID], INSERTED.[Name],"
+            "        INSERTED.[Description], INSERTED.[DataAcquisitionSystemKind_ID]"
+            " VALUES (?, ?, ?)",
             name.strip(),
             description,
+            das_kind_id,
         )
         row = cursor.fetchone()
         assert row is not None
         conn.commit()
-        return {"das_id": row[0], "name": row[1], "description": row[2]}
+        return {
+            "das_id": row[0],
+            "name": row[1],
+            "description": row[2],
+            "das_kind_id": row[3],
+            "das_kind_name": None,
+        }
     except Exception:
         conn.rollback()
         raise
 
 
 def update_das(
-    conn: pyodbc.Connection, das_id: int, name: str, description: str | None
+    conn: pyodbc.Connection,
+    das_id: int,
+    name: str,
+    description: str | None,
+    das_kind_id: int | None = None,
 ) -> dict | None:
-    """Update a DataAcquisitionSystem row and return {das_id, name, description}, or None if not found."""
+    """Update a DataAcquisitionSystem row and return a dict with all fields, or None if not found."""
     cursor = conn.cursor()
     try:
         cursor.execute(
             "UPDATE [dbo].[DataAcquisitionSystem]"
-            " SET [Name]=?, [Description]=?"
-            " OUTPUT INSERTED.[DataAcquisitionSystem_ID], INSERTED.[Name], INSERTED.[Description]"
+            " SET [Name]=?, [Description]=?, [DataAcquisitionSystemKind_ID]=?"
+            " OUTPUT INSERTED.[DataAcquisitionSystem_ID], INSERTED.[Name],"
+            "        INSERTED.[Description], INSERTED.[DataAcquisitionSystemKind_ID]"
             " WHERE [DataAcquisitionSystem_ID]=?",
             name.strip(),
             description,
+            das_kind_id,
             das_id,
         )
         row = cursor.fetchone()
         conn.commit()
         if row is None:
             return None
-        return {"das_id": row[0], "name": row[1], "description": row[2]}
+        return {
+            "das_id": row[0],
+            "name": row[1],
+            "description": row[2],
+            "das_kind_id": row[3],
+            "das_kind_name": None,
+        }
     except Exception:
         conn.rollback()
         raise
@@ -440,18 +424,14 @@ _SELECT_SIGNAL_INTERFACE = """
     SELECT
         si.[SignalInterface_ID],
         si.[DataAcquisitionSystem_ID],
-        si.[SignalInterfaceKind_ID],
         si.[Name],
-        si.[Make],
+        si.[Manufacturer],
         si.[Model],
         si.[SerialNumber],
         si.[Description],
         si.[IsActive],
-        sit.[Name] AS [signal_interface_kind_name],
         das.[Name] AS [das_name]
     FROM [dbo].[SignalInterface] si
-    JOIN [dbo].[SignalInterfaceKind] sit
-        ON sit.[SignalInterfaceKind_ID] = si.[SignalInterfaceKind_ID]
     JOIN [dbo].[DataAcquisitionSystem] das
         ON das.[DataAcquisitionSystem_ID] = si.[DataAcquisitionSystem_ID]
 """
@@ -482,7 +462,6 @@ def list_signal_interfaces(
     *,
     das_id: int | None = None,
     is_active: bool | None = None,
-    signal_interface_kind_id: int | None = None,
     equipment_id: int | None = None,
     page: int = 1,
     page_size: int = 100,
@@ -501,9 +480,6 @@ def list_signal_interfaces(
     if is_active is not None:
         where_clauses.append("si.[IsActive] = ?")
         params.append(1 if is_active else 0)
-    if signal_interface_kind_id is not None:
-        where_clauses.append("si.[SignalInterfaceKind_ID] = ?")
-        params.append(signal_interface_kind_id)
     if equipment_id is not None:
         where_clauses.append(
             "EXISTS ("
@@ -563,8 +539,7 @@ def create_signal_interface(
     *,
     das_id: int,
     name: str,
-    signal_interface_kind_id: int,
-    make: str | None = None,
+    manufacturer: str | None = None,
     model: str | None = None,
     serial_number: str | None = None,
     description: str | None = None,
@@ -574,14 +549,13 @@ def create_signal_interface(
     try:
         cursor.execute(
             "INSERT INTO [dbo].[SignalInterface]"
-            "    ([DataAcquisitionSystem_ID], [Name], [SignalInterfaceKind_ID],"
-            "     [Make], [Model], [SerialNumber], [Description])"
+            "    ([DataAcquisitionSystem_ID], [Name],"
+            "     [Manufacturer], [Model], [SerialNumber], [Description])"
             " OUTPUT INSERTED.[SignalInterface_ID]"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            " VALUES (?, ?, ?, ?, ?, ?)",
             das_id,
             name.strip(),
-            signal_interface_kind_id,
-            make,
+            manufacturer,
             model,
             serial_number,
             description,
@@ -603,14 +577,14 @@ def patch_signal_interface(
 ) -> dict | None:
     """Update only the keys present in *data* on a SignalInterface row.
 
-    Supported keys: ``description``, ``is_active``, ``make``, ``model``, ``serial_number``.
+    Supported keys: ``description``, ``is_active``, ``manufacturer``, ``model``, ``serial_number``.
     Returns the updated row via :func:`get_signal_interface_by_id`, or None when the
     interface does not exist.
     """
     column_map = {
         "description": "[Description]",
         "is_active": "[IsActive]",
-        "make": "[Make]",
+        "manufacturer": "[Manufacturer]",
         "model": "[Model]",
         "serial_number": "[SerialNumber]",
     }
@@ -653,14 +627,10 @@ _SELECT_SIGNAL_INTERFACE_PORT = """
         sip.[SignalInterfacePort_ID],
         sip.[SignalInterface_ID],
         sip.[PortIdentifier],
-        sip.[SignalInterfacePortKind_ID],
         sip.[Description],
         sip.[IsActive],
-        sipk.[Name] AS [signal_interface_port_kind_name],
         si.[Name] AS [signal_interface_name]
     FROM [dbo].[SignalInterfacePort] sip
-    JOIN [dbo].[SignalInterfacePortKind] sipk
-        ON sipk.[SignalInterfacePortKind_ID] = sip.[SignalInterfacePortKind_ID]
     JOIN [dbo].[SignalInterface] si
         ON si.[SignalInterface_ID] = sip.[SignalInterface_ID]
 """
@@ -737,7 +707,6 @@ def create_signal_interface_port(
     *,
     signal_interface_id: int,
     port_identifier: str,
-    signal_interface_port_kind_id: int,
     description: str | None = None,
 ) -> int:
     """Insert a SignalInterfacePort row and return the new SignalInterfacePort_ID."""
@@ -745,12 +714,11 @@ def create_signal_interface_port(
     try:
         cursor.execute(
             "INSERT INTO [dbo].[SignalInterfacePort]"
-            "    ([SignalInterface_ID], [PortIdentifier], [SignalInterfacePortKind_ID], [Description])"
+            "    ([SignalInterface_ID], [PortIdentifier], [Description])"
             " OUTPUT INSERTED.[SignalInterfacePort_ID]"
-            " VALUES (?, ?, ?, ?)",
+            " VALUES (?, ?, ?)",
             signal_interface_id,
             port_identifier.strip(),
-            signal_interface_port_kind_id,
             description,
         )
         _row = cursor.fetchone()
@@ -811,32 +779,6 @@ def patch_signal_interface_port(
 # ---------------------------------------------------------------------------
 # Lookup tables (read-only — fixed seeded IDs)
 # ---------------------------------------------------------------------------
-
-
-def list_signal_interface_types(conn: pyodbc.Connection) -> list[dict]:
-    """Return all SignalInterfaceKind rows ordered by ID."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [SignalInterfaceKind_ID], [Name], [Description]"
-        " FROM [dbo].[SignalInterfaceKind] ORDER BY [SignalInterfaceKind_ID]"
-    )
-    return [
-        {"signal_interface_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
-
-
-def list_signal_interface_port_kinds(conn: pyodbc.Connection) -> list[dict]:
-    """Return all SignalInterfacePortKind rows ordered by ID."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [SignalInterfacePortKind_ID], [Name], [Description]"
-        " FROM [dbo].[SignalInterfacePortKind] ORDER BY [SignalInterfacePortKind_ID]"
-    )
-    return [
-        {"signal_interface_port_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
 
 
 # ---------------------------------------------------------------------------

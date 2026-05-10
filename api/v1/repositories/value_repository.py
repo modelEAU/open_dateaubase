@@ -332,9 +332,9 @@ def insert_scalar_values(
 
     cursor.execute(
         """
-        INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+        INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])
         OUTPUT INSERTED.[Observation_ID]
-        SELECT ?, ts, 'Scalar' FROM #obs_stage ORDER BY row_num
+        SELECT ?, ts, 1 FROM #obs_stage ORDER BY row_num
         """,
         channel_id,
     )
@@ -385,9 +385,9 @@ def insert_vector_values(
         # Create Observation for this timestamp
         cursor.execute(
             """
-            INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+            INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])
             OUTPUT INSERTED.[Observation_ID]
-            VALUES (?, ?, 'Vector')
+            VALUES (?, ?, 2)
             """,
             channel_id,
             _utc_naive(timestamp),
@@ -458,9 +458,9 @@ def insert_matrix_values(
         # Create Observation for this timestamp
         cursor.execute(
             """
-            INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+            INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])
             OUTPUT INSERTED.[Observation_ID]
-            VALUES (?, ?, 'Matrix')
+            VALUES (?, ?, 3)
             """,
             channel_id,
             _utc_naive(obs["timestamp"]),
@@ -510,9 +510,9 @@ def insert_image_value(
     # Step 1: create Observation, get ID
     cursor.execute(
         """
-        INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])
+        INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])
         OUTPUT INSERTED.[Observation_ID]
-        VALUES (?, ?, 'Image')
+        VALUES (?, ?, 4)
         """,
         channel_id,
         _utc_naive(timestamp),

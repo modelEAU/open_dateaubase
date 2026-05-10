@@ -70,7 +70,6 @@ class DeploymentOut(BaseModel):
     equipment_identifier: str | None
     sampling_point_id: int | None
     sampling_point_name: str | None
-    role: str | None
     installation_id: int | None
     installed_date: datetime | None
 
@@ -80,8 +79,6 @@ class DeploymentCreateIn(BaseModel):
 
     equipment_id: int
     sampling_point_id: int
-    role: str | None = None
-    notes: str | None = None
 
 
 class DeploymentCreateOut(BaseModel):

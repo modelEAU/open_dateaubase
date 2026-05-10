@@ -255,8 +255,7 @@ def get_sampling_points_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor.execute(
         """
         SELECT sp.SamplingPoint_ID,
-               COALESCE(sp.SamplingPoint, 'Point ' + CAST(sp.SamplingPoint_ID AS NVARCHAR))
-                 + ' \u2014 ' + COALESCE(sp.SamplingLocation, '') AS Label
+               COALESCE(sp.SamplingPoint, 'Point ' + CAST(sp.SamplingPoint_ID AS NVARCHAR)) AS Label
         FROM [dbo].[SamplingPoint] sp
         ORDER BY sp.SamplingPoint
         """
@@ -614,111 +613,6 @@ def get_bin_kinds(conn: pyodbc.Connection) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# SignalInterfaceKind
-# ---------------------------------------------------------------------------
-
-
-def get_signal_interface_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [SignalInterfaceKind_ID], [Name], [Description]"
-        " FROM [dbo].[SignalInterfaceKind] ORDER BY [SignalInterfaceKind_ID]"
-    )
-    return [
-        {"signal_interface_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
-
-
-def insert_signal_interface_kind(
-    conn: pyodbc.Connection, name: str, description: str | None
-) -> dict:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO [dbo].[SignalInterfaceKind] ([Name], [Description])"
-            " OUTPUT inserted.[SignalInterfaceKind_ID], inserted.[Name], inserted.[Description]"
-            " VALUES (?, ?)",
-            name,
-            description,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        return {
-            "signal_interface_kind_id": row[0],
-            "name": row[1],
-            "description": row[2],
-        }
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def update_signal_interface_kind(
-    conn: pyodbc.Connection,
-    signal_interface_kind_id: int,
-    name: str,
-    description: str | None,
-) -> dict | None:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "UPDATE [dbo].[SignalInterfaceKind]"
-            " SET [Name]=?, [Description]=?"
-            " OUTPUT inserted.[SignalInterfaceKind_ID], inserted.[Name], inserted.[Description]"
-            " WHERE [SignalInterfaceKind_ID]=?",
-            name,
-            description,
-            signal_interface_kind_id,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        if row is None:
-            return None
-        return {
-            "signal_interface_kind_id": row[0],
-            "name": row[1],
-            "description": row[2],
-        }
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def delete_signal_interface_kind(
-    conn: pyodbc.Connection, signal_interface_kind_id: int
-) -> bool:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "DELETE FROM [dbo].[SignalInterfaceKind] WHERE [SignalInterfaceKind_ID]=?",
-            signal_interface_kind_id,
-        )
-        conn.commit()
-        return cursor.rowcount > 0
-    except Exception:
-        conn.rollback()
-        raise
-
-
-# ---------------------------------------------------------------------------
-# SignalInterfacePortKind (read-only — fixed seeded IDs)
-# ---------------------------------------------------------------------------
-
-
-def get_signal_interface_port_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [SignalInterfacePortKind_ID], [Name], [Description]"
-        " FROM [dbo].[SignalInterfacePortKind] ORDER BY [SignalInterfacePortKind_ID]"
-    )
-    return [
-        {"signal_interface_port_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
-
-
-# ---------------------------------------------------------------------------
 # ChannelKind (read-only — fixed seeded IDs)
 # ---------------------------------------------------------------------------
 
@@ -886,6 +780,77 @@ def delete_equipment_event_kind(
 
 
 # ---------------------------------------------------------------------------
+# ProcedureKind
+# ---------------------------------------------------------------------------
+
+
+def get_procedure_kinds(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [ProcedureKind_ID], [Name], [Description] FROM [dbo].[ProcedureKind] ORDER BY [ProcedureKind_ID]"
+    )
+    return [
+        {"procedure_kind_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+def insert_procedure_kind(conn: pyodbc.Connection, name: str, description: str | None = None) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO [dbo].[ProcedureKind] ([Name], [Description])"
+            " OUTPUT inserted.[ProcedureKind_ID], inserted.[Name], inserted.[Description]"
+            " VALUES (?, ?)",
+            name,
+            description,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {"procedure_kind_id": row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_procedure_kind(
+    conn: pyodbc.Connection, procedure_kind_id: int, name: str, description: str | None = None
+) -> dict | None:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE [dbo].[ProcedureKind]"
+            " SET [Name]=?, [Description]=?"
+            " OUTPUT inserted.[ProcedureKind_ID], inserted.[Name], inserted.[Description]"
+            " WHERE [ProcedureKind_ID]=?",
+            name,
+            description,
+            procedure_kind_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {"procedure_kind_id": row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_procedure_kind(conn: pyodbc.Connection, procedure_kind_id: int) -> bool:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM [dbo].[ProcedureKind] WHERE [ProcedureKind_ID]=?", procedure_kind_id
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
+# ---------------------------------------------------------------------------
 # Procedures
 # ---------------------------------------------------------------------------
 
@@ -893,14 +858,14 @@ def delete_equipment_event_kind(
 def get_procedures(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Procedure_ID], ProcedureName, ProcedureType, [Description], ProcedureLocation"
+        "SELECT [Procedure_ID], ProcedureName, ProcedureKind_ID, [Description], ProcedureLocation"
         " FROM [dbo].[Procedures] ORDER BY ProcedureName"
     )
     return [
         {
             "procedure_id": row[0],
             "procedure_name": row[1],
-            "procedure_type": row[2],
+            "procedure_kind_id": row[2],
             "description": row[3],
             "procedure_location": row[4],
         }
@@ -911,7 +876,7 @@ def get_procedures(conn: pyodbc.Connection) -> list[dict]:
 def insert_procedure(
     conn: pyodbc.Connection,
     procedure_name: str | None,
-    procedure_type: str | None,
+    procedure_kind_id: int | None,
     description: str | None,
     procedure_location: str | None,
 ) -> dict:
@@ -919,12 +884,12 @@ def insert_procedure(
     try:
         cursor.execute(
             "INSERT INTO [dbo].[Procedures]"
-            " (ProcedureName, ProcedureType, [Description], ProcedureLocation)"
+            " (ProcedureName, ProcedureKind_ID, [Description], ProcedureLocation)"
             " OUTPUT inserted.[Procedure_ID], inserted.ProcedureName,"
-            "        inserted.ProcedureType, inserted.[Description], inserted.ProcedureLocation"
+            "        inserted.ProcedureKind_ID, inserted.[Description], inserted.ProcedureLocation"
             " VALUES (?, ?, ?, ?)",
             procedure_name,
-            procedure_type,
+            procedure_kind_id,
             description,
             procedure_location,
         )
@@ -933,7 +898,7 @@ def insert_procedure(
         return {
             "procedure_id": row[0],
             "procedure_name": row[1],
-            "procedure_type": row[2],
+            "procedure_kind_id": row[2],
             "description": row[3],
             "procedure_location": row[4],
         }
@@ -946,7 +911,7 @@ def update_procedure(
     conn: pyodbc.Connection,
     procedure_id: int,
     procedure_name: str | None,
-    procedure_type: str | None,
+    procedure_kind_id: int | None,
     description: str | None,
     procedure_location: str | None,
 ) -> dict | None:
@@ -954,12 +919,12 @@ def update_procedure(
     try:
         cursor.execute(
             "UPDATE [dbo].[Procedures]"
-            " SET ProcedureName=?, ProcedureType=?, [Description]=?, ProcedureLocation=?"
+            " SET ProcedureName=?, ProcedureKind_ID=?, [Description]=?, ProcedureLocation=?"
             " OUTPUT inserted.[Procedure_ID], inserted.ProcedureName,"
-            "        inserted.ProcedureType, inserted.[Description], inserted.ProcedureLocation"
+            "        inserted.ProcedureKind_ID, inserted.[Description], inserted.ProcedureLocation"
             " WHERE [Procedure_ID]=?",
             procedure_name,
-            procedure_type,
+            procedure_kind_id,
             description,
             procedure_location,
             procedure_id,
@@ -971,7 +936,7 @@ def update_procedure(
         return {
             "procedure_id": row[0],
             "procedure_name": row[1],
-            "procedure_type": row[2],
+            "procedure_kind_id": row[2],
             "description": row[3],
             "procedure_location": row[4],
         }
@@ -1002,7 +967,7 @@ def get_watersheds(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         "SELECT [Watershed_ID], Name, [Description], SurfaceArea,"
-        " ConcentrationTime, ImperviousSurface"
+        " ConcentrationTime, ImperviousSurface, ParentWatershed_ID, GeometryGeoJSON"
         " FROM [dbo].[Watershed] ORDER BY Name"
     )
     return [
@@ -1013,6 +978,8 @@ def get_watersheds(conn: pyodbc.Connection) -> list[dict]:
             "surface_area": row[3],
             "concentration_time": row[4],
             "impervious_surface": row[5],
+            "parent_watershed_id": row[6],
+            "geometry_geojson": row[7],
         }
         for row in cursor.fetchall()
     ]
@@ -1025,20 +992,26 @@ def insert_watershed(
     surface_area: float | None,
     concentration_time: int | None,
     impervious_surface: float | None,
+    parent_watershed_id: int | None = None,
+    geometry_geojson: str | None = None,
 ) -> dict:
     cursor = conn.cursor()
     try:
         cursor.execute(
             "INSERT INTO [dbo].[Watershed]"
-            " (Name, [Description], SurfaceArea, ConcentrationTime, ImperviousSurface)"
+            " (Name, [Description], SurfaceArea, ConcentrationTime, ImperviousSurface,"
+            "  ParentWatershed_ID, GeometryGeoJSON)"
             " OUTPUT inserted.[Watershed_ID], inserted.Name, inserted.[Description],"
-            "        inserted.SurfaceArea, inserted.ConcentrationTime, inserted.ImperviousSurface"
-            " VALUES (?, ?, ?, ?, ?)",
+            "        inserted.SurfaceArea, inserted.ConcentrationTime, inserted.ImperviousSurface,"
+            "        inserted.ParentWatershed_ID, inserted.GeometryGeoJSON"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
             name,
             description,
             surface_area,
             concentration_time,
             impervious_surface,
+            parent_watershed_id,
+            geometry_geojson,
         )
         row = cursor.fetchone()
         conn.commit()
@@ -1049,6 +1022,8 @@ def insert_watershed(
             "surface_area": row[3],
             "concentration_time": row[4],
             "impervious_surface": row[5],
+            "parent_watershed_id": row[6],
+            "geometry_geojson": row[7],
         }
     except Exception:
         conn.rollback()
@@ -1063,21 +1038,27 @@ def update_watershed(
     surface_area: float | None,
     concentration_time: int | None,
     impervious_surface: float | None,
+    parent_watershed_id: int | None = None,
+    geometry_geojson: str | None = None,
 ) -> dict | None:
     cursor = conn.cursor()
     try:
         cursor.execute(
             "UPDATE [dbo].[Watershed]"
             " SET Name=?, [Description]=?, SurfaceArea=?,"
-            "     ConcentrationTime=?, ImperviousSurface=?"
+            "     ConcentrationTime=?, ImperviousSurface=?,"
+            "     ParentWatershed_ID=?, GeometryGeoJSON=?"
             " OUTPUT inserted.[Watershed_ID], inserted.Name, inserted.[Description],"
-            "        inserted.SurfaceArea, inserted.ConcentrationTime, inserted.ImperviousSurface"
+            "        inserted.SurfaceArea, inserted.ConcentrationTime, inserted.ImperviousSurface,"
+            "        inserted.ParentWatershed_ID, inserted.GeometryGeoJSON"
             " WHERE [Watershed_ID]=?",
             name,
             description,
             surface_area,
             concentration_time,
             impervious_surface,
+            parent_watershed_id,
+            geometry_geojson,
             watershed_id,
         )
         row = cursor.fetchone()
@@ -1091,6 +1072,8 @@ def update_watershed(
             "surface_area": row[3],
             "concentration_time": row[4],
             "impervious_surface": row[5],
+            "parent_watershed_id": row[6],
+            "geometry_geojson": row[7],
         }
     except Exception:
         conn.rollback()
@@ -1108,3 +1091,107 @@ def delete_watershed(conn: pyodbc.Connection, watershed_id: int) -> bool:
     except Exception:
         conn.rollback()
         raise
+
+
+def _land_use_row(row) -> dict:
+    return {
+        "watershed_id": row[0],
+        "commercial": row[1],
+        "green_spaces": row[2],
+        "industrial": row[3],
+        "institutional": row[4],
+        "residential": row[5],
+        "agricultural": row[6],
+        "recreational": row[7],
+    }
+
+
+def get_land_use(conn: pyodbc.Connection, watershed_id: int) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [Watershed_ID], [Commercial], [GreenSpaces], [Industrial],"
+        "       [Institutional], [Residential], [Agricultural], [Recreational]"
+        " FROM [dbo].[LandUse] WHERE [Watershed_ID]=?",
+        watershed_id,
+    )
+    row = cursor.fetchone()
+    return _land_use_row(row) if row else None
+
+
+def upsert_land_use(
+    conn: pyodbc.Connection,
+    watershed_id: int,
+    commercial: float | None,
+    green_spaces: float | None,
+    industrial: float | None,
+    institutional: float | None,
+    residential: float | None,
+    agricultural: float | None,
+    recreational: float | None,
+) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT 1 FROM [dbo].[LandUse] WHERE [Watershed_ID]=?", watershed_id
+        )
+        exists = cursor.fetchone() is not None
+        if exists:
+            cursor.execute(
+                "UPDATE [dbo].[LandUse]"
+                " SET [Commercial]=?, [GreenSpaces]=?, [Industrial]=?,"
+                "     [Institutional]=?, [Residential]=?, [Agricultural]=?, [Recreational]=?"
+                " WHERE [Watershed_ID]=?",
+                commercial, green_spaces, industrial,
+                institutional, residential, agricultural, recreational,
+                watershed_id,
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO [dbo].[LandUse]"
+                " ([Watershed_ID], [Commercial], [GreenSpaces], [Industrial],"
+                "  [Institutional], [Residential], [Agricultural], [Recreational])"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                watershed_id, commercial, green_spaces, industrial,
+                institutional, residential, agricultural, recreational,
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return get_land_use(conn, watershed_id)  # type: ignore[return-value]
+
+
+# ---------------------------------------------------------------------------
+# DataAcquisitionSystemKind (read-only seed vocabulary)
+# ---------------------------------------------------------------------------
+
+
+def get_das_kinds(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [DataAcquisitionSystemKind_ID], [Name], [Description]"
+        " FROM [dbo].[DataAcquisitionSystemKind]"
+        " ORDER BY [DataAcquisitionSystemKind_ID]"
+    )
+    return [
+        {"das_kind_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+# ---------------------------------------------------------------------------
+# ControllerKind (read-only seed vocabulary)
+# ---------------------------------------------------------------------------
+
+
+def get_controller_kinds(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [ControllerKind_ID], [Name], [Description]"
+        " FROM [dbo].[ControllerKind]"
+        " ORDER BY [ControllerKind_ID]"
+    )
+    return [
+        {"controller_kind_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]

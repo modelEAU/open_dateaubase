@@ -184,7 +184,7 @@ def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
     # Sampling locations
     cursor.execute(
         """
-        SELECT sp.[SamplingPoint_ID], sp.[SamplingPoint], csl.[Role]
+        SELECT sp.[SamplingPoint_ID], sp.[SamplingPoint]
         FROM [dbo].[CampaignSamplingLocation] csl
         JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = csl.[SamplingPoint_ID]
         WHERE csl.[Campaign_ID] = ?
@@ -192,12 +192,12 @@ def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
         """,
         campaign_id,
     )
-    locations = [{"id": r[0], "name": r[1], "role": r[2]} for r in cursor.fetchall()]
+    locations = [{"id": r[0], "name": r[1]} for r in cursor.fetchall()]
 
     # Equipment
     cursor.execute(
         """
-        SELECT e.[Equipment_ID], e.[Identifier], ce.[Role]
+        SELECT e.[Equipment_ID], e.[Identifier]
         FROM [dbo].[CampaignEquipment] ce
         JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ce.[Equipment_ID]
         WHERE ce.[Campaign_ID] = ?
@@ -205,9 +205,7 @@ def get_campaign_context(conn: pyodbc.Connection, campaign_id: int) -> dict:
         """,
         campaign_id,
     )
-    equipment = [
-        {"id": r[0], "identifier": r[1], "role": r[2]} for r in cursor.fetchall()
-    ]
+    equipment = [{"id": r[0], "identifier": r[1]} for r in cursor.fetchall()]
 
     # Parameters (distinct parameters across channels linked via campaign equipment)
     cursor.execute(
@@ -259,7 +257,6 @@ def list_campaign_deployments(conn: pyodbc.Connection, campaign_id: int) -> list
             e.[Identifier] AS equipment_identifier,
             csl.[SamplingPoint_ID],
             sp.[SamplingPoint] AS sampling_point_name,
-            ce.[Role],
             ei.[Installation_ID],
             ei.[InstalledDate]
         FROM [dbo].[CampaignEquipment] ce
@@ -282,9 +279,8 @@ def list_campaign_deployments(conn: pyodbc.Connection, campaign_id: int) -> list
             "equipment_identifier": row[1],
             "sampling_point_id": row[2],
             "sampling_point_name": row[3],
-            "role": row[4],
-            "installation_id": row[5],
-            "installed_date": row[6],
+            "installation_id": row[4],
+            "installed_date": row[5],
         }
         for row in cursor.fetchall()
     ]
@@ -295,8 +291,6 @@ def create_campaign_deployment(
     campaign_id: int,
     equipment_id: int,
     sampling_point_id: int,
-    role: str | None,
-    notes: str | None,
 ) -> int:
     """Link equipment and a sampling point to a campaign.
 
@@ -325,12 +319,11 @@ def create_campaign_deployment(
 
     cursor.execute(
         """
-        INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID], [Role])
-        VALUES (?, ?, ?)
+        INSERT INTO [dbo].[CampaignEquipment] ([Campaign_ID], [Equipment_ID])
+        VALUES (?, ?)
         """,
         campaign_id,
         equipment_id,
-        role,
     )
 
     cursor.execute(
@@ -340,8 +333,8 @@ def create_campaign_deployment(
             WHERE [Campaign_ID] = ? AND [SamplingPoint_ID] = ?
         )
         INSERT INTO [dbo].[CampaignSamplingLocation]
-            ([Campaign_ID], [SamplingPoint_ID], [Role])
-        VALUES (?, ?, NULL)
+            ([Campaign_ID], [SamplingPoint_ID])
+        VALUES (?, ?)
         """,
         campaign_id,
         sampling_point_id,

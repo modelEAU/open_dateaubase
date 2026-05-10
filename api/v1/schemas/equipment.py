@@ -22,12 +22,13 @@ class EquipmentEventOut(BaseModel):
     event_id: int
     event_type_id: int
     event_type_name: str | None
+    is_instantaneous: bool
     start_datetime: datetime
     end_datetime: datetime | None
     performed_by_person_id: int | None
     performed_by_name: str | None
-    campaign_id: int | None
-    campaign_name: str | None
+    recorded_by_person_id: int | None
+    recorded_by_name: str | None
     notes: str | None
 
 
@@ -99,10 +100,11 @@ class EquipmentEventKindOut(BaseModel):
 class EquipmentEventCreate(BaseModel):
     equipment_id: int
     event_type_id: int
+    is_instantaneous: bool = False
     start_datetime: datetime
     end_datetime: datetime | None = None
     performed_by_person_id: int | None = None
-    campaign_id: int | None = None
+    recorded_by_person_id: int | None = None
     notes: str | None = None
 
 
