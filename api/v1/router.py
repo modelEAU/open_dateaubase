@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from .endpoints.auth import router as auth_router
+from .endpoints.audit import router as audit_router
 from .endpoints.health import router as health_router
 from .endpoints.sites import router as sites_router
 from .endpoints.channels import router as channels_router
@@ -40,6 +42,8 @@ from .endpoints.convert import router as convert_router
 
 router = APIRouter()
 
+router.include_router(auth_router, prefix="/auth", tags=["auth"])
+router.include_router(audit_router, prefix="/audit", tags=["audit"])
 router.include_router(health_router, tags=["health"])
 router.include_router(sites_router, prefix="/sites", tags=["sites"])
 router.include_router(channels_router, prefix="/channels", tags=["channels"])

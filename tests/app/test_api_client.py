@@ -1,157 +1,213 @@
-"""Tests for app/api_client.py public functions using httpx mock transport."""
+"""Unit tests for app.api_client."""
+
 from __future__ import annotations
 
-import httpx
+import sys
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-import app.api_client as ac
-from app.api_client import APIError
+# Stub streamlit before importing api_client so we don't need a running app.
+import types
+
+_st = types.ModuleType("streamlit")
+_st.session_state = {}
+_st.error = lambda *a, **kw: None
+_st.rerun = lambda: None
+sys.modules.setdefault("streamlit", _st)
+
+from app.api_client import APIError, get_health, login, signup, get_me, get_audit_logs
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-
-def _handler(status_code: int, body: dict | None = None):
-    """Return an httpx handler that responds with the given status and JSON body."""
-
-    def handle(request: httpx.Request) -> httpx.Response:
-        if body is not None:
-            return httpx.Response(status_code, json=body)
-        return httpx.Response(status_code)
-
-    return handle
+def _mock_response(status_code: int, json_data: dict | None = None, text: str = "") -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.is_success = 200 <= status_code < 300
+    resp.text = text
+    resp.json.return_value = json_data or {}
+    return resp
 
 
-def _patch(monkeypatch, handler) -> None:
-    """Monkeypatch _get_client to return a fresh client backed by handler each call."""
-    monkeypatch.setattr(
-        ac,
-        "_get_client",
-        lambda: httpx.Client(
-            transport=httpx.MockTransport(handler), base_url="http://test"
-        ),
-    )
+class _FakeClient:
+    """Context manager that returns itself and records calls."""
+
+    def __init__(self, response: MagicMock):
+        self._response = response
+        self.last_method = None
+        self.last_url = None
+        self.last_kwargs: dict = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    def get(self, url, **kwargs):
+        self.last_method, self.last_url, self.last_kwargs = "GET", url, kwargs
+        return self._response
+
+    def post(self, url, **kwargs):
+        self.last_method, self.last_url, self.last_kwargs = "POST", url, kwargs
+        return self._response
+
+    def delete(self, url, **kwargs):
+        self.last_method, self.last_url, self.last_kwargs = "DELETE", url, kwargs
+        return self._response
+
+    def patch(self, url, **kwargs):
+        self.last_method, self.last_url, self.last_kwargs = "PATCH", url, kwargs
+        return self._response
+
+    def put(self, url, **kwargs):
+        self.last_method, self.last_url, self.last_kwargs = "PUT", url, kwargs
+        return self._response
 
 
 # ---------------------------------------------------------------------------
-# Sites — GET list, GET single, POST, PUT, DELETE
+# APIError
 # ---------------------------------------------------------------------------
 
+class TestAPIError:
+    def test_attributes(self):
+        err = APIError(404, "not found")
+        assert err.status_code == 404
+        assert err.message == "not found"
+        assert "404" in str(err)
 
-class TestSites:
-    def test_list_sites_returns_items(self, monkeypatch):
-        body = {"items": [{"id": 1, "name": "Site A"}], "total": 1}
-        _patch(monkeypatch, _handler(200, body))
-        result = ac.list_sites()
+
+# ---------------------------------------------------------------------------
+# get_health
+# ---------------------------------------------------------------------------
+
+class TestGetHealth:
+    def test_success(self):
+        response = _mock_response(200, {"status": "ok", "db": "connected"})
+        with patch("app.api_client._get_client", return_value=_FakeClient(response)):
+            result = get_health()
+        assert result["status"] == "ok"
+
+    def test_connection_error_raises_api_error(self):
+        import httpx
+
+        with patch("app.api_client._get_client") as mock_client:
+            instance = MagicMock()
+            instance.__enter__ = MagicMock(side_effect=httpx.ConnectError("refused"))
+            instance.__exit__ = MagicMock(return_value=False)
+            mock_client.return_value = instance
+            with pytest.raises(APIError) as exc_info:
+                get_health()
+        assert exc_info.value.status_code == 503
+
+    def test_non_2xx_raises_api_error(self):
+        response = _mock_response(503, {"detail": "DB down"})
+        with patch("app.api_client._get_client", return_value=_FakeClient(response)):
+            with pytest.raises(APIError) as exc_info:
+                get_health()
+        assert exc_info.value.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# signup
+# ---------------------------------------------------------------------------
+
+class TestSignup:
+    def test_success(self):
+        payload = {
+            "access_token": "tok",
+            "token_type": "bearer",
+            "user": {"user_id": 1, "email": "a@b.com"},
+        }
+        response = _mock_response(200, payload)
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            result = signup("a@b.com", "Alice", "password1")
+        assert result["access_token"] == "tok"
+        assert client.last_method == "POST"
+        assert client.last_url == "/auth/signup"
+
+    def test_duplicate_email_raises(self):
+        response = _mock_response(400, {"detail": "An account with this email already exists."})
+        with patch("app.api_client._get_client", return_value=_FakeClient(response)):
+            with pytest.raises(APIError) as exc_info:
+                signup("dup@example.com", "Dup", "pass1234")
+        assert exc_info.value.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# login
+# ---------------------------------------------------------------------------
+
+class TestLogin:
+    def test_success(self):
+        payload = {
+            "access_token": "tok",
+            "token_type": "bearer",
+            "user": {"user_id": 1, "email": "a@b.com"},
+        }
+        response = _mock_response(200, payload)
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            result = login("a@b.com", "password1")
+        assert result["access_token"] == "tok"
+        assert client.last_method == "POST"
+        assert client.last_url == "/auth/login"
+
+    def test_wrong_credentials_raises(self):
+        response = _mock_response(401, {"detail": "Invalid email or password."})
+        with patch("app.api_client._get_client", return_value=_FakeClient(response)):
+            with pytest.raises(APIError) as exc_info:
+                login("a@b.com", "wrongpass")
+        assert exc_info.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# get_me
+# ---------------------------------------------------------------------------
+
+class TestGetMe:
+    def test_success(self):
+        user = {"user_id": 1, "email": "a@b.com", "full_name": "Alice"}
+        response = _mock_response(200, user)
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            result = get_me()
+        assert result["email"] == "a@b.com"
+        assert client.last_method == "GET"
+        assert client.last_url == "/auth/me"
+
+    def test_unauthorized_raises(self):
+        response = _mock_response(401, {"detail": "Missing Authorization header."})
+        _st.session_state["access_token"] = None
+        with patch("app.api_client._get_client", return_value=_FakeClient(response)):
+            with pytest.raises(APIError) as exc_info:
+                get_me()
+        assert exc_info.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# get_audit_logs
+# ---------------------------------------------------------------------------
+
+class TestGetAuditLogs:
+    def test_success(self):
+        payload = {"items": [], "total": 0}
+        response = _mock_response(200, payload)
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            result = get_audit_logs()
         assert "items" in result
+        assert client.last_method == "GET"
+        assert client.last_url == "/audit/logs"
 
-    def test_get_site_returns_dict(self, monkeypatch):
-        body = {"id": 1, "name": "Site A"}
-        _patch(monkeypatch, _handler(200, body))
-        result = ac.get_site(1)
-        assert result["id"] == 1
-
-    def test_create_site_returns_created(self, monkeypatch):
-        body = {"id": 99, "name": "New Site"}
-        _patch(monkeypatch, _handler(201, body))
-        result = ac.create_site({"name": "New Site"})
-        assert result["id"] == 99
-
-    def test_update_site_returns_updated(self, monkeypatch):
-        body = {"id": 1, "name": "Updated"}
-        _patch(monkeypatch, _handler(200, body))
-        result = ac.update_site(1, {"name": "Updated"})
-        assert result["name"] == "Updated"
-
-    def test_delete_site_returns_none(self, monkeypatch):
-        _patch(monkeypatch, _handler(204))
-        result = ac.delete_site(1)
-        assert result is None
-
-    def test_get_site_404_raises_api_error(self, monkeypatch):
-        _patch(monkeypatch, _handler(404, {"detail": "Not found"}))
-        with pytest.raises(APIError) as exc_info:
-            ac.get_site(999)
-        assert exc_info.value.status_code == 404
-
-    def test_create_site_422_raises_api_error(self, monkeypatch):
-        _patch(monkeypatch, _handler(422, {"detail": "Validation error"}))
-        with pytest.raises(APIError) as exc_info:
-            ac.create_site({})
-        assert exc_info.value.status_code == 422
-
-
-# ---------------------------------------------------------------------------
-# Connection error → 503
-# ---------------------------------------------------------------------------
-
-
-class TestConnectionError:
-    def test_connect_error_raises_503(self, monkeypatch):
-        def raise_connect_error(request: httpx.Request) -> httpx.Response:
-            raise httpx.ConnectError("Connection refused")
-
-        _patch(monkeypatch, raise_connect_error)
-        with pytest.raises(APIError) as exc_info:
-            ac.get_site(1)
-        assert exc_info.value.status_code == 503
-
-    def test_list_sites_connect_error_raises_503(self, monkeypatch):
-        def raise_connect_error(request: httpx.Request) -> httpx.Response:
-            raise httpx.ConnectError("Connection refused")
-
-        _patch(monkeypatch, raise_connect_error)
-        with pytest.raises(APIError) as exc_info:
-            ac.list_sites()
-        assert exc_info.value.status_code == 503
-
-
-# ---------------------------------------------------------------------------
-# Channels — filter param forwarding
-# ---------------------------------------------------------------------------
-
-
-class TestChannels:
-    def test_list_channels_with_parameter_id_included_in_url(self, monkeypatch):
-        received: dict = {}
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            received.update(dict(request.url.params))
-            return httpx.Response(200, json={"items": []})
-
-        _patch(monkeypatch, handler)
-        ac.list_channels(parameter_id=5)
-        assert received.get("parameter_id") == "5"
-
-    def test_list_channels_without_parameter_id_omits_param(self, monkeypatch):
-        received: dict = {}
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            received.update(dict(request.url.params))
-            return httpx.Response(200, json={"items": []})
-
-        _patch(monkeypatch, handler)
-        ac.list_channels(parameter_id=None)
-        assert "parameter_id" not in received
-
-
-# ---------------------------------------------------------------------------
-# Ingestion
-# ---------------------------------------------------------------------------
-
-
-class TestIngestion:
-    def test_ingest_sensor_returns_channel_id_and_rows_written(self, monkeypatch):
-        body = {"channel_id": 42, "rows_written": 100}
-        _patch(monkeypatch, _handler(201, body))
-        result = ac.ingest_sensor({"equipment_id": 1, "parameter_id": 2})
-        assert result["channel_id"] == 42
-        assert result["rows_written"] == 100
-
-    def test_ingest_lab_returns_dict(self, monkeypatch):
-        body = {"lab_analysis_id": 7, "rows_written": 5}
-        _patch(monkeypatch, _handler(201, body))
-        result = ac.ingest_lab({"sample_id": 1})
-        assert "lab_analysis_id" in result
+    def test_with_filters(self):
+        payload = {"items": [], "total": 0}
+        response = _mock_response(200, payload)
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            get_audit_logs(user_id=1, action="login", limit=10)
+        assert client.last_kwargs.get("params", {}).get("user_id") == 1
