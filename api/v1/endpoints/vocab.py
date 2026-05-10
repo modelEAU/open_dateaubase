@@ -3,6 +3,11 @@
 Covers:
   GET  /vocab/processing-kinds                 — list (read-only)
 
+  GET  /vocab/procedure-kinds                  — list all
+  POST /vocab/procedure-kinds                  — create
+  PUT  /vocab/procedure-kinds/{id}             — update
+  DELETE /vocab/procedure-kinds/{id}           — delete
+
   GET  /vocab/procedures                         — list all
   POST /vocab/procedures                         — create
   PUT  /vocab/procedures/{id}                    — update
@@ -12,6 +17,9 @@ Covers:
   POST /vocab/watersheds                         — create
   PUT  /vocab/watersheds/{id}                    — update
   DELETE /vocab/watersheds/{id}                  — delete
+
+  GET  /vocab/watersheds/{id}/land-use           — get land use
+  PUT  /vocab/watersheds/{id}/land-use           — upsert land use
 """
 
 from __future__ import annotations
@@ -21,7 +29,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.database import get_db
 from ..repositories import lookup_repository
 from ..schemas.metadata import (
+    ControllerKindOut,
+    DasKindOut,
+    LandUseIn,
+    LandUseOut,
     ProcessingKindOut,
+    ProcedureKindIn,
+    ProcedureKindOut,
     ProcedureIn,
     ProcedureOut,
     WatershedIn,
@@ -41,6 +55,46 @@ def list_processing_kinds(conn=Depends(get_db)):
     return lookup_repository.get_processing_kinds(conn)
 
 
+@router.get("/das-kinds", response_model=list[DasKindOut])
+def list_das_kinds(conn=Depends(get_db)):
+    return lookup_repository.get_das_kinds(conn)
+
+
+@router.get("/controller-kinds", response_model=list[ControllerKindOut])
+def list_controller_kinds(conn=Depends(get_db)):
+    return lookup_repository.get_controller_kinds(conn)
+
+
+# ---------------------------------------------------------------------------
+# ProcedureKind
+# ---------------------------------------------------------------------------
+
+
+@router.get("/procedure-kinds", response_model=list[ProcedureKindOut])
+def list_procedure_kinds(conn=Depends(get_db)):
+    return lookup_repository.get_procedure_kinds(conn)
+
+
+@router.post("/procedure-kinds", response_model=ProcedureKindOut, status_code=201)
+def create_procedure_kind(body: ProcedureKindIn, conn=Depends(get_db)):
+    return lookup_repository.insert_procedure_kind(conn, body.name, body.description)
+
+
+@router.put("/procedure-kinds/{procedure_kind_id}", response_model=ProcedureKindOut)
+def update_procedure_kind(procedure_kind_id: int, body: ProcedureKindIn, conn=Depends(get_db)):
+    updated = lookup_repository.update_procedure_kind(conn, procedure_kind_id, body.name, body.description)
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"ProcedureKind {procedure_kind_id} not found.")
+    return updated
+
+
+@router.delete("/procedure-kinds/{procedure_kind_id}", status_code=204)
+def delete_procedure_kind(procedure_kind_id: int, conn=Depends(get_db)):
+    deleted = lookup_repository.delete_procedure_kind(conn, procedure_kind_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"ProcedureKind {procedure_kind_id} not found.")
+
+
 # ---------------------------------------------------------------------------
 # Procedures
 # ---------------------------------------------------------------------------
@@ -56,7 +110,7 @@ def create_procedure(body: ProcedureIn, conn=Depends(get_db)):
     return lookup_repository.insert_procedure(
         conn,
         body.procedure_name,
-        body.procedure_type,
+        body.procedure_kind_id,
         body.description,
         body.procedure_location,
     )
@@ -68,7 +122,7 @@ def update_procedure(procedure_id: int, body: ProcedureIn, conn=Depends(get_db))
         conn,
         procedure_id,
         body.procedure_name,
-        body.procedure_type,
+        body.procedure_kind_id,
         body.description,
         body.procedure_location,
     )
@@ -103,6 +157,8 @@ def create_watershed(body: WatershedIn, conn=Depends(get_db)):
         body.surface_area,
         body.concentration_time,
         body.impervious_surface,
+        body.parent_watershed_id,
+        body.geometry_geojson,
     )
 
 
@@ -116,6 +172,8 @@ def update_watershed(watershed_id: int, body: WatershedIn, conn=Depends(get_db))
         body.surface_area,
         body.concentration_time,
         body.impervious_surface,
+        body.parent_watershed_id,
+        body.geometry_geojson,
     )
     if updated is None:
         raise HTTPException(status_code=404, detail=f"Watershed {watershed_id} not found.")
@@ -127,3 +185,26 @@ def delete_watershed(watershed_id: int, conn=Depends(get_db)):
     deleted = lookup_repository.delete_watershed(conn, watershed_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Watershed {watershed_id} not found.")
+
+
+@router.get("/watersheds/{watershed_id}/land-use", response_model=LandUseOut)
+def get_land_use(watershed_id: int, conn=Depends(get_db)):
+    result = lookup_repository.get_land_use(conn, watershed_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"No land use data for watershed {watershed_id}.")
+    return result
+
+
+@router.put("/watersheds/{watershed_id}/land-use", response_model=LandUseOut)
+def upsert_land_use(watershed_id: int, body: LandUseIn, conn=Depends(get_db)):
+    return lookup_repository.upsert_land_use(
+        conn,
+        watershed_id,
+        body.commercial,
+        body.green_spaces,
+        body.industrial,
+        body.institutional,
+        body.residential,
+        body.agricultural,
+        body.recreational,
+    )

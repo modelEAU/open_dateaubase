@@ -42,7 +42,8 @@ def _row_to_loop_out(row: dict) -> ControlLoopOut:
     return ControlLoopOut(
         control_loop_id=row["ControlLoop_ID"],
         name=row["Name"],
-        controller_type=row["ControllerType"],
+        controller_kind_id=row["ControllerKind_ID"],
+        controller_kind_name=row.get("controller_kind_name"),
         fallback_control_loop_id=row["FallbackControlLoop_ID"],
         algorithm_reference=row["AlgorithmReference"],
         description=row["Description"],
@@ -87,8 +88,8 @@ def create_control_loop(
 ):
     """Create a new ControlLoop.
 
-    ``controller_type`` must be one of: PID, PI, P, BangBang, Custom, Manual.
-    Set ``algorithm_reference`` (path or repo URL) for Custom controllers.
+    ``controller_kind_id`` must be a valid ControllerKind_ID (see GET /vocab/controller-kinds).
+    Set ``algorithm_reference`` (path or repo URL) for custom controllers.
     Set ``fallback_control_loop_id`` to build fallback chains.
     """
     if body.fallback_control_loop_id is not None:
@@ -106,7 +107,7 @@ def create_control_loop(
     loop_id = control_loop_repository.create_control_loop(
         conn,
         name=body.name,
-        controller_type=body.controller_type,
+        controller_kind_id=body.controller_kind_id,
         fallback_control_loop_id=body.fallback_control_loop_id,
         algorithm_reference=body.algorithm_reference,
         description=body.description,

@@ -123,23 +123,9 @@ def _resolve_tag_inputs(
     )
     signal_interface_created = False
     if signal_interface_id is None:
-        # Default to SCADA (type 2) for tagged ingest; fallback to first available type
-        si_type_id = signal_interface_repository.find_signal_interface_type_by_name(
-            conn, "SCADA"
-        )
-        if si_type_id is None:
-            si_type_id = signal_interface_repository.get_first_signal_interface_kind_id(
-                conn
-            )
-        if si_type_id is None:
-            raise HTTPException(
-                status_code=500,
-                detail="No SignalInterfaceKind records found in the database. "
-                "Seed data is missing.",
-            )
         signal_interface_id, signal_interface_created = (
             signal_interface_repository.find_or_create_signal_interface(
-                conn, das_id, tag, si_type_id
+                conn, das_id, tag
             )
         )
         if signal_interface_created:
@@ -222,26 +208,12 @@ def _resolve_tagless_inputs(
 
     signal_interface_created = False
     if signal_interface_id is None:
-        # Default to DirectConnect (type 5) for tagless ingest; fallback to first available type
-        si_type_id = signal_interface_repository.find_signal_interface_type_by_name(
-            conn, "DirectConnect"
-        )
-        if si_type_id is None:
-            si_type_id = signal_interface_repository.get_first_signal_interface_kind_id(
-                conn
-            )
-        if si_type_id is None:
-            raise HTTPException(
-                status_code=500,
-                detail="No SignalInterfaceKind records found in the database. "
-                "Seed data is missing.",
-            )
         synthetic_interface_name = signal_interface_repository.generate_tagless_tagname(
             equipment_name, parameter_name
         )
         signal_interface_id, signal_interface_created = (
             signal_interface_repository.find_or_create_signal_interface(
-                conn, das_id, synthetic_interface_name, si_type_id
+                conn, das_id, synthetic_interface_name
             )
         )
         if signal_interface_created:
@@ -722,8 +694,8 @@ def ingest_processed(data: ProcessedIngestRequest, conn=Depends(get_db)):
         source_metadata_ids=data.source_channel_ids,
         method_name=data.processing.method_name,
         method_version=data.processing.method_version,
-        processing_type=data.processing.processing_type,
-        parameters=data.processing.parameters,
+        processing_kind_id=data.processing.processing_kind_id,
+        method_parameters=data.processing.method_parameters,
         executed_at=data.processing.executed_at,
         executed_by_person_id=data.processing.executed_by_person_id,
         output_metadata_id=output_channel_id,

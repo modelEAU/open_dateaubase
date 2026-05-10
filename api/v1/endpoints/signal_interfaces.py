@@ -44,15 +44,13 @@ def _row_to_signal_interface_out(row: dict) -> SignalInterfaceOut:
     return SignalInterfaceOut(
         signal_interface_id=row["SignalInterface_ID"],
         name=row["Name"],
-        make=row["Make"],
+        manufacturer=row["Manufacturer"],
         model=row["Model"],
         serial_number=row["SerialNumber"],
         description=row["Description"],
         is_active=bool(row["IsActive"]),
         data_acquisition_system_id=row["DataAcquisitionSystem_ID"],
         das_name=row["das_name"],
-        signal_interface_kind_id=row["SignalInterfaceKind_ID"],
-        signal_interface_kind_name=row["signal_interface_kind_name"],
     )
 
 
@@ -64,8 +62,6 @@ def _row_to_port_out(row: dict) -> SignalInterfacePortOut:
         is_active=bool(row["IsActive"]),
         signal_interface_id=row["SignalInterface_ID"],
         signal_interface_name=row["signal_interface_name"],
-        signal_interface_port_kind_id=row["SignalInterfacePortKind_ID"],
-        signal_interface_port_kind_name=row["signal_interface_port_kind_name"],
     )
 
 
@@ -80,9 +76,6 @@ def list_signal_interfaces(
         default=None, description="Filter by DataAcquisitionSystem_ID"
     ),
     is_active: bool | None = Query(default=None, description="Filter by IsActive flag"),
-    signal_interface_kind_id: int | None = Query(
-        default=None, description="Filter by SignalInterfaceKind_ID"
-    ),
     equipment_id: int | None = Query(
         default=None, description="Filter by active Equipment_ID"
     ),
@@ -95,7 +88,6 @@ def list_signal_interfaces(
         conn,
         das_id=das_id,
         is_active=is_active,
-        signal_interface_kind_id=signal_interface_kind_id,
         equipment_id=equipment_id,
         page=page,
         page_size=page_size,
@@ -127,21 +119,30 @@ def list_das_lookup(conn=Depends(get_db)):
     return [DasLookupOut(das_id=r["DataAcquisitionSystem_ID"], name=r["Name"]) for r in rows]
 
 
+def _row_to_das_out(r: dict) -> DasOut:
+    return DasOut(
+        das_id=r["DataAcquisitionSystem_ID"] if "DataAcquisitionSystem_ID" in r else r["das_id"],
+        name=r["Name"] if "Name" in r else r["name"],
+        description=r.get("Description") or r.get("description"),
+        das_kind_id=r.get("DataAcquisitionSystemKind_ID") or r.get("das_kind_id"),
+        das_kind_name=r.get("das_kind_name"),
+    )
+
+
 @router.get("/das", response_model=list[DasOut])
 def list_das(conn=Depends(get_db)):
     """Return all DataAcquisitionSystem rows ordered by name."""
     rows = signal_interface_repository.list_das(conn)
-    return [
-        DasOut(das_id=r["DataAcquisitionSystem_ID"], name=r["Name"], description=r["Description"])
-        for r in rows
-    ]
+    return [_row_to_das_out(r) for r in rows]
 
 
 @router.post("/das", response_model=DasOut, status_code=201)
 def create_das(body: DasCreateIn, conn=Depends(get_db)):
     """Create a new DataAcquisitionSystem."""
     try:
-        row = signal_interface_repository.insert_das(conn, body.name, body.description)
+        row = signal_interface_repository.insert_das(
+            conn, body.name, body.description, body.das_kind_id
+        )
     except pyodbc.IntegrityError as exc:
         raise HTTPException(
             status_code=409,
@@ -152,8 +153,10 @@ def create_das(body: DasCreateIn, conn=Depends(get_db)):
 
 @router.put("/das/{das_id}", response_model=DasOut)
 def update_das(das_id: int, body: DasUpdateIn, conn=Depends(get_db)):
-    """Update a DataAcquisitionSystem's name and description."""
-    row = signal_interface_repository.update_das(conn, das_id, body.name, body.description)
+    """Update a DataAcquisitionSystem."""
+    row = signal_interface_repository.update_das(
+        conn, das_id, body.name, body.description, body.das_kind_id
+    )
     if row is None:
         raise HTTPException(status_code=404, detail=f"DataAcquisitionSystem {das_id} not found.")
     return DasOut(**row)
@@ -181,21 +184,13 @@ def get_signal_interface(signal_interface_id: int, conn=Depends(get_db)):
 
 @router.post("/provision", response_model=SignalInterfaceOut, status_code=201)
 def provision_signal_interface(body: SignalInterfaceProvisionIn, conn=Depends(get_db)):
-    """Find or create a SignalInterface by das_name + name + type_name.
+    """Find or create a SignalInterface by das_name + name.
 
     Idempotent: returns the existing interface if one matches (das_name, name).
     """
     das_id, _ = signal_interface_repository.find_or_create_das(conn, body.das_name)
-    type_id = signal_interface_repository.find_signal_interface_type_by_name(
-        conn, body.type_name
-    )
-    if type_id is None:
-        raise HTTPException(
-            status_code=422,
-            detail=f"SignalInterfaceKind {body.type_name!r} not found.",
-        )
     si_id, _ = signal_interface_repository.find_or_create_signal_interface(
-        conn, das_id=das_id, name=body.name, signal_interface_kind_id=type_id
+        conn, das_id=das_id, name=body.name
     )
     row = signal_interface_repository.get_signal_interface_by_id(conn, si_id)
     return _row_to_signal_interface_out(row)  # type: ignore[arg-type]
@@ -212,8 +207,7 @@ def create_signal_interface(body: SignalInterfaceIn, conn=Depends(get_db)):
             conn,
             das_id=body.data_acquisition_system_id,
             name=body.name,
-            signal_interface_kind_id=body.signal_interface_kind_id,
-            make=body.make,
+            manufacturer=body.manufacturer,
             model=body.model,
             serial_number=body.serial_number,
             description=body.description,
@@ -320,7 +314,6 @@ def create_port_under_interface(
             conn,
             signal_interface_id=signal_interface_id,
             port_identifier=body.port_identifier,
-            signal_interface_port_kind_id=body.signal_interface_port_kind_id,
             description=body.description,
         )
     except pyodbc.IntegrityError as exc:

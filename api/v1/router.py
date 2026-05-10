@@ -21,8 +21,6 @@ from .endpoints.annotations import (
 )
 from .endpoints.sensor_status import router as sensor_status_router
 from .endpoints.parameters import router as parameters_router
-from .endpoints.signal_interface_kinds import router as signal_interface_kinds_router
-from .endpoints.signal_interface_port_kinds import router as signal_interface_port_kinds_router
 from .endpoints.signal_interfaces import router as signal_interfaces_router
 from .endpoints.signal_interface_ports import router as signal_interface_ports_router
 from .endpoints.value_binning import router as value_binning_router
@@ -63,16 +61,6 @@ router.include_router(
 )
 router.include_router(sensor_status_router, tags=["sensor-status"])
 router.include_router(parameters_router, prefix="/parameters", tags=["parameters"])
-router.include_router(
-    signal_interface_kinds_router,
-    prefix="/signal-interface-kinds",
-    tags=["signal-interface-kinds"],
-)
-router.include_router(
-    signal_interface_port_kinds_router,
-    prefix="/signal-interface-port-kinds",
-    tags=["signal-interface-port-kinds"],
-)
 router.include_router(
     signal_interfaces_router, prefix="/signal-interfaces", tags=["signal-interfaces"]
 )

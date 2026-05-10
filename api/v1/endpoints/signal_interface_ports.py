@@ -39,8 +39,6 @@ def _row_to_port_out(row: dict) -> SignalInterfacePortOut:
         is_active=bool(row["IsActive"]),
         signal_interface_id=row["SignalInterface_ID"],
         signal_interface_name=row["signal_interface_name"],
-        signal_interface_port_kind_id=row["SignalInterfacePortKind_ID"],
-        signal_interface_port_kind_name=row["signal_interface_port_kind_name"],
     )
 
 
@@ -92,20 +90,12 @@ def get_signal_interface_port(signal_interface_port_id: int, conn=Depends(get_db
 
 @router.post("/provision", response_model=SignalInterfacePortOut, status_code=201)
 def provision_signal_interface_port(body: SignalInterfacePortProvisionIn, conn=Depends(get_db)):
-    """Find or create a SignalInterfacePort by signal_interface_id + port_identifier + kind_name.
+    """Find or create a SignalInterfacePort by signal_interface_id + port_identifier.
 
     Idempotent: returns the existing port if one matches (signal_interface_id, port_identifier).
     """
-    kind_id = signal_interface_repository.find_signal_interface_port_kind_by_name(
-        conn, body.kind_name
-    )
-    if kind_id is None:
-        raise HTTPException(
-            status_code=422,
-            detail=f"SignalInterfacePortKind {body.kind_name!r} not found.",
-        )
     port_id, _ = signal_interface_repository.find_or_create_signal_interface_port(
-        conn, body.signal_interface_id, body.port_identifier, kind_id
+        conn, body.signal_interface_id, body.port_identifier
     )
     row = signal_interface_repository.get_signal_interface_port_by_id(conn, port_id)
     return _row_to_port_out(row)  # type: ignore[arg-type]
@@ -122,7 +112,6 @@ def create_signal_interface_port(body: SignalInterfacePortIn, conn=Depends(get_d
             conn,
             signal_interface_id=body.signal_interface_id,
             port_identifier=body.port_identifier,
-            signal_interface_port_kind_id=body.signal_interface_port_kind_id,
             description=body.description,
         )
     except pyodbc.IntegrityError as exc:
@@ -135,7 +124,7 @@ def create_signal_interface_port(body: SignalInterfacePortIn, conn=Depends(get_d
         ) from exc
 
     row = signal_interface_repository.get_signal_interface_port_by_id(conn, new_id)
-    return _row_to_port_out(row)
+    return _row_to_port_out(row)  # type: ignore[arg-type]
 
 
 @router.patch("/{signal_interface_port_id}", response_model=SignalInterfacePortOut)
@@ -164,7 +153,7 @@ def patch_signal_interface_port(
         signal_interface_port_id,
         body.model_dump(exclude_none=True),
     )
-    return _row_to_port_out(row)
+    return _row_to_port_out(row)  # type: ignore[arg-type]
 
 
 @router.delete("/{signal_interface_port_id}", status_code=204)
