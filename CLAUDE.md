@@ -7,8 +7,10 @@ database schema. Before implementing any phase:
 4. Run tests after each task
 5. Never modify dbo.Value or existing production-critical tables 
    without explicit approval
-6. Every schema change must have a corresponding migration script 
-   AND a rollback script
+6. Migration scripts (and rollback scripts) are only required between
+   explicitly tagged releases (e.g., v1.x → v2.0). During pre-release
+   development, correct the YAML schema dictionary instead — the DDL is
+   regenerated from it. Do NOT write migration scripts for in-progress work.
 7. Every new table or column must have a dictionary entry (YAML)
 
 ## Commands
