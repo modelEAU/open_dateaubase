@@ -43,7 +43,7 @@ TABLE_NAME_MAP: dict[str, str] = {
     "sampling_points": "SamplingPoints",
     "watershed": "Watershed",
     "hydrological_characteristics": "HydrologicalCharacteristics",
-    "urban_characteristics": "UrbanCharacteristics",
+    "land_use": "LandUse",
     "project": "Project",
     "project_has_contact": "ProjectHasContact",
     "project_has_equipment": "ProjectHasEquipment",
