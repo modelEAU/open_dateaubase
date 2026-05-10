@@ -700,7 +700,7 @@ class TestIngestionRequestValidation:
             "source_channel_ids": [],
             "processing": {
                 "method_name": "outlier_removal",
-                "processing_type": "Cleaning",
+                "processing_kind_id": 3,
             },
             "output": {
                 "processing_kind_id": 2,

@@ -676,18 +676,18 @@ class TestIC01HydrologicalCharacteristics:
         )
         assert len(rows) == 0, f"Watersheds missing hydro data: {[r[0] for r in rows]}"
 
-    def test_no_watershed_missing_urban_data(self, db_at_v110):
+    def test_no_watershed_missing_land_use_data(self, db_at_v110):
         conn, _ = db_at_v110
         rows = _query(
             conn,
             """
             SELECT w.[name]
             FROM [dbo].[Watershed] w
-            LEFT JOIN [dbo].[UrbanCharacteristics] uc ON w.[Watershed_ID] = uc.[Watershed_ID]
-            WHERE uc.[Watershed_ID] IS NULL
+            LEFT JOIN [dbo].[LandUse] lu ON w.[Watershed_ID] = lu.[Watershed_ID]
+            WHERE lu.[Watershed_ID] IS NULL
             """,
         )
-        assert len(rows) == 0, f"Watersheds missing urban data: {[r[0] for r in rows]}"
+        assert len(rows) == 0, f"Watersheds missing land use data: {[r[0] for r in rows]}"
 
 
 # ---------------------------------------------------------------------------
