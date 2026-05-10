@@ -625,65 +625,6 @@ def delete_signal_interface_port(si_id: int, port_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# SignalInterfaceKind CRUD
-# ---------------------------------------------------------------------------
-
-
-def list_signal_interface_types() -> list[dict]:
-    try:
-        with _get_client() as client:
-            r = client.get("/signal-interface-kinds")
-    except httpx.ConnectError:
-        raise APIError(503, "Cannot reach API")
-    _raise_for_status(r)
-    return r.json()
-
-
-def create_signal_interface_type(data: dict) -> dict:
-    try:
-        with _get_client() as client:
-            r = client.post("/signal-interface-kinds", json=data)
-    except httpx.ConnectError:
-        raise APIError(503, "Cannot reach API")
-    _raise_for_status(r)
-    return r.json()
-
-
-def update_signal_interface_type(si_type_id: int, data: dict) -> dict:
-    try:
-        with _get_client() as client:
-            r = client.put(f"/signal-interface-kinds/{si_type_id}", json=data)
-    except httpx.ConnectError:
-        raise APIError(503, "Cannot reach API")
-    _raise_for_status(r)
-    return r.json()
-
-
-def delete_signal_interface_type(si_type_id: int) -> None:
-    try:
-        with _get_client() as client:
-            r = client.delete(f"/signal-interface-kinds/{si_type_id}")
-    except httpx.ConnectError:
-        raise APIError(503, "Cannot reach API")
-    _raise_for_status(r)
-
-
-# ---------------------------------------------------------------------------
-# SignalInterfacePortKind
-# ---------------------------------------------------------------------------
-
-
-def list_signal_interface_port_kinds() -> list[dict]:
-    try:
-        with _get_client() as client:
-            r = client.get("/signal-interface-port-kinds")
-    except httpx.ConnectError:
-        raise APIError(503, "Cannot reach API")
-    _raise_for_status(r)
-    return r.json()
-
-
-# ---------------------------------------------------------------------------
 # ChannelKind
 # ---------------------------------------------------------------------------
 
@@ -1322,6 +1263,28 @@ def list_das_lookup() -> list[dict]:
     try:
         with _get_client() as client:
             r = client.get("/signal-interfaces/das/lookup")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_das_kinds() -> list[dict]:
+    """Return [{das_kind_id, name, description}] for DAS category dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/das-kinds")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_controller_kinds() -> list[dict]:
+    """Return [{controller_kind_id, name, description}] for controller type dropdowns."""
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/controller-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1985,6 +1948,50 @@ def delete_equipment_event_kind(event_type_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# ProcedureKind
+# ---------------------------------------------------------------------------
+
+
+def list_procedure_kinds() -> list[dict]:
+    try:
+        with _get_client() as client:
+            r = client.get("/vocab/procedure-kinds")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_procedure_kind(data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.post("/vocab/procedure-kinds", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_procedure_kind(procedure_kind_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/vocab/procedure-kinds/{procedure_kind_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_procedure_kind(procedure_kind_id: int) -> None:
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/vocab/procedure-kinds/{procedure_kind_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+# ---------------------------------------------------------------------------
 # Procedures
 # ---------------------------------------------------------------------------
 
@@ -2072,6 +2079,29 @@ def delete_watershed(watershed_id: int) -> None:
     _raise_for_status(r)
 
 
+def get_land_use(watershed_id: int) -> dict | None:
+    """Return land use data for a watershed, or None if not set."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/vocab/watersheds/{watershed_id}/land-use")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    if r.status_code == 404:
+        return None
+    _raise_for_status(r)
+    return r.json()
+
+
+def upsert_land_use(watershed_id: int, data: dict) -> dict:
+    try:
+        with _get_client() as client:
+            r = client.put(f"/vocab/watersheds/{watershed_id}/land-use", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # FK lookup aliases used by schema_registry.fk_lookup_fn()
 #
@@ -2109,10 +2139,6 @@ def list_process_unit_kind_lookup() -> list[dict]:
     return list_process_unit_types()
 
 
-def list_signal_interface_kind_lookup() -> list[dict]:
-    return list_signal_interface_types()
-
-
 def list_annotation_kind_lookup() -> list[dict]:
     return list_annotation_kinds()
 
@@ -2123,6 +2149,10 @@ def list_bin_kind_lookup() -> list[dict]:
 
 def list_processing_kind_lookup() -> list[dict]:
     return list_processing_kinds()
+
+
+def list_procedure_kind_lookup() -> list[dict]:
+    return list_procedure_kinds()
 
 
 def list_quality_code_lookup() -> list[dict]:
@@ -2143,10 +2173,6 @@ def list_equipment_event_kind_lookup() -> list[dict]:
 
 def list_data_acquisition_system_lookup() -> list[dict]:
     return list_das_lookup()
-
-
-def list_signal_interface_port_kind_lookup() -> list[dict]:
-    return list_signal_interface_port_kinds()
 
 
 def list_parameter_lookup() -> list[dict]:

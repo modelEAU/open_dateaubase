@@ -22,6 +22,7 @@ from app.api_client import (
     get_fallback_chain,
     list_control_loop_ports,
     list_control_loops,
+    list_controller_kinds,
     list_channels,
     open_application,
     retune_control_loop,
@@ -35,6 +36,7 @@ st.title("Control Loops")
 try:
     with st.spinner("Loading..."):
         channels = list_channels(page_size=1000).get("items", [])
+        controller_kinds = list_controller_kinds()
 except APIError as e:
     st.error(f"Cannot load lookup data: {e.message}")
     st.stop()
@@ -107,12 +109,22 @@ def handle_retune(loop_id: int, data: dict) -> bool:
 col1, col2 = st.columns([1, 9])
 with col1:
     if st.button("➕ New Loop", type="primary"):
+        kind_options = [
+            {"id": k["controller_kind_id"], "label": k["name"]}
+            for k in controller_kinds
+        ]
         create_form_dialog(
             fields=[
                 {"name": "name", "type": "text", "required": True},
                 {"name": "description", "type": "text", "required": False},
                 {
-                    "name": "controller_application_id",
+                    "name": "controller_kind_id",
+                    "type": "select",
+                    "required": True,
+                    "options": kind_options,
+                },
+                {
+                    "name": "fallback_control_loop_id",
                     "type": "number",
                     "required": False,
                 },

@@ -76,7 +76,8 @@ _DEFAULTS_MV: dict = {
     "mv_add_event": False,
     "mv_event_type_id": None,
     "mv_event_type_label": None,
-    "mv_event_desc": "",
+    "mv_event_notes": "",
+    "mv_event_is_instantaneous": False,
 }
 
 _DEFAULTS_MW: dict = {
@@ -93,7 +94,8 @@ _DEFAULTS_MW: dict = {
     "mw_add_event": False,
     "mw_event_type_id": None,
     "mw_event_type_label": None,
-    "mw_event_desc": "",
+    "mw_event_notes": "",
+    "mw_event_is_instantaneous": False,
 }
 
 
@@ -519,7 +521,8 @@ def _step_equipment_event(
     add_event_key = f"{prefix}_add_event"
     event_type_label_key = f"{prefix}_event_type_label"
     event_type_id_key = f"{prefix}_event_type_id"
-    event_desc_key = f"{prefix}_event_desc"
+    event_notes_key = f"{prefix}_event_notes"
+    event_instantaneous_key = f"{prefix}_event_is_instantaneous"
 
     add_event = st.checkbox(
         "Record an equipment event alongside this move",
@@ -530,7 +533,8 @@ def _step_equipment_event(
     et_labels: list[str] = []
     et_map: dict[str, int] = {}
     et_label: str | None = None
-    event_desc: str = ""
+    event_notes: str = ""
+    is_instantaneous: bool = False
 
     if add_event:
         et_map = {et["event_type_name"]: et["event_type_id"] for et in event_types}
@@ -552,10 +556,16 @@ def _step_equipment_event(
                 key=f"{prefix}_event_type_widget",
                 help="Kind of lifecycle event (calibration, maintenance, failure, ...)",
             )
-            event_desc = st.text_area(
-                "Description",
-                value=st.session_state.get(event_desc_key) or "",
-                key=f"{prefix}_event_desc_widget",
+            is_instantaneous = st.checkbox(
+                "Instantaneous event (no duration)",
+                value=st.session_state.get(event_instantaneous_key, False),
+                key=f"{prefix}_event_instantaneous_widget",
+                help="Check if this event occurred at a single point in time rather than over an interval",
+            )
+            event_notes = st.text_area(
+                "Notes",
+                value=st.session_state.get(event_notes_key) or "",
+                key=f"{prefix}_event_notes_widget",
                 help="Free-text notes about the event",
             )
 
@@ -570,11 +580,13 @@ def _step_equipment_event(
                 return ["Select an event type."]
             st.session_state[event_type_id_key] = et_map.get(et_label)
             st.session_state[event_type_label_key] = et_label
-            st.session_state[event_desc_key] = event_desc or ""
+            st.session_state[event_notes_key] = event_notes or ""
+            st.session_state[event_instantaneous_key] = is_instantaneous
         else:
             st.session_state[event_type_id_key] = None
             st.session_state[event_type_label_key] = None
-            st.session_state[event_desc_key] = ""
+            st.session_state[event_notes_key] = ""
+            st.session_state[event_instantaneous_key] = False
         return []
 
     _nav(
@@ -614,8 +626,10 @@ def _step_review() -> None:
         with st.container(border=True):
             st.markdown("**Equipment event will be recorded:**")
             st.markdown(f"- Type: {st.session_state.mv_event_type_label or '—'}")
-            if st.session_state.mv_event_desc:
-                st.markdown(f"- Description: {st.session_state.mv_event_desc}")
+            if st.session_state.get("mv_event_is_instantaneous"):
+                st.markdown("- Instantaneous event")
+            if st.session_state.get("mv_event_notes"):
+                st.markdown(f"- Notes: {st.session_state.mv_event_notes}")
 
     def on_next() -> list[str]:
         move_ts = move_dt.isoformat()
@@ -643,7 +657,8 @@ def _step_review() -> None:
                         "equipment_id": st.session_state.mv_equipment_id,
                         "event_type_id": st.session_state.mv_event_type_id,
                         "start_datetime": move_ts,
-                        "description": st.session_state.mv_event_desc or None,
+                        "is_instantaneous": st.session_state.get("mv_event_is_instantaneous", False),
+                        "notes": st.session_state.get("mv_event_notes") or None,
                     }
                 )
             except APIError as e:
@@ -702,8 +717,10 @@ def _step_mw_review() -> None:
         with st.container(border=True):
             st.markdown("**Equipment event will be recorded:**")
             st.markdown(f"- Type: {st.session_state.mw_event_type_label or '—'}")
-            if st.session_state.mw_event_desc:
-                st.markdown(f"- Description: {st.session_state.mw_event_desc}")
+            if st.session_state.get("mw_event_is_instantaneous"):
+                st.markdown("- Instantaneous event")
+            if st.session_state.get("mw_event_notes"):
+                st.markdown(f"- Notes: {st.session_state.mw_event_notes}")
 
     def on_next() -> list[str]:
         rewire_ts = rewire_dt.isoformat()
@@ -733,7 +750,8 @@ def _step_mw_review() -> None:
                         "equipment_id": st.session_state.mw_equipment_id,
                         "event_type_id": st.session_state.mw_event_type_id,
                         "start_datetime": rewire_ts,
-                        "description": st.session_state.mw_event_desc or None,
+                        "is_instantaneous": st.session_state.get("mw_event_is_instantaneous", False),
+                        "notes": st.session_state.get("mw_event_notes") or None,
                     }
                 )
             except APIError as e:

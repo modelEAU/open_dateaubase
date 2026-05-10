@@ -28,7 +28,6 @@ from app.api_client import (
     list_parameters_lookup,
     list_persons_lookup,
     list_processing_kinds_lookup,
-    list_signal_interface_types,
     list_signal_interfaces_lookup,
     list_site_sampling_locations,
     list_site_kinds,
@@ -146,7 +145,6 @@ def _load_lookups() -> dict | None:
             "parameters": list_parameters_lookup(),
             "processing_kinds": list_processing_kinds_lookup(),
             "das": list_das_lookup(),
-            "signal_interface_types": list_signal_interface_types(),
             "signal_interfaces_flat": signal_interfaces_flat,
             "persons": list_persons_lookup(),
             "process_units": list_process_units_lookup(),
@@ -758,9 +756,6 @@ def _step_das(lookups: dict) -> None:
 # ---------------------------------------------------------------------------
 # Step 4: Equipment & Tags
 # ---------------------------------------------------------------------------
-# Step 4: Equipment & Tags
-# ---------------------------------------------------------------------------
-
 
 def _step_equipment_and_tags(lookups: dict) -> None:
     _restore_snapshot(4)
@@ -779,10 +774,6 @@ def _step_equipment_and_tags(lookups: dict) -> None:
     eq_labels = [o["label"] for o in eq_opts]
     model_labels = [o["label"] for o in model_opts]
 
-    si_type_opts = [
-        {"id": t["signal_interface_kind_id"], "label": t["name"]}
-        for t in lookups["signal_interface_types"]
-    ]
     param_opts = [
         {"id": p["parameter_id"], "label": p["parameter_name"]}
         for p in lookups["parameters"]
@@ -791,7 +782,6 @@ def _step_equipment_and_tags(lookups: dict) -> None:
         {"id": p["processing_kind_id"], "label": p["name"]}
         for p in lookups["processing_kinds"]
     ]
-    si_type_labels = [o["label"] for o in si_type_opts]
     param_labels = [o["label"] for o in param_opts]
     pd_labels = [o["label"] for o in pd_opts]
     vt_labels = [o["label"] for o in _VALUE_TYPES]
@@ -983,14 +973,6 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                         help="Name for the new Signal Interface and Channel"
                         " (e.g. AI_01)",
                     )
-                    if si_type_labels:
-                        st.selectbox(
-                            "Interface type *",
-                            si_type_labels,
-                            key=f"wiz_tag_{tid}_si_type",
-                        )
-                    else:
-                        st.warning("No signal interface types found in the database.")
                     if param_labels:
                         st.selectbox(
                             "Parameter *",
@@ -1127,8 +1109,6 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                     errors.append(
                         f"Channel {tid + 1}: tag / interface name is required."
                     )
-                if not st.session_state.get(f"wiz_tag_{tid}_si_type"):
-                    errors.append(f"Channel {tid + 1}: interface type is required.")
                 if not st.session_state.get(f"wiz_tag_{tid}_parameter"):
                     errors.append(f"Channel {tid + 1}: parameter is required.")
 
@@ -1285,10 +1265,9 @@ def _step_review(lookups: dict) -> None:
             st.markdown("**Will be created:**")
             for tid in new_tags:
                 tag_str = st.session_state.get(f"wiz_tag_{tid}_tag", "—")
-                si_type = st.session_state.get(f"wiz_tag_{tid}_si_type", "—")
                 param = st.session_state.get(f"wiz_tag_{tid}_parameter", "—")
                 vt = st.session_state.get(f"wiz_tag_{tid}_value_type", "—")
-                st.markdown(f"- `{tag_str}` ({si_type}, {param}, {vt})")
+                st.markdown(f"- `{tag_str}` ({param}, {vt})")
         if exist_tags:
             st.markdown("**Already exists / will be linked:**")
             for tid in exist_tags:
@@ -1347,10 +1326,6 @@ def _execute_creates(lookups: dict) -> list[str]:
         for p in lookups["processing_kinds"]
     ]
     das_opts = [{"id": d["das_id"], "label": d["name"]} for d in lookups["das"]]
-    si_type_opts = [
-        {"id": t["signal_interface_kind_id"], "label": t["name"]}
-        for t in lookups["signal_interface_types"]
-    ]
     existing_si_opts: list[dict] = lookups.get("signal_interfaces_flat", [])
     person_opts: list[dict] = lookups.get("persons", [])
 
@@ -1693,16 +1668,12 @@ def _execute_creates(lookups: dict) -> list[str]:
                 existing_si_opts,
             )
         else:
-            si_type_id = _resolve_id(
-                st.session_state.get(f"wiz_tag_{tid}_si_type"), si_type_opts
-            )
             tag_str = st.session_state.get(f"wiz_tag_{tid}_tag") or ""
             try:
                 si = create_signal_interface(
                     {
                         "data_acquisition_system_id": actual_das_id,
                         "name": tag_str,
-                        "signal_interface_kind_id": si_type_id,
                     }
                 )
                 signal_interface_id = si["signal_interface_id"]

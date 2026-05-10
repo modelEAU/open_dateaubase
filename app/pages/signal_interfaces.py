@@ -17,12 +17,9 @@ from app.api_client import (
     create_signal_interface,
     create_signal_interface_port,
     delete_signal_interface,
-    delete_signal_interface_port,
     list_channels_for_interface,
     list_das_lookup,
-    list_signal_interface_port_kinds,
     list_signal_interface_ports,
-    list_signal_interface_types,
     list_signal_interfaces,
     update_signal_interface,
 )
@@ -35,16 +32,12 @@ st.title("Signal Interfaces")
 try:
     with st.spinner("Loading..."):
         das_lookup = list_das_lookup()
-        si_types_lookup = list_signal_interface_types()
 except APIError as e:
     st.error(f"Cannot load lookup data: {e.message}")
     st.stop()
 
 # Prepare dropdown options
 das_options = [{"id": d["das_id"], "label": d["name"]} for d in das_lookup]
-si_type_options = [
-    {"id": t["signal_interface_kind_id"], "label": t["name"]} for t in si_types_lookup
-]
 
 # Filter section
 st.markdown("### Filters")
@@ -132,14 +125,6 @@ with col1:
                     "help": "Human-readable unique name of this interface (e.g. 'hedi_plc', 'sc1000_primary')",
                 },
                 {
-                    "name": "signal_interface_kind_id",
-                    "label": "Interface Kind",
-                    "type": "select",
-                    "required": True,
-                    "options": si_type_options,
-                    "help": "Kind of this interface (PLC, SCADA, Basestation, ...)",
-                },
-                {
                     "name": "das_id",
                     "label": "Data Acquisition System",
                     "type": "select",
@@ -155,8 +140,8 @@ with col1:
                     "help": "Serial number if known",
                 },
                 {
-                    "name": "make",
-                    "label": "Make",
+                    "name": "manufacturer",
+                    "label": "Manufacturer",
                     "type": "text",
                     "required": False,
                     "help": "Manufacturer (e.g. 'Rockwell', 'Hach', 'WTW')",
@@ -214,14 +199,6 @@ with col2:
                         "help": "Human-readable unique name of this interface (e.g. 'hedi_plc', 'sc1000_primary')",
                     },
                     {
-                        "name": "signal_interface_kind_id",
-                        "label": "Interface Kind",
-                        "type": "select",
-                        "required": True,
-                        "options": si_type_options,
-                        "help": "Kind of this interface (PLC, SCADA, Basestation, ...)",
-                    },
-                    {
                         "name": "das_id",
                         "label": "Data Acquisition System",
                         "type": "select",
@@ -237,8 +214,8 @@ with col2:
                         "help": "Serial number if known",
                     },
                     {
-                        "name": "make",
-                        "label": "Make",
+                        "name": "manufacturer",
+                        "label": "Manufacturer",
                         "type": "text",
                         "required": False,
                         "help": "Manufacturer (e.g. 'Rockwell', 'Hach', 'WTW')",
@@ -275,15 +252,6 @@ if selected_interface:
 
     with tab_ports:
         try:
-            port_kinds_lookup = list_signal_interface_port_kinds()
-            port_kind_options = [
-                {"id": pk["signal_interface_port_kind_id"], "label": pk["name"]}
-                for pk in port_kinds_lookup
-            ]
-        except APIError:
-            port_kind_options = []
-
-        try:
             ports = list_signal_interface_ports(si_id)
         except APIError as e:
             st.error(f"Failed to load ports: {e.message}")
@@ -303,14 +271,6 @@ if selected_interface:
                         "type": "text",
                         "required": True,
                         "help": "Identifier used by the interface (e.g. 'slot6/Ch0', 'COM2', 'ProbeA')",
-                    },
-                    {
-                        "name": "signal_interface_port_kind_id",
-                        "label": "Port Kind",
-                        "type": "select",
-                        "required": True,
-                        "options": port_kind_options,
-                        "help": "Physical kind of port (analog/digital/serial/...)",
                     },
                     {
                         "name": "description",

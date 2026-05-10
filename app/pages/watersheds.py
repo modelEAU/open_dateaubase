@@ -1,7 +1,8 @@
-"""Watersheds — entity admin page."""
+"""Watersheds — entity admin page with map and GeoJSON support."""
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -9,30 +10,323 @@ _project_root = str(Path(__file__).resolve().parent.parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
+import folium
+import streamlit as st
+from streamlit_folium import st_folium
+
 from app.api_client import (
+    APIError,
     create_watershed,
     delete_watershed,
+    get_land_use,
     list_watersheds,
     update_watershed,
+    upsert_land_use,
 )
 from app.auth import require_auth
-from app.components.generic_crud import render_crud_page
 
 require_auth()
 
-render_crud_page(
-    title="Watersheds",
-    pk_field="watershed_id",
-    form_fields=[
-        {"name": "name", "type": "text", "required": False, "label": "Name", "help": "Name of the watershed"},
-        {"name": "description", "type": "textarea", "required": False, "label": "Description", "help": "Description of the watershed"},
-        {"name": "surface_area", "type": "number", "required": False, "label": "Surface Area (ha)", "help": "Surface area in hectares"},
-        {"name": "concentration_time", "type": "number", "required": False, "label": "Concentration Time (min)", "help": "Concentration time in minutes"},
-        {"name": "impervious_surface", "type": "number", "required": False, "label": "Impervious Surface (%)", "help": "Percentage of impervious surface"},
-    ],
-    list_fn=list_watersheds,
-    create_fn=create_watershed,
-    update_fn=update_watershed,
-    delete_fn=delete_watershed,
-    label_field="name",
+_ALLOWED_GEOM_TYPES = {"Polygon", "MultiPolygon"}
+_LAND_USE_FIELDS = [
+    ("commercial", "Commercial"),
+    ("green_spaces", "Green Spaces"),
+    ("industrial", "Industrial"),
+    ("institutional", "Institutional"),
+    ("residential", "Residential"),
+    ("agricultural", "Agricultural"),
+    ("recreational", "Recreational"),
+]
+
+st.title("Watersheds")
+
+
+def _validate_geojson(raw: str) -> tuple[dict | None, str | None]:
+    """Return (parsed, error). error is None on success."""
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return None, f"Invalid JSON: {exc}"
+
+    top = data.get("type")
+    if top == "FeatureCollection":
+        for f in data.get("features", []):
+            geom = f.get("geometry") or {}
+            t = geom.get("type")
+            if t not in _ALLOWED_GEOM_TYPES:
+                return None, f"All geometries must be Polygon or MultiPolygon; found '{t}'"
+    elif top == "Feature":
+        geom = data.get("geometry") or {}
+        t = geom.get("type")
+        if t not in _ALLOWED_GEOM_TYPES:
+            return None, f"Geometry must be Polygon or MultiPolygon; found '{t}'"
+    elif top in _ALLOWED_GEOM_TYPES:
+        pass
+    else:
+        return None, f"GeoJSON type must be Polygon, MultiPolygon, Feature, or FeatureCollection; found '{top}'"
+
+    return data, None
+
+
+def _render_map(geojson_data: dict | None, center: tuple[float, float] = (45.5, -73.6)) -> None:
+    m = folium.Map(location=center, zoom_start=10, tiles="OpenStreetMap")
+    if geojson_data:
+        gj = folium.GeoJson(geojson_data, name="Watershed boundary")
+        gj.add_to(m)
+    st_folium(m, height=350, use_container_width=True)
+
+
+def _geojson_uploader(key: str, existing_geojson: str | None) -> tuple[str | None, dict | None]:
+    """Render upload widget + current GeoJSON string display.
+
+    Returns (geojson_str, parsed_dict) where both are None if no valid GeoJSON.
+    """
+    uploaded = st.file_uploader(
+        "Upload GeoJSON boundary",
+        type=["geojson", "json"],
+        key=f"{key}_uploader",
+        help="Must contain only Polygon or MultiPolygon geometries.",
+    )
+    if uploaded is not None:
+        raw = uploaded.read().decode("utf-8")
+        parsed, err = _validate_geojson(raw)
+        if err:
+            st.error(f"Invalid GeoJSON: {err}")
+            return existing_geojson, None
+        st.success("GeoJSON validated — Polygon/MultiPolygon geometry detected.")
+        return raw, parsed
+
+    if existing_geojson:
+        parsed, _ = _validate_geojson(existing_geojson)
+        return existing_geojson, parsed
+
+    return None, None
+
+
+# ---------------------------------------------------------------------------
+# Load data
+# ---------------------------------------------------------------------------
+
+try:
+    items: list[dict] = list_watersheds()
+except APIError as e:
+    st.error(f"Cannot load watersheds: {e.message}")
+    st.stop()
+
+id_to_name = {w["watershed_id"]: w["name"] or f"#{w['watershed_id']}" for w in items}
+
+# ---------------------------------------------------------------------------
+# Create form
+# ---------------------------------------------------------------------------
+
+with st.expander("➕ Create new watershed", expanded=False):
+    with st.form("ws_create_form", clear_on_submit=True):
+        c_name = st.text_input("Name")
+        c_desc = st.text_area("Description")
+        c_surface = st.number_input("Surface area (ha)", min_value=0.0, value=None)
+        c_conc = st.number_input("Concentration time (min)", min_value=0, step=1, value=None)
+        c_imp = st.number_input("Impervious surface (%)", min_value=0.0, max_value=100.0, value=None)
+
+        parent_labels = ["(none)"] + [f"{v} (#{k})" for k, v in id_to_name.items()]
+        c_parent_label = st.selectbox("Parent watershed", parent_labels)
+
+        st.subheader("Land Use (%)", divider=False)
+        st.caption("Leave blank if unknown. Values represent percentage of watershed area.")
+        c_land_use: dict[str, float | None] = {}
+        lu_cols = st.columns(3)
+        for i, (field, label) in enumerate(_LAND_USE_FIELDS):
+            c_land_use[field] = lu_cols[i % 3].number_input(
+                label, min_value=0.0, max_value=100.0, value=None, key=f"c_lu_{field}"
+            )
+
+        submitted = st.form_submit_button("Create")
+
+    # GeoJSON upload lives outside the form (file_uploader + form = limitation)
+    st.caption("Boundary (optional)")
+    c_geojson_str, c_geojson_parsed = _geojson_uploader("ws_create", None)
+    if c_geojson_parsed:
+        _render_map(c_geojson_parsed)
+
+    if submitted:
+        parent_id: int | None = None
+        if c_parent_label and c_parent_label != "(none)":
+            pid_str = c_parent_label.rsplit("(#", 1)[-1].rstrip(")")
+            try:
+                parent_id = int(pid_str)
+            except ValueError:
+                parent_id = None
+        try:
+            new_ws = create_watershed(
+                {
+                    "name": c_name.strip() or None,
+                    "description": c_desc.strip() or None,
+                    "surface_area": c_surface,
+                    "concentration_time": int(c_conc) if c_conc is not None else None,
+                    "impervious_surface": c_imp,
+                    "parent_watershed_id": parent_id,
+                    "geometry_geojson": c_geojson_str,
+                }
+            )
+            if any(v is not None for v in c_land_use.values()):
+                upsert_land_use(new_ws["watershed_id"], c_land_use)
+            st.success("Watershed created.")
+            st.rerun()
+        except APIError as e:
+            st.error(f"Create failed: {e.message}")
+
+# ---------------------------------------------------------------------------
+# List + select for edit/delete
+# ---------------------------------------------------------------------------
+
+if not items:
+    st.info("No watersheds yet.")
+    st.stop()
+
+import pandas as pd
+
+df = pd.DataFrame(
+    [
+        {
+            "ID": w["watershed_id"],
+            "Name": w["name"] or "",
+            "Surface (ha)": w["surface_area"],
+            "Conc. time (min)": w["concentration_time"],
+            "Impervious (%)": w["impervious_surface"],
+            "Parent ID": w["parent_watershed_id"],
+            "Has boundary": w["geometry_geojson"] is not None,
+        }
+        for w in items
+    ]
+).sort_values("ID").reset_index(drop=True)
+
+sel = st.dataframe(
+    df,
+    use_container_width=True,
+    on_select="rerun",
+    selection_mode="single-row",
 )
+rows = (sel or {}).get("selection", {}).get("rows", [])
+selected: dict | None = items[rows[0]] if rows else None
+
+if selected is None:
+    st.caption("Select a row to edit or view its boundary.")
+    st.stop()
+
+st.divider()
+_ws_label = selected["name"] or f"Watershed #{selected['watershed_id']}"
+st.subheader(f"Edit: {_ws_label}")
+
+# Load existing land use (None if not yet set)
+try:
+    existing_land_use: dict | None = get_land_use(selected["watershed_id"])
+except APIError:
+    existing_land_use = None
+
+# Map for currently stored geometry
+existing_geojson_str: str | None = selected.get("geometry_geojson")
+existing_parsed: dict | None = None
+if existing_geojson_str:
+    existing_parsed = json.loads(existing_geojson_str)
+
+col_form, col_map = st.columns([1, 1])
+
+with col_form:
+    with st.form("ws_edit_form"):
+        e_name = st.text_input("Name", value=selected.get("name") or "")
+        e_desc = st.text_area("Description", value=selected.get("description") or "")
+        e_surface = st.number_input(
+            "Surface area (ha)",
+            min_value=0.0,
+            value=float(selected["surface_area"]) if selected["surface_area"] is not None else None,
+        )
+        e_conc = st.number_input(
+            "Concentration time (min)",
+            min_value=0,
+            step=1,
+            value=int(selected["concentration_time"]) if selected["concentration_time"] is not None else None,
+        )
+        e_imp = st.number_input(
+            "Impervious surface (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=float(selected["impervious_surface"]) if selected["impervious_surface"] is not None else None,
+        )
+
+        # Parent watershed dropdown (exclude self)
+        other_ws = {k: v for k, v in id_to_name.items() if k != selected["watershed_id"]}
+        parent_opts = ["(none)"] + [f"{v} (#{k})" for k, v in other_ws.items()]
+        current_parent = selected.get("parent_watershed_id")
+        default_parent_idx = 0
+        if current_parent and current_parent in other_ws:
+            label = f"{other_ws[current_parent]} (#{current_parent})"
+            if label in parent_opts:
+                default_parent_idx = parent_opts.index(label)
+        e_parent_label = st.selectbox("Parent watershed", parent_opts, index=default_parent_idx)
+
+        st.subheader("Land Use (%)", divider=False)
+        st.caption("Leave blank if unknown.")
+        e_land_use: dict[str, float | None] = {}
+        lu_edit_cols = st.columns(3)
+        for i, (field, label) in enumerate(_LAND_USE_FIELDS):
+            existing_val = existing_land_use.get(field) if existing_land_use else None
+            e_land_use[field] = lu_edit_cols[i % 3].number_input(
+                label,
+                min_value=0.0,
+                max_value=100.0,
+                value=float(existing_val) if existing_val is not None else None,
+                key=f"e_lu_{field}",
+            )
+
+        save_btn = st.form_submit_button("Save changes")
+        del_btn = st.form_submit_button("🗑 Delete", type="secondary")
+
+    # GeoJSON uploader (outside form)
+    st.caption("Replace boundary (upload new GeoJSON, or leave blank to keep existing)")
+    e_geojson_str, e_geojson_parsed = _geojson_uploader(
+        f"ws_edit_{selected['watershed_id']}", existing_geojson_str
+    )
+
+with col_map:
+    st.caption("Watershed boundary")
+    display_geojson = e_geojson_parsed if e_geojson_parsed else existing_parsed
+    _render_map(display_geojson)
+
+# Handle save
+if save_btn:
+    e_parent_id: int | None = None
+    if e_parent_label and e_parent_label != "(none)":
+        pid_str = e_parent_label.rsplit("(#", 1)[-1].rstrip(")")
+        try:
+            e_parent_id = int(pid_str)
+        except ValueError:
+            e_parent_id = None
+
+    # Keep existing GeoJSON if no new file was uploaded
+    final_geojson = e_geojson_str if e_geojson_str is not None else existing_geojson_str
+
+    try:
+        update_watershed(
+            selected["watershed_id"],
+            {
+                "name": e_name.strip() or None,
+                "description": e_desc.strip() or None,
+                "surface_area": e_surface,
+                "concentration_time": int(e_conc) if e_conc is not None else None,
+                "impervious_surface": e_imp,
+                "parent_watershed_id": e_parent_id,
+                "geometry_geojson": final_geojson,
+            },
+        )
+        upsert_land_use(selected["watershed_id"], e_land_use)
+        st.success("Saved.")
+        st.rerun()
+    except APIError as e:
+        st.error(f"Save failed: {e.message}")
+
+if del_btn:
+    try:
+        delete_watershed(selected["watershed_id"])
+        st.success("Deleted.")
+        st.rerun()
+    except APIError as e:
+        st.error(f"Delete failed: {e.message}")

@@ -12,6 +12,7 @@ if _project_root not in sys.path:
 from app.api_client import (
     create_procedure,
     delete_procedure,
+    list_procedure_kinds,
     list_procedures,
     update_procedure,
 )
@@ -20,12 +21,20 @@ from app.components.generic_crud import render_crud_page
 
 require_auth()
 
+try:
+    _kind_options = [
+        {"id": k["procedure_kind_id"], "label": k["name"]}
+        for k in list_procedure_kinds()
+    ]
+except Exception:
+    _kind_options = []
+
 render_crud_page(
     title="Procedures",
     pk_field="procedure_id",
     form_fields=[
         {"name": "procedure_name", "type": "text", "required": False, "label": "Procedure Name", "help": "Title of the procedure"},
-        {"name": "procedure_type", "type": "text", "required": False, "label": "Type", "help": "e.g. SOP, ISO method"},
+        {"name": "procedure_kind_id", "type": "select", "required": False, "label": "Type", "options": _kind_options, "help": "Category of procedure"},
         {"name": "description", "type": "textarea", "required": False, "label": "Description", "help": "Details of the procedure"},
         {"name": "procedure_location", "type": "text", "required": False, "label": "Location", "help": "Where the procedure document is stored"},
     ],

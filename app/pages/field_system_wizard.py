@@ -13,11 +13,11 @@ from app.api_client import (
     create_equipment,
     create_equipment_model,
     create_signal_interface,
+    list_das_kinds,
     list_equipment_lookup,
     list_equipment_models_lookup,
     list_parameters_lookup,
     list_processing_kinds_lookup,
-    list_signal_interface_types,
     register_equipment_at_interface,
 )
 from app.components.wizard_helpers import (
@@ -72,11 +72,11 @@ def _cancel() -> None:
 def _load_lookups() -> dict | None:
     try:
         return {
-            "si_types": list_signal_interface_types(),
             "equipment": list_equipment_lookup(),
             "equipment_models": list_equipment_models_lookup(),
             "parameters": list_parameters_lookup(),
             "processing_kinds": list_processing_kinds_lookup(),
+            "das_kinds": list_das_kinds(),
         }
     except APIError as e:
         st.error(f"Failed to load lookup data: {e.message}")
@@ -93,7 +93,7 @@ def _model_label(m: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _step_das(lookups: dict) -> None:  # lookups unused; consistent signature
+def _step_das(lookups: dict) -> None:
     restore_snapshot(_WIZ, 0)
 
     st.caption(
@@ -102,6 +102,20 @@ def _step_das(lookups: dict) -> None:  # lookups unused; consistent signature
         "laptop running your instrument software."
     )
     st.text_input("DAS name *", key=f"{_WIZ}_s0_name")
+
+    das_kinds = lookups.get("das_kinds", [])
+    kind_options = [{"id": None, "label": "— not specified —"}] + [
+        {"id": k["das_kind_id"], "label": k["name"]} for k in das_kinds
+    ]
+    kind_labels = [o["label"] for o in kind_options]
+    kind_idx = st.selectbox(
+        "DAS category (optional)",
+        range(len(kind_labels)),
+        format_func=lambda i: kind_labels[i],
+        key=f"{_WIZ}_s0_kind_idx",
+    )
+    st.session_state[f"{_WIZ}_s0_kind_id"] = kind_options[kind_idx]["id"]
+
     st.text_area("Description (optional)", key=f"{_WIZ}_s0_description")
 
     def on_next() -> list[str]:
@@ -147,13 +161,13 @@ def _step_signal_interfaces(lookups: dict) -> None:  # lookups unused; consisten
         with st.expander(label, expanded=True):
             st.text_input("Name *", key=f"{_WIZ}_si_{si_id}_name")
             show_advanced = st.checkbox(
-                "Show advanced fields (make, model, serial number)",
+                "Show advanced fields (manufacturer, model, serial number)",
                 key=f"{_WIZ}_si_{si_id}_show_advanced",
             )
             if show_advanced:
-                col_make, col_model, col_serial = st.columns(3)
-                with col_make:
-                    st.text_input("Make", key=f"{_WIZ}_si_{si_id}_make")
+                col_manufacturer, col_model, col_serial = st.columns(3)
+                with col_manufacturer:
+                    st.text_input("Manufacturer", key=f"{_WIZ}_si_{si_id}_manufacturer")
                 with col_model:
                     st.text_input("Model", key=f"{_WIZ}_si_{si_id}_model_name")
                 with col_serial:
@@ -422,16 +436,6 @@ def _execute_creates(lookups: dict) -> list[str]:
         {"id": p["processing_kind_id"], "label": p["name"]}
         for p in lookups["processing_kinds"]
     ]
-    si_type_opts = [
-        {"id": t["signal_interface_kind_id"], "label": t["name"]}
-        for t in lookups["si_types"]
-    ]
-    # Kind is hidden from the user — auto-select "Unknown"; fall back to first available.
-    _unknown = next(
-        (t for t in si_type_opts if t["label"].lower() == "unknown"),
-        si_type_opts[0] if si_type_opts else None,
-    )
-    default_kind_id: int | None = _unknown["id"] if _unknown else None
 
     # 1. Create DAS
     try:
@@ -439,6 +443,7 @@ def _execute_creates(lookups: dict) -> list[str]:
             {
                 "name": (st.session_state.get(f"{_WIZ}_s0_name") or "").strip(),
                 "description": st.session_state.get(f"{_WIZ}_s0_description") or None,
+                "das_kind_id": st.session_state.get(f"{_WIZ}_s0_kind_id"),
             }
         )
         das_id: int = das["data_acquisition_system_id"]
@@ -449,14 +454,12 @@ def _execute_creates(lookups: dict) -> list[str]:
     # 2. Create signal interfaces
     for si_wiz_id in st.session_state.get(f"{_WIZ}_si_ids", []):
         si_name = (st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_name") or "").strip()
-        si_kind_id = default_kind_id
         try:
             si = create_signal_interface(
                 {
                     "data_acquisition_system_id": das_id,
                     "name": si_name,
-                    "signal_interface_kind_id": si_kind_id,
-                    "make": st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_make") or None,
+                    "manufacturer": st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_manufacturer") or None,
                     "model": st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_model_name") or None,
                     "serial_number": st.session_state.get(f"{_WIZ}_si_{si_wiz_id}_serial") or None,
                 }

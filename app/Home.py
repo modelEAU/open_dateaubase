@@ -119,8 +119,7 @@ pg = st.navigation(
                 title="Signal Interfaces",
                 icon="🔌",
             ),
-            st.Page(str(_pages / "signal_interface_kinds.py"), title="Interface Kinds"),
-            st.Page(str(_pages / "signal_interface_port_kinds.py"), title="Port Kinds"),
+
         ],
         "Vocabulary": [
             st.Page(str(_pages / "site_kinds.py"), title="Site Kinds"),

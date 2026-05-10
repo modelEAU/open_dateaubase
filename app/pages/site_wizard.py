@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+
+import folium
 import streamlit as st
+from streamlit_folium import st_folium
 
 from app.api_client import (
     APIError,
@@ -23,6 +27,39 @@ from app.components.wizard_helpers import (
     resolve_id,
     restore_snapshot,
 )
+
+_ALLOWED_GEOM_TYPES = {"Polygon", "MultiPolygon"}
+
+
+def _validate_ws_geojson(raw: str) -> str | None:
+    """Return an error message string, or None if valid."""
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return f"Invalid JSON: {exc}"
+    top = data.get("type")
+    if top == "FeatureCollection":
+        for f in data.get("features", []):
+            geom = f.get("geometry") or {}
+            t = geom.get("type")
+            if t not in _ALLOWED_GEOM_TYPES:
+                return f"All geometries must be Polygon or MultiPolygon; found '{t}'"
+    elif top == "Feature":
+        geom = data.get("geometry") or {}
+        t = geom.get("type")
+        if t not in _ALLOWED_GEOM_TYPES:
+            return f"Geometry must be Polygon or MultiPolygon; found '{t}'"
+    elif top not in _ALLOWED_GEOM_TYPES:
+        return f"GeoJSON type must be Polygon, MultiPolygon, Feature, or FeatureCollection; found '{top}'"
+    return None
+
+
+def _render_ws_map(geojson_data: dict | None) -> None:
+    m = folium.Map(location=[45.5, -73.6], zoom_start=10, tiles="OpenStreetMap")
+    if geojson_data:
+        folium.GeoJson(geojson_data, name="Watershed boundary").add_to(m)
+    st_folium(m, height=300, use_container_width=True)
+
 
 _WIZ = "site_wiz"
 
@@ -107,6 +144,23 @@ def _step_site(lookups: dict) -> None:
         st.number_input("Surface area (ha)", min_value=0.0, key=f"{_WIZ}_ws_new_surface_area")
         st.number_input("Concentration time (min)", min_value=0, step=1, key=f"{_WIZ}_ws_new_concentration_time")
         st.number_input("Impervious surface (%)", min_value=0.0, max_value=100.0, key=f"{_WIZ}_ws_new_impervious_surface")
+        st.caption("Boundary (optional)")
+        uploaded = st.file_uploader(
+            "Upload GeoJSON boundary",
+            type=["geojson", "json"],
+            key=f"{_WIZ}_ws_new_geojson_upload",
+            help="Must contain only Polygon or MultiPolygon geometries.",
+        )
+        if uploaded is not None:
+            raw = uploaded.read().decode("utf-8")
+            geojson_err = _validate_ws_geojson(raw)
+            if geojson_err:
+                st.error(geojson_err)
+            else:
+                st.session_state[f"{_WIZ}_ws_new_geojson"] = raw
+                st.success("GeoJSON validated.")
+        if st.session_state.get(f"{_WIZ}_ws_new_geojson"):
+            _render_ws_map(json.loads(st.session_state[f"{_WIZ}_ws_new_geojson"]))
 
     def on_next() -> list[str]:
         errors: list[str] = []
@@ -152,7 +206,7 @@ def _step_process_units(lookups: dict) -> None:
             st.text_input("Tag", key=f"{_WIZ}_pu_{pu_id}_tag")
             if kind_labels:
                 st.selectbox("Kind", kind_labels, key=f"{_WIZ}_pu_{pu_id}_kind")
-            if st.button("Remove", key=f"{_WIZ}_pu_{pu_id}_remove_btn"):
+            if st.button("Remove", key=f"{_WIZ}_pu_{pu_id}_remove"):
                 st.session_state[f"{_WIZ}_pu_ids"].remove(pu_id)
                 st.rerun()
 
@@ -174,6 +228,7 @@ def _step_process_units(lookups: dict) -> None:
 
 
 def _step_sampling_locations(lookups: dict) -> None:
+    restore_snapshot(_WIZ, 1)  # Streamlit clears widget keys when not rendered; restore PU names
     restore_snapshot(_WIZ, 2)
 
     # Build PU options: wizard-created PUs (from step 1) + existing DB PUs
@@ -201,7 +256,7 @@ def _step_sampling_locations(lookups: dict) -> None:
             st.text_input("Name *", key=f"{_WIZ}_sl_{sl_id}_name")
             st.text_area("Description", key=f"{_WIZ}_sl_{sl_id}_description")
             st.selectbox("Process Unit", pu_label_options, key=f"{_WIZ}_sl_{sl_id}_pu")
-            if st.button("Remove", key=f"{_WIZ}_sl_{sl_id}_remove_btn"):
+            if st.button("Remove", key=f"{_WIZ}_sl_{sl_id}_remove"):
                 st.session_state[f"{_WIZ}_sl_ids"].remove(sl_id)
                 st.rerun()
 
@@ -312,6 +367,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                     "surface_area": st.session_state.get(f"{_WIZ}_ws_new_surface_area") or None,
                     "concentration_time": st.session_state.get(f"{_WIZ}_ws_new_concentration_time") or None,
                     "impervious_surface": st.session_state.get(f"{_WIZ}_ws_new_impervious_surface") or None,
+                    "geometry_geojson": st.session_state.get(f"{_WIZ}_ws_new_geojson") or None,
                 }
             )
             watershed_id = ws["watershed_id"]
