@@ -165,6 +165,10 @@ def _render_create_table(table_name: str, table_dict: dict, platform: str) -> st
     primary_key: list[str] = tbl.get("primary_key", [])
     check_constraints: list[dict] = tbl.get("check_constraints", []) or []
     unique_constraints: list[dict] = tbl.get("unique_constraints", []) or []
+    # Also collect unique constraints declared via the generic `constraints` list
+    for c in tbl.get("constraints", []) or []:
+        if c.get("type") == "unique":
+            unique_constraints = [*unique_constraints, c]
 
     col_defs: list[str] = [f"    {render_column_def(col, platform)}" for col in columns]
 
@@ -244,15 +248,18 @@ def _render_create_index(table_name: str, idx: dict, table_dict: dict, platform:
     idx_name = idx["name"]
     cols = ", ".join(_q(c, platform) for c in idx["columns"])
     unique = "UNIQUE " if idx.get("unique") else ""
+    # Optional filtered/partial index: a raw SQL predicate. Identical syntax
+    # for MSSQL filtered indexes and PostgreSQL partial indexes.
+    where = f" WHERE {idx['filter']}" if idx.get("filter") else ""
 
     if platform == "mssql":
         return (
             f"CREATE {unique}INDEX [{idx_name}] "
-            f"ON [{schema}].[{table_name}] ({cols});"
+            f"ON [{schema}].[{table_name}] ({cols}){where};"
         )
     return (
         f'CREATE {unique}INDEX "{idx_name}" '
-        f'ON "{schema}"."{table_name}" ({cols});'
+        f'ON "{schema}"."{table_name}" ({cols}){where};'
     )
 
 

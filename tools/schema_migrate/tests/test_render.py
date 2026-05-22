@@ -5,6 +5,7 @@ import pytest
 from tools.schema_migrate.diff import SchemaDiff, diff_schemas
 from tools.schema_migrate.render import (
     LOGICAL_TYPE_MAP,
+    _render_create_index,
     render_column_def,
     render_column_type,
     render_migration,
@@ -236,3 +237,41 @@ class TestMigrationHeader:
         diff = diff_schemas({}, schema)
         _, rollback_sql = render_migration(diff, schema, "1.0.0", "1.0.1", "mssql")
         assert "ROLLBACK" in rollback_sql.upper() or "rollback" in rollback_sql
+
+
+class TestRenderCreateIndexFilter:
+    """Filtered/partial unique indexes (BUG-2: temporal active-row indexes)."""
+
+    _tbl = _table("EquipmentLocationHistory", [_col("Equipment_ID"), _col("ValidTo")])
+
+    def test_no_filter_has_no_where_clause(self):
+        idx = {"name": "IX_X", "columns": ["Equipment_ID"], "unique": True}
+        sql = _render_create_index("EquipmentLocationHistory", idx, self._tbl, "mssql")
+        assert "WHERE" not in sql
+        assert sql.endswith("([Equipment_ID]);")
+
+    def test_filter_renders_where_clause_mssql(self):
+        idx = {
+            "name": "UQ_ELH_Active",
+            "columns": ["Equipment_ID"],
+            "unique": True,
+            "filter": "[ValidTo] IS NULL",
+        }
+        sql = _render_create_index("EquipmentLocationHistory", idx, self._tbl, "mssql")
+        assert sql == (
+            "CREATE UNIQUE INDEX [UQ_ELH_Active] "
+            "ON [dbo].[EquipmentLocationHistory] ([Equipment_ID]) "
+            "WHERE [ValidTo] IS NULL;"
+        )
+
+    def test_filter_renders_where_clause_postgres(self):
+        idx = {
+            "name": "UQ_ELH_Active",
+            "columns": ["Equipment_ID"],
+            "unique": True,
+            "filter": "ValidTo IS NULL",
+        }
+        sql = _render_create_index(
+            "EquipmentLocationHistory", idx, self._tbl, "postgres"
+        )
+        assert sql.endswith('("Equipment_ID") WHERE ValidTo IS NULL;')
