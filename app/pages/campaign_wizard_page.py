@@ -19,6 +19,7 @@ from app.components.wizard_helpers import (
     clear_wizard,
     nav,
     render_wizard_header,
+    render_wizard_result,
     resolve_id,
     restore_snapshot,
 )
@@ -30,6 +31,7 @@ STEPS = [
     "Site & Sampling Locations",
     "Equipment Deployments",
     "Review & Create",
+    "Summary",
 ]
 
 _STEP_PREFIXES: dict[int, list[str]] = {
@@ -37,6 +39,7 @@ _STEP_PREFIXES: dict[int, list[str]] = {
     1: [f"{_WIZ}_s1_"],
     2: [f"{_WIZ}_s2_"],
     3: [],
+    4: [],
 }
 
 
@@ -337,12 +340,10 @@ def _step_review(lookups: dict) -> None:
             st.write(f"- **{eq['identifier']}** at {sl['name']}")
 
     def on_next() -> list[str]:
-        errors = _execute_creates(lookups)
-        if not errors:
-            st.toast("Campaign created successfully!", icon="✅")
-            clear_wizard(_WIZ)
-            st.rerun()
-        return errors
+        created, errors = _execute_creates(lookups)
+        st.session_state[f"_{_WIZ}_created"] = created
+        st.session_state[f"_{_WIZ}_errors"] = errors
+        return []
 
     nav(
         wiz_id=_WIZ,
@@ -351,6 +352,17 @@ def _step_review(lookups: dict) -> None:
         step_prefixes=_STEP_PREFIXES,
         on_next=on_next,
         on_cancel=_cancel,
+        next_label="Confirm & Create",
+    )
+
+
+def _step_summary(lookups: dict) -> None:
+    render_wizard_result(
+        wiz_id=_WIZ,
+        title="Campaign",
+        created=st.session_state.get(f"_{_WIZ}_created", []),
+        errors=st.session_state.get(f"_{_WIZ}_errors", []),
+        on_restart=lambda: clear_wizard(_WIZ),
     )
 
 
@@ -359,10 +371,11 @@ def _step_review(lookups: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _execute_creates(lookups: dict) -> list[str]:
+def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
     for s in range(3):
         restore_snapshot(_WIZ, s)
 
+    created: list[dict] = []
     errors: list[str] = []
 
     kind_opts = [
@@ -393,9 +406,10 @@ def _execute_creates(lookups: dict) -> list[str]:
                     }
                 )
                 responsible_person_id = new_person["person_id"]
+                created.append({"label": f"Person: {(fn or '')} {(ln or '')}".strip(), "detail": f"id={responsible_person_id}"})
             except APIError as e:
                 errors.append(f"Person creation failed: {e.message}")
-                return errors
+                return created, errors
     else:
         person_label = st.session_state.get(f"{_WIZ}_s0_person_label")
         if person_label:
@@ -420,9 +434,10 @@ def _execute_creates(lookups: dict) -> list[str]:
             }
         )
         campaign_id: int = campaign["campaign_id"]
+        created.append({"label": f"Campaign: {campaign.get('name', '')}", "detail": f"id={campaign_id}"})
     except APIError as e:
         errors.append(f"Campaign creation failed: {e.message}")
-        return errors
+        return created, errors
 
     # 3. Create deployments
     selected_site = st.session_state.get(f"{_WIZ}_s1_site")
@@ -449,10 +464,11 @@ def _execute_creates(lookups: dict) -> list[str]:
                             "sampling_point_id": sl["id"],
                         },
                     )
+                    created.append({"label": f"Deployment at {sl['name']}", "detail": eq_label})
                 except APIError as e:
                     errors.append(f"Deployment at '{sl['name']}': {e.message}")
 
-    return errors
+    return created, errors
 
 
 # ---------------------------------------------------------------------------
@@ -477,6 +493,7 @@ def main() -> None:
         1: _step_site_and_sls,
         2: _step_equipment_deployments,
         3: _step_review,
+        4: _step_summary,
     }[step](lookups)
 
 

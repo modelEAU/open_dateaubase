@@ -22,8 +22,14 @@ def nav(
     step_prefixes: dict[int, list[str]],
     on_next: Callable[[], list[str]],
     on_cancel: Callable[[], None],
+    next_label: str | None = None,
 ) -> None:
-    """Render Cancel / Back / Next row and handle step transitions."""
+    """Render Cancel / Back / Next row and handle step transitions.
+
+    Pass ``next_label`` to override the default ("Next ▶" or "Confirm & Create")
+    — useful when the wizard has a terminal Summary step that follows the
+    review step, so the review step still reads "Confirm & Create".
+    """
     st.divider()
     col_cancel, col_back, _, col_next = st.columns([1, 1, 5, 2])
 
@@ -40,7 +46,7 @@ def nav(
 
     with col_next:
         is_last = step == len(steps) - 1
-        label = "Confirm & Create" if is_last else "Next ▶"
+        label = next_label or ("Confirm & Create" if is_last else "Next ▶")
         if st.button(label, key=f"{wiz_id}_next_{step}", type="primary"):
             errors = on_next()
             if errors:
@@ -73,6 +79,69 @@ def clear_wizard(wiz_id: str) -> None:
     ]
     for k in to_del:
         del st.session_state[k]
+
+
+def render_wizard_result(
+    *,
+    wiz_id: str,
+    title: str,
+    created: list[dict],
+    errors: list[str],
+    on_restart: Callable[[], None],
+) -> None:
+    """Render the terminal "Summary" step of a wizard.
+
+    Shows a success/partial/failure banner, lists everything that was created
+    (with optional details), lists any errors, and offers a "Create another"
+    button that calls ``on_restart`` (typically ``clear_wizard``) and reruns.
+
+    ``created`` items should be ``{"label": str, "detail": str | None}`` dicts;
+    plain strings are accepted and rendered as labels.
+    """
+    if errors and not created:
+        st.error(f"❌ {title} could not be created.")
+    elif errors:
+        st.warning(f"⚠️ {title} created with errors — review below.")
+    else:
+        st.success(f"✅ {title} created successfully!")
+
+    if created:
+        st.markdown("### What was created")
+        for item in created:
+            if isinstance(item, str):
+                st.markdown(f"- {item}")
+            else:
+                label = item.get("label", "")
+                detail = item.get("detail")
+                if detail:
+                    st.markdown(f"- **{label}** — {detail}")
+                else:
+                    st.markdown(f"- {label}")
+
+    if errors:
+        st.markdown("### Errors")
+        for err in errors:
+            st.error(err)
+
+    st.divider()
+    col_restart, col_done = st.columns(2)
+    with col_restart:
+        if st.button(
+            "✨ Create another",
+            key=f"{wiz_id}_summary_restart",
+            type="primary",
+            use_container_width=True,
+        ):
+            on_restart()
+            st.rerun()
+    with col_done:
+        if st.button(
+            "Done",
+            key=f"{wiz_id}_summary_done",
+            use_container_width=True,
+        ):
+            on_restart()
+            st.rerun()
 
 
 def resolve_id(label: str | None, opts: list[dict]) -> int | None:

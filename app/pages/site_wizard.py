@@ -19,39 +19,20 @@ from app.api_client import (
     list_site_kinds,
     list_watersheds,
 )
+from app.components.geo_utils import maybe_prefill_area, validate_geojson
 from app.components.location_picker import render_location_picker
 from app.components.wizard_helpers import (
     clear_wizard,
     nav,
     render_wizard_header,
+    render_wizard_result,
     resolve_id,
     restore_snapshot,
 )
 
-_ALLOWED_GEOM_TYPES = {"Polygon", "MultiPolygon"}
-
-
-def _validate_ws_geojson(raw: str) -> str | None:
-    """Return an error message string, or None if valid."""
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        return f"Invalid JSON: {exc}"
-    top = data.get("type")
-    if top == "FeatureCollection":
-        for f in data.get("features", []):
-            geom = f.get("geometry") or {}
-            t = geom.get("type")
-            if t not in _ALLOWED_GEOM_TYPES:
-                return f"All geometries must be Polygon or MultiPolygon; found '{t}'"
-    elif top == "Feature":
-        geom = data.get("geometry") or {}
-        t = geom.get("type")
-        if t not in _ALLOWED_GEOM_TYPES:
-            return f"Geometry must be Polygon or MultiPolygon; found '{t}'"
-    elif top not in _ALLOWED_GEOM_TYPES:
-        return f"GeoJSON type must be Polygon, MultiPolygon, Feature, or FeatureCollection; found '{top}'"
-    return None
+def _validate_ws_geojson(raw: str) -> tuple[dict | None, str | None]:
+    """Validate a watershed GeoJSON string. Returns (parsed, error)."""
+    return validate_geojson(raw)
 
 
 def _render_ws_map(geojson_data: dict | None) -> None:
@@ -68,6 +49,7 @@ STEPS = [
     "Process Units",
     "Sampling Locations",
     "Review & Create",
+    "Summary",
 ]
 
 _STEP_PREFIXES: dict[int, list[str]] = {
@@ -75,6 +57,7 @@ _STEP_PREFIXES: dict[int, list[str]] = {
     1: [f"{_WIZ}_pu_"],
     2: [f"{_WIZ}_sl_"],
     3: [],
+    4: [],
 }
 
 
@@ -141,7 +124,12 @@ def _step_site(lookups: dict) -> None:
     elif ws_mode == "Create new":
         st.text_input("Watershed name *", key=f"{_WIZ}_ws_new_name")
         st.text_area("Description", key=f"{_WIZ}_ws_new_description")
-        st.number_input("Surface area (ha)", min_value=0.0, key=f"{_WIZ}_ws_new_surface_area")
+        st.number_input(
+            "Surface area (ha)",
+            min_value=0.0,
+            key=f"{_WIZ}_ws_new_surface_area",
+            help="Auto-filled from uploaded GeoJSON; edit to override.",
+        )
         st.number_input("Concentration time (min)", min_value=0, step=1, key=f"{_WIZ}_ws_new_concentration_time")
         st.number_input("Impervious surface (%)", min_value=0.0, max_value=100.0, key=f"{_WIZ}_ws_new_impervious_surface")
         st.caption("Boundary (optional)")
@@ -153,12 +141,19 @@ def _step_site(lookups: dict) -> None:
         )
         if uploaded is not None:
             raw = uploaded.read().decode("utf-8")
-            geojson_err = _validate_ws_geojson(raw)
+            parsed, geojson_err = _validate_ws_geojson(raw)
             if geojson_err:
                 st.error(geojson_err)
             else:
                 st.session_state[f"{_WIZ}_ws_new_geojson"] = raw
                 st.success("GeoJSON validated.")
+                if parsed and maybe_prefill_area(
+                    uploaded,
+                    parsed,
+                    target_key=f"{_WIZ}_ws_new_surface_area",
+                    sentinel_key=f"{_WIZ}_ws_new_geojson_area_sentinel",
+                ):
+                    st.rerun()
         if st.session_state.get(f"{_WIZ}_ws_new_geojson"):
             _render_ws_map(json.loads(st.session_state[f"{_WIZ}_ws_new_geojson"]))
 
@@ -203,7 +198,7 @@ def _step_process_units(lookups: dict) -> None:
         label = st.session_state.get(f"{_WIZ}_pu_{pu_id}_name") or f"Process Unit {pu_id + 1}"
         with st.expander(label, expanded=True):
             st.text_input("Name *", key=f"{_WIZ}_pu_{pu_id}_name")
-            st.text_input("Tag", key=f"{_WIZ}_pu_{pu_id}_tag")
+            st.text_input("P&ID Tag", key=f"{_WIZ}_pu_{pu_id}_tag")
             if kind_labels:
                 st.selectbox("Kind", kind_labels, key=f"{_WIZ}_pu_{pu_id}_kind")
             if st.button("Remove", key=f"{_WIZ}_pu_{pu_id}_remove"):
@@ -308,7 +303,7 @@ def _step_review(lookups: dict) -> None:
             name = st.session_state.get(f"{_WIZ}_pu_{pu_id}_name", "")
             tag = st.session_state.get(f"{_WIZ}_pu_{pu_id}_tag", "")
             kind = st.session_state.get(f"{_WIZ}_pu_{pu_id}_kind", "(none)")
-            st.write(f"- **{name}** (tag: {tag or '—'}, kind: {kind})")
+            st.write(f"- **{name}** (P&ID Tag: {tag or '—'}, kind: {kind})")
 
     sl_ids = st.session_state.get(f"{_WIZ}_sl_ids", [])
     if sl_ids:
@@ -319,12 +314,10 @@ def _step_review(lookups: dict) -> None:
             st.write(f"- **{name}** → process unit: {pu_label}")
 
     def on_next() -> list[str]:
-        errors = _execute_creates(lookups)
-        if not errors:
-            st.toast("Site created successfully!", icon="✅")
-            clear_wizard(_WIZ)
-            st.rerun()
-        return errors
+        created, errors = _execute_creates(lookups)
+        st.session_state[f"_{_WIZ}_created"] = created
+        st.session_state[f"_{_WIZ}_errors"] = errors
+        return []
 
     nav(
         wiz_id=_WIZ,
@@ -333,6 +326,17 @@ def _step_review(lookups: dict) -> None:
         step_prefixes=_STEP_PREFIXES,
         on_next=on_next,
         on_cancel=_cancel,
+        next_label="Confirm & Create",
+    )
+
+
+def _step_summary(lookups: dict) -> None:
+    render_wizard_result(
+        wiz_id=_WIZ,
+        title="Site",
+        created=st.session_state.get(f"_{_WIZ}_created", []),
+        errors=st.session_state.get(f"_{_WIZ}_errors", []),
+        on_restart=lambda: clear_wizard(_WIZ),
     )
 
 
@@ -341,10 +345,11 @@ def _step_review(lookups: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _execute_creates(lookups: dict) -> list[str]:
+def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
     for s in range(3):
         restore_snapshot(_WIZ, s)
 
+    created: list[dict] = []
     errors: list[str] = []
     pu_id_map: dict[int, int] = {}  # wiz_pu_id → DB ProcessUnit_ID
 
@@ -371,9 +376,10 @@ def _execute_creates(lookups: dict) -> list[str]:
                 }
             )
             watershed_id = ws["watershed_id"]
+            created.append({"label": f"Watershed: {ws['name']}", "detail": f"id={watershed_id}"})
         except APIError as e:
             errors.append(f"Watershed creation failed: {e.message}")
-            return errors
+            return created, errors
     elif ws_mode == "Select existing":
         ws_label = st.session_state.get(f"{_WIZ}_ws_select") or None
         if ws_label and ws_label != "(none)":
@@ -401,9 +407,10 @@ def _execute_creates(lookups: dict) -> list[str]:
             }
         )
         site_id: int = site["id"]
+        created.append({"label": f"Site: {site['name']}", "detail": f"id={site_id}"})
     except APIError as e:
         errors.append(f"Site creation failed: {e.message}")
-        return errors
+        return created, errors
 
     # 3. Create process units
     for pu_wiz_id in st.session_state.get(f"{_WIZ}_pu_ids", []):
@@ -427,11 +434,12 @@ def _execute_creates(lookups: dict) -> list[str]:
                 }
             )
             pu_id_map[pu_wiz_id] = pu["id"]
+            created.append({"label": f"Process unit: {name}", "detail": f"id={pu['id']}"})
         except APIError as e:
             errors.append(f"Process unit '{name}': {e.message}")
 
     if errors:
-        return errors
+        return created, errors
 
     # Build label → DB ID map for PU resolution in SLs
     pu_label_to_id: dict[str, int] = {}
@@ -454,7 +462,7 @@ def _execute_creates(lookups: dict) -> list[str]:
             else None
         )
         try:
-            create_sampling_location(
+            sl = create_sampling_location(
                 site_id,
                 {
                     "name": name,
@@ -462,10 +470,12 @@ def _execute_creates(lookups: dict) -> list[str]:
                     "process_unit_id": pu_db_id,
                 },
             )
+            sl_id = sl.get("id") if isinstance(sl, dict) else None
+            created.append({"label": f"Sampling location: {name}", "detail": f"id={sl_id}" if sl_id else None})
         except APIError as e:
             errors.append(f"Sampling location '{name}': {e.message}")
 
-    return errors
+    return created, errors
 
 
 # ---------------------------------------------------------------------------
@@ -490,6 +500,7 @@ def main() -> None:
         1: _step_process_units,
         2: _step_sampling_locations,
         3: _step_review,
+        4: _step_summary,
     }[step](lookups)
 
 

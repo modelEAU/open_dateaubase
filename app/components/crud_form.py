@@ -25,6 +25,21 @@ def render_form_field(
     label = f"{display_name}{' *' if required else ''}"
 
     if field_type == "select" and options:
+        # If any option carries a description, route through kind_select so the
+        # long-form description renders as a caption beneath the selectbox.
+        if any(opt.get("description") for opt in options):
+            from app.components.kind_select import kind_select
+
+            return kind_select(
+                label,
+                options,
+                id_field="id",
+                name_field="label",
+                desc_field="description",
+                default_id=value if isinstance(value, int) else None,
+                help=help_text,
+            )
+
         # Map options to display labels, return ID
         option_map = {opt["label"]: opt["id"] for opt in options}
         labels = list(option_map.keys())

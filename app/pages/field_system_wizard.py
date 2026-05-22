@@ -1,4 +1,4 @@
-"""Field System Wizard — create DAS, signal interfaces, equipment, and channels."""
+"""Field System Wizard — create Data Acquisition Systems, signal interfaces, equipment, and channels."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from app.components.wizard_helpers import (
     clear_wizard,
     nav,
     render_wizard_header,
+    render_wizard_result,
     resolve_id,
     restore_snapshot,
 )
@@ -36,6 +37,7 @@ STEPS = [
     "Equipment",
     "Channels",
     "Review & Create",
+    "Summary",
 ]
 
 _STEP_PREFIXES: dict[int, list[str]] = {
@@ -44,6 +46,7 @@ _STEP_PREFIXES: dict[int, list[str]] = {
     2: [f"{_WIZ}_eq_"],
     3: [f"{_WIZ}_ch_"],
     4: [],
+    5: [],
 }
 
 _VALUE_TYPES = [
@@ -85,7 +88,7 @@ def _load_lookups() -> dict | None:
 
 def _model_label(m: dict) -> str:
     parts = [p for p in [m.get("manufacturer"), m.get("model_name")] if p]
-    return " – ".join(parts) if parts else f"Model {m.get('model_id', '?')}"
+    return " - ".join(parts) if parts else f"Model {m.get('model_id', '?')}"
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +104,7 @@ def _step_das(lookups: dict) -> None:
         "that collects measurements from instruments — a logger, a SCADA station, or a "
         "laptop running your instrument software."
     )
-    st.text_input("DAS name *", key=f"{_WIZ}_s0_name")
+    st.text_input("Data Acquisition System name *", key=f"{_WIZ}_s0_name")
 
     das_kinds = lookups.get("das_kinds", [])
     kind_options = [{"id": None, "label": "— not specified —"}] + [
@@ -109,7 +112,7 @@ def _step_das(lookups: dict) -> None:
     ]
     kind_labels = [o["label"] for o in kind_options]
     kind_idx = st.selectbox(
-        "DAS category (optional)",
+        "Data Acquisition System Kind (optional)",
         range(len(kind_labels)),
         format_func=lambda i: kind_labels[i],
         key=f"{_WIZ}_s0_kind_idx",
@@ -391,12 +394,10 @@ def _step_review(lookups: dict) -> None:
                 st.caption("No equipment or channels defined.")
 
     def on_next() -> list[str]:
-        errors = _execute_creates(lookups)
-        if not errors:
-            st.toast("Field system created successfully!", icon="✅")
-            clear_wizard(_WIZ)
-            st.rerun()
-        return errors
+        created, errors = _execute_creates(lookups)
+        st.session_state[f"_{_WIZ}_created"] = created
+        st.session_state[f"_{_WIZ}_errors"] = errors
+        return []
 
     nav(
         wiz_id=_WIZ,
@@ -405,6 +406,17 @@ def _step_review(lookups: dict) -> None:
         step_prefixes=_STEP_PREFIXES,
         on_next=on_next,
         on_cancel=_cancel,
+        next_label="Confirm & Create",
+    )
+
+
+def _step_summary(lookups: dict) -> None:
+    render_wizard_result(
+        wiz_id=_WIZ,
+        title="Field system",
+        created=st.session_state.get(f"_{_WIZ}_created", []),
+        errors=st.session_state.get(f"_{_WIZ}_errors", []),
+        on_restart=lambda: clear_wizard(_WIZ),
     )
 
 
@@ -413,10 +425,11 @@ def _step_review(lookups: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _execute_creates(lookups: dict) -> list[str]:
+def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
     for s in range(4):
         restore_snapshot(_WIZ, s)
 
+    created: list[dict] = []
     errors: list[str] = []
     si_id_map: dict[int, int] = {}  # wiz_si_id → DB SignalInterface_ID
 
@@ -447,9 +460,10 @@ def _execute_creates(lookups: dict) -> list[str]:
             }
         )
         das_id: int = das["data_acquisition_system_id"]
+        created.append({"label": f"DAS: {das.get('name', '')}", "detail": f"id={das_id}"})
     except APIError as e:
         errors.append(f"DAS creation failed: {e.message}")
-        return errors
+        return created, errors
 
     # 2. Create signal interfaces
     for si_wiz_id in st.session_state.get(f"{_WIZ}_si_ids", []):
@@ -465,6 +479,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                 }
             )
             si_id_map[si_wiz_id] = si["signal_interface_id"]
+            created.append({"label": f"Signal interface: {si_name}", "detail": f"id={si['signal_interface_id']}"})
         except APIError as e:
             errors.append(f"Signal interface '{si_name}': {e.message}")
             continue
@@ -507,6 +522,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                         }
                     )
                     actual_eq_id = eq["equipment_id"]
+                    created.append({"label": f"Equipment: {eq.get('identifier') or actual_eq_id}", "detail": f"id={actual_eq_id}"})
                 except APIError as e:
                     errors.append(f"Equipment creation failed: {e.message}")
                     continue
@@ -547,7 +563,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                 else None
             )
             try:
-                create_channel(
+                ch = create_channel(
                     {
                         "signal_interface_id": actual_si_id,
                         "tag_name": tag,
@@ -556,10 +572,12 @@ def _execute_creates(lookups: dict) -> list[str]:
                         "processing_kind_id": proc_id,
                     }
                 )
+                ch_id = ch.get("channel_id") if isinstance(ch, dict) else None
+                created.append({"label": f"Channel: {tag}", "detail": f"id={ch_id}" if ch_id else None})
             except APIError as e:
                 errors.append(f"Channel '{tag}': {e.message}")
 
-    return errors
+    return created, errors
 
 
 # ---------------------------------------------------------------------------
@@ -585,6 +603,7 @@ def main() -> None:
         2: _step_equipment,
         3: _step_channels,
         4: _step_review,
+        5: _step_summary,
     }[step](lookups)
 
 

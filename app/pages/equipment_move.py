@@ -51,6 +51,7 @@ RELOCATE_STEPS = [
     "Move details",
     "Equipment event",
     "Review & confirm",
+    "Summary",
 ]
 
 REWIRE_STEPS = [
@@ -58,6 +59,7 @@ REWIRE_STEPS = [
     "Wiring details",
     "Equipment event",
     "Review & confirm",
+    "Summary",
 ]
 
 # ---------------------------------------------------------------------------
@@ -377,7 +379,9 @@ def _step_mw_wiring_details(si_opts: list[dict]) -> None:
     eq_label = st.session_state.mw_equipment_label
     st.info(f"Rewiring **{eq_label}**.")
 
-    si_map = {s["label"]: s["signal_interface_id"] for s in si_opts}
+    si_map = {
+        f'{s["das_name"]} › {s["name"]}': s["signal_interface_id"] for s in si_opts
+    }
     si_labels = list(si_map.keys())
 
     if not si_labels:
@@ -640,17 +644,19 @@ def _step_review() -> None:
         if st.session_state.mv_notes:
             payload["notes"] = st.session_state.mv_notes
 
+        created: list[dict] = []
         errors: list[str] = []
 
         try:
             relocate_equipment(st.session_state.mv_equipment_id, payload)
+            created.append({
+                "label": f"{eq_label} moved to {st.session_state.mv_dest_sp_label}",
+                "detail": move_dt.strftime("%Y-%m-%d %H:%M UTC"),
+            })
         except APIError as e:
             errors.append(f"Move failed for {eq_label}: {e.message}")
 
-        if errors:
-            return errors
-
-        if st.session_state.mv_add_event and st.session_state.mv_event_type_id:
+        if not errors and st.session_state.mv_add_event and st.session_state.mv_event_type_id:
             try:
                 create_equipment_event(
                     {
@@ -661,16 +667,18 @@ def _step_review() -> None:
                         "notes": st.session_state.get("mv_event_notes") or None,
                     }
                 )
+                created.append({
+                    "label": f"Equipment event: {st.session_state.mv_event_type_label or 'event'}",
+                    "detail": None,
+                })
             except APIError as e:
                 errors.append(
                     f"Move succeeded but equipment event could not be recorded: {e.message}"
                 )
 
-        if not errors:
-            dest = st.session_state.mv_dest_sp_label
-            st.toast(f"**{eq_label}** moved to **{dest}** ✓", icon="✅")
-            _reset("mv")
-        return errors
+        st.session_state["_mv_created"] = created
+        st.session_state["_mv_errors"] = errors
+        return []
 
     _nav(
         4,
@@ -680,6 +688,23 @@ def _step_review() -> None:
         on_next=on_next,
         next_label="Confirm Move ✓",
         reset_fn=lambda: _reset("mv"),
+    )
+
+
+def _step_mv_summary() -> None:
+    from app.components.wizard_helpers import render_wizard_result
+
+    def _restart() -> None:
+        _reset("mv")
+        st.session_state["_mv_created"] = []
+        st.session_state["_mv_errors"] = []
+
+    render_wizard_result(
+        wiz_id="mv",
+        title="Relocation",
+        created=st.session_state.get("_mv_created", []),
+        errors=st.session_state.get("_mv_errors", []),
+        on_restart=_restart,
     )
 
 
@@ -733,17 +758,21 @@ def _step_mw_review() -> None:
         if st.session_state.mw_notes:
             payload["notes"] = st.session_state.mw_notes
 
+        created: list[dict] = []
         errors: list[str] = []
 
         try:
             rewire_equipment(st.session_state.mw_equipment_id, payload)
+            dest = st.session_state.mw_dest_si_label
+            port = st.session_state.mw_dest_port_label or ""
+            detail = rewire_dt.strftime("%Y-%m-%d %H:%M UTC")
+            if port and port != "No port (interface-level only)":
+                detail = f"port {port} — {detail}"
+            created.append({"label": f"{eq_label} rewired to {dest}", "detail": detail})
         except APIError as e:
             errors.append(f"Rewire failed for {eq_label}: {e.message}")
 
-        if errors:
-            return errors
-
-        if st.session_state.mw_add_event and st.session_state.mw_event_type_id:
+        if not errors and st.session_state.mw_add_event and st.session_state.mw_event_type_id:
             try:
                 create_equipment_event(
                     {
@@ -754,20 +783,18 @@ def _step_mw_review() -> None:
                         "notes": st.session_state.get("mw_event_notes") or None,
                     }
                 )
+                created.append({
+                    "label": f"Equipment event: {st.session_state.mw_event_type_label or 'event'}",
+                    "detail": None,
+                })
             except APIError as e:
                 errors.append(
                     f"Rewire succeeded but equipment event could not be recorded: {e.message}"
                 )
 
-        if not errors:
-            dest = st.session_state.mw_dest_si_label
-            port = st.session_state.mw_dest_port_label or ""
-            msg = f"**{eq_label}** rewired to **{dest}**"
-            if port and port != "No port (interface-level only)":
-                msg += f" port {port}"
-            st.toast(msg + " ✓", icon="✅")
-            _reset("mw")
-        return errors
+        st.session_state["_mw_created"] = created
+        st.session_state["_mw_errors"] = errors
+        return []
 
     _nav(
         4,
@@ -777,6 +804,23 @@ def _step_mw_review() -> None:
         on_next=on_next,
         next_label="Confirm Rewire ✓",
         reset_fn=lambda: _reset("mw"),
+    )
+
+
+def _step_mw_summary() -> None:
+    from app.components.wizard_helpers import render_wizard_result
+
+    def _restart() -> None:
+        _reset("mw")
+        st.session_state["_mw_created"] = []
+        st.session_state["_mw_errors"] = []
+
+    render_wizard_result(
+        wiz_id="mw",
+        title="Rewire",
+        created=st.session_state.get("_mw_created", []),
+        errors=st.session_state.get("_mw_errors", []),
+        on_restart=_restart,
     )
 
 
@@ -836,6 +880,8 @@ with tab_relocate:
         )
     elif step == 4:
         _step_review()
+    elif step == 5:
+        _step_mv_summary()
 
 with tab_rewire:
     try:
@@ -868,3 +914,5 @@ with tab_rewire:
         )
     elif step == 4:
         _step_mw_review()
+    elif step == 5:
+        _step_mw_summary()

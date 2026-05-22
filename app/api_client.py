@@ -436,7 +436,6 @@ def delete_campaign_deployment(campaign_id: int, installation_id: int) -> None:
 def list_channels(
     parameter_id: int | None = None,
     equipment_id: int | None = None,
-    processing_kind_id: int | None = None,
     value_kind_id: int | None = None,
     campaign_id: int | None = None,
     signal_interface_id: int | None = None,
@@ -448,8 +447,6 @@ def list_channels(
         params["parameter_id"] = parameter_id
     if equipment_id is not None:
         params["equipment_id"] = equipment_id
-    if processing_kind_id is not None:
-        params["processing_kind_id"] = processing_kind_id
     if value_kind_id is not None:
         params["value_kind_id"] = value_kind_id
     if campaign_id is not None:
@@ -527,10 +524,10 @@ def list_parameters_lookup() -> list[dict]:
 
 
 def list_processing_kinds_lookup() -> list[dict]:
-    """Return processing degrees list for dropdowns."""
+    """Return processing kinds for dropdowns (from ProcessingStep vocabulary)."""
     try:
         with _get_client() as client:
-            r = client.get("/channels/lookup/processing-kinds")
+            r = client.get("/vocab/processing-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1114,30 +1111,38 @@ def list_data_provenance_lookup() -> list[dict]:
 
 
 def ingest_sensor_image(
-    equipment_id: int,
-    parameter_id: int,
-    unit_id: int,
-    timestamp: str,
-    image_bytes: bytes,
-    filename: str,
+    das_name: str,
+    tag: str | None = None,
+    equipment_name: str | None = None,
+    channel_kind: str = "value",
+    parameter_name: str = "",
+    unit_name: str = "",
+    timestamp: str = "",
+    image_bytes: bytes = b"",
+    filename: str = "image.bin",
     quality_code: int | None = None,
-    data_provenance_id: int = 1,
-    processing_kind_id: int = 1,
+    data_provenance_kind_id: int = 1,
 ) -> dict:
     """Upload an image file with metadata to POST /ingest/sensor-image."""
+    form_data: dict = {
+        "das_name": das_name,
+        "channel_kind": channel_kind,
+        "parameter_name": parameter_name,
+        "unit_name": unit_name,
+        "timestamp": timestamp,
+        "data_provenance_kind_id": data_provenance_kind_id,
+    }
+    if tag is not None:
+        form_data["tag"] = tag
+    if equipment_name is not None:
+        form_data["equipment_name"] = equipment_name
+    if quality_code is not None:
+        form_data["quality_code"] = quality_code
     try:
         with _get_client() as client:
             r = client.post(
                 "/ingest/sensor-image",
-                data={
-                    "equipment_id": equipment_id,
-                    "parameter_id": parameter_id,
-                    "unit_id": unit_id,
-                    "timestamp": timestamp,
-                    "quality_code": quality_code,
-                    "data_provenance_id": data_provenance_id,
-                    "processing_kind_id": processing_kind_id,
-                },
+                data=form_data,
                 files={"image": (filename, image_bytes)},
             )
     except httpx.ConnectError:
@@ -1180,6 +1185,59 @@ def ingest_lab(data: dict) -> dict:
     try:
         with _get_client() as client:
             r = client.post("/ingest/lab", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def ingest_lab_image(
+    name: str,
+    experiment_datetime: str,
+    sample_id: int,
+    parameter_id: int,
+    sampling_point_id: int,
+    unit_id: int,
+    series_name: str,
+    image_files: list[tuple[str, bytes]],
+    *,
+    processing_kind_id: int = 1,
+    campaign_id: int | None = None,
+    description: str | None = None,
+    created_by_person_id: int | None = None,
+    laboratory_id: int | None = None,
+    analyst_person_id: int | None = None,
+    procedure_id: int | None = None,
+    quality_code: int | None = None,
+    notes: str | None = None,
+) -> dict:
+    """POST /ingest/lab-image with one or more image files (multiple files = replicates)."""
+    form_data: dict = {
+        "name": name,
+        "experiment_datetime": experiment_datetime,
+        "sample_id": sample_id,
+        "parameter_id": parameter_id,
+        "sampling_point_id": sampling_point_id,
+        "unit_id": unit_id,
+        "series_name": series_name,
+        "processing_kind_id": processing_kind_id,
+    }
+    for key, val in {
+        "campaign_id": campaign_id,
+        "description": description,
+        "created_by_person_id": created_by_person_id,
+        "laboratory_id": laboratory_id,
+        "analyst_person_id": analyst_person_id,
+        "procedure_id": procedure_id,
+        "quality_code": quality_code,
+        "notes": notes,
+    }.items():
+        if val is not None:
+            form_data[key] = val
+    files = [("images", (fname, data)) for fname, data in image_files]
+    try:
+        with _get_client() as client:
+            r = client.post("/ingest/lab-image", data=form_data, files=files)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1272,6 +1330,17 @@ def list_das_lookup() -> list[dict]:
     try:
         with _get_client() as client:
             r = client.get("/signal-interfaces/das/lookup")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_tags_lookup(das_id: int) -> list[dict]:
+    """Return [{signal_interface_id, name}] tags for a DAS (strict-mode dropdowns)."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lookup/tags", params={"das_id": das_id})
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)

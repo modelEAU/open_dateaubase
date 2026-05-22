@@ -147,14 +147,22 @@ def _resolve_fk_options(form_fields: list[dict]) -> list[dict]:
 
 
 def _normalize_options(raw: list[dict]) -> list[dict]:
-    """Coerce a lookup list to [{"id": …, "label": …}] for select fields."""
+    """Coerce a lookup list to [{"id": …, "label": …, "description": …}] for select fields."""
     if not raw:
         return []
     sample = raw[0]
     id_keys = [k for k in sample if k.endswith("_id")]
     label_keys = [k for k in sample if k in ("name", "label", "unit", "identifier", "code", "tag")]
+    has_desc = "description" in sample
     if id_keys and label_keys:
-        return [{"id": r[id_keys[0]], "label": str(r[label_keys[0]])} for r in raw]
+        return [
+            {
+                "id": r[id_keys[0]],
+                "label": str(r[label_keys[0]]),
+                **({"description": r.get("description") or ""} if has_desc else {}),
+            }
+            for r in raw
+        ]
     keys = list(sample.keys())
     if len(keys) >= 2:
         return [{"id": r[keys[0]], "label": str(r[keys[1]])} for r in raw]

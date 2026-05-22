@@ -129,7 +129,6 @@ if apply_filters or "channels_loaded" not in st.session_state:
             channels_data = list_channels(
                 signal_interface_id=signal_interface_id_filter,
                 parameter_id=parameter_id_filter,
-                processing_kind_id=degree_id_filter,
             )
             channels = (
                 channels_data.get("items", [])
@@ -228,14 +227,6 @@ _FORM_FIELDS = [
         "type": "number",
         "required": False,
         "help": "How this data was produced (Sensor, Laboratory, Manual Entry, ...)",
-    },
-    {
-        "name": "processing_kind_id",
-        "label": "Processing Kind",
-        "type": "select",
-        "required": False,
-        "options": degree_options,
-        "help": "Level of processing applied to this time series (e.g. Raw, Validated, Processed)",
     },
     {
         "name": "value_kind_id",

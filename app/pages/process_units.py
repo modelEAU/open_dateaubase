@@ -80,7 +80,7 @@ form_fields = [
     },
     {
         "name": "tag",
-        "label": "Tag (P&ID)",
+        "label": "P&ID Tag",
         "type": "text",
         "required": True,
         "help": "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site.",
@@ -162,7 +162,7 @@ else:
             indent = "\u00a0\u00a0\u00a0\u00a0" * _depth(u["id"])
             rows.append(
                 {
-                    "Tag": f"{indent}{u['tag']}",
+                    "P&ID Tag": f"{indent}{u['tag']}",
                     "Name": u["name"],
                     "Type": u.get("process_unit_type_name") or "",
                     "Parent": u.get("parent_name") or "",

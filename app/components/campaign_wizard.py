@@ -44,6 +44,7 @@ STEPS = [
     "Data Acquisition Systems",
     "Equipment & Tags",
     "Review & Create",
+    "Summary",
 ]
 
 _VALUE_TYPES = [
@@ -61,6 +62,7 @@ _STEP_PREFIXES: dict[int, list[str]] = {
     3: ["wiz_das_"],
     4: ["wiz_eq_", "wiz_tag_", "wiz_eq__model_params"],  # Equipment, tags, model params
     5: [],
+    6: [],
 }
 
 
@@ -118,6 +120,7 @@ def render_wizard() -> None:
         3: _step_das,
         4: _step_equipment_and_tags,
         5: _step_review,
+        6: _step_summary,
     }[step](lookups)
 
 
@@ -198,7 +201,7 @@ def _render_header(step: int) -> None:
     st.markdown(f"## {STEPS[step]}")
 
 
-def _nav(step: int, on_next) -> None:
+def _nav(step: int, on_next, *, next_label: str | None = None) -> None:
     """Render Cancel / Back / Next navigation row."""
     st.divider()
     col_cancel, col_back, _, col_next = st.columns([1, 1, 5, 2])
@@ -216,7 +219,7 @@ def _nav(step: int, on_next) -> None:
 
     with col_next:
         is_last = step == len(STEPS) - 1
-        label = "Confirm & Create" if is_last else "Next ▶"
+        label = next_label or ("Confirm & Create" if is_last else "Next ▶")
         if st.button(label, key=f"wiz_next_{step}", type="primary"):
             errors = on_next()
             if errors:
@@ -242,13 +245,25 @@ def _resolve_id(label: str | None, opts: list[dict]) -> int | None:
     return match["id"] if match else None
 
 
+def _sl_mode(sl_wiz_id: int) -> str:
+    """Read SL mode preferring the snapshot-stable _store key (BUG-4).
+
+    Streamlit drops the radio widget key once the user leaves step 2, so reads
+    in later steps must use the store key (set in step-2 on_next).
+    """
+    return (
+        st.session_state.get(f"wiz_sl_{sl_wiz_id}_mode_store")
+        or st.session_state.get(f"wiz_sl_{sl_wiz_id}_mode", "New")
+    )
+
+
 def _model_label(m: dict) -> str:
     parts = [p for p in [m.get("manufacturer"), m.get("model_name")] if p]
     return " – ".join(parts) if parts else f"Model {m.get('model_id', '?')}"
 
 
 def _sl_display_label(sl_wiz_id: int) -> str:
-    mode = st.session_state.get(f"wiz_sl_{sl_wiz_id}_mode", "New")
+    mode = _sl_mode(sl_wiz_id)
     if mode == "Existing":
         # Read from _store key which persists across steps
         return (
@@ -383,13 +398,39 @@ def _step_site(lookups: dict) -> None:
         "Site", ["Use existing", "Create new"], key="wiz_s1_mode", horizontal=True
     )
 
+    def _sync_site_label() -> None:
+        st.session_state["wiz_s1_site_label_store"] = st.session_state.get(
+            "wiz_s1_site_label"
+        )
+
+    def _sync_site_name() -> None:
+        st.session_state["wiz_s1_site_name_store"] = st.session_state.get(
+            "wiz_s1_site_name"
+        )
+
     if mode == "Use existing":
         if site_labels:
-            st.selectbox("Select site *", site_labels, key="wiz_s1_site_label")
+            st.selectbox(
+                "Select site *",
+                site_labels,
+                key="wiz_s1_site_label",
+                on_change=_sync_site_label,
+            )
+            # Initialize store if absent (covers first render before on_change).
+            if "wiz_s1_site_label_store" not in st.session_state:
+                st.session_state["wiz_s1_site_label_store"] = st.session_state.get(
+                    "wiz_s1_site_label"
+                )
         else:
             st.info("No sites found. Switch to **Create new** to add one.")
     else:
-        st.text_input("Site name *", key="wiz_s1_site_name")
+        st.text_input(
+            "Site name *", key="wiz_s1_site_name", on_change=_sync_site_name
+        )
+        if "wiz_s1_site_name_store" not in st.session_state:
+            st.session_state["wiz_s1_site_name_store"] = st.session_state.get(
+                "wiz_s1_site_name"
+            )
         site_type_opts = [
             {"id": t["id"], "label": t["name"]} for t in lookups["site_kinds"]
         ]
@@ -550,7 +591,7 @@ def _step_sampling_locations(lookups: dict) -> None:
                 elif pu_mode == "New":
                     st.text_input("Process unit name *", key=f"wiz_sl_{sl_id}_pu_name")
                     st.text_input(
-                        "Tag *",
+                        "P&ID Tag *",
                         key=f"wiz_sl_{sl_id}_pu_tag",
                         help="Short identifier, e.g. PU-001",
                     )
@@ -579,9 +620,13 @@ def _step_sampling_locations(lookups: dict) -> None:
         st.rerun()
 
     def on_next() -> list[str]:
-        # Sync widget values to store keys before validation
+        # Sync widget values to store keys before validation. The mode store
+        # is critical: Streamlit drops the radio widget key when step 2 is
+        # left, so without _mode_store the SL filter in step 4 reads "New"
+        # by default and SLs created as "Existing" silently disappear.
         for sl_id in st.session_state.wiz_sl_ids:
             m = st.session_state.get(f"wiz_sl_{sl_id}_mode", "New")
+            st.session_state[f"wiz_sl_{sl_id}_mode_store"] = m
             if m == "Existing":
                 st.session_state[f"wiz_sl_{sl_id}_existing_label_store"] = (
                     st.session_state.get(f"wiz_sl_{sl_id}_existing_label", "")
@@ -796,11 +841,11 @@ def _step_equipment_and_tags(lookups: dict) -> None:
         sl_id
         for sl_id in sl_wiz_ids
         if (
-            st.session_state.get(f"wiz_sl_{sl_id}_mode", "New") == "Existing"
+            _sl_mode(sl_id) == "Existing"
             and st.session_state.get(f"wiz_sl_{sl_id}_existing_label_store")
         )
         or (
-            st.session_state.get(f"wiz_sl_{sl_id}_mode", "New") == "New"
+            _sl_mode(sl_id) == "New"
             and (st.session_state.get(f"wiz_sl_{sl_id}_name_store") or "").strip()
         )
     ]
@@ -1162,28 +1207,26 @@ def _step_review(lookups: dict) -> None:
     with st.expander("Site", expanded=True):
         m = st.session_state.get("wiz_s1_mode", "Use existing")
         if m == "Use existing":
-            st.markdown(
-                f"**Using existing:** {st.session_state.get('wiz_s1_site_label', '—')}"
+            site_label_display = (
+                st.session_state.get("wiz_s1_site_label_store")
+                or st.session_state.get("wiz_s1_site_label")
+                or "—"
             )
+            st.markdown(f"**Using existing:** {site_label_display}")
         else:
-            st.markdown(
-                f"**Creating new:** {st.session_state.get('wiz_s1_site_name', '—')}"
+            site_name_display = (
+                st.session_state.get("wiz_s1_site_name_store")
+                or st.session_state.get("wiz_s1_site_name")
+                or "—"
             )
+            st.markdown(f"**Creating new:** {site_name_display}")
 
     # Sampling Locations
     sl_ids: list[int] = st.session_state.wiz_sl_ids
     with st.expander(f"Sampling Locations ({len(sl_ids)} items)", expanded=True):
         if sl_ids:
-            new_sls = [
-                sl_id
-                for sl_id in sl_ids
-                if st.session_state.get(f"wiz_sl_{sl_id}_mode", "New") == "New"
-            ]
-            exist_sls = [
-                sl_id
-                for sl_id in sl_ids
-                if st.session_state.get(f"wiz_sl_{sl_id}_mode", "New") == "Existing"
-            ]
+            new_sls = [sl_id for sl_id in sl_ids if _sl_mode(sl_id) == "New"]
+            exist_sls = [sl_id for sl_id in sl_ids if _sl_mode(sl_id) == "Existing"]
             if new_sls:
                 st.markdown("**Will be created:**")
                 for sl_id in new_sls:
@@ -1277,14 +1320,24 @@ def _step_review(lookups: dict) -> None:
             st.caption("No standalone channels defined.")
 
     def on_next() -> list[str]:
-        errors = _execute_creates(lookups)
-        if not errors:
-            st.toast("Campaign and all entities created successfully!", icon="✅")
-            clear_wizard()
-            st.rerun()
-        return errors
+        created, errors = _execute_creates(lookups)
+        st.session_state["_wiz_created"] = created
+        st.session_state["_wiz_errors"] = errors
+        return []
 
-    _nav(5, on_next)
+    _nav(5, on_next, next_label="Confirm & Create")
+
+
+def _step_summary(lookups: dict) -> None:
+    from app.components.wizard_helpers import render_wizard_result
+
+    render_wizard_result(
+        wiz_id="wiz",
+        title="Campaign",
+        created=st.session_state.get("_wiz_created", []),
+        errors=st.session_state.get("_wiz_errors", []),
+        on_restart=lambda: clear_wizard(),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1292,13 +1345,14 @@ def _step_review(lookups: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _execute_creates(lookups: dict) -> list[str]:
-    """Create all entities in dependency order. Returns list of error strings."""
+def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
+    """Create all entities in dependency order. Returns (created, errors)."""
     # Ensure all step snapshots are restored; Streamlit removes widget keys
     # when their step is not rendered, so we need the captured values here.
     for s in range(5):
         _restore_snapshot(s)
 
+    created: list[dict] = []
     errors: list[str] = []
     eq_id_map: dict[int, int] = {}  # wiz_eq_id  → DB equipment_id
     sl_id_map: dict[int, int] = {}  # wiz_sl_id  → DB SamplingPoint_ID
@@ -1341,10 +1395,17 @@ def _execute_creates(lookups: dict) -> list[str]:
             if selected_type_label
             else None
         )
+        # Prefer the snapshot-stable _store key (survives Streamlit dropping
+        # widget keys across step transitions); fall back to widget key.
+        site_name_to_create = (
+            st.session_state.get("wiz_s1_site_name_store")
+            or st.session_state.get("wiz_s1_site_name")
+            or ""
+        )
         try:
             site = create_site(
                 {
-                    "name": st.session_state.get("wiz_s1_site_name", ""),
+                    "name": site_name_to_create,
                     "site_kind_id": site_kind_id,
                     "description": st.session_state.get("wiz_s1_site_description")
                     or None,
@@ -1356,13 +1417,22 @@ def _execute_creates(lookups: dict) -> list[str]:
                 }
             )
             campaign_site_id: int | None = site["id"]
+            created.append({"label": f"Site: {site_name_to_create}", "detail": f"id={campaign_site_id}"})
         except APIError as e:
             errors.append(f"Site creation failed: {e.message}")
-            return errors
+            return created, errors
     else:
-        campaign_site_id = _resolve_id(
-            st.session_state.get("wiz_s1_site_label"), site_opts
-        )
+        # Prefer the snapshot-stable _store key; Streamlit drops the widget
+        # key once step 1 is left, but the store key survives.
+        site_label_for_lookup = st.session_state.get(
+            "wiz_s1_site_label_store"
+        ) or st.session_state.get("wiz_s1_site_label")
+        campaign_site_id = _resolve_id(site_label_for_lookup, site_opts)
+        if campaign_site_id is None:
+            errors.append(
+                "No site selected — go back to step 'Site' and pick or create one."
+            )
+            return created, errors
 
     # 2. Resolve / create sampling locations
     if site_mode == "Use existing" and campaign_site_id:
@@ -1374,7 +1444,7 @@ def _execute_creates(lookups: dict) -> list[str]:
         existing_site_sls = []
 
     for sl_wiz_id in st.session_state.get("wiz_sl_ids", []):
-        sl_mode = st.session_state.get(f"wiz_sl_{sl_wiz_id}_mode", "New")
+        sl_mode = _sl_mode(sl_wiz_id)
         if sl_mode == "Existing":
             # Use _store key which persists across steps
             label = st.session_state.get(f"wiz_sl_{sl_wiz_id}_existing_label_store")
@@ -1439,6 +1509,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                         },
                     )
                     sl_id_map[sl_wiz_id] = sl["id"]
+                    created.append({"label": f"Sampling location: {name}", "detail": f"id={sl['id']}"})
                     photo_file = st.session_state.get(f"wiz_sl_{sl_wiz_id}_photo")
                     if photo_file is not None:
                         try:
@@ -1458,7 +1529,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                     errors.append(f"Sampling location '{name}': {e.message}")
 
     if errors:
-        return errors
+        return created, errors
 
     # 3. Create person if needed, then create campaign
     start_date = st.session_state.get("wiz_s0_start_date")
@@ -1485,9 +1556,10 @@ def _execute_creates(lookups: dict) -> list[str]:
                     }
                 )
                 responsible_person_id = new_person["person_id"]
+                created.append({"label": f"Person: {(first_name or '')} {(last_name or '')}".strip(), "detail": f"id={responsible_person_id}"})
             except APIError as e:
                 errors.append(f"Person creation failed: {e.message}")
-                return errors
+                return created, errors
     else:
         resp_label = st.session_state.get("wiz_s0_responsible_person")
         if resp_label:
@@ -1511,9 +1583,10 @@ def _execute_creates(lookups: dict) -> list[str]:
             }
         )
         campaign_id: int = campaign["campaign_id"]
+        created.append({"label": f"Campaign: {campaign.get('name') or st.session_state.get('wiz_s0_name', '')}", "detail": f"id={campaign_id}"})
     except APIError as e:
         errors.append(f"Campaign creation failed: {e.message}")
-        return errors
+        return created, errors
 
     # 4. Create DASes
     for das_wiz_id in st.session_state.get("wiz_das_ids", []):
@@ -1534,6 +1607,7 @@ def _execute_creates(lookups: dict) -> list[str]:
             try:
                 new_das_obj = create_das({"name": das_name})
                 actual_das_id = new_das_obj["das_id"]
+                created.append({"label": f"DAS: {das_name}", "detail": f"id={actual_das_id}"})
             except APIError as e:
                 errors.append(f"Data Acquisition System '{das_name}': {e.message}")
                 continue
@@ -1560,7 +1634,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                 )
 
     if errors:
-        return errors
+        return created, errors
 
     # 5. Create equipment models (if needed), equipment, and deployments
     for eid in st.session_state.get("wiz_eq_ids", []):
@@ -1610,6 +1684,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                     }
                 )
                 actual_eq_id = eq["equipment_id"]
+                created.append({"label": f"Equipment: {_eq_display_label(eid)}", "detail": f"id={actual_eq_id}"})
             except APIError as e:
                 errors.append(f"Equipment {_eq_display_label(eid)}: {e.message}")
                 continue
@@ -1632,19 +1707,23 @@ def _execute_creates(lookups: dict) -> list[str]:
                 " not be resolved."
             )
             continue
+        # valid_from defaults to campaign start_date when available, else
+        # the server fills in current UTC time. This timestamps the
+        # EquipmentLocationHistory row created by create_campaign_deployment.
+        deployment_payload: dict = {
+            "equipment_id": actual_eq_id,
+            "sampling_point_id": sampling_point_id,
+        }
+        if start_date:
+            deployment_payload["valid_from"] = start_date.isoformat()
         try:
-            create_campaign_deployment(
-                campaign_id,
-                {
-                    "equipment_id": actual_eq_id,
-                    "sampling_point_id": sampling_point_id,
-                },
-            )
+            create_campaign_deployment(campaign_id, deployment_payload)
+            created.append({"label": f"Deployment for {_eq_display_label(eid)}", "detail": None})
         except APIError as e:
             errors.append(f"Deployment for {_eq_display_label(eid)}: {e.message}")
 
     if errors:
-        return errors
+        return created, errors
 
     # 6. Create signal interfaces, wire equipment, create channels
     for tid in st.session_state.get("wiz_tag_ids", []):
@@ -1677,6 +1756,7 @@ def _execute_creates(lookups: dict) -> list[str]:
                     }
                 )
                 signal_interface_id = si["signal_interface_id"]
+                created.append({"label": f"Signal interface: {tag_str}", "detail": f"id={signal_interface_id}"})
             except APIError as e:
                 errors.append(f"Signal interface '{tag_str}': {e.message}")
                 continue
@@ -1720,9 +1800,11 @@ def _execute_creates(lookups: dict) -> list[str]:
                     "processing_kind_id": pd_id,
                 }
             )
+            tag_str = st.session_state.get(f"wiz_tag_{tid}_tag", f"channel {tid + 1}")
+            created.append({"label": f"Channel: {tag_str}", "detail": None})
         except APIError as e:
             tag_str = st.session_state.get(f"wiz_tag_{tid}_tag", f"channel {tid + 1}")
             errors.append(f"Channel for '{tag_str}': {e.message}")
             continue
 
-    return errors
+    return created, errors

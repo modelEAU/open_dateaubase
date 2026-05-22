@@ -24,10 +24,10 @@ from app.api_client import (
     upsert_land_use,
 )
 from app.auth import require_auth
+from app.components.geo_utils import maybe_prefill_area, validate_geojson
 
 require_auth()
 
-_ALLOWED_GEOM_TYPES = {"Polygon", "MultiPolygon"}
 _LAND_USE_FIELDS = [
     ("commercial", "Commercial"),
     ("green_spaces", "Green Spaces"),
@@ -41,33 +41,6 @@ _LAND_USE_FIELDS = [
 st.title("Watersheds")
 
 
-def _validate_geojson(raw: str) -> tuple[dict | None, str | None]:
-    """Return (parsed, error). error is None on success."""
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        return None, f"Invalid JSON: {exc}"
-
-    top = data.get("type")
-    if top == "FeatureCollection":
-        for f in data.get("features", []):
-            geom = f.get("geometry") or {}
-            t = geom.get("type")
-            if t not in _ALLOWED_GEOM_TYPES:
-                return None, f"All geometries must be Polygon or MultiPolygon; found '{t}'"
-    elif top == "Feature":
-        geom = data.get("geometry") or {}
-        t = geom.get("type")
-        if t not in _ALLOWED_GEOM_TYPES:
-            return None, f"Geometry must be Polygon or MultiPolygon; found '{t}'"
-    elif top in _ALLOWED_GEOM_TYPES:
-        pass
-    else:
-        return None, f"GeoJSON type must be Polygon, MultiPolygon, Feature, or FeatureCollection; found '{top}'"
-
-    return data, None
-
-
 def _render_map(geojson_data: dict | None, center: tuple[float, float] = (45.5, -73.6)) -> None:
     m = folium.Map(location=center, zoom_start=10, tiles="OpenStreetMap")
     if geojson_data:
@@ -76,10 +49,19 @@ def _render_map(geojson_data: dict | None, center: tuple[float, float] = (45.5, 
     st_folium(m, height=350, use_container_width=True)
 
 
-def _geojson_uploader(key: str, existing_geojson: str | None) -> tuple[str | None, dict | None]:
+def _geojson_uploader(
+    key: str,
+    existing_geojson: str | None,
+    *,
+    area_target_key: str | None = None,
+) -> tuple[str | None, dict | None]:
     """Render upload widget + current GeoJSON string display.
 
     Returns (geojson_str, parsed_dict) where both are None if no valid GeoJSON.
+
+    When ``area_target_key`` is provided, the first time a given file is
+    uploaded its geodesic surface area (ha) is written to that session-state
+    key so the surface_area number_input picks it up on the next rerun.
     """
     uploaded = st.file_uploader(
         "Upload GeoJSON boundary",
@@ -89,15 +71,23 @@ def _geojson_uploader(key: str, existing_geojson: str | None) -> tuple[str | Non
     )
     if uploaded is not None:
         raw = uploaded.read().decode("utf-8")
-        parsed, err = _validate_geojson(raw)
+        parsed, err = validate_geojson(raw)
         if err:
             st.error(f"Invalid GeoJSON: {err}")
             return existing_geojson, None
         st.success("GeoJSON validated — Polygon/MultiPolygon geometry detected.")
+        if area_target_key and parsed:
+            if maybe_prefill_area(
+                uploaded,
+                parsed,
+                target_key=area_target_key,
+                sentinel_key=f"{key}_area_sentinel",
+            ):
+                st.rerun()
         return raw, parsed
 
     if existing_geojson:
-        parsed, _ = _validate_geojson(existing_geojson)
+        parsed, _ = validate_geojson(existing_geojson)
         return existing_geojson, parsed
 
     return None, None
@@ -123,7 +113,13 @@ with st.expander("➕ Create new watershed", expanded=False):
     with st.form("ws_create_form", clear_on_submit=True):
         c_name = st.text_input("Name")
         c_desc = st.text_area("Description")
-        c_surface = st.number_input("Surface area (ha)", min_value=0.0, value=None)
+        c_surface = st.number_input(
+            "Surface area (ha)",
+            min_value=0.0,
+            value=None,
+            key="ws_create_surface",
+            help="Auto-filled from uploaded GeoJSON; edit to override.",
+        )
         c_conc = st.number_input("Concentration time (min)", min_value=0, step=1, value=None)
         c_imp = st.number_input("Impervious surface (%)", min_value=0.0, max_value=100.0, value=None)
 
@@ -143,7 +139,9 @@ with st.expander("➕ Create new watershed", expanded=False):
 
     # GeoJSON upload lives outside the form (file_uploader + form = limitation)
     st.caption("Boundary (optional)")
-    c_geojson_str, c_geojson_parsed = _geojson_uploader("ws_create", None)
+    c_geojson_str, c_geojson_parsed = _geojson_uploader(
+        "ws_create", None, area_target_key="ws_create_surface"
+    )
     if c_geojson_parsed:
         _render_map(c_geojson_parsed)
 
@@ -234,10 +232,13 @@ with col_form:
     with st.form("ws_edit_form"):
         e_name = st.text_input("Name", value=selected.get("name") or "")
         e_desc = st.text_area("Description", value=selected.get("description") or "")
+        e_surface_key = f"ws_edit_{selected['watershed_id']}_surface"
         e_surface = st.number_input(
             "Surface area (ha)",
             min_value=0.0,
             value=float(selected["surface_area"]) if selected["surface_area"] is not None else None,
+            key=e_surface_key,
+            help="Auto-filled when you upload a new GeoJSON; edit to override.",
         )
         e_conc = st.number_input(
             "Concentration time (min)",
@@ -283,7 +284,9 @@ with col_form:
     # GeoJSON uploader (outside form)
     st.caption("Replace boundary (upload new GeoJSON, or leave blank to keep existing)")
     e_geojson_str, e_geojson_parsed = _geojson_uploader(
-        f"ws_edit_{selected['watershed_id']}", existing_geojson_str
+        f"ws_edit_{selected['watershed_id']}",
+        existing_geojson_str,
+        area_target_key=e_surface_key,
     )
 
 with col_map:
