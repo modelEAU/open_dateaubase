@@ -18,15 +18,14 @@ def find_or_create_sensor_metadata(
     parameter_id: int,
     unit_id: int | None = None,
     data_provenance_id: int,
-    processing_kind_id: int,
     value_kind_id: int = 1,
     parent_channel_id: int | None = None,
     channel_kind_id: int = 1,
 ) -> int:
-    """Find or create a Channel row for a sensor stream. Returns Channel_ID.
+    """Find or create a Channel row for a raw sensor stream. Returns Channel_ID.
 
     Uses the UNIQUE sensor stream constraint:
-    (SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID, ProcessingKind_ID).
+    (SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID, ProducedByStep_ID IS NULL).
 
     On first ingest, a new row is created with Unit_ID stored on the Channel.
     On subsequent calls for the same stream, the existing Channel_ID is returned.
@@ -42,23 +41,21 @@ def find_or_create_sensor_metadata(
               AND [TagName] = ?
               AND [Parameter_ID] = ?
               AND [DataProvenanceKind_ID] = ?
-              AND [ProcessingKind_ID] = ?
+              AND [ProducedByStep_ID] IS NULL
         )
         INSERT INTO [dbo].[Channel]
             ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID],
-             [ProcessingKind_ID], [ValueKind_ID], [Unit_ID], [ParentChannel_ID], [ChannelKind_ID])
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             [ValueKind_ID], [Unit_ID], [ParentChannel_ID], [ChannelKind_ID])
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         signal_interface_id,
         tag_name,
         parameter_id,
         data_provenance_id,
-        processing_kind_id,
         signal_interface_id,
         tag_name,
         parameter_id,
         data_provenance_id,
-        processing_kind_id,
         value_kind_id,
         unit_id,
         parent_channel_id,
@@ -72,13 +69,12 @@ def find_or_create_sensor_metadata(
           AND [TagName] = ?
           AND [Parameter_ID] = ?
           AND [DataProvenanceKind_ID] = ?
-          AND [ProcessingKind_ID] = ?
+          AND [ProducedByStep_ID] IS NULL
         """,
         signal_interface_id,
         tag_name,
         parameter_id,
         data_provenance_id,
-        processing_kind_id,
     )
     row = cursor.fetchone()
     channel_id, stored_unit_id = row[0], row[1]
@@ -97,21 +93,20 @@ def find_or_create_derived_metadata(
     conn: pyodbc.Connection,
     *,
     source_channel_id: int,
-    processing_kind_id: int,
+    produced_by_step_id: int | None,
 ) -> int:
-    """Find or create a Channel row for a processed output stream.
+    """Find or create a Channel row for a processed output stream. Returns Channel_ID.
 
-    Clones identity fields (SignalInterface_ID, TagName, Parameter, Unit, DataProvenanceKind, ValueKind)
-    from the source Channel row and applies the new ProcessingKind_ID.
-    The new channel becomes a child of the source channel (ParentChannel_ID).
+    Inherits TagName and Parameter_ID from the source channel. SignalInterface_ID is
+    set to NULL (derived channels have no physical source). DataProvenanceKind_ID is
+    set to 7 (Derived). ProducedByStep_ID distinguishes independently-processed variants.
     """
     from fastapi import HTTPException
 
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID],
-               [ValueKind_ID], [Unit_ID]
+        SELECT [TagName], [Parameter_ID], [ValueKind_ID], [Unit_ID]
         FROM [dbo].[Channel]
         WHERE [Channel_ID] = ?
         """,
@@ -123,86 +118,380 @@ def find_or_create_derived_metadata(
             status_code=404,
             detail=f"Source channel {source_channel_id} not found.",
         )
-    (
-        signal_interface_id,
+    tag_name, parameter_id, value_kind_id, unit_id = row
+
+    _DERIVED_PROVENANCE_KIND_ID = 7  # "Derived" seed row
+
+    if produced_by_step_id is None:
+        step_filter = "[ProducedByStep_ID] IS NULL"
+        step_params: list = []
+    else:
+        step_filter = "[ProducedByStep_ID] = ?"
+        step_params = [produced_by_step_id]
+
+    cursor.execute(
+        f"""
+        IF NOT EXISTS (
+            SELECT 1 FROM [dbo].[Channel]
+            WHERE [SignalInterface_ID] IS NULL
+              AND [TagName] = ?
+              AND [Parameter_ID] = ?
+              AND [DataProvenanceKind_ID] = ?
+              AND {step_filter}
+        )
+        INSERT INTO [dbo].[Channel]
+            ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID],
+             [ProducedByStep_ID], [ValueKind_ID], [Unit_ID], [ParentChannel_ID])
+        VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)
+        """,
         tag_name,
         parameter_id,
-        data_provenance_id,
+        _DERIVED_PROVENANCE_KIND_ID,
+        *step_params,
+        tag_name,
+        parameter_id,
+        _DERIVED_PROVENANCE_KIND_ID,
+        produced_by_step_id,
+        value_kind_id or 1,
+        unit_id,
+        source_channel_id,
+    )
+    conn.commit()
+    cursor.execute(
+        f"""
+        SELECT [Channel_ID] FROM [dbo].[Channel]
+        WHERE [SignalInterface_ID] IS NULL
+          AND [TagName] = ?
+          AND [Parameter_ID] = ?
+          AND [DataProvenanceKind_ID] = ?
+          AND {step_filter}
+        """,
+        tag_name,
+        parameter_id,
+        _DERIVED_PROVENANCE_KIND_ID,
+        *step_params,
+    )
+    result = cursor.fetchone()
+    assert result is not None
+    return result[0]
+
+
+def find_or_create_analysis_series(
+    conn: pyodbc.Connection,
+    *,
+    parameter_id: int,
+    sampling_point_id: int,
+    value_kind_id: int,
+    processing_kind_id: int,
+    unit_id: int,
+    name: str,
+) -> int:
+    """Find or create an AnalysisSeries row. Returns AnalysisSeries_ID.
+
+    Uses the UNIQUE identity constraint:
+    UQ_AnalysisSeries_Identity (Parameter_ID, SamplingPoint_ID, ValueKind_ID, ProcessingKind_ID).
+
+    On first measurement, a new row is created with Unit_ID and Name stored.
+    On subsequent calls for the same series identity, the existing row is returned
+    and Unit_ID / Name are NOT updated (immutable for the lifetime of the series).
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT [AnalysisSeries_ID]
+        FROM [dbo].[AnalysisSeries]
+        WHERE [Parameter_ID] = ?
+          AND [SamplingPoint_ID] = ?
+          AND [ValueKind_ID] = ?
+          AND [ProcessingKind_ID] = ?
+        """,
+        parameter_id,
+        sampling_point_id,
+        value_kind_id,
+        processing_kind_id,
+    )
+    row = cursor.fetchone()
+    if row is not None:
+        return int(row[0])
+
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[AnalysisSeries]
+            ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID],
+             [Unit_ID], [ProcessingKind_ID])
+        OUTPUT INSERTED.[AnalysisSeries_ID]
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        name,
+        parameter_id,
+        sampling_point_id,
         value_kind_id,
         unit_id,
-    ) = row
-    return find_or_create_sensor_metadata(
-        conn,
-        signal_interface_id=signal_interface_id,
-        tag_name=tag_name,
-        parameter_id=parameter_id,
-        unit_id=unit_id,
-        data_provenance_id=data_provenance_id,
-        processing_kind_id=processing_kind_id,
-        value_kind_id=value_kind_id or 1,
+        processing_kind_id,
     )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return new_id
+
+
+def insert_lab_experiment(
+    conn: pyodbc.Connection,
+    *,
+    name: str,
+    experiment_datetime: datetime,
+    campaign_id: int | None = None,
+    description: str | None = None,
+    created_by_person_id: int | None = None,
+) -> int:
+    """Insert a LabExperiment row. Returns LabExperiment_ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[LabExperiment]
+            ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID])
+        OUTPUT INSERTED.[LabExperiment_ID]
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        name,
+        campaign_id,
+        experiment_datetime,
+        description,
+        created_by_person_id,
+    )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return new_id
 
 
 def insert_lab_analysis(
     conn: pyodbc.Connection,
     *,
+    lab_experiment_id: int,
+    analysis_series_id: int,
     sample_id: int,
-    laboratory_id: int | None,
-    analyst_person_id: int | None,
-    procedure_id: int | None,
-    campaign_id: int | None,
-    notes: str | None,
+    laboratory_id: int | None = None,
+    analyst_person_id: int | None = None,
+    procedure_id: int | None = None,
+    analysis_datetime: datetime | None = None,
+    replicate: int = 1,
+    quality_code_id: int | None = None,
+    notes: str | None = None,
 ) -> int:
-    """Insert a LabAnalysis row. Returns LabAnalysis_ID."""
+    """Insert a LabAnalysis row. Returns LabAnalysis_ID.
+
+    Uses the column DEFAULT (SYSUTCDATETIME()) when ``analysis_datetime`` is None
+    by omitting the column from the INSERT.
+    """
     cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO [dbo].[LabAnalysis]
-            ([Sample_ID], [Laboratory_ID], [AnalystPerson_ID], [Procedure_ID],
-             [Campaign_ID], [Notes])
-        OUTPUT INSERTED.[LabAnalysis_ID]
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        sample_id,
-        laboratory_id,
-        analyst_person_id,
-        procedure_id,
-        campaign_id,
-        notes,
-    )
+    if analysis_datetime is None:
+        cursor.execute(
+            """
+            INSERT INTO [dbo].[LabAnalysis]
+                ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate],
+                 [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [Procedure_ID], [Notes])
+            OUTPUT INSERTED.[LabAnalysis_ID]
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            lab_experiment_id,
+            analysis_series_id,
+            sample_id,
+            replicate,
+            quality_code_id,
+            laboratory_id,
+            analyst_person_id,
+            procedure_id,
+            notes,
+        )
+    else:
+        cursor.execute(
+            """
+            INSERT INTO [dbo].[LabAnalysis]
+                ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate],
+                 [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [Procedure_ID],
+                 [AnalysisDateTime], [Notes])
+            OUTPUT INSERTED.[LabAnalysis_ID]
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            lab_experiment_id,
+            analysis_series_id,
+            sample_id,
+            replicate,
+            quality_code_id,
+            laboratory_id,
+            analyst_person_id,
+            procedure_id,
+            analysis_datetime,
+            notes,
+        )
     new_id: int = cursor.fetchone()[0]
     conn.commit()
     return new_id
 
 
-def insert_lab_value(
+def upsert_analysis_series_axis(
+    conn: pyodbc.Connection,
+    analysis_series_id: int,
+    axis_role: int,
+    binning_axis_id: int,
+) -> None:
+    """Create or update an AnalysisSeriesAxis row. AxisRole: 0=primary/row, 1=col."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM [dbo].[AnalysisSeriesAxis]
+            WHERE [AnalysisSeries_ID] = ? AND [AxisRole] = ?
+        )
+        INSERT INTO [dbo].[AnalysisSeriesAxis]
+            ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID])
+        VALUES (?, ?, ?)
+        """,
+        analysis_series_id,
+        axis_role,
+        analysis_series_id,
+        axis_role,
+        binning_axis_id,
+    )
+    conn.commit()
+
+
+def _get_analysis_series_axes(
+    cursor: pyodbc.Cursor, analysis_series_id: int
+) -> dict[int, int]:
+    """Return mapping AxisRole → ValueBinningAxis_ID for the given series."""
+    cursor.execute(
+        """
+        SELECT [AxisRole], [ValueBinningAxis_ID]
+        FROM [dbo].[AnalysisSeriesAxis]
+        WHERE [AnalysisSeries_ID] = ?
+        """,
+        analysis_series_id,
+    )
+    return {int(r[0]): int(r[1]) for r in cursor.fetchall()}
+
+
+def _get_value_bins(cursor: pyodbc.Cursor, binning_axis_id: int) -> dict[int, int]:
+    """Return mapping BinIndex → ValueBin_ID for a binning axis."""
+    cursor.execute(
+        """
+        SELECT [ValueBin_ID], [BinIndex] FROM [dbo].[ValueBin]
+        WHERE [ValueBinningAxis_ID] = ? ORDER BY [BinIndex]
+        """,
+        binning_axis_id,
+    )
+    return {int(r[1]): int(r[0]) for r in cursor.fetchall()}
+
+
+def insert_lab_observation(
     conn: pyodbc.Connection,
     *,
     lab_analysis_id: int,
-    parameter_id: int,
-    unit_id: int | None = None,
-    value: float,
-    replicate: int = 1,
+    analysis_series_id: int,
+    timestamp: datetime,
+    value_kind_id: int,
+    value: float | list | None,
     quality_code: int | None = None,
 ) -> int:
-    """Insert a LabValue row. Returns LabValue_ID."""
+    """Insert an Observation row for a lab analysis and route payload to the
+    appropriate value table.
+
+    - ``value_kind_id=1`` (Scalar): ``value`` is ``float | None`` → ``Value``
+    - ``value_kind_id=2`` (Vector): ``value`` is ``list[float | None]`` →
+      ``ValueVector`` (axes resolved from ``AnalysisSeriesAxis``)
+    - ``value_kind_id=3`` (Matrix): ``value`` is ``list[list[float | None]]``
+      → ``ValueMatrix`` (row + col axes from ``AnalysisSeriesAxis``)
+
+    The Observation row is written with ``Channel_ID = NULL`` and
+    ``LabAnalysis_ID = lab_analysis_id``, satisfying the XOR CHECK constraint.
+
+    Returns Observation_ID.
+    """
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO [dbo].[LabValue]
-            ([LabAnalysis_ID], [Parameter_ID], [LabResult], [Replicate], [QualityCode_ID])
-        OUTPUT INSERTED.[LabValue_ID]
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO [dbo].[Observation]
+            ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID])
+        OUTPUT INSERTED.[Observation_ID]
+        VALUES (NULL, ?, ?, ?)
         """,
         lab_analysis_id,
-        parameter_id,
-        value,
-        replicate,
-        quality_code,
+        timestamp,
+        value_kind_id,
     )
-    new_id: int = cursor.fetchone()[0]
+    obs_id: int = cursor.fetchone()[0]
+
+    if value_kind_id == 1:
+        scalar_value = value if (value is None or isinstance(value, (int, float))) else None
+        cursor.execute(
+            "INSERT INTO [dbo].[Value] ([Observation_ID], [Value], [QualityCode]) VALUES (?, ?, ?)",
+            obs_id,
+            scalar_value,
+            quality_code,
+        )
+    elif value_kind_id == 2:
+        if not isinstance(value, list):
+            raise ValueError("vector lab observation requires a list value")
+        axes = _get_analysis_series_axes(cursor, analysis_series_id)
+        axis_id = axes.get(0)
+        if axis_id is None:
+            raise ValueError(
+                f"AnalysisSeries {analysis_series_id} has no AxisRole=0; cannot ingest vector"
+            )
+        bin_map = _get_value_bins(cursor, axis_id)
+        for i, bin_val in enumerate(value):
+            bin_id = bin_map.get(i)
+            if bin_id is None:
+                continue
+            cursor.execute(
+                """
+                INSERT INTO [dbo].[ValueVector]
+                    ([Observation_ID], [ValueBin_ID], [Value], [QualityCode])
+                VALUES (?, ?, ?, ?)
+                """,
+                obs_id,
+                bin_id,
+                bin_val,
+                quality_code,
+            )
+    elif value_kind_id == 3:
+        if not isinstance(value, list):
+            raise ValueError("matrix lab observation requires a list-of-lists value")
+        axes = _get_analysis_series_axes(cursor, analysis_series_id)
+        row_axis_id = axes.get(0)
+        col_axis_id = axes.get(1)
+        if row_axis_id is None or col_axis_id is None:
+            raise ValueError(
+                f"AnalysisSeries {analysis_series_id} missing AxisRole 0 or 1; cannot ingest matrix"
+            )
+        row_map = _get_value_bins(cursor, row_axis_id)
+        col_map = _get_value_bins(cursor, col_axis_id)
+        for r, row in enumerate(value):
+            if not isinstance(row, list):
+                continue
+            for c, cell_val in enumerate(row):
+                row_bin_id = row_map.get(r)
+                col_bin_id = col_map.get(c)
+                if row_bin_id is None or col_bin_id is None:
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO [dbo].[ValueMatrix]
+                        ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID], [Value], [QualityCode])
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    obs_id,
+                    row_bin_id,
+                    col_bin_id,
+                    cell_val,
+                    quality_code,
+                )
+    else:
+        raise ValueError(
+            f"unsupported value_kind_id={value_kind_id} for lab observation"
+        )
+
     conn.commit()
-    return new_id
+    return obs_id
 
 
 def upsert_channel_axis(

@@ -5,11 +5,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import json
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
+import jwt
 from fastapi import HTTPException, status
 
 from ..repositories.auth_repository import AuthRepository
@@ -66,19 +66,11 @@ class AuthService:
     def get_current_user_from_token(self, token: str) -> dict:
         payload = self._decode_token(token)
 
-        exp = payload.get("exp")
         user_id = payload.get("sub")
-
-        if exp is None or user_id is None:
+        if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication token.",
-            )
-
-        if datetime.now(timezone.utc).timestamp() > exp:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication token has expired.",
             )
 
         user = self.repo.get_user_by_id(int(user_id))
@@ -138,47 +130,23 @@ class AuthService:
             return False
 
     def _generate_token(self, user_id: int, email: str) -> str:
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=self.token_ttl_hours)
         payload = {
-            "sub": user_id,
+            "sub": str(user_id),
             "email": email,
-            "exp": expires_at.timestamp(),
+            "exp": datetime.now(timezone.utc) + timedelta(hours=self.token_ttl_hours),
         }
-
-        payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        payload_b64 = base64.urlsafe_b64encode(payload_bytes).decode("utf-8").rstrip("=")
-
-        signature = hmac.new(
-            self.secret.encode("utf-8"),
-            payload_b64.encode("utf-8"),
-            hashlib.sha256,
-        ).digest()
-        signature_b64 = base64.urlsafe_b64encode(signature).decode("utf-8").rstrip("=")
-
-        return f"{payload_b64}.{signature_b64}"
+        return jwt.encode(payload, self.secret, algorithm="HS256")
 
     def _decode_token(self, token: str) -> dict:
         try:
-            payload_b64, signature_b64 = token.split(".", 1)
-        except ValueError as exc:
+            return jwt.decode(token, self.secret, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication token has expired.",
+            ) from exc
+        except jwt.InvalidTokenError as exc:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication token.",
             ) from exc
-
-        expected_signature = hmac.new(
-            self.secret.encode("utf-8"),
-            payload_b64.encode("utf-8"),
-            hashlib.sha256,
-        ).digest()
-        expected_signature_b64 = base64.urlsafe_b64encode(expected_signature).decode("utf-8").rstrip("=")
-
-        if not hmac.compare_digest(signature_b64, expected_signature_b64):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication token.",
-            )
-
-        padded_payload = payload_b64 + "=" * (-len(payload_b64) % 4)
-        payload_bytes = base64.urlsafe_b64decode(padded_payload.encode("utf-8"))
-        return json.loads(payload_bytes.decode("utf-8"))

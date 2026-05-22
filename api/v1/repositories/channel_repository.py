@@ -20,8 +20,7 @@ _CHANNEL_SELECT = """
         p.[Parameter]                AS ParameterName,
         c.[DataProvenanceKind_ID],
         dp.[Name]                    AS DataProvenanceKindName,
-        c.[ProcessingKind_ID],
-        pd.[Name]                    AS ProcessingKindName,
+        c.[ProducedByStep_ID],
         c.[ValueKind_ID],
         vt.[Name]                    AS ValueKindName,
         c.[Unit_ID],
@@ -35,7 +34,6 @@ _CHANNEL_SELECT = """
     LEFT JOIN [dbo].[ChannelKind]              cr  ON cr.[ChannelKind_ID]    = c.[ChannelKind_ID]
     LEFT JOIN [dbo].[Parameter]                p   ON p.[Parameter_ID]       = c.[Parameter_ID]
     LEFT JOIN [dbo].[DataProvenanceKind]       dp  ON dp.[DataProvenanceKind_ID] = c.[DataProvenanceKind_ID]
-    LEFT JOIN [dbo].[ProcessingKind]           pd  ON pd.[ProcessingKind_ID] = c.[ProcessingKind_ID]
     LEFT JOIN [dbo].[ValueKind]                vt  ON vt.[ValueKind_ID]      = c.[ValueKind_ID]
     LEFT JOIN [dbo].[Unit]                     u   ON u.[Unit_ID]            = c.[Unit_ID]
     LEFT JOIN [dbo].[EquipmentWiringHistory]   ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
@@ -64,8 +62,7 @@ _CHANNEL_SELECT_WITH_CAMPAIGN = """
         p.[Parameter]                AS ParameterName,
         c.[DataProvenanceKind_ID],
         dp.[Name]                    AS DataProvenanceKindName,
-        c.[ProcessingKind_ID],
-        pd.[Name]                    AS ProcessingKindName,
+        c.[ProducedByStep_ID],
         c.[ValueKind_ID],
         vt.[Name]                    AS ValueKindName,
         c.[Unit_ID],
@@ -79,7 +76,6 @@ _CHANNEL_SELECT_WITH_CAMPAIGN = """
     LEFT JOIN [dbo].[ChannelKind]              cr  ON cr.[ChannelKind_ID]    = c.[ChannelKind_ID]
     LEFT JOIN [dbo].[Parameter]                p   ON p.[Parameter_ID]       = c.[Parameter_ID]
     LEFT JOIN [dbo].[DataProvenanceKind]       dp  ON dp.[DataProvenanceKind_ID] = c.[DataProvenanceKind_ID]
-    LEFT JOIN [dbo].[ProcessingKind]           pd  ON pd.[ProcessingKind_ID] = c.[ProcessingKind_ID]
     LEFT JOIN [dbo].[ValueKind]                vt  ON vt.[ValueKind_ID]      = c.[ValueKind_ID]
     LEFT JOIN [dbo].[Unit]                     u   ON u.[Unit_ID]            = c.[Unit_ID]
     LEFT JOIN [dbo].[EquipmentWiringHistory]   ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
@@ -110,14 +106,13 @@ def _row_to_dict(row) -> dict:
         "parameter_name": row[11],
         "data_provenance_kind_id": row[12],
         "data_provenance_kind_name": row[13],
-        "processing_kind_id": row[14],
-        "processing_kind_name": row[15],
-        "value_kind_id": row[16],
-        "value_kind_name": row[17],
-        "unit_id": row[18],
-        "unit_name": row[19],
-        "equipment_id": row[20],
-        "equipment_identifier": row[21],
+        "produced_by_step_id": row[14],
+        "value_kind_id": row[15],
+        "value_kind_name": row[16],
+        "unit_id": row[17],
+        "unit_name": row[18],
+        "equipment_id": row[19],
+        "equipment_identifier": row[20],
     }
 
 
@@ -126,7 +121,6 @@ def list_channels(
     *,
     parameter_id: int | None = None,
     data_provenance_kind_id: int | None = None,
-    processing_kind_id: int | None = None,
     equipment_id: int | None = None,
     signal_interface_id: int | None = None,
     value_kind_id: int | None = None,
@@ -151,9 +145,6 @@ def list_channels(
     if data_provenance_kind_id is not None:
         where_parts.append("c.[DataProvenanceKind_ID] = ?")
         params.append(data_provenance_kind_id)
-    if processing_kind_id is not None:
-        where_parts.append("c.[ProcessingKind_ID] = ?")
-        params.append(processing_kind_id)
     if signal_interface_id is not None:
         where_parts.append("c.[SignalInterface_ID] = ?")
         params.append(signal_interface_id)
@@ -226,7 +217,7 @@ def insert_channel(conn: pyodbc.Connection, data: dict) -> dict | None:
     cursor.execute(
         "INSERT INTO [dbo].[Channel] "
         "([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [ParentChannel_ID], "
-        "[ChannelKind_ID], [Parameter_ID], [DataProvenanceKind_ID], [ProcessingKind_ID], [ValueKind_ID], [Unit_ID])"
+        "[ChannelKind_ID], [Parameter_ID], [DataProvenanceKind_ID], [ProducedByStep_ID], [ValueKind_ID], [Unit_ID])"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         data.get("signal_interface_id"),
         data.get("tag_name"),
@@ -235,7 +226,7 @@ def insert_channel(conn: pyodbc.Connection, data: dict) -> dict | None:
         data.get("channel_kind_id", 1),  # Default to 'Value' kind
         data.get("parameter_id"),
         data.get("data_provenance_kind_id"),
-        data.get("processing_kind_id"),
+        data.get("produced_by_step_id"),
         data.get("value_kind_id", 1),  # Default to Scalar
         data.get("unit_id"),
     )
@@ -253,7 +244,7 @@ def update_channel(conn: pyodbc.Connection, channel_id: int, data: dict) -> dict
     cursor.execute(
         "UPDATE [dbo].[Channel]"
         " SET [SignalInterface_ID]=?, [TagName]=?, [SignalInterfacePort_ID]=?, [ParentChannel_ID]=?, "
-        "[ChannelKind_ID]=?, [Parameter_ID]=?, [DataProvenanceKind_ID]=?, [ProcessingKind_ID]=?, [ValueKind_ID]=?, [Unit_ID]=?"
+        "[ChannelKind_ID]=?, [Parameter_ID]=?, [DataProvenanceKind_ID]=?, [ProducedByStep_ID]=?, [ValueKind_ID]=?, [Unit_ID]=?"
         " WHERE [Channel_ID]=?",
         data.get("signal_interface_id"),
         data.get("tag_name"),
@@ -262,7 +253,7 @@ def update_channel(conn: pyodbc.Connection, channel_id: int, data: dict) -> dict
         data.get("channel_kind_id", 1),
         data.get("parameter_id"),
         data.get("data_provenance_kind_id"),
-        data.get("processing_kind_id"),
+        data.get("produced_by_step_id"),
         data.get("value_kind_id"),
         data.get("unit_id"),
         channel_id,
@@ -304,30 +295,35 @@ def find_channel_by_signal_interface_tag(
 def find_channel_by_identity(
     conn: pyodbc.Connection,
     *,
-    signal_interface_id: int,
+    signal_interface_id: int | None,
     tag_name: str,
     parameter_id: int,
     data_provenance_id: int,
-    processing_kind_id: int,
+    produced_by_step_id: int | None = None,
 ) -> dict | None:
     """Return a Channel row matching the full stream identity.
 
     Returns ``None`` when no match exists.
     """
     cursor = conn.cursor()
-    cursor.execute(
+    sql = (
         _CHANNEL_SELECT
-        + " WHERE c.[SignalInterface_ID] = ?"
-        + "   AND c.[TagName] = ?"
+        + " WHERE c.[TagName] = ?"
         + "   AND c.[Parameter_ID] = ?"
         + "   AND c.[DataProvenanceKind_ID] = ?"
-        + "   AND c.[ProcessingKind_ID] = ?",
-        signal_interface_id,
-        tag_name,
-        parameter_id,
-        data_provenance_id,
-        processing_kind_id,
     )
+    params: list = [tag_name, parameter_id, data_provenance_id]
+    if signal_interface_id is None:
+        sql += "   AND c.[SignalInterface_ID] IS NULL"
+    else:
+        sql += "   AND c.[SignalInterface_ID] = ?"
+        params.append(signal_interface_id)
+    if produced_by_step_id is None:
+        sql += "   AND c.[ProducedByStep_ID] IS NULL"
+    else:
+        sql += "   AND c.[ProducedByStep_ID] = ?"
+        params.append(produced_by_step_id)
+    cursor.execute(sql, *params)
     row = cursor.fetchone()
     return _row_to_dict(row) if row else None
 

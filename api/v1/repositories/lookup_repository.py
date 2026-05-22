@@ -286,10 +286,10 @@ def get_data_provenance_kind_lookup(conn: pyodbc.Connection) -> list[dict]:
     """Return all data provenance kinds for dropdowns."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT DataProvenanceKind_ID, Name FROM [dbo].[DataProvenanceKind] ORDER BY DataProvenanceKind_ID"
+        "SELECT DataProvenanceKind_ID, Name, Description FROM [dbo].[DataProvenanceKind] ORDER BY DataProvenanceKind_ID"
     )
     return [
-        {"data_provenance_kind_id": row[0], "name": row[1]}
+        {"data_provenance_kind_id": row[0], "name": row[1], "description": row[2]}
         for row in cursor.fetchall()
     ]
 
@@ -300,12 +300,12 @@ def get_data_provenance_kind_by_id(
     """Return a single data provenance kind by ID."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT DataProvenanceKind_ID, Name FROM [dbo].[DataProvenanceKind] WHERE DataProvenanceKind_ID = ?",
+        "SELECT DataProvenanceKind_ID, Name, Description FROM [dbo].[DataProvenanceKind] WHERE DataProvenanceKind_ID = ?",
         provenance_id,
     )
     row = cursor.fetchone()
     if row:
-        return {"data_provenance_kind_id": row[0], "name": row[1]}
+        return {"data_provenance_kind_id": row[0], "name": row[1], "description": row[2]}
     return None
 
 
@@ -1164,6 +1164,19 @@ def upsert_land_use(
 # ---------------------------------------------------------------------------
 # DataAcquisitionSystemKind (read-only seed vocabulary)
 # ---------------------------------------------------------------------------
+
+
+def get_tags_lookup(conn: pyodbc.Connection, das_id: int) -> list[dict]:
+    """Return SignalInterface names for a DAS, for strict-mode tag dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SignalInterface_ID], [Name]"
+        " FROM [dbo].[SignalInterface]"
+        " WHERE [DataAcquisitionSystem_ID] = ?"
+        " ORDER BY [Name]",
+        das_id,
+    )
+    return [{"signal_interface_id": row[0], "name": row[1]} for row in cursor.fetchall()]
 
 
 def get_das_kinds(conn: pyodbc.Connection) -> list[dict]:

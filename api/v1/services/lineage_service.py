@@ -40,11 +40,12 @@ def persist_processing(
     method_parameters: dict,
     executed_at: datetime | None,
     executed_by_person_id: int | None,
-    output_metadata_id: int,
 ) -> int:
-    """Insert ProcessingStep + DataLineage rows.
+    """Insert ProcessingStep + ProcessingLineage input edges.
 
     Returns the ProcessingStep_ID.
+    The caller is responsible for creating the output Channel with
+    ProducedByStep_ID pointing to the returned step_id.
     Raises HTTPException(500) on unexpected DB error.
     """
     effective_executed_at = executed_at or datetime.now(tz=timezone.utc)
@@ -57,7 +58,6 @@ def persist_processing(
             method_parameters=method_parameters,
             executed_at=effective_executed_at,
             executed_by_person_id=executed_by_person_id,
-            output_metadata_id=output_metadata_id,
             conn=conn,
         )
     except Exception as exc:

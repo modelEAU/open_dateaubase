@@ -306,6 +306,60 @@ def relocate_equipment(
     return new_id, closed_id
 
 
+def open_location_for_campaign(
+    conn: pyodbc.Connection,
+    equipment_id: int,
+    sampling_point_id: int,
+    start_time: datetime,
+    campaign_id: int,
+    notes: str | None = None,
+) -> tuple[int, int | None]:
+    """Close any active EquipmentLocationHistory row and open a new one
+    tagged with ``Campaign_ID``.
+
+    Caller owns the transaction — this function does NOT commit. Use this
+    inside a multi-step deployment transaction (see
+    ``campaign_repository.create_campaign_deployment``); for standalone moves
+    use :func:`relocate_equipment`, which commits internally and does not
+    record a Campaign_ID.
+
+    Returns ``(new_history_id, closed_history_id)``; ``closed_history_id`` is
+    ``None`` when there was no active row to close.
+    """
+    cursor = conn.cursor()
+    closed_id: int | None = None
+
+    cursor.execute(
+        """
+        UPDATE [dbo].[EquipmentLocationHistory]
+        SET [ValidTo] = ?
+        OUTPUT DELETED.[EquipmentLocationHistory_ID]
+        WHERE [Equipment_ID] = ? AND [ValidTo] IS NULL
+        """,
+        start_time,
+        equipment_id,
+    )
+    row = cursor.fetchone()
+    if row:
+        closed_id = row[0]
+
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[EquipmentLocationHistory]
+            ([Equipment_ID], [SamplingPoint_ID], [ValidFrom], [Campaign_ID], [Notes])
+        OUTPUT INSERTED.[EquipmentLocationHistory_ID]
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        equipment_id,
+        sampling_point_id,
+        start_time,
+        campaign_id,
+        notes,
+    )
+    new_id: int = cursor.fetchone()[0]
+    return new_id, closed_id
+
+
 def get_location_at_time(
     conn: pyodbc.Connection, equipment_id: int, at_time: datetime
 ) -> dict | None:

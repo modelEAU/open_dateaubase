@@ -79,6 +79,8 @@ class DeploymentCreateIn(BaseModel):
 
     equipment_id: int
     sampling_point_id: int
+    valid_from: datetime | None = None
+    notes: str | None = None
 
 
 class DeploymentCreateOut(BaseModel):

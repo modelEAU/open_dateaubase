@@ -58,7 +58,6 @@ def get_timeseries_by_context(
     *,
     equipment_id: int | None,
     parameter_id: int | None,
-    processing_kind_id: int | None,
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
@@ -67,7 +66,6 @@ def get_timeseries_by_context(
         conn,
         equipment_id=equipment_id,
         parameter_id=parameter_id,
-        processing_kind_id=processing_kind_id,
         page=1,
         page_size=50,
     )
@@ -88,11 +86,11 @@ def get_full_context(
     if channel is None:
         raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found.")
 
-    # All processing degrees for same equipment + parameter
+    # All processing variants for same equipment + parameter
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT c.[Channel_ID], c.[ProcessingKind_ID],
+        SELECT c.[Channel_ID], c.[ProducedByStep_ID],
                COUNT(v.[Timestamp]) AS ValueCount
         FROM [dbo].[Channel] c
         LEFT JOIN [dbo].[Value] v
@@ -101,8 +99,8 @@ def get_full_context(
            AND (? IS NULL OR v.[Timestamp] <= ?)
         WHERE c.[Equipment_ID] = ?
           AND c.[Parameter_ID] = ?
-        GROUP BY c.[Channel_ID], c.[ProcessingKind_ID]
-        ORDER BY c.[ProcessingKind_ID], c.[Channel_ID]
+        GROUP BY c.[Channel_ID], c.[ProducedByStep_ID]
+        ORDER BY c.[ProducedByStep_ID], c.[Channel_ID]
         """,
         from_dt,
         from_dt,
@@ -112,7 +110,7 @@ def get_full_context(
         channel.get("parameter_id"),
     )
     processing_degrees = [
-        {"channel_id": r[0], "processing_kind_id": r[1], "value_count": r[2]}
+        {"channel_id": r[0], "produced_by_step_id": r[1], "value_count": r[2]}
         for r in cursor.fetchall()
     ]
 

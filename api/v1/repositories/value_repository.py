@@ -541,6 +541,58 @@ def insert_image_value(
     return obs_id
 
 
+def insert_lab_image_value(
+    conn: pyodbc.Connection,
+    *,
+    lab_analysis_id: int,
+    timestamp: datetime,
+    image_width: int,
+    image_height: int,
+    number_of_channels: int,
+    image_format: str,
+    file_size_bytes: int,
+    storage_path: str,
+    quality_code: int | None,
+    thumbnail: bytes | None = None,
+) -> int:
+    """Insert a lab-linked image observation. Returns the new Observation_ID.
+
+    Unlike insert_image_value(), sets Channel_ID=NULL and LabAnalysis_ID so the
+    Observation satisfies the XOR constraint for lab observations.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID])
+        OUTPUT INSERTED.[Observation_ID]
+        VALUES (NULL, ?, ?, 4)
+        """,
+        lab_analysis_id,
+        _utc_naive(timestamp),
+    )
+    obs_id: int = cursor.fetchone()[0]
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[ValueImage]
+            ([Observation_ID], [ImageWidth], [ImageHeight], [NumberOfChannels],
+             [ImageFormat], [FileSizeBytes], [StorageBackend], [StoragePath],
+             [Thumbnail], [QualityCode])
+        VALUES (?, ?, ?, ?, ?, ?, 'FileSystem', ?, ?, ?)
+        """,
+        obs_id,
+        image_width,
+        image_height,
+        number_of_channels,
+        image_format,
+        file_size_bytes,
+        storage_path,
+        thumbnail,
+        quality_code,
+    )
+    conn.commit()
+    return obs_id
+
+
 _BULK_QC_SQL: dict[int, str] = {
     _VALUE_TYPE_SCALAR: """
         UPDATE v

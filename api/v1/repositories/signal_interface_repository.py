@@ -82,6 +82,18 @@ def find_signal_interface_by_das_and_name(
 # ---------------------------------------------------------------------------
 
 
+def find_das_by_name(conn: pyodbc.Connection, das_name: str) -> int | None:
+    """Return DataAcquisitionSystem_ID for *das_name* (case-insensitive, trimmed). None if not found."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [DataAcquisitionSystem_ID] FROM [dbo].[DataAcquisitionSystem]"
+        " WHERE LOWER(LTRIM(RTRIM([Name]))) = ?",
+        das_name.strip().lower(),
+    )
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
 def find_or_create_das(conn: pyodbc.Connection, das_name: str) -> tuple[int, bool]:
     """Find or create a DataAcquisitionSystem by name (case-insensitive, trimmed).
 

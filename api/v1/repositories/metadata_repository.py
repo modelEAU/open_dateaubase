@@ -15,7 +15,6 @@ _METADATA_SELECT = """
         e.[Identifier]           AS EquipmentIdentifier,
         m.[DataProvenanceKind_ID],
         dp.[Name] AS DataProvenanceKindName,
-        m.[ProcessingKind],
         m.[Laboratory_ID],
         lab.[Name]               AS LaboratoryName,
         m.[AnalystPerson_ID],
@@ -44,13 +43,12 @@ def _row_to_dict(row) -> dict:
         "equipment_identifier": row[6],
         "data_provenance_id": row[7],
         "data_provenance": row[8],
-        "processing_degree": row[9],
-        "laboratory_id": row[10],
-        "laboratory_name": row[11],
-        "analyst_id": row[12],
-        "analyst_name": row[13],
-        "value_kind_id": row[14],
-        "value_type_name": row[15],
+        "laboratory_id": row[9],
+        "laboratory_name": row[10],
+        "analyst_id": row[11],
+        "analyst_name": row[12],
+        "value_kind_id": row[13],
+        "value_type_name": row[14],
     }
 
 
@@ -59,7 +57,6 @@ def list_metadata(
     *,
     parameter_id: int | None = None,
     data_provenance_id: int | None = None,
-    processing_degree: str | None = None,
     equipment_id: int | None = None,
     page: int = 1,
     page_size: int = 100,
@@ -74,9 +71,6 @@ def list_metadata(
     if data_provenance_id is not None:
         where_parts.append("m.[DataProvenanceKind_ID] = ?")
         params.append(data_provenance_id)
-    if processing_degree is not None:
-        where_parts.append("m.[ProcessingKind] = ?")
-        params.append(processing_degree)
     if equipment_id is not None:
         where_parts.append("m.[Equipment_ID] = ?")
         params.append(equipment_id)
@@ -119,17 +113,6 @@ def get_parameters_lookup(conn: pyodbc.Connection) -> list[dict]:
     )
     return [
         {"parameter_id": row[0], "parameter_name": row[1]} for row in cursor.fetchall()
-    ]
-
-
-def get_processing_kinds_lookup(conn: pyodbc.Connection) -> list[dict]:
-    """Return all processing kinds for dropdowns (id + name)."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [ProcessingKind_ID], [Name] FROM [dbo].[ProcessingKind] ORDER BY [ProcessingKind_ID]"
-    )
-    return [
-        {"processing_kind_id": row[0], "name": row[1]} for row in cursor.fetchall()
     ]
 
 

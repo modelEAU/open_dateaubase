@@ -95,6 +95,7 @@ class EquipmentLifecycleOut(BaseModel):
 class EquipmentEventKindOut(BaseModel):
     event_type_id: int
     event_type_name: str
+    description: str | None = None
 
 
 class EquipmentEventCreate(BaseModel):

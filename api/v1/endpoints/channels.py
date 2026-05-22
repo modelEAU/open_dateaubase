@@ -25,13 +25,9 @@ from ..schemas.channel import (
     ChannelKindLookupOut,
     EquipmentLookupOut,
     ParameterLookupOut,
-    ProcessingKindLookupOut,
 )
 from ..repositories.equipment_repository import get_equipment_lookup
-from ..repositories.metadata_repository import (
-    get_parameters_lookup,
-    get_processing_kinds_lookup,
-)
+from ..repositories.metadata_repository import get_parameters_lookup
 
 router = APIRouter()
 
@@ -50,7 +46,7 @@ def provision_derived_channel(
     channel_id = ingestion_repository.find_or_create_derived_metadata(
         conn,
         source_channel_id=body.source_channel_id,
-        processing_kind_id=body.processing_kind_id,
+        produced_by_step_id=body.produced_by_step_id,
     )
     return ChannelDerivedOut(channel_id=channel_id)
 
@@ -60,9 +56,6 @@ def list_channels(
     parameter_id: int | None = Query(None, description="Filter by parameter ID"),
     data_provenance_id: int | None = Query(
         None, description="Filter by data provenance ID"
-    ),
-    processing_kind_id: int | None = Query(
-        None, description="Filter by processing degree ID (1=Raw, 2=Cleaned, etc.)"
     ),
     equipment_id: int | None = Query(
         None,
@@ -86,7 +79,6 @@ def list_channels(
         conn,
         parameter_id=parameter_id,
         data_provenance_kind_id=data_provenance_id,
-        processing_kind_id=processing_kind_id,
         equipment_id=equipment_id,
         signal_interface_id=signal_interface_id,
         value_kind_id=value_kind_id,
@@ -222,8 +214,8 @@ def provision_channel(body: ChannelProvisionIn, conn=Depends(get_db)):
         "channel_kind_id": channel_kind_id,
         "parameter_id": parameter_id,
         "unit_id": unit_id,
-        "data_provenance_id": body.data_provenance_id,
-        "processing_kind_id": body.processing_kind_id,
+        "data_provenance_kind_id": body.data_provenance_kind_id,
+        "produced_by_step_id": body.produced_by_step_id,
         "value_kind_id": body.value_kind_id,
     }
     return channel_repository.insert_channel(conn, data)
@@ -271,14 +263,6 @@ def list_equipment_lookup(conn=Depends(get_db)):
 def list_parameters_lookup(conn=Depends(get_db)):
     """Return parameters for dropdowns."""
     return get_parameters_lookup(conn)
-
-
-@router.get(
-    "/lookup/processing-kinds", response_model=list[ProcessingKindLookupOut]
-)
-def list_processing_kinds_lookup(conn=Depends(get_db)):
-    """Return processing kinds for dropdowns."""
-    return get_processing_kinds_lookup(conn)
 
 
 @router.get("/lookup/channel-kinds", response_model=list[ChannelKindLookupOut])

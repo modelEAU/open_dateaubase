@@ -146,6 +146,8 @@ def create_campaign_deployment(
             campaign_id=campaign_id,
             equipment_id=body.equipment_id,
             sampling_point_id=body.sampling_point_id,
+            valid_from=body.valid_from,
+            notes=body.notes,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

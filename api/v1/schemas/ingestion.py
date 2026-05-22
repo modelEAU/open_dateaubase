@@ -23,7 +23,7 @@ class SensorIngestRequest(BaseModel):
     parameter_name: str
     unit_name: str
     data_provenance_kind_id: int = 1
-    processing_kind_id: int = 1
+    strict: bool = False
     values: list[ValueItem]
 
     @field_validator("values")
@@ -34,32 +34,55 @@ class SensorIngestRequest(BaseModel):
         return v
 
 
-class LabValueItem(BaseModel):
-    """One measured value within a lab analysis."""
+class LabMeasurementItem(BaseModel):
+    """One measurement in a lab experiment.
 
+    Carries both the AnalysisSeries identity (parameter / location / kinds /
+    unit / name) used to find-or-create the series, and the per-measurement
+    data (sample, value, lab metadata, replicate, quality). The payload value
+    is routed to Value / ValueVector / ValueMatrix based on ``value_kind_id``.
+    """
+
+    # Series identity — used to find or create AnalysisSeries
     parameter_id: int
+    sampling_point_id: int
     unit_id: int
-    value: float | None
-    replicate: int = 1
-    quality_code: int | None = None
+    value_kind_id: int = 1
+    processing_kind_id: int = 1
+    series_name: str
 
-
-class LabIngestRequest(BaseModel):
-    """Ingest lab analysis results into LabAnalysis + LabValue tables."""
-
-    sample_id: int | None = None
+    # Measurement
+    sample_id: int
+    value: float | list | None
     laboratory_id: int | None = None
     analyst_person_id: int | None = None
     procedure_id: int | None = None
-    campaign_id: int | None = None
+    analysis_datetime: datetime | None = None
+    replicate: int = 1
+    quality_code_id: int | None = None
     notes: str | None = None
-    values: list[LabValueItem]
 
-    @field_validator("values")
+
+class LabIngestRequest(BaseModel):
+    """Ingest one LabExperiment session worth of lab measurements.
+
+    Creates a single ``LabExperiment`` row, then for each measurement
+    find-or-creates its ``AnalysisSeries``, inserts a ``LabAnalysis`` row, and
+    inserts an ``Observation`` routed to the appropriate payload table.
+    """
+
+    name: str
+    experiment_datetime: datetime
+    campaign_id: int | None = None
+    description: str | None = None
+    created_by_person_id: int | None = None
+    measurements: list[LabMeasurementItem]
+
+    @field_validator("measurements")
     @classmethod
-    def values_not_empty(cls, v: list) -> list:
+    def measurements_not_empty(cls, v: list) -> list:
         if not v:
-            raise ValueError("values list must not be empty")
+            raise ValueError("measurements list must not be empty")
         return v
 
 
@@ -73,7 +96,6 @@ class ProcessingInfo(BaseModel):
 
 
 class ProcessedOutputSpec(BaseModel):
-    processing_kind_id: int
     values: list[ValueItem]
 
 
@@ -100,7 +122,7 @@ class IngestResponse(BaseModel):
 
 
 class LabIngestResponse(BaseModel):
-    lab_analysis_id: int
+    lab_experiment_id: int
     rows_written: int
 
 
@@ -108,6 +130,12 @@ class ImageIngestResponse(BaseModel):
     channel_id: int
     value_image_id: int
     storage_path: str
+
+
+class LabImageIngestResponse(BaseModel):
+    lab_experiment_id: int
+    rows_written: int
+    storage_paths: list[str]
 
 
 class SampleCreateRequest(BaseModel):
@@ -141,7 +169,7 @@ class VectorSensorIngestRequest(BaseModel):
     unit_name: str
     binning_axis_id: int
     data_provenance_kind_id: int = 1
-    processing_kind_id: int = 1
+    strict: bool = False
     observations: list[VectorObservation]
 
     @field_validator("observations")
@@ -167,7 +195,7 @@ class TaglessVectorSensorIngestRequest(BaseModel):
     unit_name: str
     binning_axis_id: int
     data_provenance_kind_id: int = 1
-    processing_kind_id: int = 1
+    strict: bool = False
     observations: list[VectorObservation]
 
     @field_validator("observations")
@@ -187,7 +215,7 @@ class MatrixSensorIngestRequest(BaseModel):
     row_axis_id: int
     col_axis_id: int
     data_provenance_kind_id: int = 1
-    processing_kind_id: int = 1
+    strict: bool = False
     observations: list[MatrixObservation]
 
     @field_validator("observations")
@@ -219,7 +247,7 @@ class TaglessSensorIngestRequest(BaseModel):
     parameter_name: str
     unit_name: str
     data_provenance_kind_id: int = 1
-    processing_kind_id: int = 1
+    strict: bool = False
     values: list[ValueItem]
 
     @field_validator("values")
@@ -240,7 +268,6 @@ class SensorChannelResolveRequest(BaseModel):
     parameter_name: str
     unit_name: str
     data_provenance_kind_id: int = 1
-    processing_kind_id: int = 1
     value_kind_id: int = 1
 
 
@@ -252,7 +279,6 @@ class TaglessSensorChannelResolveRequest(BaseModel):
     parameter_name: str
     unit_name: str
     data_provenance_kind_id: int = 1
-    processing_kind_id: int = 1
     value_kind_id: int = 1
 
 

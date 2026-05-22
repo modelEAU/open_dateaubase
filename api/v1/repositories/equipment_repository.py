@@ -356,9 +356,12 @@ def get_equipment_event_kinds(conn: pyodbc.Connection) -> list[dict]:
     """Return all EquipmentEventKind rows for dropdowns."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [EquipmentEventKind_ID], [Name] FROM [dbo].[EquipmentEventKind] ORDER BY [Name]"
+        "SELECT [EquipmentEventKind_ID], [Name], [Description] FROM [dbo].[EquipmentEventKind] ORDER BY [Name]"
     )
-    return [{"event_type_id": row[0], "event_type_name": row[1]} for row in cursor.fetchall()]
+    return [
+        {"event_type_id": row[0], "event_type_name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
 
 
 def insert_equipment_event_kind(conn: pyodbc.Connection, name: str) -> dict:

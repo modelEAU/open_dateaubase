@@ -100,12 +100,21 @@ def rewire_equipment_endpoint(
             swap_time=body.valid_from,
             note=body.note,
         )
-    except pyodbc.IntegrityError as exc:
+    except pyodbc.Error as exc:
+        sqlstate = exc.args[0] if exc.args else None
+        if sqlstate == "23000":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Could not open a new wiring history row for equipment {equipment_id}: "
+                    "a concurrent active row already exists. "
+                    f"Database error: {exc}"
+                ),
+            ) from exc
         raise HTTPException(
-            status_code=409,
+            status_code=422,
             detail=(
-                f"Could not open a new wiring history row for equipment {equipment_id}: "
-                "a concurrent active row already exists. "
+                f"Could not rewire equipment {equipment_id}. "
                 f"Database error: {exc}"
             ),
         ) from exc
@@ -207,12 +216,21 @@ def relocate_equipment_endpoint(
             start_time=body.valid_from,
             notes=body.notes,
         )
-    except pyodbc.IntegrityError as exc:
+    except pyodbc.Error as exc:
+        sqlstate = exc.args[0] if exc.args else None
+        if sqlstate == "23000":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Could not open a new location history row for equipment {equipment_id}: "
+                    "a concurrent active row already exists. "
+                    f"Database error: {exc}"
+                ),
+            ) from exc
         raise HTTPException(
-            status_code=409,
+            status_code=422,
             detail=(
-                f"Could not open a new location history row for equipment {equipment_id}: "
-                "a concurrent active row already exists. "
+                f"Could not relocate equipment {equipment_id}. "
                 f"Database error: {exc}"
             ),
         ) from exc

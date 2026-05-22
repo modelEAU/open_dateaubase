@@ -24,7 +24,6 @@ class LineageEdgeOut(BaseModel):
 
     channel_id: int
     processing_step: ProcessingStepDetailOut
-    role: str
     output_channel_ids: list[int]
 
 
@@ -51,9 +50,3 @@ class LineageTreeOut(BaseModel):
     children: list[dict]
 
 
-class ProcessingKindSummaryOut(BaseModel):
-    """Summary of one version of a time series (one ProcessingKind)."""
-
-    channel_id: int
-    processing_degree: str | None
-    value_count: int

@@ -90,17 +90,15 @@ def get_full_context(
 def get_timeseries_by_context(
     equipment_id: int | None = Query(None, description="Equipment ID"),
     parameter_id: int | None = Query(None, description="Parameter ID"),
-    processing_kind_id: int | None = Query(None),
     from_dt: datetime | None = Query(None, alias="from"),
     to_dt: datetime | None = Query(None, alias="to"),
     conn=Depends(get_db),
 ):
-    """Find all time series matching equipment + parameter + processing degree."""
+    """Find all time series matching equipment + parameter."""
     return timeseries_service.get_timeseries_by_context(
         conn,
         equipment_id=equipment_id,
         parameter_id=parameter_id,
-        processing_kind_id=processing_kind_id,
         from_dt=from_dt,
         to_dt=to_dt,
     )

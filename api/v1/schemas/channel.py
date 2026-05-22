@@ -9,7 +9,7 @@ class ChannelOut(BaseModel):
     """Full channel record with all resolved foreign keys."""
 
     channel_id: int
-    signal_interface_id: int
+    signal_interface_id: int | None
     signal_interface_name: str | None
     signal_interface_port_id: int | None
     signal_interface_port_identifier: str | None
@@ -22,8 +22,7 @@ class ChannelOut(BaseModel):
     parameter_name: str | None
     data_provenance_kind_id: int | None
     data_provenance_kind_name: str | None
-    processing_kind_id: int | None
-    processing_kind_name: str | None
+    produced_by_step_id: int | None
     value_kind_id: int | None
     value_kind_name: str | None
     unit_id: int | None
@@ -35,14 +34,14 @@ class ChannelOut(BaseModel):
 class ChannelIn(BaseModel):
     """Channel input schema for create/update operations."""
 
-    signal_interface_id: int
+    signal_interface_id: int | None = None
     tag_name: str
     signal_interface_port_id: int | None = None
     parent_channel_id: int | None = None
     channel_kind_id: int = 1
     parameter_id: int | None = None
     data_provenance_kind_id: int | None = None
-    processing_kind_id: int | None = None
+    produced_by_step_id: int | None = None
     value_kind_id: int | None = None
 
 
@@ -95,13 +94,6 @@ class UnitIn(BaseModel):
     unit_vector: str | None = None
 
 
-class ProcessingKindLookupOut(BaseModel):
-    """Lightweight processing degree info for dropdowns."""
-
-    processing_kind_id: int
-    name: str
-
-
 class ChannelKindLookupOut(BaseModel):
     """Lightweight channel role info for dropdowns."""
 
@@ -121,7 +113,7 @@ class ChannelListResponse(BaseModel):
 
 class ChannelDerivedIn(BaseModel):
     source_channel_id: int
-    processing_kind_id: int
+    produced_by_step_id: int | None = None
 
 
 class ChannelDerivedOut(BaseModel):
@@ -154,7 +146,7 @@ class ChannelProvisionIn(BaseModel):
     parameter_name: str | None = None
     unit_name: str | None = None
     data_provenance_kind_id: int | None = None
-    processing_kind_id: int | None = None
+    produced_by_step_id: int | None = None
     value_kind_id: int | None = None
 
 

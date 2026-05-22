@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pyodbc
+
+from . import temporal_history_repository
 
 _CAMPAIGN_SELECT = """
     SELECT
@@ -291,10 +295,19 @@ def create_campaign_deployment(
     campaign_id: int,
     equipment_id: int,
     sampling_point_id: int,
+    valid_from: datetime | None = None,
+    notes: str | None = None,
 ) -> int:
-    """Link equipment and a sampling point to a campaign.
+    """Link equipment and a sampling point to a campaign and physically place
+    the equipment at the sampling point (BUG-5).
 
-    Inserts into CampaignEquipment and CampaignSamplingLocation.
+    Three writes inside a single transaction:
+      1. ``CampaignEquipment`` row (campaign↔equipment linkage).
+      2. ``CampaignSamplingLocation`` row (campaign↔SP linkage, idempotent).
+      3. ``EquipmentLocationHistory`` row tagged with ``Campaign_ID`` (the
+         actual physical placement — previously omitted, so equipment was
+         never queryable via ``GET /equipment/{id}/location-at``).
+
     Returns equipment_id as a stable deployment identifier (EquipmentInstallation
     was dropped in v3.0.0; location tracking is now via EquipmentLocationHistory).
 
@@ -340,6 +353,17 @@ def create_campaign_deployment(
         sampling_point_id,
         campaign_id,
         sampling_point_id,
+    )
+
+    # Physically place the equipment at the sampling point (BUG-5).
+    # open_location_for_campaign does not commit — we own the transaction.
+    temporal_history_repository.open_location_for_campaign(
+        conn,
+        equipment_id=equipment_id,
+        sampling_point_id=sampling_point_id,
+        start_time=valid_from or datetime.now(timezone.utc),
+        campaign_id=campaign_id,
+        notes=notes,
     )
 
     conn.commit()
