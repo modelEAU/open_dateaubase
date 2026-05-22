@@ -16,7 +16,7 @@ import streamlit as st
 
 from app.api_client import APIError, get_health
 from app.auth import get_current_user, logout
-from app.auth import _show_login_page as _login
+from app.auth import _show_auth_page as _login
 from app.config import settings
 
 st.set_page_config(page_title=settings.APP_TITLE, page_icon="💧", layout="wide")
@@ -74,42 +74,46 @@ pg = st.navigation(
             st.Page(_home, title="Home", icon="🏠"),
         ],
         "Operations": [
-            st.Page(str(_pages / "sensor_ingest.py"), title="Sensor Ingest", icon="📡"),
-            st.Page(str(_pages / "lab_ingest.py"), title="Lab Ingest", icon="🧪"),
-            st.Page(str(_pages / "explore.py"), title="Explore", icon="📊"),
+            st.Page(str(_pages / "sensor_ingest.py"), title="Insert Sensor Data", icon="📡"),
+            st.Page(str(_pages / "lab_ingest.py"), title="Insert Lab Data", icon="🧪"),
+            st.Page(str(_pages / "explore.py"), title="Visualize Data", icon="📊"),
+            st.Page(str(_pages / "equipment_move.py"), title="Move a sensor", icon="➡️"),
         ],
-        "Campaigns": [
-            st.Page(str(_pages / "campaigns.py"), title="Campaigns", icon="🗂️"),
-            st.Page(str(_pages / "campaign_wizard_page.py"), title="New Campaign", icon="🪄"),
+        "Workflows": [
+            st.Page(str(_pages / "site_wizard.py"), title="1. New Site Wizard", icon="🏭"),
+            st.Page(str(_pages / "field_system_wizard.py"), title="2. New Field System Wizard", icon="📡"),
+            st.Page(str(_pages / "campaign_wizard_page.py"), title="3. New Campaign Wizard", icon="👩‍🔬"),
         ],
         "Entities": [
-            st.Page(str(_pages / "watersheds.py"), title="Watersheds"),
-            st.Page(str(_pages / "sites.py"), title="Sites"),
-            st.Page(str(_pages / "process_units.py"), title="Process Units"),
-            st.Page(str(_pages / "equipment.py"), title="Equipment"),
-            st.Page(str(_pages / "equipment_models.py"), title="Equipment Models"),
+            st.Page(str(_pages / "campaigns.py"), title="Campaigns", icon="🚀"),
+            st.Page(str(_pages / "watersheds.py"), title="Watersheds", icon="🌊"),
+            st.Page(str(_pages / "sites.py"), title="Sites", icon="📍"),
+            st.Page(str(_pages / "process_units.py"), title="Process Units", icon="🟦"),
+            st.Page(str(_pages / "equipment.py"), title="Equipment", icon="🟧"),
+            st.Page(str(_pages / "equipment_models.py"), title="Equipment Models", icon="™️"),
             st.Page(
                 str(_pages / "data_acquisition_systems.py"),
                 title="Data Acquisition Systems",
+                icon="📡"
             ),
-            st.Page(str(_pages / "control_loops.py"), title="Control Loops"),
-            st.Page(str(_pages / "channels.py"), title="Channels"),
-            st.Page(str(_pages / "parameters.py"), title="Parameters"),
-            st.Page(str(_pages / "binning_axes.py"), title="Binning Axes"),
-            st.Page(str(_pages / "annotations.py"), title="Annotations"),
-            st.Page(str(_pages / "laboratories.py"), title="Laboratories"),
-            st.Page(str(_pages / "persons.py"), title="Persons"),
-            st.Page(str(_pages / "procedures.py"), title="Procedures"),
+            st.Page(str(_pages / "control_loops.py"), title="Control Loops", icon="🔄"),
+            st.Page(str(_pages / "channels.py"), title="Channels", icon="📺"),
+            st.Page(str(_pages / "parameters.py"), title="Parameters", icon="⚗️"),
+            st.Page(str(_pages / "binning_axes.py"), title="Binning Axes", icon="🗃️"),
+            st.Page(str(_pages / "annotations.py"), title="Annotations", icon="🏷️"),
+            st.Page(str(_pages / "laboratories.py"), title="Laboratories", icon="🔬"),
+            st.Page(str(_pages / "persons.py"), title="Persons", icon="👤"),
+            st.Page(str(_pages / "procedures.py"), title="Procedures", icon="📋"),
         ],
         "Associations": [
             st.Page(
                 str(_pages / "equipment_model_associations.py"),
-                title="Equipment Model Associations",
+                title="Equipment - Equipment Model Associations",
                 icon="🔗",
             ),
             st.Page(
                 str(_pages / "parameter_units.py"),
-                title="Parameter Units",
+                title="Parameter - Unit Associaitons",
                 icon="📐",
             ),
         ],
@@ -136,11 +140,6 @@ pg = st.navigation(
             st.Page(str(_pages / "bin_kinds.py"), title="Bin Kinds"),
             st.Page(str(_pages / "processing_kinds.py"), title="Processing Kinds"),
         ],
-        "Workflows": [
-            st.Page(str(_pages / "equipment_move.py"), title="Equipment Move"),
-            st.Page(str(_pages / "site_wizard.py"), title="Site Setup Wizard", icon="🏭"),
-            st.Page(str(_pages / "field_system_wizard.py"), title="Field System Wizard", icon="📡"),
-        ],
     }
 )
 
@@ -148,7 +147,7 @@ pg = st.navigation(
 with st.sidebar:
     user = get_current_user()
     if user:
-        st.write(f"Logged in as: **{user['name']}**")
+        st.write(f"Logged in as: **{user['full_name']}**")
     if st.button("Sign out"):
         logout()
 

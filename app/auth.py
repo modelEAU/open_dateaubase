@@ -2,15 +2,29 @@
 
 from __future__ import annotations
 
+import os
+
 import streamlit as st
 
 from app.api_client import APIError, get_me, login, signup
-
 
 def _ensure_auth_state() -> None:
     st.session_state.setdefault("authenticated", False)
     st.session_state.setdefault("access_token", None)
     st.session_state.setdefault("user", None)
+
+    if os.getenv("APP_DEV_AUTO_LOGIN") == "1" and not st.session_state["authenticated"]:
+        st.session_state["authenticated"] = True
+        st.session_state["access_token"] = "dev"
+        st.session_state["user"] = {
+            "user_id": 0,
+            "email": os.getenv("APP_DEV_EMAIL", "dev@localhost"),
+            "full_name": os.getenv("APP_DEV_NAME", "Dev User"),
+            "is_active": True,
+            "is_verified": True,
+            "created_at": None,
+            "updated_at": None,
+        }
 
 
 def is_authenticated() -> bool:
