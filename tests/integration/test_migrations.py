@@ -41,7 +41,7 @@ V100_TABLES = {
     "SamplingPoints",
     "Site",
     "Unit",
-    "LandUse",
+    "UrbanCharacteristics",
     "Value",
     "Watershed",
     "WeatherCondition",
@@ -58,7 +58,7 @@ V100_ROW_COUNTS = {
     "Purpose": 2,
     "Comments": 4,
     "HydrologicalCharacteristics": 2,
-    "LandUse": 2,
+    "UrbanCharacteristics": 2,
     "Contact": 2,
     "Equipment": 3,
     "Parameter": 5,
@@ -188,7 +188,7 @@ class TestMigrationV101:
 
 
 # ============================================================================
-# v1.0.2 Migration (INT timestamps -> DATETIMEOFFSET)
+# v1.0.2 Migration (INT timestamps -> DATETIME2)
 # ============================================================================
 
 
@@ -198,7 +198,7 @@ class TestMigrationV102:
     def test_timestamp_column_is_datetimeoffset(self, db_at_v102):
         conn, _ = db_at_v102
         col_type = get_column_type(conn, "Value", "Timestamp")
-        assert col_type == "datetimeoffset"
+        assert col_type == "datetime2"
 
     def test_unix_timestamps_converted_correctly(self, db_at_v102):
         """Known epoch values should convert to correct DATETIMEOFFSET."""
@@ -247,7 +247,7 @@ class TestMigrationV102:
     def test_applied_at_is_datetimeoffset(self, db_at_v102):
         conn, _ = db_at_v102
         col_type = get_column_type(conn, "SchemaVersion", "AppliedAt")
-        assert col_type == "datetimeoffset"
+        assert col_type == "datetime2"
 
     def test_original_row_counts_preserved(self, db_at_v102):
         conn, _ = db_at_v102
@@ -432,8 +432,8 @@ class TestRollbacks:
         run_sql_file(conn, SQL_FILES["seed_v1.0.1"])
         run_sql_file(conn, SQL_FILES["v1.0.1_to_v1.0.2"])
 
-        # Verify timestamp is DATETIMEOFFSET before rollback
-        assert get_column_type(conn, "Value", "Timestamp") == "datetimeoffset"
+        # Verify timestamp is DATETIME2 before rollback
+        assert get_column_type(conn, "Value", "Timestamp") == "datetime2"
 
         # Rollback v1.0.2
         run_sql_file(conn, SQL_FILES["rollback_v1.0.2"])

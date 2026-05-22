@@ -525,7 +525,7 @@ class TestBQ14UVVisSpectrum:
         FROM [dbo].[ValueVector] vv
         JOIN [dbo].[ValueBin]    vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
         WHERE vv.[Metadata_ID] = 7
-          AND vv.[Timestamp]   = '2025-09-10T10:00:00.0000000-04:00'
+          AND vv.[Timestamp]   = '2025-09-10T14:00:00.0000000'
         ORDER BY vb.[BinIndex]
     """
 
@@ -557,7 +557,7 @@ class TestBQ14UVVisSpectrum:
             FROM [dbo].[ValueVector] vv
             JOIN [dbo].[ValueBin]    vb ON vv.[ValueBin_ID] = vb.[ValueBin_ID]
             WHERE vv.[Metadata_ID] = 7
-              AND vv.[Timestamp]   = '2025-09-10T14:00:00.0000000-04:00'
+              AND vv.[Timestamp]   = '2025-09-10T18:00:00.0000000'
             ORDER BY vb.[BinIndex]
             """,
         )
@@ -629,7 +629,7 @@ class TestBQ16ParticleSizeVelocityMatrix:
         JOIN [dbo].[ValueBin]    rb ON vm.[RowValueBin_ID] = rb.[ValueBin_ID]
         JOIN [dbo].[ValueBin]    cb ON vm.[ColValueBin_ID] = cb.[ValueBin_ID]
         WHERE vm.[Metadata_ID] = 10
-          AND vm.[Timestamp]   = '2025-09-10T09:00:00.0000000-04:00'
+          AND vm.[Timestamp]   = '2025-09-10T13:00:00.0000000'
         ORDER BY rb.[BinIndex], cb.[BinIndex]
     """
 
@@ -683,7 +683,7 @@ class TestIC01HydrologicalCharacteristics:
             """
             SELECT w.[name]
             FROM [dbo].[Watershed] w
-            LEFT JOIN [dbo].[LandUse] lu ON w.[Watershed_ID] = lu.[Watershed_ID]
+            LEFT JOIN [dbo].[UrbanCharacteristics] lu ON w.[Watershed_ID] = lu.[Watershed_ID]
             WHERE lu.[Watershed_ID] IS NULL
             """,
         )

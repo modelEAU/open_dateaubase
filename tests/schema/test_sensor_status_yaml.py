@@ -16,42 +16,8 @@ def views_dir():
     return Path(__file__).parent.parent.parent / "schema_dictionary" / "views"
 
 
-class TestSignalInterfacePortKindSchema:
-    """Tests for SignalInterfacePortKind.yaml — physical port kinds."""
-
-    def test_signal_interface_port_kind_table_exists(self, tables_dir):
-        """SignalInterfacePortKind table should exist in schema."""
-        schema = load_schema(tables_dir)
-        assert "SignalInterfacePortKind" in schema
-
-    def test_signal_interface_port_kind_has_all_columns(self, tables_dir):
-        """SignalInterfacePortKind should have required columns."""
-        schema = load_schema(tables_dir)
-        tbl = schema["SignalInterfacePortKind"]["table"]
-        col_names = [c["name"] for c in tbl["columns"]]
-
-        assert "SignalInterfacePortKind_ID" in col_names
-        assert "Name" in col_names
-        assert "Description" in col_names
-
-    def test_signal_interface_port_kind_seed_data_has_eight_types(self, tables_dir):
-        """SignalInterfacePortKind should have eight seed rows."""
-        schema = load_schema(tables_dir)
-        tbl = schema["SignalInterfacePortKind"]["table"]
-        seed_data = tbl.get("seed_data", [])
-
-        assert len(seed_data) == 8
-        names = {row["Name"] for row in seed_data}
-        assert names == {
-            "AnalogIn",
-            "AnalogOut",
-            "DigitalIn",
-            "DigitalOut",
-            "Serial",
-            "Network",
-            "Virtual",
-            "Unknown",
-        }
+# NOTE: SignalInterfacePortKind table was removed from the schema. The
+# corresponding TestSignalInterfacePortKindSchema class was deleted.
 
 
 class TestChannelKindSchema:

@@ -13,15 +13,10 @@ Covers:
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
-from .conftest import fresh_db, mssql_engine, run_sql_file  # noqa: F401
+from .conftest import SQL_FILES, _apply_schema_and_seeds, fresh_db, mssql_engine  # noqa: F401
 from api.v1.repositories import process_unit_repository, site_repository
-
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
 
 pytestmark = pytest.mark.db
 
@@ -33,12 +28,9 @@ pytestmark = pytest.mark.db
 
 @pytest.fixture()
 def db(fresh_db):
-    """Database at v3.0.0 + process unit migration with a seed Site."""
+    """Database at v4.1.0 schema with full seed vocabulary and a seed Site."""
     conn, db_name = fresh_db
-    run_sql_file(conn, MIGRATIONS_DIR / "v1.0.0_create_mssql.sql")
-    run_sql_file(conn, MIGRATIONS_DIR / "v1.0.0_to_v3.0.0_mssql.sql")
-    run_sql_file(conn, MIGRATIONS_DIR / "v3.0.0_add_site_type_mssql.sql")
-    run_sql_file(conn, MIGRATIONS_DIR / "v3.0.0_add_process_unit.sql")
+    _apply_schema_and_seeds(conn, ["v4.1.0_create", "v4.1.0_seed"])
 
     cursor = conn.cursor()
     cursor.execute(
@@ -61,7 +53,7 @@ class TestProcessUnitTypeCRUD:
         conn, _, _ = db
         result = process_unit_repository.insert_process_unit_type(conn, "Fermenter", None)
         assert result["name"] == "Fermenter"
-        assert result["id"] > 0
+        assert result["process_unit_kind_id"] > 0
 
     def test_list_includes_seeded_types(self, db):
         conn, _, _ = db
@@ -73,7 +65,7 @@ class TestProcessUnitTypeCRUD:
         conn, _, _ = db
         created = process_unit_repository.insert_process_unit_type(conn, "OldName", None)
         updated = process_unit_repository.update_process_unit_type(
-            conn, created["id"], "NewName", "A description"
+            conn, created["process_unit_kind_id"], "NewName", "A description"
         )
         assert updated is not None
         assert updated["name"] == "NewName"
@@ -87,8 +79,8 @@ class TestProcessUnitTypeCRUD:
     def test_delete_type(self, db):
         conn, _, _ = db
         created = process_unit_repository.insert_process_unit_type(conn, "ToDelete", None)
-        assert process_unit_repository.delete_process_unit_type(conn, created["id"]) is True
-        assert process_unit_repository.delete_process_unit_type(conn, created["id"]) is False
+        assert process_unit_repository.delete_process_unit_type(conn, created["process_unit_kind_id"]) is True
+        assert process_unit_repository.delete_process_unit_type(conn, created["process_unit_kind_id"]) is False
 
 
 # ---------------------------------------------------------------------------

@@ -152,10 +152,9 @@ def _create_interface_and_channel(
     """Create a DAS + SignalInterface + Channel; return (signal_interface_id, channel_id)."""
     das_id, _ = find_or_create_das(conn, "TestDAS")
     si_id, _ = find_or_create_signal_interface(
-        conn, das_id, tag_name, 5
-    )  # DirectConnect
+        conn, das_id, tag_name)  # DirectConnect
     param_id = find_parameter_by_name(conn, "Temperature")
-    unit_id = find_unit_by_name(conn, "degC")
+    unit_id = find_unit_by_name(conn, "°C")
     assert param_id is not None
     assert unit_id is not None
     channel_id = find_or_create_sensor_metadata(
@@ -165,7 +164,7 @@ def _create_interface_and_channel(
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=1,
-        processing_degree_id=1,
+        value_kind_id=1,
     )
     if port_id is not None:
         cursor = conn.cursor()
@@ -190,8 +189,8 @@ def _insert_observation_and_value(
     cursor = conn.cursor()
     ts_naive = timestamp.replace(tzinfo=None) if timestamp.tzinfo else timestamp
     cursor.execute(
-        "INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])"
-        " OUTPUT INSERTED.[Observation_ID] VALUES (?, ?, 'Scalar')",
+        "INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])"
+        " OUTPUT INSERTED.[Observation_ID] VALUES (?, ?, 1)",
         channel_id,
         ts_naive,
     )
@@ -311,8 +310,7 @@ class TestPortAndEquipmentWired:
 
         # Create a port and wire it to the channel
         port_id, _ = find_or_create_signal_interface_port(
-            conn, si_id, "AI-1", 1
-        )  # AnalogIn
+            conn, si_id, "AI-1")  # AnalogIn
 
         # Update channel to have the port
         cursor = conn.cursor()
@@ -351,11 +349,9 @@ class TestTresCONMux:
         conn, _, seed = db
         das_id, _ = find_or_create_das(conn, "MuxDAS")
         si_id, _ = find_or_create_signal_interface(
-            conn, das_id, "TresCON-01", 6
-        )  # Multiplexer
+            conn, das_id, "TresCON-01")  # Multiplexer
         port_id, _ = find_or_create_signal_interface_port(
-            conn, si_id, "MUX-PORT-1", 7
-        )  # Virtual
+            conn, si_id, "MUX-PORT-1")  # Virtual
 
         param_id = find_parameter_by_name(conn, "Temperature")
         assert param_id is not None
@@ -368,7 +364,7 @@ class TestTresCONMux:
             parameter_id=param_id,
             unit_id=1,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
         ch2_id = find_or_create_sensor_metadata(
             conn,
@@ -377,7 +373,7 @@ class TestTresCONMux:
             parameter_id=param_id,
             unit_id=1,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
         # Assign the same port to both channels
         cursor = conn.cursor()
@@ -419,11 +415,9 @@ class TestTresCONMux:
         conn, _, seed = db
         das_id, _ = find_or_create_das(conn, "MuxDAS-Status")
         si_id, _ = find_or_create_signal_interface(
-            conn, das_id, "TresCON-02", 6
-        )  # Multiplexer
+            conn, das_id, "TresCON-02")  # Multiplexer
         port_id, _ = find_or_create_signal_interface_port(
-            conn, si_id, "MUX-PORT-2", 7
-        )  # Virtual
+            conn, si_id, "MUX-PORT-2")  # Virtual
 
         param_id = find_parameter_by_name(conn, "Temperature")
         assert param_id is not None
@@ -436,16 +430,16 @@ class TestTresCONMux:
             parameter_id=param_id,
             unit_id=1,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
 
         # Status child channel
         from api.v1.repositories.signal_interface_repository import (
-            find_channel_role_by_name,
+            find_channel_kind_by_name,
         )
 
-        status_role_id = find_channel_role_by_name(conn, "Status")
-        assert status_role_id is not None
+        status_kind_id = find_channel_kind_by_name(conn, "Status")
+        assert status_kind_id is not None
 
         child_id = find_or_create_sensor_metadata(
             conn,
@@ -454,9 +448,9 @@ class TestTresCONMux:
             parameter_id=param_id,
             unit_id=1,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
             parent_channel_id=parent_id,
-            channel_role_id=status_role_id,
+            channel_kind_id=status_kind_id,
         )
 
         # Assign port to both channels
@@ -500,8 +494,7 @@ class TestBackfillBlankPort:
 
         # Create a port but don't assign it yet
         port_id, _ = find_or_create_signal_interface_port(
-            conn, si_id, "AI-2", 1
-        )  # AnalogIn
+            conn, si_id, "AI-2")  # AnalogIn
 
         # Ingest observations while port is NULL
         t_before = datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
@@ -523,8 +516,7 @@ class TestBackfillBlankPort:
         )
 
         port_id, _ = find_or_create_signal_interface_port(
-            conn, si_id, "AI-3", 1
-        )  # AnalogIn
+            conn, si_id, "AI-3")  # AnalogIn
 
         # Ingest before backfill
         t_before = datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
@@ -631,8 +623,7 @@ class TestEquipmentSwapHistoricalResolution:
         )
 
         port_id, _ = find_or_create_signal_interface_port(
-            conn, si_id, "AI-4", 1
-        )  # AnalogIn
+            conn, si_id, "AI-4")  # AnalogIn
 
         # Update channel to have the port
         cursor = conn.cursor()

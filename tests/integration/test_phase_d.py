@@ -84,3 +84,45 @@ class TestV220Schema:
         """ProcessingLineage must NOT have Observation_ID (left intentionally unchanged)."""
         conn, _ = db_at_v220
         assert not column_exists(conn, "ProcessingLineage", "Observation_ID")
+
+
+class TestV410ChannelIdentity:
+    """Verify the v4.1.0 channel identity refactor: ProducedByStep_ID replaces ProcessingKind_ID."""
+
+    def test_channel_has_produced_by_step_id(self, db_at_v410):
+        conn, _ = db_at_v410
+        assert column_exists(conn, "Channel", "ProducedByStep_ID"), (
+            "Channel must have ProducedByStep_ID"
+        )
+
+    def test_channel_lacks_processing_kind_id(self, db_at_v410):
+        conn, _ = db_at_v410
+        assert not column_exists(conn, "Channel", "ProcessingKind_ID"), (
+            "Channel must NOT have ProcessingKind_ID"
+        )
+
+    def test_processing_lineage_lacks_role_column(self, db_at_v410):
+        conn, _ = db_at_v410
+        assert not column_exists(conn, "ProcessingLineage", "RoleInProcessingStep"), (
+            "ProcessingLineage must NOT have RoleInProcessingStep"
+        )
+
+    def test_data_provenance_has_derived_row(self, db_at_v410):
+        conn, _ = db_at_v410
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM [dbo].[DataProvenanceKind] WHERE [Name] = 'Derived'"
+        )
+        row = cursor.fetchone()
+        assert row is not None and row[0] == 1, (
+            "DataProvenanceKind must contain exactly one 'Derived' row"
+        )
+
+    def test_data_provenance_has_seven_rows(self, db_at_v410):
+        conn, _ = db_at_v410
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM [dbo].[DataProvenanceKind]")
+        row = cursor.fetchone()
+        assert row is not None and row[0] == 7, (
+            f"DataProvenanceKind must have 7 seed rows, got {row[0] if row else '?'}"
+        )

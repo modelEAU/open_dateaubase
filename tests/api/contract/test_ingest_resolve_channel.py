@@ -94,7 +94,6 @@ def _patch_tagged_resolved(
             f"{_REPO}.find_signal_interface_by_das_and_name",
             return_value=None if si_created else 20,
         ),
-        patch(f"{_REPO}.find_signal_interface_type_by_name", return_value=2),
         patch(
             f"{_REPO}.find_or_create_signal_interface", return_value=(20, si_created)
         ),
@@ -125,7 +124,6 @@ def _patch_tagless_resolved(
             f"{_REPO}.find_active_equipment_wiring",
             return_value=None if si_created else (30, None),
         ),
-        patch(f"{_REPO}.find_signal_interface_type_by_name", return_value=5),
         patch(
             f"{_REPO}.generate_tagless_tagname", return_value="probe_a/dissolved oxygen"
         ),

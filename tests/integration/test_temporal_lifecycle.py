@@ -42,7 +42,7 @@ from api.v1.repositories.signal_interface_repository import (
 
 pytestmark = pytest.mark.db
 
-# AnnotationType_ID for Equipment Relocation (seeded in migration as ID 11)
+# AnnotationKind_ID for Equipment Relocation (seeded in migration as ID 11)
 ANNOTATION_TYPE_EQUIPMENT_MOVE = 11
 
 
@@ -118,10 +118,9 @@ def _create_interface_and_channel(
     """Create a DAS + SignalInterface + Channel; return (signal_interface_id, channel_id)."""
     das_id, _ = find_or_create_das(conn, "TestDAS")
     si_id, _ = find_or_create_signal_interface(
-        conn, das_id, tag_name, 5
-    )  # DirectConnect
+        conn, das_id, tag_name)  # DirectConnect
     param_id = find_parameter_by_name(conn, "Temperature")
-    unit_id = find_unit_by_name(conn, "degC")
+    unit_id = find_unit_by_name(conn, "°C")
     assert param_id is not None
     assert unit_id is not None
     channel_id = find_or_create_sensor_metadata(
@@ -131,7 +130,7 @@ def _create_interface_and_channel(
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=1,
-        processing_degree_id=1,
+        value_kind_id=1,
     )
     return si_id, channel_id
 
@@ -141,8 +140,8 @@ def _insert_observation_and_value(
 ) -> int:
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])"
-        " OUTPUT INSERTED.[Observation_ID] VALUES (?, ?, 'Scalar')",
+        "INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])"
+        " OUTPUT INSERTED.[Observation_ID] VALUES (?, ?, 1)",
         channel_id,
         timestamp,
     )
@@ -190,13 +189,13 @@ def _get_is_active(conn, equip_id: int) -> bool:
     return bool(cursor.fetchone()[0])
 
 
-def _annotation_count(conn, channel_id: int, annotation_type_id: int) -> int:
+def _annotation_count(conn, channel_id: int, annotation_kind_id: int) -> int:
     cursor = conn.cursor()
     cursor.execute(
         "SELECT COUNT(*) FROM [dbo].[Annotation]"
-        " WHERE [Channel_ID] = ? AND [AnnotationType_ID] = ?",
+        " WHERE [Channel_ID] = ? AND [AnnotationKind_ID] = ?",
         channel_id,
-        annotation_type_id,
+        annotation_kind_id,
     )
     return cursor.fetchone()[0]
 
@@ -213,7 +212,7 @@ def _annotate_equipment_move(
     return annotation_repository.create_equipment_move_annotations(
         conn,
         channel_ids=channel_ids,
-        annotation_type_id=ANNOTATION_TYPE_EQUIPMENT_MOVE,
+        annotation_kind_id=ANNOTATION_TYPE_EQUIPMENT_MOVE,
         title=title,
         comment=comment,
         start_time=start_time,
@@ -359,9 +358,9 @@ def test_commission_sets_is_active_and_records_event(db):
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT eet.[EquipmentEventType_Name]
+        SELECT eet.[Name]
         FROM [dbo].[EquipmentEvent] ee
-        JOIN [dbo].[EquipmentEventType] eet ON eet.[EquipmentEventType_ID] = ee.[EquipmentEventType_ID]
+        JOIN [dbo].[EquipmentEventKind] eet ON eet.[EquipmentEventKind_ID] = ee.[EquipmentEventKind_ID]
         WHERE ee.[EquipmentEvent_ID] = ?
         """,
         result["equipment_event_id"],
@@ -401,9 +400,9 @@ def test_decommission_sets_is_active_and_channel_unaffected(db):
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT eet.[EquipmentEventType_Name]
+        SELECT eet.[Name]
         FROM [dbo].[EquipmentEvent] ee
-        JOIN [dbo].[EquipmentEventType] eet ON eet.[EquipmentEventType_ID] = ee.[EquipmentEventType_ID]
+        JOIN [dbo].[EquipmentEventKind] eet ON eet.[EquipmentEventKind_ID] = ee.[EquipmentEventKind_ID]
         WHERE ee.[EquipmentEvent_ID] = ?
         """,
         result["equipment_event_id"],
@@ -536,10 +535,10 @@ def test_relocation_creates_annotation(db):
         channel_id,
         from_dt=t_move - timedelta(seconds=1),
         to_dt=t_move + timedelta(seconds=1),
-        annotation_type_id=ANNOTATION_TYPE_EQUIPMENT_MOVE,
+        annotation_kind_id=ANNOTATION_TYPE_EQUIPMENT_MOVE,
     )
     assert len(annots) == 1
-    assert annots[0]["annotation_type_id"] == ANNOTATION_TYPE_EQUIPMENT_MOVE
+    assert annots[0]["annotation_kind_id"] == ANNOTATION_TYPE_EQUIPMENT_MOVE
     assert annots[0]["start_time"] == t_move.replace(tzinfo=None)
 
 

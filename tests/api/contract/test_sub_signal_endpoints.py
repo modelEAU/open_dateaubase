@@ -92,7 +92,6 @@ def _patch_ingest_resolved(
                 f"{_REPO}.find_signal_interface_by_das_and_name",
                 return_value=None if si_created else si_id,
             ),
-            patch(f"{_REPO}.find_signal_interface_type_by_name", return_value=2),
             patch(
                 f"{_REPO}.find_or_create_signal_interface",
                 return_value=(si_id, si_created),

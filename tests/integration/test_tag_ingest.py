@@ -85,9 +85,8 @@ class TestResolveTag:
         assert das_created is True
         assert das_id > 0
 
-        si_type_id = 2  # SCADA
         si_id, si_created = find_or_create_signal_interface(
-            conn, das_id, "TIT-101", si_type_id
+            conn, das_id, "TIT-101"
         )
         assert si_created is True
         assert si_id > 0
@@ -103,13 +102,8 @@ class TestResolveTag:
         das_id2, _ = find_or_create_das(conn, "StationA")
         assert das_id1 == das_id2
 
-        si_type_id = 2
-        si_id1, _ = find_or_create_signal_interface(
-            conn, das_id1, "FIT-201", si_type_id
-        )
-        si_id2, _ = find_or_create_signal_interface(
-            conn, das_id1, "FIT-201", si_type_id
-        )
+        si_id1, _ = find_or_create_signal_interface(conn, das_id1, "FIT-201")
+        si_id2, _ = find_or_create_signal_interface(conn, das_id1, "FIT-201")
         assert si_id1 == si_id2
 
     def test_first_ingest_creates_channel(self, db_at_v400):
@@ -124,7 +118,7 @@ class TestResolveTag:
 
         conn, _ = db_at_v400
         das_id, _ = find_or_create_das(conn, "SCADA-A")
-        si_id, _ = find_or_create_signal_interface(conn, das_id, "TIT-001", 2)
+        si_id, _ = find_or_create_signal_interface(conn, das_id, "TIT-001")
         param_id = find_parameter_by_name(conn, "temperature")
         assert param_id is not None
 
@@ -135,7 +129,7 @@ class TestResolveTag:
             parameter_id=param_id,
             unit_id=1,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
         assert channel_id > 0
         assert _channel_count(conn, si_id) == 1
@@ -152,7 +146,7 @@ class TestResolveTag:
 
         conn, _ = db_at_v400
         das_id, _ = find_or_create_das(conn, "SCADA-B")
-        si_id, _ = find_or_create_signal_interface(conn, das_id, "PIT-001", 2)
+        si_id, _ = find_or_create_signal_interface(conn, das_id, "PIT-001")
         param_id = find_parameter_by_name(conn, "ph")
         assert param_id is not None
 
@@ -163,7 +157,7 @@ class TestResolveTag:
             parameter_id=param_id,
             unit_id=1,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
         ch2 = find_or_create_sensor_metadata(
             conn,
@@ -172,7 +166,7 @@ class TestResolveTag:
             parameter_id=param_id,
             unit_id=1,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
         assert ch1 == ch2
         assert _channel_count(conn, si_id) == 1
@@ -222,7 +216,7 @@ class TestSignalInterfaceAutoCreate:
         das_id, _ = find_or_create_das(conn, "DAS-SI-Test")
 
         assert _signal_interface_count(conn, das_id, "NEW-TAG-99") == 0
-        si_id, created = find_or_create_signal_interface(conn, das_id, "NEW-TAG-99", 2)
+        si_id, created = find_or_create_signal_interface(conn, das_id, "NEW-TAG-99")
         assert created is True
         assert _signal_interface_count(conn, das_id, "NEW-TAG-99") == 1
 
@@ -234,10 +228,9 @@ class TestSignalInterfaceAutoCreate:
 
         conn, _ = db_at_v400
         das_id, _ = find_or_create_das(conn, "DAS-Known-SI")
-        si_id1, _ = find_or_create_signal_interface(conn, das_id, "EXISTING-TAG", 2)
+        si_id1, _ = find_or_create_signal_interface(conn, das_id, "EXISTING-TAG")
         si_id2, created = find_or_create_signal_interface(
-            conn, das_id, "EXISTING-TAG", 2
-        )
+            conn, das_id, "EXISTING-TAG")
         assert created is False
         assert si_id1 == si_id2
 
@@ -309,8 +302,8 @@ class TestNormalisation:
 
         conn, _ = db_at_v400
         das_id, _ = find_or_create_das(conn, "NormDAS-SI")
-        id1, _ = find_or_create_signal_interface(conn, das_id, "tit-200", 2)
-        id2, created = find_or_create_signal_interface(conn, das_id, "TIT-200", 2)
+        id1, _ = find_or_create_signal_interface(conn, das_id, "tit-200")
+        id2, created = find_or_create_signal_interface(conn, das_id, "TIT-200")
         assert created is False
         assert id1 == id2
 
@@ -322,8 +315,8 @@ class TestNormalisation:
 
         conn, _ = db_at_v400
         das_id, _ = find_or_create_das(conn, "NormDAS-Trim")
-        id1, _ = find_or_create_signal_interface(conn, das_id, "FIT-300", 2)
-        id2, created = find_or_create_signal_interface(conn, das_id, "  FIT-300  ", 2)
+        id1, _ = find_or_create_signal_interface(conn, das_id, "FIT-300")
+        id2, created = find_or_create_signal_interface(conn, das_id, "  FIT-300  ")
         assert created is False
         assert id1 == id2
 
@@ -351,13 +344,13 @@ class TestNormalisation:
 
     def test_channel_role_lookup_case_insensitive(self, db_at_v400):
         from api.v1.repositories.signal_interface_repository import (
-            find_channel_role_by_name,
+            find_channel_kind_by_name,
         )
 
         conn, _ = db_at_v400
-        id1 = find_channel_role_by_name(conn, "value")
-        id2 = find_channel_role_by_name(conn, "VALUE")
-        id3 = find_channel_role_by_name(conn, "  Value  ")
+        id1 = find_channel_kind_by_name(conn, "value")
+        id2 = find_channel_kind_by_name(conn, "VALUE")
+        id3 = find_channel_kind_by_name(conn, "  Value  ")
         assert id1 is not None
         assert id1 == id2 == id3
 
@@ -377,7 +370,7 @@ class TestDeactivation:
 
         conn, _ = db_at_v400
         das_id, _ = find_or_create_das(conn, "DAS-Deactivate")
-        si_id, _ = find_or_create_signal_interface(conn, das_id, "RETIRE-001", 2)
+        si_id, _ = find_or_create_signal_interface(conn, das_id, "RETIRE-001")
 
         assert _get_signal_interface_is_active(conn, si_id) is True
         result = patch_signal_interface(conn, si_id, {"is_active": False})
@@ -397,7 +390,7 @@ class TestDeactivation:
 
         conn, _ = db_at_v400
         das_id, _ = find_or_create_das(conn, "DAS-Chan-Retain")
-        si_id, _ = find_or_create_signal_interface(conn, das_id, "RETIRE-002", 2)
+        si_id, _ = find_or_create_signal_interface(conn, das_id, "RETIRE-002")
         param_id = find_parameter_by_name(conn, "temperature")
         assert param_id is not None
 
@@ -408,7 +401,7 @@ class TestDeactivation:
             parameter_id=param_id,
             unit_id=1,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
         assert channel_id > 0
 

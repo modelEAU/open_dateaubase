@@ -77,7 +77,7 @@ class TestTokens:
         svc = _make_service()
         token = svc._generate_token(42, "alice@example.com")
         payload = svc._decode_token(token)
-        assert payload["sub"] == 42
+        assert payload["sub"] == "42"
         assert payload["email"] == "alice@example.com"
         assert "exp" in payload
 

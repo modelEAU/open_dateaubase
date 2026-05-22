@@ -24,7 +24,7 @@ pytestmark = pytest.mark.db
 
 from api.v1.repositories.ingestion_repository import find_or_create_sensor_metadata
 from api.v1.repositories.signal_interface_repository import (
-    find_channel_role_by_name,
+    find_channel_kind_by_name,
     find_or_create_das,
     find_or_create_signal_interface,
     find_parameter_by_name,
@@ -40,9 +40,9 @@ from api.v1.repositories.signal_interface_repository import (
 def _make_parent_channel(conn, das_name: str, tag: str) -> int:
     """Create a parent (measurement) Channel with Value role. Returns Channel_ID."""
     das_id, _ = find_or_create_das(conn, das_name)
-    si_id, _ = find_or_create_signal_interface(conn, das_id, tag, 2)  # SCADA
+    si_id, _ = find_or_create_signal_interface(conn, das_id, tag)
     param_id = find_parameter_by_name(conn, "Temperature")
-    unit_id = find_unit_by_name(conn, "degC")
+    unit_id = find_unit_by_name(conn, "°C")
     assert param_id is not None
     assert unit_id is not None
     return find_or_create_sensor_metadata(
@@ -52,18 +52,18 @@ def _make_parent_channel(conn, das_name: str, tag: str) -> int:
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=1,
-        processing_degree_id=1,
-        channel_role_id=1,  # Value
+        value_kind_id=1,
+        channel_kind_id=1,  # Value
     )
 
 
 def _make_child_channel(conn, parent_channel_id: int, tag: str, role_name: str) -> int:
     """Create a child Channel with a specific role linked to a parent. Returns Channel_ID."""
     param_id = find_parameter_by_name(conn, "Temperature")
-    unit_id = find_unit_by_name(conn, "degC")
+    unit_id = find_unit_by_name(conn, "°C")
     assert param_id is not None
     assert unit_id is not None
-    role_id = find_channel_role_by_name(conn, role_name)
+    role_id = find_channel_kind_by_name(conn, role_name)
     assert role_id is not None, f"Unknown channel role: {role_name}"
     cursor = conn.cursor()
     cursor.execute(
@@ -80,9 +80,9 @@ def _make_child_channel(conn, parent_channel_id: int, tag: str, role_name: str) 
         parameter_id=param_id,
         unit_id=unit_id,
         data_provenance_id=1,
-        processing_degree_id=1,
+        value_kind_id=1,
         parent_channel_id=parent_channel_id,
-        channel_role_id=role_id,
+        channel_kind_id=role_id,
     )
 
 
@@ -103,7 +103,7 @@ def _get_channel_role_name(conn, channel_id: int) -> str:
         """
         SELECT cr.[Name]
         FROM [dbo].[Channel] c
-        JOIN [dbo].[ChannelRole] cr ON cr.[ChannelRole_ID] = c.[ChannelRole_ID]
+        JOIN [dbo].[ChannelKind] cr ON cr.[ChannelKind_ID] = c.[ChannelKind_ID]
         WHERE c.[Channel_ID] = ?
         """,
         channel_id,
@@ -122,7 +122,7 @@ def _get_status_channel_for_measurement(
         """
         SELECT sc.[Channel_ID]
         FROM [dbo].[Channel] sc
-        JOIN [dbo].[ChannelRole] cr ON cr.[ChannelRole_ID] = sc.[ChannelRole_ID]
+        JOIN [dbo].[ChannelKind] cr ON cr.[ChannelKind_ID] = sc.[ChannelKind_ID]
         WHERE sc.[ParentChannel_ID] = ?
           AND cr.[Name] = N'Status'
         """,
@@ -137,9 +137,9 @@ def _insert_observation_and_value(
 ) -> int:
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [DataType])"
+        "INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])"
         " OUTPUT INSERTED.[Observation_ID]"
-        " VALUES (?, ?, 'Scalar')",
+        " VALUES (?, ?, 1)",
         channel_id,
         timestamp,
     )

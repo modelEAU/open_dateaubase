@@ -73,7 +73,7 @@ def db(db_at_v400):  # noqa: F811
             tag_name=tag,
             parameter_id=param_id,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
         channel_map[tag] = ch_id
 

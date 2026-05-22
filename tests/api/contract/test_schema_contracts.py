@@ -225,8 +225,7 @@ REQUIRED_CHANNEL_FIELDS = {
     "equipment_identifier",
     "data_provenance_kind_id",
     "data_provenance_kind_name",
-    "processing_kind_id",
-    "processing_kind_name",
+    "produced_by_step_id",
     "value_kind_id",
     "value_kind_name",
     "unit_id",
@@ -241,8 +240,7 @@ def _mock_channel():
         "channel_id": 1,
         "signal_interface_id": 1,
         "tag_name": "MOCK-001",
-        "processing_kind_id": 1,
-        "processing_kind_name": "Raw",
+        "produced_by_step_id": None,
         "channel_kind_id": 1,
         "channel_kind_name": "Value",
     }
@@ -301,7 +299,7 @@ class TestChannelsContract:
         with patch(
             "api.v1.repositories.channel_repository.list_channels", return_value=([], 0)
         ):
-            r = c.get("/api/v1/channels?page=2&page_size=10&processing_kind_id=1")
+            r = c.get("/api/v1/channels?page=2&page_size=10")
         assert r.status_code == 200
 
     def test_resolve_channel_returns_channel_id(self, patched_client):
@@ -690,7 +688,11 @@ class TestIngestionRequestValidation:
 
     def test_lab_ingest_rejects_empty_values(self, patched_client):
         c, conn, cursor = patched_client
-        payload = {"values": []}
+        payload = {
+            "name": "empty-session",
+            "experiment_datetime": "2026-05-20T10:00:00",
+            "measurements": [],
+        }
         r = c.post("/api/v1/ingest/lab", json=payload)
         assert r.status_code == 422
 
@@ -748,7 +750,6 @@ class TestOpenAPISpec:
         "/api/v1/lineage/{channel_id}/forward",
         "/api/v1/lineage/{channel_id}/backward",
         "/api/v1/lineage/{channel_id}/tree",
-        "/api/v1/lineage/by-equipment/degrees",
         "/api/v1/ingest/sensor",
         "/api/v1/ingest/lab",
         "/api/v1/ingest/processed",

@@ -3,7 +3,7 @@
 Tests run without a live database using dependency_overrides and MagicMock.
 
 Covers:
-  - POST /control-loops: creates loop, validates controller_type, rejects unknown fallback
+  - POST /control-loops: creates loop, validates controller_kind_id, rejects unknown fallback
   - GET  /control-loops/{id}: 200 on found, 404 on miss
   - GET  /control-loops/{id}/ports: lists ports
   - POST /control-loops/{id}/ports: adds port, resolves role by name, rejects duplicate
@@ -59,7 +59,8 @@ def client():
 _LOOP_ROW = {
     "ControlLoop_ID": 1,
     "Name": "DO PID",
-    "ControllerType": "PID",
+    "ControllerKind_ID": 1,
+    "controller_kind_name": "PID",
     "FallbackControlLoop_ID": None,
     "AlgorithmReference": None,
     "Description": None,
@@ -92,20 +93,22 @@ class TestCreateControlLoop:
                 "/api/v1/control-loops",
                 json={
                     "name": "DO PID",
-                    "controller_type": "PID",
+                    "controller_kind_id": 1,
                 },
             )
         assert resp.status_code == 201
         data = resp.json()
         assert data["control_loop_id"] == 1
-        assert data["controller_type"] == "PID"
+        assert data["controller_kind_id"] == 1
+        assert data["controller_kind_name"] == "PID"
 
-    def test_invalid_controller_type_rejected(self, client, mock_conn):
+    def test_invalid_controller_kind_id_rejected(self, client, mock_conn):
+        # Non-int controller_kind_id fails Pydantic type validation → 422.
         resp = client.post(
             "/api/v1/control-loops",
             json={
                 "name": "Bad Loop",
-                "controller_type": "FUZZY",
+                "controller_kind_id": "FUZZY",
             },
         )
         assert resp.status_code == 422
@@ -116,7 +119,7 @@ class TestCreateControlLoop:
                 "/api/v1/control-loops",
                 json={
                     "name": "Child Loop",
-                    "controller_type": "PID",
+                    "controller_kind_id": 1,
                     "fallback_control_loop_id": 999,
                 },
             )
@@ -355,7 +358,8 @@ class TestGetFallbackChain:
     _MANUAL_ROW = {
         "ControlLoop_ID": 2,
         "Name": "Manual fallback",
-        "ControllerType": "Manual",
+        "ControllerKind_ID": 5,
+        "controller_kind_name": "Manual",
         "FallbackControlLoop_ID": None,
         "AlgorithmReference": None,
         "Description": None,
@@ -374,7 +378,7 @@ class TestGetFallbackChain:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["chain"]) == 2
-        assert data["chain"][-1]["controller_type"] == "Manual"
+        assert data["chain"][-1]["controller_kind_name"] == "Manual"
 
     def test_chain_single_loop(self, client, mock_conn):
         with (

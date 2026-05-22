@@ -2,19 +2,9 @@
 
 from __future__ import annotations
 
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-# Stub streamlit before importing api_client so we don't need a running app.
-import types
-
-_st = types.ModuleType("streamlit")
-_st.session_state = {}
-_st.error = lambda *a, **kw: None
-_st.rerun = lambda: None
-sys.modules.setdefault("streamlit", _st)
 
 from app.api_client import APIError, get_health, login, signup, get_me, get_audit_logs
 
@@ -182,8 +172,12 @@ class TestGetMe:
 
     def test_unauthorized_raises(self):
         response = _mock_response(401, {"detail": "Missing Authorization header."})
-        _st.session_state["access_token"] = None
-        with patch("app.api_client._get_client", return_value=_FakeClient(response)):
+        fake_st = MagicMock()
+        fake_st.session_state = {"access_token": None}
+        with (
+            patch("app.api_client.st", fake_st),
+            patch("app.api_client._get_client", return_value=_FakeClient(response)),
+        ):
             with pytest.raises(APIError) as exc_info:
                 get_me()
         assert exc_info.value.status_code == 401

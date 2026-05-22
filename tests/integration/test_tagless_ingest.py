@@ -57,7 +57,7 @@ def _channel_count_by_stream(
     tag_name: str,
     parameter_id: int,
     data_provenance_id: int = 1,
-    processing_degree_id: int = 1,
+    value_kind_id: int = 1,
 ) -> int:
     cursor = conn.cursor()
     cursor.execute(
@@ -65,13 +65,13 @@ def _channel_count_by_stream(
         " WHERE [SignalInterface_ID] = ?"
         "   AND [TagName] = ?"
         "   AND [Parameter_ID] = ?"
-        "   AND [DataProvenance_ID] = ?"
-        "   AND [ProcessingDegree_ID] = ?",
+        "   AND [DataProvenanceKind_ID] = ?"
+        "   AND [ValueKind_ID] = ?",
         signal_interface_id,
         tag_name,
         parameter_id,
         data_provenance_id,
-        processing_degree_id,
+        value_kind_id,
     )
     return cursor.fetchone()[0]
 
@@ -131,7 +131,7 @@ class TestFirstTaglessIngest:
         das_id, _ = find_or_create_das(conn, "DirectStation-A")
         equip_id, _ = find_or_create_equipment_by_identifier(conn, "Probe_X")
         param_id = find_parameter_by_name(conn, "Temperature")
-        unit_id = find_unit_by_name(conn, "degC")
+        unit_id = find_unit_by_name(conn, "°C")
         assert param_id is not None
         assert unit_id is not None
 
@@ -139,8 +139,7 @@ class TestFirstTaglessIngest:
         assert synthetic_name == "probe_x/temperature"
 
         si_id, created = find_or_create_signal_interface(
-            conn, das_id, synthetic_name, 5
-        )
+            conn, das_id, synthetic_name)
         assert created is True
         assert si_id > 0
         assert _si_count_by_name(conn, das_id, synthetic_name) == 1
@@ -159,7 +158,7 @@ class TestFirstTaglessIngest:
             parameter_id=param_id,
             unit_id=unit_id,
             data_provenance_id=1,
-            processing_degree_id=1,
+            value_kind_id=1,
         )
         assert channel_id > 0
         assert _channel_count_by_stream(conn, si_id, synthetic_name, param_id) == 1
@@ -169,10 +168,10 @@ class TestFirstTaglessIngest:
         das_id, _ = find_or_create_das(conn, "DirectStation-B")
         equip_id, _ = find_or_create_equipment_by_identifier(conn, "ProbeWithHistory")
         param_id = find_parameter_by_name(conn, "Temperature")
-        unit_id = find_unit_by_name(conn, "degC")
+        unit_id = find_unit_by_name(conn, "°C")
 
         synthetic_name = generate_tagless_tagname("ProbeWithHistory", "Temperature")
-        si_id, _ = find_or_create_signal_interface(conn, das_id, synthetic_name, 5)
+        si_id, _ = find_or_create_signal_interface(conn, das_id, synthetic_name)
         open_equipment_wiring_history(conn, equip_id, si_id, None)
 
         wiring = find_active_equipment_wiring(conn, equip_id)
@@ -191,8 +190,8 @@ class TestIdempotency:
         das_id, _ = find_or_create_das(conn, "IdempotentDAS")
         synthetic_name = generate_tagless_tagname("Probe_Idem", "Temperature")
 
-        si_id1, c1 = find_or_create_signal_interface(conn, das_id, synthetic_name, 5)
-        si_id2, c2 = find_or_create_signal_interface(conn, das_id, synthetic_name, 5)
+        si_id1, c1 = find_or_create_signal_interface(conn, das_id, synthetic_name)
+        si_id2, c2 = find_or_create_signal_interface(conn, das_id, synthetic_name)
 
         assert c1 is True
         assert c2 is False
@@ -205,12 +204,11 @@ class TestIdempotency:
         das_id, _ = find_or_create_das(conn, "HistoryIdempotentDAS")
         equip_id, _ = find_or_create_equipment_by_identifier(conn, "Probe_HistIdem")
         param_id = find_parameter_by_name(conn, "Temperature")
-        unit_id = find_unit_by_name(conn, "degC")
+        unit_id = find_unit_by_name(conn, "°C")
 
         synthetic_name = generate_tagless_tagname("Probe_HistIdem", "Temperature")
         si_id, created = find_or_create_signal_interface(
-            conn, das_id, synthetic_name, 5
-        )
+            conn, das_id, synthetic_name)
         assert created is True
         open_equipment_wiring_history(conn, equip_id, si_id, None)
 
@@ -283,4 +281,4 @@ class TestValidationLookups:
 
     def test_known_unit_returns_id(self, db_at_v400):
         conn, _ = db_at_v400
-        assert find_unit_by_name(conn, "degc") is not None
+        assert find_unit_by_name(conn, "°C") is not None

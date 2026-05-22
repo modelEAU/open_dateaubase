@@ -49,26 +49,27 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
+ARCHIVE_DIR = MIGRATIONS_DIR / "archive" / "intermediate"
 SEED_DIR = PROJECT_ROOT / "sql"
 
 SQL_FILES = {
     "v1.0.0_create": MIGRATIONS_DIR / "v1.0.0_create_mssql.sql",
-    "v1.0.0_to_v1.0.1": MIGRATIONS_DIR / "v1.0.0_to_v1.0.1_mssql.sql",
-    "v1.0.1_to_v1.0.2": MIGRATIONS_DIR / "v1.0.1_to_v1.0.2_mssql.sql",
-    "v1.0.2_to_v1.1.0": MIGRATIONS_DIR / "v1.0.2_to_v1.1.0_mssql.sql",
-    "v1.1.0_to_v1.2.0": MIGRATIONS_DIR / "v1.1.0_to_v1.2.0_mssql.sql",
-    "v1.2.0_to_v1.3.0": MIGRATIONS_DIR / "v1.2.0_to_v1.3.0_mssql.sql",
-    "v1.3.0_to_v1.4.0": MIGRATIONS_DIR / "v1.3.0_to_v1.4.0_mssql.sql",
-    "v1.4.0_to_v1.5.0": MIGRATIONS_DIR / "v1.4.0_to_v1.5.0_mssql.sql",
-    "v1.5.0_to_v1.6.0": MIGRATIONS_DIR / "v1.5.0_to_v1.6.0_mssql.sql",
-    "rollback_v1.0.1": MIGRATIONS_DIR / "v1.0.0_to_v1.0.1_mssql_rollback.sql",
-    "rollback_v1.0.2": MIGRATIONS_DIR / "v1.0.1_to_v1.0.2_mssql_rollback.sql",
-    "rollback_v1.1.0": MIGRATIONS_DIR / "v1.0.2_to_v1.1.0_mssql_rollback.sql",
-    "rollback_v1.2.0": MIGRATIONS_DIR / "v1.1.0_to_v1.2.0_mssql_rollback.sql",
-    "rollback_v1.3.0": MIGRATIONS_DIR / "v1.2.0_to_v1.3.0_mssql_rollback.sql",
-    "rollback_v1.4.0": MIGRATIONS_DIR / "v1.3.0_to_v1.4.0_mssql_rollback.sql",
-    "rollback_v1.5.0": MIGRATIONS_DIR / "v1.4.0_to_v1.5.0_mssql_rollback.sql",
-    "rollback_v1.6.0": MIGRATIONS_DIR / "v1.5.0_to_v1.6.0_mssql_rollback.sql",
+    "v1.0.0_to_v1.0.1": ARCHIVE_DIR / "v1.0.0_to_v1.0.1_mssql.sql",
+    "v1.0.1_to_v1.0.2": ARCHIVE_DIR / "v1.0.1_to_v1.0.2_mssql.sql",
+    "v1.0.2_to_v1.1.0": ARCHIVE_DIR / "v1.0.2_to_v1.1.0_mssql.sql",
+    "v1.1.0_to_v1.2.0": ARCHIVE_DIR / "v1.1.0_to_v1.2.0_mssql.sql",
+    "v1.2.0_to_v1.3.0": ARCHIVE_DIR / "v1.2.0_to_v1.3.0_mssql.sql",
+    "v1.3.0_to_v1.4.0": ARCHIVE_DIR / "v1.3.0_to_v1.4.0_mssql.sql",
+    "v1.4.0_to_v1.5.0": ARCHIVE_DIR / "v1.4.0_to_v1.5.0_mssql.sql",
+    "v1.5.0_to_v1.6.0": ARCHIVE_DIR / "v1.5.0_to_v1.6.0_mssql.sql",
+    "rollback_v1.0.1": ARCHIVE_DIR / "v1.0.0_to_v1.0.1_mssql_rollback.sql",
+    "rollback_v1.0.2": ARCHIVE_DIR / "v1.0.1_to_v1.0.2_mssql_rollback.sql",
+    "rollback_v1.1.0": ARCHIVE_DIR / "v1.0.2_to_v1.1.0_mssql_rollback.sql",
+    "rollback_v1.2.0": ARCHIVE_DIR / "v1.1.0_to_v1.2.0_mssql_rollback.sql",
+    "rollback_v1.3.0": ARCHIVE_DIR / "v1.2.0_to_v1.3.0_mssql_rollback.sql",
+    "rollback_v1.4.0": ARCHIVE_DIR / "v1.3.0_to_v1.4.0_mssql_rollback.sql",
+    "rollback_v1.5.0": ARCHIVE_DIR / "v1.4.0_to_v1.5.0_mssql_rollback.sql",
+    "rollback_v1.6.0": ARCHIVE_DIR / "v1.5.0_to_v1.6.0_mssql_rollback.sql",
     "seed_v1.0.0": SEED_DIR / "seed_v1.0.0.sql",
     "seed_v1.0.1": SEED_DIR / "seed_v1.0.1.sql",
     "seed_v1.0.2": SEED_DIR / "seed_v1.0.2.sql",
@@ -78,14 +79,18 @@ SQL_FILES = {
     "seed_v1.4.0": SEED_DIR / "seed_v1.4.0.sql",
     "seed_v1.5.0": SEED_DIR / "seed_v1.5.0.sql",
     "seed_v1.6.0": SEED_DIR / "archive" / "seed_v1.6.0.sql",
-    "v2.1.0_to_v2.2.0": MIGRATIONS_DIR / "v2.1.0_to_v2.2.0_mssql.sql",
-    "rollback_v2.2.0": MIGRATIONS_DIR / "v2.1.0_to_v2.2.0_mssql_rollback.sql",
+    "v2.1.0_to_v2.2.0": ARCHIVE_DIR / "v2.1.0_to_v2.2.0_mssql.sql",
+    "rollback_v2.2.0": ARCHIVE_DIR / "v2.1.0_to_v2.2.0_mssql_rollback.sql",
     "seed_v2.2.0": SEED_DIR / "seed_v2.2.0.sql",
     "v2.2.0_create": PROJECT_ROOT
     / "sql_generation_scripts"
     / "v2.2.0_create_mssql.sql",
-    "v1.0.0_to_v3.0.0": MIGRATIONS_DIR / "v1.0.0_to_v3.0.0_mssql.sql",
-    "v4.0.0_signal_interface": MIGRATIONS_DIR / "v4.0.0_signal_interface.sql",
+    "v4.1.0_create": PROJECT_ROOT
+    / "sql_generation_scripts"
+    / "v4.1.0_create_mssql.sql",
+    "v4.1.0_seed": PROJECT_ROOT
+    / "sql_generation_scripts"
+    / "v4.1.0_seed_mssql.sql",
 }
 
 
@@ -416,7 +421,6 @@ def db_at_v220(fresh_db):
         conn,
         [
             "v2.2.0_create",  # Baseline v2.2.0 schema
-            "seed_v2.2.0",  # v2.2.0 format test data
         ],
     )
     yield conn, db_name
@@ -424,27 +428,23 @@ def db_at_v220(fresh_db):
 
 @pytest.fixture()
 def db_at_v400(fresh_db):
-    """Database at v4.0.0 schema with minimal seed data for ingest tests."""
+    """Database at v4.x schema with full seed vocabulary. Used for signal interface tests."""
+    conn, db_name = fresh_db
+    _apply_schema_and_seeds(conn, ["v4.1.0_create", "v4.1.0_seed"])
+    yield conn, db_name
+
+
+@pytest.fixture()
+def db_at_v410(fresh_db):
+    """Database at v4.1.0 schema with full seed data."""
     conn, db_name = fresh_db
     _apply_schema_and_seeds(
         conn,
         [
-            "v1.0.0_create",
-            "v1.0.0_to_v3.0.0",
-            "v4.0.0_signal_interface",
+            "v4.1.0_create",
+            "v4.1.0_seed",
         ],
     )
-
-    # Seed minimal lookup data needed by ingest tests
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)", "Temperature"
-    )
-    cursor.execute("INSERT INTO [dbo].[Parameter] ([Parameter]) VALUES (?)", "pH")
-    cursor.execute("INSERT INTO [dbo].[Unit] ([Unit]) VALUES (?)", "degC")
-    cursor.execute("INSERT INTO [dbo].[Unit] ([Unit]) VALUES (?)", "pH units")
-    conn.commit()
-
     yield conn, db_name
 
 
@@ -453,27 +453,25 @@ def db_at_v400(fresh_db):
 # ---------------------------------------------------------------------------
 
 
-def make_signal_interface(conn, das_id: int, name: str, type_id: int) -> int:
+def make_signal_interface(conn, das_id: int, name: str, type_id: int = 1) -> int:
     """Create or retrieve a SignalInterface. Returns SignalInterface_ID."""
     from api.v1.repositories.signal_interface_repository import (
         find_or_create_signal_interface,
     )
 
-    si_id, _ = find_or_create_signal_interface(conn, das_id, name, type_id)
+    si_id, _ = find_or_create_signal_interface(conn, das_id, name)
     return si_id
 
 
 def make_signal_interface_port(
-    conn, si_id: int, port_identifier: str, kind_id: int
+    conn, si_id: int, port_identifier: str, kind_id: int = 1
 ) -> int:
     """Create or retrieve a SignalInterfacePort. Returns SignalInterfacePort_ID."""
     from api.v1.repositories.signal_interface_repository import (
         find_or_create_signal_interface_port,
     )
 
-    port_id, _ = find_or_create_signal_interface_port(
-        conn, si_id, port_identifier, kind_id
-    )
+    port_id, _ = find_or_create_signal_interface_port(conn, si_id, port_identifier)
     return port_id
 
 

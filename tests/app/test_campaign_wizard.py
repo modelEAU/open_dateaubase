@@ -33,21 +33,21 @@ MOD = "app.components.campaign_wizard"
 # Stable fixture data (mirrors what the DB would return)
 # ---------------------------------------------------------------------------
 
-_CAMPAIGN_TYPES = [{"campaign_type_id": 1, "name": "Monitoring"}]
+_CAMPAIGN_TYPES = [{"campaign_kind_id": 1, "name": "Monitoring"}]
 _SITES = [{"site_id": 1, "name": "Site A"}]
 _SITE_TYPES = [{"id": 1, "name": "WWTP"}]
 _EQUIPMENT = [{"equipment_id": 1, "identifier": "Sensor-001"}]
 _EQUIPMENT_MODELS = [{"model_id": 1, "manufacturer": "Acme", "model_name": "X100"}]
 _PARAMETERS = [{"parameter_id": 1, "parameter_name": "pH"}]
-_PROCESSING_DEGREES = [{"processing_degree_id": 1, "name": "Raw"}]
+_PROCESSING_DEGREES = [{"processing_kind_id": 1, "name": "Raw"}]
 _DAS = [{"das_id": 1, "name": "DAS-001"}]
-_SIGNAL_PORT_TYPES = [{"signal_port_type_id": 1, "name": "Analog"}]
-_SIGNAL_PORTS = {
-    "items": [{"signal_port_id": 1, "tag": "AI_01", "das_name": "DAS-001"}],
-    "total": 1,
-}
+# Vocab rename: SignalInterface replaces the old SignalPort concept.
+_SIGNAL_INTERFACES = [
+    {"signal_interface_id": 1, "name": "AI_01", "das_name": "DAS-001"}
+]
 _PERSONS = [{"person_id": 1, "label": "Alice Smith"}]
 _SITE_SLS = [{"id": 1, "name": "Point A"}]
+_PROCESS_UNITS: list[dict] = []
 
 # ---------------------------------------------------------------------------
 # Patch helpers
@@ -62,10 +62,10 @@ _LOOKUP_SPECS = [
     (f"{MOD}.list_parameters_lookup", _PARAMETERS),
     (f"{MOD}.list_processing_kinds_lookup", _PROCESSING_DEGREES),
     (f"{MOD}.list_das_lookup", _DAS),
-    (f"{MOD}.list_signal_port_types_lookup", _SIGNAL_PORT_TYPES),
-    (f"{MOD}.list_signal_ports", _SIGNAL_PORTS),
+    (f"{MOD}.list_signal_interfaces_lookup", _SIGNAL_INTERFACES),
     (f"{MOD}.list_persons_lookup", _PERSONS),
     (f"{MOD}.list_site_sampling_locations", _SITE_SLS),
+    (f"{MOD}.list_process_units_lookup", _PROCESS_UNITS),
 ]
 
 _MUTATION_SPECS = [
@@ -76,11 +76,13 @@ _MUTATION_SPECS = [
     (f"{MOD}.create_das", {"das_id": 5}),
     (f"{MOD}.create_equipment_model", {"model_id": 15}),
     (f"{MOD}.create_equipment", {"equipment_id": 30}),
-    (f"{MOD}.create_signal_port", {"signal_port_id": 40}),
+    (f"{MOD}.create_signal_interface", {"signal_interface_id": 40}),
     (f"{MOD}.create_channel", {"channel_id": 60}),
     (f"{MOD}.create_campaign_deployment", {"deployment_id": 70}),
-    (f"{MOD}.register_equipment_at_port", {}),
-    (f"{MOD}.relocate_sensor", {}),
+    (f"{MOD}.create_process_unit", {"id": 80}),
+    (f"{MOD}.register_equipment_at_interface", {}),
+    (f"{MOD}.deploy_das", {}),
+    (f"{MOD}.get_das_conflict", None),
 ]
 
 
@@ -430,7 +432,7 @@ class TestStep4Validation:
         )
         at.run()
         at.button(key="wiz_next_4").click().run()
-        assert any("tag string is required" in e for e in _errors(at))
+        assert any("tag / interface name is required" in e for e in _errors(at))
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +461,7 @@ class TestExecuteHappyPath:
 
         payload = mock_apis["create_campaign"].call_args[0][0]
         assert payload["name"] == "Test Campaign"
-        assert payload["campaign_type_id"] == 1  # "Monitoring" → id 1
+        assert payload["campaign_kind_id"] == 1  # "Monitoring" → id 1
         assert payload["responsible_person_id"] == 50  # from create_person mock
 
     def test_all_existing_skips_creation_apis(self, mock_apis):
@@ -501,6 +503,52 @@ class TestExecuteHappyPath:
         mock_apis["create_equipment"].assert_called_once()
         eq_payload = mock_apis["create_equipment"].call_args[0][0]
         assert eq_payload["model_id"] == 15  # from create_equipment_model mock
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for BUG-3 and BUG-4 (campaign wizard state propagation)
+# ---------------------------------------------------------------------------
+
+
+class TestStatePropagationBugs:
+    """Streamlit drops widget keys once their step is no longer rendered.
+    The wizard must read snapshot-stable `_store` keys to survive across
+    step transitions. These tests simulate the post-transition state by
+    deleting widget keys while keeping only the store keys."""
+
+    def test_bug_3_site_id_resolved_from_store_key_only(self, mock_apis):
+        """BUG-3: campaign payload was missing site_id because
+        wiz_s1_site_label is dropped after step 1. Fix: read
+        wiz_s1_site_label_store first."""
+        state = _all_existing_state()
+        # Simulate Streamlit dropping the widget key after step 1 transitions.
+        del state["wiz_s1_site_label"]
+        state["wiz_s1_site_label_store"] = "Site A"
+
+        at = _at(5, state)
+        at.run()
+        at.button(key="wiz_next_5").click().run()
+
+        assert not _errors(at), f"BUG-3 regression: {_errors(at)}"
+        payload = mock_apis["create_campaign"].call_args[0][0]
+        assert payload["site_id"] == 1  # "Site A" resolves to id=1
+
+    def test_bug_4_sl_mode_resolved_from_store_key_only(self, mock_apis):
+        """BUG-4: step 3 reported 'No sampling locations selected' because
+        wiz_sl_{id}_mode was dropped after step 2. Fix: read
+        wiz_sl_{id}_mode_store first."""
+        state = _all_existing_state()
+        # Simulate Streamlit dropping the mode widget key after step 2.
+        del state["wiz_sl_0_mode"]
+        state["wiz_sl_0_mode_store"] = "Existing"
+
+        at = _at(5, state)
+        at.run()
+        at.button(key="wiz_next_5").click().run()
+
+        assert not _errors(at), f"BUG-4 regression: {_errors(at)}"
+        # The SL must still be linked to the equipment deployment.
+        mock_apis["create_campaign_deployment"].assert_called_once()
 
 
 # ---------------------------------------------------------------------------
