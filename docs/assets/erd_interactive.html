@@ -383,6 +383,123 @@
         const erdData = {
   "tables": [
     {
+      "id": "AnalysisSeries",
+      "label": "AnalysisSeries",
+      "description": "Stable stream identity for lab measurements \u2014 the lab analogue of Channel. One AnalysisSeries row represents the conceptual stream of \"Parameter X measured at SamplingPoint Y by ProcessingKind Z producing ValueKind W in Unit U\" (e.g. \"TSS Gravimetric at Effluent in mg/L\"). All LabAnalyses measuring the same parameter at the same location with the same processing and value kind share one AnalysisSeries_ID, giving lab data a queryable time-series identity.\nUnlike Channel \u2014 which intentionally excludes sampling location from its identity because location is inferred at query time via EquipmentLocationHistory \u2014 AnalysisSeries includes SamplingPoint_ID as explicit identity, because lab samples always have a known origin and \"TSS at Influent\" must be a different series from \"TSS at Effluent\".\n",
+      "fields": [
+        {
+          "name": "AnalysisSeries_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable label (e.g. 'TSS Gravimetric at Effluent')"
+        },
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Parameter.Parameter_ID",
+          "description": "Measured analyte (e.g. TSS concentration, COD concentration)"
+        },
+        {
+          "name": "SamplingPoint_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "SamplingPoint.SamplingPoint_ID",
+          "description": "Sampling point where the samples for this series originate"
+        },
+        {
+          "name": "ValueKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueKind.ValueKind_ID",
+          "description": "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"
+        },
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Unit.Unit_ID",
+          "description": "Unit of measurement for values in this series (e.g. mg/L). Treated as immutable for the lifetime of the series \u2014 a unit change requires a new AnalysisSeries row. Excluded from the uniqueness constraint because unit choice is a property of the series rather than part of its identity; two series with the same parameter / location / processing / value kind cannot legitimately differ only by unit.\n"
+        },
+        {
+          "name": "ProcessingKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ProcessingKind.ProcessingKind_ID",
+          "description": "How values in this series were produced (1=Raw, ...). Supports raw vs. corrected lab series for the same parameter at the same location.\n"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about this analysis series"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "AnalysisSeriesAxis",
+      "label": "AnalysisSeriesAxis",
+      "description": "Junction table linking an AnalysisSeries to its binning axis or axes (analogous to ChannelAxis for sensor channels). AxisRole=0 is the single axis for a Vector series, or the row axis for a Matrix series; AxisRole=1 is the column axis for a Matrix series.\n",
+      "fields": [
+        {
+          "name": "AnalysisSeries_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "AnalysisSeries.AnalysisSeries_ID",
+          "description": "References the lab analysis series"
+        },
+        {
+          "name": "AxisRole",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only)"
+        },
+        {
+          "name": "ValueBinningAxis_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ValueBinningAxis.ValueBinningAxis_ID",
+          "description": "References the binning axis for this role"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
       "id": "Annotation",
       "label": "Annotation",
       "description": "Human-authored annotations on time series data. Each annotation applies to a single Channel entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.\n",
@@ -548,6 +665,78 @@
           "is_required": false,
           "fk_target": null,
           "description": "Hex color code for UI rendering, e.g. '#FF6B6B'"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "AuditLog",
+      "label": "AuditLog",
+      "description": "Immutable log of user-initiated actions on API resources.",
+      "fields": [
+        {
+          "name": "AuditLog_ID",
+          "sql_type": "BIGINT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "UserAccount_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "UserAccount.UserAccount_ID",
+          "description": "User who performed the action (NULL for unauthenticated events)"
+        },
+        {
+          "name": "Action",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Action verb: CREATE | UPDATE | DELETE | LOGIN | SIGNUP"
+        },
+        {
+          "name": "ResourceType",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Type of resource affected (e.g. UserAccount, Site, Campaign)"
+        },
+        {
+          "name": "ResourceID",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Primary key of the affected row, serialised as a string"
+        },
+        {
+          "name": "Details",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "JSON snapshot or diff of the affected record"
+        },
+        {
+          "name": "Timestamp",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC timestamp when the action occurred"
         }
       ],
       "group_name": "Uncategorized",
@@ -781,7 +970,7 @@
     {
       "id": "Channel",
       "label": "Channel",
-      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\n",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\nRaw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Processing kind is not stored on Channel \u2014 query via ProducedByStep_ID \u2192 ProcessingStep.ProcessingKind_ID.\n",
       "fields": [
         {
           "name": "Channel_ID",
@@ -797,9 +986,9 @@
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": true,
+          "is_required": false,
           "fk_target": "SignalInterface.SignalInterface_ID",
-          "description": "The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag. The anchor for ingest: observations are routed by (SignalInterface_ID, TagName).\n"
+          "description": "The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag. The anchor for ingest: observations are routed by (SignalInterface_ID, TagName). NULL for derived/processed channels that have no physical source interface.\n"
         },
         {
           "name": "TagName",
@@ -856,13 +1045,13 @@
           "description": "How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5, Forecast=6)\n"
         },
         {
-          "name": "ProcessingKind_ID",
+          "name": "ProducedByStep_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "ProcessingKind.ProcessingKind_ID",
-          "description": "Level of processing applied to this time series (FK to ProcessingKind lookup). Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation \u2014 if the processing kind changes, a new Channel row is created. Default 1 = Raw.\n"
+          "fk_target": "ProcessingStep.ProcessingStep_ID",
+          "description": "The ProcessingStep that produced this channel. NULL for raw/ingested channels. Distinguishes independently-processed variants of the same physical signal stream: two users running the same algorithm on the same raw channel each create a separate ProcessingStep row and therefore separate Channel rows.\n"
         },
         {
           "name": "ValueKind_ID",
@@ -1438,7 +1627,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Human-readable name of the DAS category"
+          "description": "Human-readable name of the Data Acquisition System category"
         },
         {
           "name": "Description",
@@ -1447,7 +1636,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Explanation of what this category of DAS represents"
+          "description": "Explanation of what this category of Data Acquisition System represents"
         }
       ],
       "group_name": "Equipment & Instruments",
@@ -2122,7 +2311,7 @@
     {
       "id": "LabAnalysis",
       "label": "LabAnalysis",
-      "description": "One analytical run on a discrete physical sample. Groups together all LabValue rows from a single lab session. Lab data does not fit the continuous-stream Channel abstraction (it is tied to a physical sample, not an equipment stream), so it lives here rather than in Channel + Value.\n",
+      "description": "One analytical run on a discrete physical sample \u2014 the event-record sitting at the intersection of two orthogonal grouping axes: LabExperiment (the session: who/when) and AnalysisSeries (the stream identity: parameter / location / kind / processing / unit). The measurement itself lives in Observation (via LabAnalysis_ID) and is routed to a payload table (Value / ValueVector / ValueMatrix / ValueImage) so lab data is no longer scalar-only.\n",
       "fields": [
         {
           "name": "LabAnalysis_ID",
@@ -2134,6 +2323,24 @@
           "description": "Surrogate primary key"
         },
         {
+          "name": "LabExperiment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "LabExperiment.LabExperiment_ID",
+          "description": "The lab session this analysis was part of"
+        },
+        {
+          "name": "AnalysisSeries_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "AnalysisSeries.AnalysisSeries_ID",
+          "description": "The measurement stream (parameter / location / kind / processing) this analysis belongs to"
+        },
+        {
           "name": "Sample_ID",
           "sql_type": "INT",
           "is_pk": false,
@@ -2141,6 +2348,24 @@
           "is_required": true,
           "fk_target": "Sample.Sample_ID",
           "description": "The physical sample that was analysed"
+        },
+        {
+          "name": "Replicate",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Replicate number (1 = primary measurement, 2+ = duplicates)"
+        },
+        {
+          "name": "QualityCode_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "QualityCode.QualityCode_ID",
+          "description": "Optional quality flag. NULL means no quality assessment has been recorded."
         },
         {
           "name": "Laboratory_ID",
@@ -2179,15 +2404,6 @@
           "description": "UTC datetime when the analysis was performed. If it's a long analysis, record the beginning."
         },
         {
-          "name": "Campaign_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Campaign.Campaign_ID",
-          "description": "Campaign this analysis was part of, if any"
-        },
-        {
           "name": "Notes",
           "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
@@ -2201,12 +2417,12 @@
       "group_color": "#0891b2"
     },
     {
-      "id": "LabValue",
-      "label": "LabValue",
-      "description": "A single measured value from a lab analysis, for a specific parameter and unit. Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate).\n",
+      "id": "LabExperiment",
+      "label": "LabExperiment",
+      "description": "Session container for lab work \u2014 groups heterogeneous LabAnalyses that were performed together as one named lab occasion (e.g. \"PSVD-Settling- 2026-05-11\"). One LabExperiment can span multiple AnalysisSeries; one AnalysisSeries can participate in many LabExperiments. The session axis answers \"what was done that day\" while the AnalysisSeries axis answers \"all measurements of this parameter at this location over time\".\n",
       "fields": [
         {
-          "name": "LabValue_ID",
+          "name": "LabExperiment_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -2215,62 +2431,53 @@
           "description": "Surrogate primary key"
         },
         {
-          "name": "LabAnalysis_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "LabAnalysis.LabAnalysis_ID",
-          "description": "The analysis run this value belongs to"
-        },
-        {
-          "name": "Parameter_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Parameter.Parameter_ID",
-          "description": "Measured analyte (e.g. TSS concentration, COD concentration)"
-        },
-        {
-          "name": "LabResult",
-          "sql_type": "FLOAT",
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
           "is_pk": false,
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Numerical result of the measurement"
+          "description": "Human-readable label for the session"
         },
         {
-          "name": "Replicate",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Replicate number (1 = primary measurement, 2+ = duplicates)"
-        },
-        {
-          "name": "QualityCode_ID",
+          "name": "Campaign_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "QualityCode.QualityCode_ID",
-          "description": "Optional quality flag. NULL means no quality assessment has been recorded."
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign this experiment was part of, if any"
         },
         {
-          "name": "Comment",
+          "name": "ExperimentDateTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC datetime when the session took place"
+        },
+        {
+          "name": "Description",
           "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Optional free-text comment reference"
+          "description": "Free-text notes about this experiment"
+        },
+        {
+          "name": "CreatedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who recorded this experiment session"
         }
       ],
-      "group_name": "Lab",
-      "group_color": "#0891b2"
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "Laboratory",
@@ -2401,7 +2608,7 @@
     {
       "id": "Observation",
       "label": "Observation",
-      "description": "Shared hub table representing a single measurement event on a channel at a timestamp. The four payload tables (Value, ValueVector, ValueMatrix, ValueImage) carry only their type-specific data, keyed by Observation_ID. DataType mirrors Channel.ValueType_ID for self-description.\n",
+      "description": "Shared hub table representing a single measurement event at a timestamp. The source is either a sensor Channel (Channel_ID NOT NULL, LabAnalysis_ID NULL) or a lab analysis (LabAnalysis_ID NOT NULL, Channel_ID NULL); an XOR CHECK constraint enforces that exactly one is set per row. The four payload tables (Value, ValueVector, ValueMatrix, ValueImage) carry only their type-specific data, keyed by Observation_ID. ValueKind_ID mirrors the upstream Channel.ValueKind_ID or AnalysisSeries.ValueKind_ID for self-description.\n",
       "fields": [
         {
           "name": "Observation_ID",
@@ -2417,9 +2624,18 @@
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": true,
+          "is_required": false,
           "fk_target": "Channel.Channel_ID",
-          "description": "The channel this observation belongs to."
+          "description": "The sensor channel this observation belongs to. NULL for lab observations (which set LabAnalysis_ID instead).\n"
+        },
+        {
+          "name": "LabAnalysis_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "LabAnalysis.LabAnalysis_ID",
+          "description": "The lab analysis this observation belongs to. NULL for sensor observations (which set Channel_ID instead). Exactly one of Channel_ID / LabAnalysis_ID is non-NULL per row (XOR CHECK).\n"
         },
         {
           "name": "Timestamp",
@@ -2428,7 +2644,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "UTC timestamp of the observation"
+          "description": "UTC timestamp of the observation. For lab observations this is set from LabAnalysis.AnalysisDateTime at insert time.\n"
         },
         {
           "name": "ValueKind_ID",
@@ -2437,7 +2653,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "ValueKind.ValueKind_ID",
-          "description": "Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). Must match the Channel's ValueKind."
+          "description": "Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). For sensor observations must match the Channel's ValueKind; for lab observations must match the AnalysisSeries's ValueKind.\n"
         }
       ],
       "group_name": "Observations & Values",
@@ -2869,7 +3085,7 @@
     {
       "id": "ProcessingLineage",
       "label": "ProcessingLineage",
-      "description": "Junction table that records the input/output relationships between ProcessingStep rows and Channel rows. Each row asserts that a given Channel entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.\nExample: outlier-removal step takes Channel 10 (raw TSS) as Input and produces Channel 11 (cleaned TSS) as Output.\n",
+      "description": "Junction table that records the input relationships between ProcessingStep rows and Channel rows. Every row is an input edge \u2014 it asserts that a given Channel was consumed by a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.\nOutput channels are identified by Channel.ProducedByStep_ID (not stored here).\nExample: an outlier-removal step consumes Channel 10 (raw TSS) as an input; Channel 11 (cleaned TSS) carries ProducedByStep_ID pointing to that step.\n",
       "fields": [
         {
           "name": "ProcessingLineage_ID",
@@ -2897,15 +3113,6 @@
           "is_required": true,
           "fk_target": "Channel.Channel_ID",
           "description": "The Channel entry (time series) that participates in this lineage edge"
-        },
-        {
-          "name": "RoleInProcessingStep",
-          "sql_type": "NVARCHAR(10)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Whether this Channel entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.\n"
         },
         {
           "name": "StartTime",
@@ -3776,6 +3983,87 @@
       "group_color": "#475569"
     },
     {
+      "id": "UserAccount",
+      "label": "UserAccount",
+      "description": "Application user accounts for API authentication.",
+      "fields": [
+        {
+          "name": "UserAccount_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Email",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Unique e-mail address used for login"
+        },
+        {
+          "name": "FullName",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Display name of the user"
+        },
+        {
+          "name": "PasswordHash",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "PBKDF2-SHA256 password hash (pbkdf2_sha256$iters$salt$digest)"
+        },
+        {
+          "name": "IsActive",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether the account is enabled"
+        },
+        {
+          "name": "IsVerified",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether the e-mail address has been verified"
+        },
+        {
+          "name": "CreatedAt",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC timestamp when the account was created"
+        },
+        {
+          "name": "UpdatedAt",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "UTC timestamp of the last profile update"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
       "id": "Value",
       "label": "Value",
       "description": "Scalar payload for a single Observation. One row per Observation of DataType='Scalar'. Channel and Timestamp are resolved via the Observation table.\n",
@@ -4513,6 +4801,55 @@
   ],
   "relationships": [
     {
+      "from_table": "AnalysisSeries",
+      "to_table": "Parameter",
+      "from_field": "Parameter_ID",
+      "to_field": "Parameter_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "AnalysisSeries",
+      "to_table": "SamplingPoint",
+      "from_field": "SamplingPoint_ID",
+      "to_field": "SamplingPoint_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "AnalysisSeries",
+      "to_table": "ValueKind",
+      "from_field": "ValueKind_ID",
+      "to_field": "ValueKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "AnalysisSeries",
+      "to_table": "Unit",
+      "from_field": "Unit_ID",
+      "to_field": "Unit_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "AnalysisSeries",
+      "to_table": "ProcessingKind",
+      "from_field": "ProcessingKind_ID",
+      "to_field": "ProcessingKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "AnalysisSeriesAxis",
+      "to_table": "AnalysisSeries",
+      "from_field": "AnalysisSeries_ID",
+      "to_field": "AnalysisSeries_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "AnalysisSeriesAxis",
+      "to_table": "ValueBinningAxis",
+      "from_field": "ValueBinningAxis_ID",
+      "to_field": "ValueBinningAxis_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "Annotation",
       "to_table": "Channel",
       "from_field": "Channel_ID",
@@ -4552,6 +4889,13 @@
       "to_table": "Observation",
       "from_field": "Observation_ID",
       "to_field": "Observation_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "AuditLog",
+      "to_table": "UserAccount",
+      "from_field": "UserAccount_ID",
+      "to_field": "UserAccount_ID",
       "relationship_type": null
     },
     {
@@ -4647,9 +4991,9 @@
     },
     {
       "from_table": "Channel",
-      "to_table": "ProcessingKind",
-      "from_field": "ProcessingKind_ID",
-      "to_field": "ProcessingKind_ID",
+      "to_table": "ProcessingStep",
+      "from_field": "ProducedByStep_ID",
+      "to_field": "ProcessingStep_ID",
       "relationship_type": null
     },
     {
@@ -4913,9 +5257,30 @@
     },
     {
       "from_table": "LabAnalysis",
+      "to_table": "LabExperiment",
+      "from_field": "LabExperiment_ID",
+      "to_field": "LabExperiment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabAnalysis",
+      "to_table": "AnalysisSeries",
+      "from_field": "AnalysisSeries_ID",
+      "to_field": "AnalysisSeries_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabAnalysis",
       "to_table": "Sample",
       "from_field": "Sample_ID",
       "to_field": "Sample_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabAnalysis",
+      "to_table": "QualityCode",
+      "from_field": "QualityCode_ID",
+      "to_field": "QualityCode_ID",
       "relationship_type": null
     },
     {
@@ -4940,31 +5305,17 @@
       "relationship_type": null
     },
     {
-      "from_table": "LabAnalysis",
+      "from_table": "LabExperiment",
       "to_table": "Campaign",
       "from_field": "Campaign_ID",
       "to_field": "Campaign_ID",
       "relationship_type": null
     },
     {
-      "from_table": "LabValue",
-      "to_table": "LabAnalysis",
-      "from_field": "LabAnalysis_ID",
-      "to_field": "LabAnalysis_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "LabValue",
-      "to_table": "Parameter",
-      "from_field": "Parameter_ID",
-      "to_field": "Parameter_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "LabValue",
-      "to_table": "QualityCode",
-      "from_field": "QualityCode_ID",
-      "to_field": "QualityCode_ID",
+      "from_table": "LabExperiment",
+      "to_table": "Person",
+      "from_field": "CreatedByPerson_ID",
+      "to_field": "Person_ID",
       "relationship_type": null
     },
     {
@@ -4986,6 +5337,13 @@
       "to_table": "Channel",
       "from_field": "Channel_ID",
       "to_field": "Channel_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Observation",
+      "to_table": "LabAnalysis",
+      "from_field": "LabAnalysis_ID",
+      "to_field": "LabAnalysis_ID",
       "relationship_type": null
     },
     {

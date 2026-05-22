@@ -6,6 +6,46 @@ This documentation is auto-generated from dictionary.json.
 ## Tables
 
 
+<span id="AnalysisSeries"></span>
+
+### AnalysisSeries
+
+Stable stream identity for lab measurements — the lab analogue of Channel. One AnalysisSeries row represents the conceptual stream of "Parameter X measured at SamplingPoint Y by ProcessingKind Z producing ValueKind W in Unit U" (e.g. "TSS Gravimetric at Effluent in mg/L"). All LabAnalyses measuring the same parameter at the same location with the same processing and value kind share one AnalysisSeries_ID, giving lab data a queryable time-series identity.
+Unlike Channel — which intentionally excludes sampling location from its identity because location is inferred at query time via EquipmentLocationHistory — AnalysisSeries includes SamplingPoint_ID as explicit identity, because lab samples always have a known origin and "TSS at Influent" must be a different series from "TSS at Effluent".
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable label (e.g. 'TSS Gravimetric at Effluent') | - |
+| Parameter_ID | INT | - | ✓ | <span id="Parameter_ID"></span>Measured analyte (e.g. TSS concentration, COD concentration) | FK → [Parameter.Parameter_ID](#Parameter) |
+| SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling point where the samples for this series originate | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
+| ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueKind.ValueKind_ID](#ValueKind)<br>Default: `1` |
+| Unit_ID | INT | - | ✓ | <span id="Unit_ID"></span>Unit of measurement for values in this series (e.g. mg/L). Treated as immutable for the lifetime of the series — a unit change requires a new AnalysisSeries row. Excluded from the uniqueness constraint because unit choice is a property of the series rather than part of its identity; two series with the same parameter / location / processing / value kind cannot legitimately differ only by unit.
+ | FK → [Unit.Unit_ID](#Unit) |
+| ProcessingKind_ID | INT | - | ✓ | <span id="ProcessingKind_ID"></span>How values in this series were produced (1=Raw, ...). Supports raw vs. corrected lab series for the same parameter at the same location.
+ | FK → [ProcessingKind.ProcessingKind_ID](#ProcessingKind)<br>Default: `1` |
+| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this analysis series | - |
+
+<span id="AnalysisSeriesAxis"></span>
+
+### AnalysisSeriesAxis
+
+Junction table linking an AnalysisSeries to its binning axis or axes (analogous to ChannelAxis for sensor channels). AxisRole=0 is the single axis for a Vector series, or the row axis for a Matrix series; AxisRole=1 is the column axis for a Matrix series.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>References the lab analysis series | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
+| AxisRole | INT **(PK)** | - | ✓ | <span id="AxisRole"></span>Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only) | - |
+| ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the binning axis for this role | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
+
 <span id="Annotation"></span>
 
 ### Annotation
@@ -49,6 +89,25 @@ Controlled vocabulary defining the kinds of annotations that can be applied to t
 | Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Human-readable name of the annotation kind | - |
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Explanation of when to use this annotation kind | - |
 | Color | NVARCHAR(7) | - |  | <span id="Color"></span>Hex color code for UI rendering, e.g. '#FF6B6B' | - |
+
+<span id="AuditLog"></span>
+
+### AuditLog
+
+Immutable log of user-initiated actions on API resources.
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| AuditLog_ID | BIGINT **(PK)** | - | ✓ | <span id="AuditLog_ID"></span>Surrogate primary key | - |
+| UserAccount_ID | INT | - |  | <span id="UserAccount_ID"></span>User who performed the action (NULL for unauthenticated events) | FK → [UserAccount.UserAccount_ID](#UserAccount) |
+| Action | NVARCHAR(50) | - | ✓ | <span id="Action"></span>Action verb: CREATE | UPDATE | DELETE | LOGIN | SIGNUP | - |
+| ResourceType | NVARCHAR(100) | - | ✓ | <span id="ResourceType"></span>Type of resource affected (e.g. UserAccount, Site, Campaign) | - |
+| ResourceID | NVARCHAR(255) | - |  | <span id="ResourceID"></span>Primary key of the affected row, serialised as a string | - |
+| Details | NVARCHAR(MAX) | - |  | <span id="Details"></span>JSON snapshot or diff of the affected record | - |
+| Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp when the action occurred | Default: `SYSUTCDATETIME()` |
 
 <span id="BinKind"></span>
 
@@ -135,7 +194,8 @@ Junction table: sampling locations actively monitored during a campaign.
 
 ### Channel
 
-Invariant descriptor for a measurement stream (sensor channel). Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProcessingDegree) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
+Invariant descriptor for a measurement stream (sensor channel). Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
+Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Processing kind is not stored on Channel — query via ProducedByStep_ID → ProcessingStep.ProcessingKind_ID.
 
 
 
@@ -144,7 +204,7 @@ Invariant descriptor for a measurement stream (sensor channel). Each row is iden
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Surrogate primary key | - |
-| SignalInterface_ID | INT | - | ✓ | <span id="SignalInterface_ID"></span>The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag. The anchor for ingest: observations are routed by (SignalInterface_ID, TagName).
+| SignalInterface_ID | INT | - |  | <span id="SignalInterface_ID"></span>The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag. The anchor for ingest: observations are routed by (SignalInterface_ID, TagName). NULL for derived/processed channels that have no physical source interface.
  | FK → [SignalInterface.SignalInterface_ID](#SignalInterface) |
 | TagName | NVARCHAR(200) | - | ✓ | <span id="TagName"></span>Tag string as published by the SignalInterface (case-preserved; lookups are case-insensitive trimmed). For direct-connect interfaces a synthetic tag such as "{equipment_identifier}/{parameter_name}" is auto-generated.
  | - |
@@ -157,8 +217,8 @@ Invariant descriptor for a measurement stream (sensor channel). Each row is iden
 | Parameter_ID | INT | - |  | <span id="Parameter_ID"></span>Measured analyte or parameter (e.g. TSS concetration, pH) | FK → [Parameter.Parameter_ID](#Parameter) |
 | DataProvenanceKind_ID | INT | - |  | <span id="DataProvenanceKind_ID"></span>How this data was produced (Sensor=1, Laboratory=2, Manual Entry=3, Model Output=4, External Source=5, Forecast=6)
  | FK → [DataProvenanceKind.DataProvenanceKind_ID](#DataProvenanceKind) |
-| ProcessingKind_ID | INT | - |  | <span id="ProcessingKind_ID"></span>Level of processing applied to this time series (FK to ProcessingKind lookup). Ground truth is the DataLineage graph; this field exists for fast filtering. Set once at row creation — if the processing kind changes, a new Channel row is created. Default 1 = Raw.
- | FK → [ProcessingKind.ProcessingKind_ID](#ProcessingKind)<br>Default: `1` |
+| ProducedByStep_ID | INT | - |  | <span id="ProducedByStep_ID"></span>The ProcessingStep that produced this channel. NULL for raw/ingested channels. Distinguishes independently-processed variants of the same physical signal stream: two users running the same algorithm on the same raw channel each create a separate ProcessingStep row and therefore separate Channel rows.
+ | FK → [ProcessingStep.ProcessingStep_ID](#ProcessingStep) |
 | ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueKind.ValueKind_ID](#ValueKind)<br>Default: `1` |
 | Unit_ID | INT | - |  | <span id="Unit_ID"></span>Unit of measurement for values stored in this channel (e.g. mg/L, NTU). Set at channel creation via the ingestion pipeline and treated as immutable thereafter — a unit change requires a new Channel row.
  | FK → [Unit.Unit_ID](#Unit) |
@@ -354,8 +414,8 @@ Controlled vocabulary for categories of Data Acquisition Systems
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | DataAcquisitionSystemKind_ID | INT **(PK)** | - | ✓ | <span id="DataAcquisitionSystemKind_ID"></span>Surrogate primary key | - |
-| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Human-readable name of the DAS category | - |
-| Description | NVARCHAR(500) | - |  | <span id="Description"></span>Explanation of what this category of DAS represents | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Human-readable name of the Data Acquisition System category | - |
+| Description | NVARCHAR(500) | - |  | <span id="Description"></span>Explanation of what this category of Data Acquisition System represents | - |
 
 <span id="DataProvenanceKind"></span>
 
@@ -574,7 +634,7 @@ Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, 
 
 ### LabAnalysis
 
-One analytical run on a discrete physical sample. Groups together all LabValue rows from a single lab session. Lab data does not fit the continuous-stream Channel abstraction (it is tied to a physical sample, not an equipment stream), so it lives here rather than in Channel + Value.
+One analytical run on a discrete physical sample — the event-record sitting at the intersection of two orthogonal grouping axes: LabExperiment (the session: who/when) and AnalysisSeries (the stream identity: parameter / location / kind / processing / unit). The measurement itself lives in Observation (via LabAnalysis_ID) and is routed to a payload table (Value / ValueVector / ValueMatrix / ValueImage) so lab data is no longer scalar-only.
 
 
 
@@ -583,19 +643,22 @@ One analytical run on a discrete physical sample. Groups together all LabValue r
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | LabAnalysis_ID | INT **(PK)** | - | ✓ | <span id="LabAnalysis_ID"></span>Surrogate primary key | - |
+| LabExperiment_ID | INT | - | ✓ | <span id="LabExperiment_ID"></span>The lab session this analysis was part of | FK → [LabExperiment.LabExperiment_ID](#LabExperiment) |
+| AnalysisSeries_ID | INT | - | ✓ | <span id="AnalysisSeries_ID"></span>The measurement stream (parameter / location / kind / processing) this analysis belongs to | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
 | Sample_ID | INT | - | ✓ | <span id="Sample_ID"></span>The physical sample that was analysed | FK → [Sample.Sample_ID](#Sample) |
+| Replicate | INT | - | ✓ | <span id="Replicate"></span>Replicate number (1 = primary measurement, 2+ = duplicates) | Default: `1` |
+| QualityCode_ID | INT | - |  | <span id="QualityCode_ID"></span>Optional quality flag. NULL means no quality assessment has been recorded. | FK → [QualityCode.QualityCode_ID](#QualityCode) |
 | Laboratory_ID | INT | - |  | <span id="Laboratory_ID"></span>Laboratory where the analysis was performed | FK → [Laboratory.Laboratory_ID](#Laboratory) |
 | AnalystPerson_ID | INT | - |  | <span id="AnalystPerson_ID"></span>Person who performed the analysis | FK → [Person.Person_ID](#Person) |
 | Procedure_ID | INT | - |  | <span id="Procedure_ID"></span>Standard operating procedure used for this analysis | FK → [Procedures.Procedure_ID](#Procedures) |
 | AnalysisDateTime | DATETIME2(7) | - | ✓ | <span id="AnalysisDateTime"></span>UTC datetime when the analysis was performed. If it's a long analysis, record the beginning. | Default: `SYSUTCDATETIME()` |
-| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this analysis was part of, if any | FK → [Campaign.Campaign_ID](#Campaign) |
 | Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes about this analysis run | - |
 
-<span id="LabValue"></span>
+<span id="LabExperiment"></span>
 
-### LabValue
+### LabExperiment
 
-A single measured value from a lab analysis, for a specific parameter and unit. Multiple LabValue rows belong to one LabAnalysis (one value per parameter per replicate).
+Session container for lab work — groups heterogeneous LabAnalyses that were performed together as one named lab occasion (e.g. "PSVD-Settling- 2026-05-11"). One LabExperiment can span multiple AnalysisSeries; one AnalysisSeries can participate in many LabExperiments. The session axis answers "what was done that day" while the AnalysisSeries axis answers "all measurements of this parameter at this location over time".
 
 
 
@@ -603,13 +666,12 @@ A single measured value from a lab analysis, for a specific parameter and unit. 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| LabValue_ID | INT **(PK)** | - | ✓ | <span id="LabValue_ID"></span>Surrogate primary key | - |
-| LabAnalysis_ID | INT | - | ✓ | <span id="LabAnalysis_ID"></span>The analysis run this value belongs to | FK → [LabAnalysis.LabAnalysis_ID](#LabAnalysis) |
-| Parameter_ID | INT | - | ✓ | <span id="Parameter_ID"></span>Measured analyte (e.g. TSS concentration, COD concentration) | FK → [Parameter.Parameter_ID](#Parameter) |
-| LabResult | FLOAT | - | ✓ | <span id="LabResult"></span>Numerical result of the measurement | - |
-| Replicate | INT | - | ✓ | <span id="Replicate"></span>Replicate number (1 = primary measurement, 2+ = duplicates) | Default: `1` |
-| QualityCode_ID | INT | - |  | <span id="QualityCode_ID"></span>Optional quality flag. NULL means no quality assessment has been recorded. | FK → [QualityCode.QualityCode_ID](#QualityCode) |
-| Comment | NVARCHAR(MAX) | - |  | <span id="Comment"></span>Optional free-text comment reference | - |
+| LabExperiment_ID | INT **(PK)** | - | ✓ | <span id="LabExperiment_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable label for the session | - |
+| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this experiment was part of, if any | FK → [Campaign.Campaign_ID](#Campaign) |
+| ExperimentDateTime | DATETIME2(7) | - | ✓ | <span id="ExperimentDateTime"></span>UTC datetime when the session took place | Default: `SYSUTCDATETIME()` |
+| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this experiment | - |
+| CreatedByPerson_ID | INT | - |  | <span id="CreatedByPerson_ID"></span>Person who recorded this experiment session | FK → [Person.Person_ID](#Person) |
 
 <span id="Laboratory"></span>
 
@@ -651,7 +713,7 @@ Stores the land use percentages (e.g., commercial, residential, green spaces) wi
 
 ### Observation
 
-Shared hub table representing a single measurement event on a channel at a timestamp. The four payload tables (Value, ValueVector, ValueMatrix, ValueImage) carry only their type-specific data, keyed by Observation_ID. DataType mirrors Channel.ValueType_ID for self-description.
+Shared hub table representing a single measurement event at a timestamp. The source is either a sensor Channel (Channel_ID NOT NULL, LabAnalysis_ID NULL) or a lab analysis (LabAnalysis_ID NOT NULL, Channel_ID NULL); an XOR CHECK constraint enforces that exactly one is set per row. The four payload tables (Value, ValueVector, ValueMatrix, ValueImage) carry only their type-specific data, keyed by Observation_ID. ValueKind_ID mirrors the upstream Channel.ValueKind_ID or AnalysisSeries.ValueKind_ID for self-description.
 
 
 
@@ -660,9 +722,14 @@ Shared hub table representing a single measurement event on a channel at a times
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Observation_ID | INT **(PK)** | - | ✓ | <span id="Observation_ID"></span>Surrogate key; auto-assigned by the database | - |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The channel this observation belongs to. | FK → [Channel.Channel_ID](#Channel) |
-| Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the observation | - |
-| ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). Must match the Channel's ValueKind. | FK → [ValueKind.ValueKind_ID](#ValueKind) |
+| Channel_ID | INT | - |  | <span id="Channel_ID"></span>The sensor channel this observation belongs to. NULL for lab observations (which set LabAnalysis_ID instead).
+ | FK → [Channel.Channel_ID](#Channel) |
+| LabAnalysis_ID | INT | - |  | <span id="LabAnalysis_ID"></span>The lab analysis this observation belongs to. NULL for sensor observations (which set Channel_ID instead). Exactly one of Channel_ID / LabAnalysis_ID is non-NULL per row (XOR CHECK).
+ | FK → [LabAnalysis.LabAnalysis_ID](#LabAnalysis) |
+| Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the observation. For lab observations this is set from LabAnalysis.AnalysisDateTime at insert time.
+ | - |
+| ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). For sensor observations must match the Channel's ValueKind; for lab observations must match the AnalysisSeries's ValueKind.
+ | FK → [ValueKind.ValueKind_ID](#ValueKind) |
 
 <span id="Parameter"></span>
 
@@ -806,8 +873,9 @@ Controlled vocabulary describing the level of processing applied to a Channel's 
 
 ### ProcessingLineage
 
-Junction table that records the input/output relationships between ProcessingStep rows and Channel rows. Each row asserts that a given Channel entry was either an Input to, or an Output of, a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.
-Example: outlier-removal step takes Channel 10 (raw TSS) as Input and produces Channel 11 (cleaned TSS) as Output.
+Junction table that records the input relationships between ProcessingStep rows and Channel rows. Every row is an input edge — it asserts that a given Channel was consumed by a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.
+Output channels are identified by Channel.ProducedByStep_ID (not stored here).
+Example: an outlier-removal step consumes Channel 10 (raw TSS) as an input; Channel 11 (cleaned TSS) carries ProducedByStep_ID pointing to that step.
 
 
 
@@ -818,8 +886,6 @@ Example: outlier-removal step takes Channel 10 (raw TSS) as Input and produces C
 | ProcessingLineage_ID | INT **(PK)** | - | ✓ | <span id="ProcessingLineage_ID"></span>Surrogate primary key | - |
 | ProcessingStep_ID | INT | - | ✓ | <span id="ProcessingStep_ID"></span>The processing step that consumed or produced the Channel entry | FK → [ProcessingStep.ProcessingStep_ID](#ProcessingStep) |
 | Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel entry (time series) that participates in this lineage edge | FK → [Channel.Channel_ID](#Channel) |
-| RoleInProcessingStep | NVARCHAR(10) | - | ✓ | <span id="RoleInProcessingStep"></span>Whether this Channel entry was an Input (consumed by the step) or an Output (produced by the step). CHECK constraint enforces 'Input' or 'Output'.
- | - |
 | StartTime | DATETIME2(7) | - |  | <span id="StartTime"></span>Start of the data slice that was consumed or produced by this step (UTC). NULL means the edge applies to the entire channel from the beginning.
  | - |
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the data slice that was consumed or produced by this step (UTC). NULL means the slice is open-ended (ongoing online processing).
@@ -1059,6 +1125,26 @@ Stores the SI units of measurement (or other relevant units) corresponding to th
 | UnitVector | NVARCHAR(64) | - |  | <span id="UnitVector"></span>SI unit dimension vector [m, kg, s, A, K, mol, cd] as a comma-separated string (e.g. 0,1,-3,0,0,0,0) | - |
 | SI_Multiplier | FLOAT | - |  | <span id="SI_Multiplier"></span>Multiply value by this to obtain SI quantity (e.g. 0.001 for mg/L → kg/m³). NULL = no linear SI conversion. | - |
 | SI_Offset | FLOAT | - |  | <span id="SI_Offset"></span>Add this after applying SI_Multiplier (e.g. 273.15 for °C → K). NULL treated as 0. | - |
+
+<span id="UserAccount"></span>
+
+### UserAccount
+
+Application user accounts for API authentication.
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| UserAccount_ID | INT **(PK)** | - | ✓ | <span id="UserAccount_ID"></span>Surrogate primary key | - |
+| Email | NVARCHAR(255) | - | ✓ | <span id="Email"></span>Unique e-mail address used for login | - |
+| FullName | NVARCHAR(255) | - | ✓ | <span id="FullName"></span>Display name of the user | - |
+| PasswordHash | NVARCHAR(255) | - | ✓ | <span id="PasswordHash"></span>PBKDF2-SHA256 password hash (pbkdf2_sha256$iters$salt$digest) | - |
+| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether the account is enabled | Default: `True` |
+| IsVerified | BIT | - | ✓ | <span id="IsVerified"></span>Whether the e-mail address has been verified | Default: `True` |
+| CreatedAt | DATETIME2(7) | - | ✓ | <span id="CreatedAt"></span>UTC timestamp when the account was created | Default: `SYSUTCDATETIME()` |
+| UpdatedAt | DATETIME2(7) | - | ✓ | <span id="UpdatedAt"></span>UTC timestamp of the last profile update | Default: `SYSUTCDATETIME()` |
 
 <span id="Value"></span>
 
