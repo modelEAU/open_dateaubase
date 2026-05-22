@@ -64,6 +64,7 @@ table:
       columns: [Equipment_ID]
       unique: true
       description: "At most one active (ValidTo IS NULL) wiring row per equipment. Filtered index."
+      filter: "[ValidTo] IS NULL"
     - name: IX_EquipmentWiringHistory_Interface
       columns: [SignalInterface_ID, ValidFrom]
       unique: false

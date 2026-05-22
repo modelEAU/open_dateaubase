@@ -59,6 +59,7 @@ table:
       columns: [Channel_ID]
       unique: true
       description: "At most one active (ValidTo IS NULL) gating row per channel. Filtered index."
+      filter: "[ValidTo] IS NULL"
     - name: IX_ChannelPortHistory_Port
       columns: [SignalInterfacePort_ID, ValidFrom]
       unique: false

@@ -62,6 +62,7 @@ table:
       columns: [Equipment_ID]
       unique: true
       description: "At most one active (ValidTo IS NULL) location row per equipment. Filtered index."
+      filter: "[ValidTo] IS NULL"
     - name: IX_EquipmentLocationHistory_SamplingPoint
       columns: [SamplingPoint_ID, ValidFrom]
       unique: false

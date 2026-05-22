@@ -1,0 +1,54 @@
+_format_version: "1.0"
+table:
+  name: AuditLog
+  schema: dbo
+  description: "Immutable log of user-initiated actions on API resources."
+
+  columns:
+    - name: AuditLog_ID
+      logical_type: biginteger
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: UserAccount_ID
+      logical_type: integer
+      nullable: true
+      description: "User who performed the action (NULL for unauthenticated events)"
+      foreign_key:
+        table: UserAccount
+        column: UserAccount_ID
+    - name: Action
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Action verb: CREATE | UPDATE | DELETE | LOGIN | SIGNUP"
+    - name: ResourceType
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Type of resource affected (e.g. UserAccount, Site, Campaign)"
+    - name: ResourceID
+      logical_type: string
+      max_length: 255
+      nullable: true
+      description: "Primary key of the affected row, serialised as a string"
+    - name: Details
+      logical_type: text
+      nullable: true
+      description: "JSON snapshot or diff of the affected record"
+    - name: Timestamp
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: "SYSUTCDATETIME()"
+      description: "UTC timestamp when the action occurred"
+
+  primary_key: [AuditLog_ID]
+
+  indexes:
+    - name: IX_AuditLog_UserAccount_ID
+      columns: [UserAccount_ID]
+    - name: IX_AuditLog_Timestamp
+      columns: [Timestamp]
+    - name: IX_AuditLog_ResourceType
+      columns: [ResourceType]

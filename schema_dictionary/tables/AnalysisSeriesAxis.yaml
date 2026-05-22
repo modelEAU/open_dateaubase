@@ -1,0 +1,32 @@
+_format_version: "1.0"
+table:
+  name: AnalysisSeriesAxis
+  schema: dbo
+  description: >
+    Junction table linking an AnalysisSeries to its binning axis or axes
+    (analogous to ChannelAxis for sensor channels). AxisRole=0 is the single
+    axis for a Vector series, or the row axis for a Matrix series; AxisRole=1
+    is the column axis for a Matrix series.
+  columns:
+    - name: AnalysisSeries_ID
+      logical_type: integer
+      nullable: false
+      description: "References the lab analysis series"
+      foreign_key:
+        table: AnalysisSeries
+        column: AnalysisSeries_ID
+    - name: AxisRole
+      logical_type: integer
+      nullable: false
+      description: "Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only)"
+    - name: ValueBinningAxis_ID
+      logical_type: integer
+      nullable: false
+      description: "References the binning axis for this role"
+      foreign_key:
+        table: ValueBinningAxis
+        column: ValueBinningAxis_ID
+  primary_key: [AnalysisSeries_ID, AxisRole]
+  check_constraints:
+    - name: CK_AnalysisSeriesAxis_AxisRole
+      expression: "AxisRole IN (0, 1)"

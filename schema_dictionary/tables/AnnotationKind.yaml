@@ -43,3 +43,4 @@ table:
     - { AnnotationKind_ID: 8,  Name: "Note",               Description: "General commentary",                           Color: "#888888" }
     - { AnnotationKind_ID: 9,  Name: "Exclusion",          Description: "Data should be excluded from analysis",        Color: "#CC0000" }
     - { AnnotationKind_ID: 10, Name: "Confirmed",          Description: "Data has been reviewed and accepted as valid", Color: "#00AA00" }
+    - { AnnotationKind_ID: 11, Name: "Equipment Relocation", Description: "Equipment was physically moved to a new location", Color: "#8888FF" }

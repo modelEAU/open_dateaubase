@@ -3,10 +3,14 @@ table:
   name: Observation
   schema: dbo
   description: >
-    Shared hub table representing a single measurement event on a channel at a
-    timestamp. The four payload tables (Value, ValueVector, ValueMatrix, ValueImage)
-    carry only their type-specific data, keyed by Observation_ID. DataType mirrors
-    Channel.ValueType_ID for self-description.
+    Shared hub table representing a single measurement event at a timestamp.
+    The source is either a sensor Channel (Channel_ID NOT NULL, LabAnalysis_ID
+    NULL) or a lab analysis (LabAnalysis_ID NOT NULL, Channel_ID NULL); an XOR
+    CHECK constraint enforces that exactly one is set per row. The four payload
+    tables (Value, ValueVector, ValueMatrix, ValueImage) carry only their
+    type-specific data, keyed by Observation_ID. ValueKind_ID mirrors the
+    upstream Channel.ValueKind_ID or AnalysisSeries.ValueKind_ID for
+    self-description.
   columns:
     - name: Observation_ID
       logical_type: integer
@@ -15,24 +19,52 @@ table:
       description: "Surrogate key; auto-assigned by the database"
     - name: Channel_ID
       logical_type: integer
-      nullable: false
-      description: "The channel this observation belongs to."
+      nullable: true
+      description: >
+        The sensor channel this observation belongs to. NULL for lab
+        observations (which set LabAnalysis_ID instead).
       foreign_key:
         table: Channel
         column: Channel_ID
+    - name: LabAnalysis_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        The lab analysis this observation belongs to. NULL for sensor
+        observations (which set Channel_ID instead). Exactly one of
+        Channel_ID / LabAnalysis_ID is non-NULL per row (XOR CHECK).
+      foreign_key:
+        table: LabAnalysis
+        column: LabAnalysis_ID
     - name: Timestamp
       logical_type: timestamp
       precision: 7
       nullable: false
-      description: "UTC timestamp of the observation"
+      description: >
+        UTC timestamp of the observation. For lab observations this is set
+        from LabAnalysis.AnalysisDateTime at insert time.
     - name: ValueKind_ID
       logical_type: integer
       nullable: false
-      description: "Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). Must match the Channel's ValueKind."
+      description: >
+        Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). For sensor
+        observations must match the Channel's ValueKind; for lab observations
+        must match the AnalysisSeries's ValueKind.
       foreign_key:
         table: ValueKind
         column: ValueKind_ID
   primary_key: [Observation_ID]
-  unique_constraints:
-    - name: UQ_Observation_ChannelTimestampValueKind
+  check_constraints:
+    - name: CK_Observation_Source
+      expression: "(Channel_ID IS NOT NULL AND LabAnalysis_ID IS NULL) OR (Channel_ID IS NULL AND LabAnalysis_ID IS NOT NULL)"
+  indexes:
+    - name: UQ_Obs_Channel
       columns: [Channel_ID, Timestamp, ValueKind_ID]
+      unique: true
+      filter: "Channel_ID IS NOT NULL"
+      description: "Sensor uniqueness: one observation per channel/timestamp/value-kind. Filtered so lab rows (Channel_ID NULL) are exempt."
+    - name: UQ_Obs_Lab
+      columns: [LabAnalysis_ID]
+      unique: true
+      filter: "LabAnalysis_ID IS NOT NULL"
+      description: "Lab uniqueness: one observation per lab analysis. Filtered so sensor rows (LabAnalysis_ID NULL) are exempt."

@@ -62,6 +62,7 @@ table:
       columns: [DataAcquisitionSystem_ID]
       unique: true
       description: "At most one active (ValidTo IS NULL) deployment row per DAS. Filtered index."
+      filter: "[ValidTo] IS NULL"
     - name: IX_DASLocationHistory_Site_ValidFrom
       columns: [Site_ID, ValidFrom]
       unique: false

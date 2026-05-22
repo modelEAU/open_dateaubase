@@ -3,14 +3,15 @@ table:
   name: ProcessingLineage
   schema: dbo
   description: >
-    Junction table that records the input/output relationships between
-    ProcessingStep rows and Channel rows. Each row asserts that a given
-    Channel entry was either an Input to, or an Output of, a given
-    ProcessingStep. Together these rows form a directed acyclic graph (DAG)
-    of data transformations.
+    Junction table that records the input relationships between ProcessingStep
+    rows and Channel rows. Every row is an input edge — it asserts that a given
+    Channel was consumed by a given ProcessingStep. Together these rows form a
+    directed acyclic graph (DAG) of data transformations.
 
-    Example: outlier-removal step takes Channel 10 (raw TSS) as Input
-    and produces Channel 11 (cleaned TSS) as Output.
+    Output channels are identified by Channel.ProducedByStep_ID (not stored here).
+
+    Example: an outlier-removal step consumes Channel 10 (raw TSS) as an input;
+    Channel 11 (cleaned TSS) carries ProducedByStep_ID pointing to that step.
 
   columns:
     - name: ProcessingLineage_ID
@@ -36,15 +37,6 @@ table:
         column: Channel_ID
     
 
-    - name: RoleInProcessingStep
-      logical_type: string
-      max_length: 10
-      nullable: false
-      description: >
-        Whether this Channel entry was an Input (consumed by the step) or
-        an Output (produced by the step). CHECK constraint enforces 'Input'
-        or 'Output'.
-
     - name: StartTime
       logical_type: timestamp
       precision: 7
@@ -68,6 +60,6 @@ table:
       columns: [Channel_ID]
       description: "Supports backward lineage queries: given a Channel_ID, find all steps it participated in"
 
-    - name: IX_Lineage_Step_Role
-      columns: [ProcessingStep_ID, RoleInProcessingStep]
-      description: "Supports forward/backward traversal: given a step, find its inputs or outputs efficiently"
+    - name: IX_Lineage_Step
+      columns: [ProcessingStep_ID]
+      description: "Supports forward traversal: given a step, find all its input channels efficiently"

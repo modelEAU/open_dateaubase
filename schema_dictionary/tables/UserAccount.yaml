@@ -1,0 +1,59 @@
+_format_version: "1.0"
+table:
+  name: UserAccount
+  schema: dbo
+  description: "Application user accounts for API authentication."
+
+  columns:
+    - name: UserAccount_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+    - name: Email
+      logical_type: string
+      max_length: 255
+      nullable: false
+      description: "Unique e-mail address used for login"
+    - name: FullName
+      logical_type: string
+      max_length: 255
+      nullable: false
+      description: "Display name of the user"
+    - name: PasswordHash
+      logical_type: string
+      max_length: 255
+      nullable: false
+      description: "PBKDF2-SHA256 password hash (pbkdf2_sha256$iters$salt$digest)"
+    - name: IsActive
+      logical_type: boolean
+      nullable: false
+      default: true
+      description: "Whether the account is enabled"
+    - name: IsVerified
+      logical_type: boolean
+      nullable: false
+      default: true
+      description: "Whether the e-mail address has been verified"
+    - name: CreatedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: "SYSUTCDATETIME()"
+      description: "UTC timestamp when the account was created"
+    - name: UpdatedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: "SYSUTCDATETIME()"
+      description: "UTC timestamp of the last profile update"
+
+  primary_key: [UserAccount_ID]
+
+  unique_constraints:
+    - name: UQ_UserAccount_Email
+      columns: [Email]
+
+  indexes:
+    - name: IX_UserAccount_Email
+      columns: [Email]

@@ -1,0 +1,55 @@
+_format_version: "1.0"
+table:
+  name: LabExperiment
+  schema: dbo
+  description: >
+    Session container for lab work — groups heterogeneous LabAnalyses that
+    were performed together as one named lab occasion (e.g. "PSVD-Settling-
+    2026-05-11"). One LabExperiment can span multiple AnalysisSeries; one
+    AnalysisSeries can participate in many LabExperiments. The session axis
+    answers "what was done that day" while the AnalysisSeries axis answers
+    "all measurements of this parameter at this location over time".
+
+  columns:
+    - name: LabExperiment_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable label for the session"
+
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign this experiment was part of, if any"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+
+    - name: ExperimentDateTime
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      default: SYSUTCDATETIME()
+      description: "UTC datetime when the session took place"
+
+    - name: Description
+      logical_type: string
+      max_length: max
+      nullable: true
+      description: "Free-text notes about this experiment"
+
+    - name: CreatedByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who recorded this experiment session"
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+  primary_key: [LabExperiment_ID]

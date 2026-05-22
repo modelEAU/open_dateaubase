@@ -5,7 +5,7 @@ table:
   description: >
     Invariant descriptor for a measurement stream (sensor channel).
     Each row is identified by a unique
-    (SignalInterface, TagName, Parameter, DataProvenance, ProcessingDegree)
+    (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep)
     combination. A Channel is created once and never changes — equipment
     swaps and sensor relocations are tracked on the physical Equipment via
     EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID
@@ -13,6 +13,11 @@ table:
     optional at ingest time and can be backfilled later via
     ChannelPortHistory (and the denormalised SignalInterfacePort_ID below).
     Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
+
+    Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL.
+    Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing
+    to the ProcessingStep that produced them. Processing kind is not stored on Channel —
+    query via ProducedByStep_ID → ProcessingStep.ProcessingKind_ID.
 
   columns:
     - name: Channel_ID
@@ -23,11 +28,12 @@ table:
 
     - name: SignalInterface_ID
       logical_type: integer
-      nullable: false
+      nullable: true
       description: >
         The SignalInterface (PLC, SCADA, basestation, ...) that publishes
         this tag. The anchor for ingest: observations are routed by
-        (SignalInterface_ID, TagName).
+        (SignalInterface_ID, TagName). NULL for derived/processed channels
+        that have no physical source interface.
       foreign_key:
         table: SignalInterface
         column: SignalInterface_ID
@@ -93,18 +99,17 @@ table:
         table: DataProvenanceKind
         column: DataProvenanceKind_ID
 
-    - name: ProcessingKind_ID
+    - name: ProducedByStep_ID
       logical_type: integer
       nullable: true
-      default: 1
       description: >
-        Level of processing applied to this time series (FK to ProcessingKind lookup).
-        Ground truth is the DataLineage graph; this field exists for fast filtering.
-        Set once at row creation — if the processing kind changes, a new Channel row is created.
-        Default 1 = Raw.
+        The ProcessingStep that produced this channel. NULL for raw/ingested channels.
+        Distinguishes independently-processed variants of the same physical signal stream:
+        two users running the same algorithm on the same raw channel each create a separate
+        ProcessingStep row and therefore separate Channel rows.
       foreign_key:
-        table: ProcessingKind
-        column: ProcessingKind_ID
+        table: ProcessingStep
+        column: ProcessingStep_ID
 
     - name: ValueKind_ID
       logical_type: integer
@@ -128,13 +133,14 @@ table:
 
   indexes:
     - name: UQ_Channel_SignalStream
-      columns: [SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID]
+      columns: [SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID, ProducedByStep_ID]
       unique: true
       description: >
-        Guarantees at most one Channel row per signal stream (wiring identity).
-        ProcessingKind_ID is intentionally excluded: multiple processing-level
-        variants of the same physical stream are allowed to co-exist.
-        The authoritative processing level is tracked via ProcessingLineage (Output role).
+        Guarantees at most one Channel row per signal stream identity.
+        ProducedByStep_ID is NULL for raw/ingested channels (one raw channel per
+        physical signal stream) and non-NULL for processed variants (each independent
+        processing run produces a distinct Channel row). Processing kind is not part
+        of the identity — it is always derivable via ProducedByStep_ID → ProcessingStep.
         Filtered: WHERE Parameter_ID IS NOT NULL.
         Enables the self-configuring INSERT-if-not-exists ingestion pattern.
     - name: IX_Channel_ParentChannel

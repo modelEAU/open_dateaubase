@@ -15,20 +15,20 @@ table:
       logical_type: string
       max_length: 100
       nullable: false
-      description: "Human-readable name of the DAS category"
+      description: "Human-readable name of the Data Acquisition System category"
 
     - name: Description
       logical_type: string
       max_length: 500
       nullable: true
-      description: "Explanation of what this category of DAS represents"
+      description: "Explanation of what this category of Data Acquisition System represents"
 
   primary_key: [DataAcquisitionSystemKind_ID]
 
   seed_data:
-    - { DataAcquisitionSystemKind_ID: 1, Name: "SCADA",         Description: "Supervisory Control and Data Acquisition system" }
-    - { DataAcquisitionSystemKind_ID: 2, Name: "PLC",           Description: "Programmable Logic Controller" }
-    - { DataAcquisitionSystemKind_ID: 3, Name: "Datalogger",    Description: "Dedicated field data logger (e.g. Campbell, CR1000)" }
-    - { DataAcquisitionSystemKind_ID: 4, Name: "IoT Gateway",   Description: "Internet-of-Things gateway aggregating sensor streams" }
-    - { DataAcquisitionSystemKind_ID: 5, Name: "Manual entry",  Description: "Data entered manually by an operator (spreadsheet, form)" }
-    - { DataAcquisitionSystemKind_ID: 6, Name: "Other",         Description: "System type not covered by the other categories" }
+    - { DataAcquisitionSystemKind_ID: 1, Name: "SCADA",                        Description: "Supervisory Control and Data Acquisition system." }
+    - { DataAcquisitionSystemKind_ID: 2, Name: "PLC",                          Description: "Programmable Logic Controller." }
+    - { DataAcquisitionSystemKind_ID: 3, Name: "Field monitoring station",     Description: "Deployable measurement station capable of hosting multiple devices and recording their data streams." }
+    - { DataAcquisitionSystemKind_ID: 4, Name: "IoT Gateway",                  Description: "Internet-of-Things gateway aggregating sensor streams." }
+    - { DataAcquisitionSystemKind_ID: 5, Name: "Manual entry",                 Description: "Data entered manually by an operator (spreadsheet, form)." }
+    - { DataAcquisitionSystemKind_ID: 6, Name: "Other",                        Description: "System type not covered by the other categories." }

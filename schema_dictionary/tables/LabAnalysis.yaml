@@ -3,10 +3,13 @@ table:
   name: LabAnalysis
   schema: dbo
   description: >
-    One analytical run on a discrete physical sample. Groups together all LabValue rows
-    from a single lab session. Lab data does not fit the continuous-stream Channel abstraction
-    (it is tied to a physical sample, not an equipment stream), so it lives here rather than
-    in Channel + Value.
+    One analytical run on a discrete physical sample — the event-record sitting
+    at the intersection of two orthogonal grouping axes: LabExperiment (the
+    session: who/when) and AnalysisSeries (the stream identity: parameter /
+    location / kind / processing / unit). The measurement itself lives in
+    Observation (via LabAnalysis_ID) and is routed to a payload table
+    (Value / ValueVector / ValueMatrix / ValueImage) so lab data is no longer
+    scalar-only.
 
   columns:
     - name: LabAnalysis_ID
@@ -15,6 +18,22 @@ table:
       identity: true
       description: "Surrogate primary key"
 
+    - name: LabExperiment_ID
+      logical_type: integer
+      nullable: false
+      description: "The lab session this analysis was part of"
+      foreign_key:
+        table: LabExperiment
+        column: LabExperiment_ID
+
+    - name: AnalysisSeries_ID
+      logical_type: integer
+      nullable: false
+      description: "The measurement stream (parameter / location / kind / processing) this analysis belongs to"
+      foreign_key:
+        table: AnalysisSeries
+        column: AnalysisSeries_ID
+
     - name: Sample_ID
       logical_type: integer
       nullable: false
@@ -22,6 +41,20 @@ table:
       foreign_key:
         table: Sample
         column: Sample_ID
+
+    - name: Replicate
+      logical_type: integer
+      nullable: false
+      default: 1
+      description: "Replicate number (1 = primary measurement, 2+ = duplicates)"
+
+    - name: QualityCode_ID
+      logical_type: integer
+      nullable: true
+      description: "Optional quality flag. NULL means no quality assessment has been recorded."
+      foreign_key:
+        table: QualityCode
+        column: QualityCode_ID
 
     - name: Laboratory_ID
       logical_type: integer
@@ -54,14 +87,6 @@ table:
       default: SYSUTCDATETIME()
       description: "UTC datetime when the analysis was performed. If it's a long analysis, record the beginning."
 
-    - name: Campaign_ID
-      logical_type: integer
-      nullable: true
-      description: "Campaign this analysis was part of, if any"
-      foreign_key:
-        table: Campaign
-        column: Campaign_ID
-
     - name: Notes
       logical_type: string
       max_length: max
@@ -69,3 +94,6 @@ table:
       description: "Free-text notes about this analysis run"
 
   primary_key: [LabAnalysis_ID]
+  unique_constraints:
+    - name: UQ_LabAnalysis_Identity
+      columns: [LabExperiment_ID, AnalysisSeries_ID, Sample_ID, Replicate]
