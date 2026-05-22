@@ -86,7 +86,7 @@ CREATE TABLE [dbo].[QualityCode] (
     [QualityCode_ID] INT NOT NULL,
     [Name] NVARCHAR(50) NOT NULL,
     [Description] NVARCHAR(200),
-    [IsUsable] BIT NOT NULL DEFAULT True,
+    [IsUsable] BIT NOT NULL DEFAULT 1,
     CONSTRAINT [PK_QualityCode] PRIMARY KEY ([QualityCode_ID])
 );
 
@@ -266,7 +266,7 @@ CREATE TABLE [dbo].[Equipment] (
     [Owner] NVARCHAR(MAX),
     [StorageLocation] NVARCHAR(100),
     [PurchaseDate] DATE,
-    [IsActive] BIT NOT NULL DEFAULT True,
+    [IsActive] BIT NOT NULL DEFAULT 1,
     CONSTRAINT [PK_Equipment] PRIMARY KEY ([Equipment_ID])
 );
 
@@ -410,7 +410,7 @@ CREATE TABLE [dbo].[SamplingPoint] (
     [LatitudeWGS84] FLOAT,
     [LongitudeWGS84] FLOAT,
     [Description] NVARCHAR(MAX),
-    [Pictures] /* UNMAPPED TYPE */,
+    [Pictures] NVARCHAR(MAX),
     [ValidFrom] DATETIME2(7),
     [ValidTo] DATETIME2(7),
     [CreatedByCampaign_ID] INT,
@@ -424,7 +424,7 @@ CREATE TABLE [dbo].[SignalPort] (
     [SignalPortType_ID] INT NOT NULL,
     [ControlVariableType_ID] INT,
     [ParentPort_ID] INT,
-    [IsActive] BIT NOT NULL DEFAULT True,
+    [IsActive] BIT NOT NULL DEFAULT 1,
     [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_SignalPort] PRIMARY KEY ([SignalPort_ID])
 );
@@ -673,41 +673,3 @@ ALTER TABLE [dbo].[ValueMatrix] ADD CONSTRAINT [FK_ValueMatrix_RowValueBin] FORE
 ALTER TABLE [dbo].[ValueMatrix] ADD CONSTRAINT [FK_ValueMatrix_ColValueBin] FOREIGN KEY ([ColValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]);
 ALTER TABLE [dbo].[ValueVector] ADD CONSTRAINT [FK_ValueVector_Observation] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 ALTER TABLE [dbo].[ValueVector] ADD CONSTRAINT [FK_ValueVector_ValueBin] FOREIGN KEY ([ValueBin_ID]) REFERENCES [dbo].[ValueBin] ([ValueBin_ID]);
-
--- Views
-CREATE OR ALTER VIEW [dbo].[vw_ChannelStatus] AS
-SELECT
-    statusC.[Channel_ID]          AS StatusChannelID,
-    statusC.[StatusChannel_ID]    AS MeasurementChannelID,
-    measC.[Equipment_ID]          AS EquipmentID,
-    e.[identifier]                AS EquipmentName,
-    p.[Parameter]                 AS MeasurementParameter,
-    v.[Timestamp],
-    CAST(v.[Value] AS INT)        AS StatusCodeID,
-    sc.[StatusName],
-    sc.[IsOperational],
-    sc.[Severity]
-FROM [dbo].[Value] v
-JOIN [dbo].[Channel]               statusC ON statusC.[Channel_ID]      = v.[Channel_ID]
-JOIN [dbo].[Channel]               measC   ON measC.[Channel_ID]        = statusC.[StatusChannel_ID]
-JOIN [dbo].[Parameter]             p       ON p.[Parameter_ID]          = measC.[Parameter_ID]
-JOIN [dbo].[Equipment]             e       ON e.[Equipment_ID]          = measC.[Equipment_ID]
-LEFT JOIN [dbo].[SensorStatusCode] sc      ON sc.[StatusCodeID]         = CAST(v.[Value] AS INT)
-WHERE statusC.[StatusChannel_ID] IS NOT NULL;
-
-CREATE OR ALTER VIEW [dbo].[vw_DeviceStatus] AS
-SELECT
-    statusC.[Channel_ID]          AS StatusChannelID,
-    esc.[Equipment_ID]            AS EquipmentID,
-    e.[identifier]                AS EquipmentName,
-    v.[Timestamp],
-    CAST(v.[Value] AS INT)        AS StatusCodeID,
-    sc.[StatusName],
-    sc.[IsOperational],
-    sc.[Severity]
-FROM [dbo].[Value] v
-JOIN [dbo].[Channel]                 statusC ON statusC.[Channel_ID]   = v.[Channel_ID]
-JOIN [dbo].[EquipmentStatusChannel]  esc     ON esc.[StatusChannel_ID] = statusC.[Channel_ID]
-JOIN [dbo].[Equipment]               e       ON e.[Equipment_ID]       = esc.[Equipment_ID]
-LEFT JOIN [dbo].[SensorStatusCode]   sc      ON sc.[StatusCodeID]      = CAST(v.[Value] AS INT);
-
