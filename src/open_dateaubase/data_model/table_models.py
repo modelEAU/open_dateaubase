@@ -127,15 +127,22 @@ class EquipmentLocationHistory(EquipmentLocationHistoryBase):
 class ObservationBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    channelID: int = Field(
-        alias="Channel_ID", description="The channel this observation belongs to"
+    channelID: Optional[int] = Field(
+        default=None,
+        alias="Channel_ID",
+        description="The sensor channel this observation belongs to. NULL for lab observations (which set LabAnalysis_ID instead).",
+    )
+    labanalysisID: Optional[int] = Field(
+        default=None,
+        alias="LabAnalysis_ID",
+        description="The lab analysis this observation belongs to. NULL for sensor observations. Exactly one of Channel_ID / LabAnalysis_ID is non-NULL per row (XOR CHECK).",
     )
     timestamp: datetime = Field(
         alias="Timestamp", description="UTC timestamp of the observation"
     )
     valuekindID: int = Field(
         alias="ValueKind_ID",
-        description="Payload kind FK (1=Scalar, 2=Vector, 3=Matrix, 4=Image). Must match the Channel's ValueKind.",
+        description="Payload kind FK (1=Scalar, 2=Vector, 3=Matrix, 4=Image). Must match the source Channel or AnalysisSeries ValueKind.",
     )
 
 
@@ -1321,42 +1328,121 @@ class Sample(SampleBase):
     sampleID: int = Field(alias="Sample_ID", description="Surrogate primary key")
 
 
-class LabValueBase(BaseModel):
+class AnalysisSeriesBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    labanalysisID: int = Field(
-        alias="LabAnalysis_ID", description="The analysis run this value belongs to"
+    name: str = Field(
+        alias="Name",
+        description="Human-readable label (e.g. 'TSS Gravimetric at Effluent')",
+        max_length=200,
     )
     parameterID: int = Field(
-        alias="Parameter_ID", description="Measured analyte (e.g. TSS, COD)"
+        alias="Parameter_ID",
+        description="Measured analyte (e.g. TSS concentration, COD concentration)",
     )
-    labresult: Any = Field(
-        alias="LabResult", description="Numerical result of the measurement"
+    samplingpointID: int = Field(
+        alias="SamplingPoint_ID",
+        description="Sampling point where the samples for this series originate",
     )
-    replicate: int = Field(
-        alias="Replicate",
-        description="Replicate number (1 = primary measurement, 2+ = duplicates)",
+    valuekindID: int = Field(
+        alias="ValueKind_ID",
+        description="Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)",
         default=1,
     )
-    qualitycodeID: Optional[int] = Field(
-        alias="QualityCode_ID",
-        description="Optional quality flag. NULL means no quality assessment has been recorded.",
+    unitID: int = Field(
+        alias="Unit_ID",
+        description="Unit of measurement for values in this series (e.g. mg/L)",
     )
-    comment: Optional[str] = Field(
-        alias="Comment",
-        description="Optional free-text comment reference",
+    processingkindID: int = Field(
+        alias="ProcessingKind_ID",
+        description="How values in this series were produced (1=Raw, ...)",
+        default=1,
+    )
+    description: Optional[str] = Field(
+        default=None,
+        alias="Description",
+        description="Free-text notes about this analysis series",
         max_length=None,
     )
 
 
-class LabValueCreate(LabValueBase):
+class AnalysisSeriesCreate(AnalysisSeriesBase):
     pass
 
 
-class LabValue(LabValueBase):
+class AnalysisSeries(AnalysisSeriesBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    labvalueID: int = Field(alias="LabValue_ID", description="Surrogate primary key")
+    analysisseriesID: int = Field(
+        alias="AnalysisSeries_ID", description="Surrogate primary key"
+    )
+
+
+class AnalysisSeriesAxisBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    analysisseriesID: int = Field(
+        alias="AnalysisSeries_ID", description="References the lab analysis series"
+    )
+    axisrole: int = Field(
+        alias="AxisRole",
+        description="Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only)",
+    )
+    valuebinningaxisID: int = Field(
+        alias="ValueBinningAxis_ID",
+        description="References the binning axis for this role",
+    )
+
+
+class AnalysisSeriesAxisCreate(AnalysisSeriesAxisBase):
+    pass
+
+
+class AnalysisSeriesAxis(AnalysisSeriesAxisBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class LabExperimentBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    name: str = Field(
+        alias="Name",
+        description="Human-readable label for the session",
+        max_length=200,
+    )
+    campaignID: Optional[int] = Field(
+        default=None,
+        alias="Campaign_ID",
+        description="Campaign this experiment was part of, if any",
+    )
+    experimentdatetime: datetime = Field(
+        alias="ExperimentDateTime",
+        description="UTC datetime when the session took place",
+        default="SYSUTCDATETIME()",
+    )
+    description: Optional[str] = Field(
+        default=None,
+        alias="Description",
+        description="Free-text notes about this experiment",
+        max_length=None,
+    )
+    createdbypersonID: Optional[int] = Field(
+        default=None,
+        alias="CreatedByPerson_ID",
+        description="Person who recorded this experiment session",
+    )
+
+
+class LabExperimentCreate(LabExperimentBase):
+    pass
+
+
+class LabExperiment(LabExperimentBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    labexperimentID: int = Field(
+        alias="LabExperiment_ID", description="Surrogate primary key"
+    )
 
 
 class SignalInterfaceBase(BaseModel):
@@ -1536,16 +1622,39 @@ class EquipmentModel(EquipmentModelBase):
 class LabAnalysisBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
+    labexperimentID: int = Field(
+        alias="LabExperiment_ID",
+        description="The lab session this analysis was part of",
+    )
+    analysisseriesID: int = Field(
+        alias="AnalysisSeries_ID",
+        description="The measurement stream (parameter / location / kind / processing) this analysis belongs to",
+    )
     sampleID: int = Field(
         alias="Sample_ID", description="The physical sample that was analysed"
     )
+    replicate: int = Field(
+        alias="Replicate",
+        description="Replicate number (1 = primary measurement, 2+ = duplicates)",
+        default=1,
+    )
+    qualitycodeID: Optional[int] = Field(
+        default=None,
+        alias="QualityCode_ID",
+        description="Optional quality flag. NULL means no quality assessment has been recorded.",
+    )
     laboratoryID: Optional[int] = Field(
-        alias="Laboratory_ID", description="Laboratory where the analysis was performed"
+        default=None,
+        alias="Laboratory_ID",
+        description="Laboratory where the analysis was performed",
     )
     analystpersonID: Optional[int] = Field(
-        alias="AnalystPerson_ID", description="Person who performed the analysis"
+        default=None,
+        alias="AnalystPerson_ID",
+        description="Person who performed the analysis",
     )
     procedureID: Optional[int] = Field(
+        default=None,
         alias="Procedure_ID",
         description="Standard operating procedure used for this analysis",
     )
@@ -1554,10 +1663,8 @@ class LabAnalysisBase(BaseModel):
         description="UTC datetime when the analysis was performed. If it's a long analysis, record the beginning.",
         default="SYSUTCDATETIME()",
     )
-    campaignID: Optional[int] = Field(
-        alias="Campaign_ID", description="Campaign this analysis was part of, if any"
-    )
     notes: Optional[str] = Field(
+        default=None,
         alias="Notes",
         description="Free-text notes about this analysis run",
         max_length=None,

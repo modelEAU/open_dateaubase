@@ -51,15 +51,19 @@ def load_signal_context(channel_id: int, conn) -> dict:
             e.[Equipment_ID],
             e.[Identifier]         AS [EquipmentName],
             -- DataProvenanceKind
-            dp.[DataProvenance_Name] AS [DataProvenanceName],
-            -- ProcessingKind
-            pd.[Name]              AS [ProcessingKindName]
+            dp.[Name]              AS [DataProvenanceName],
+            -- ProcessingKind (via ProducedByStep_ID → ProcessingStep)
+            pk.[Name]              AS [ProcessingKindName]
         FROM [dbo].[Channel] c
         LEFT JOIN [dbo].[Parameter]           p   ON p.[Parameter_ID]          = c.[Parameter_ID]
         LEFT JOIN [dbo].[Unit]                u   ON u.[Unit_ID]               = c.[Unit_ID]
-        LEFT JOIN [dbo].[Equipment]           e   ON e.[Equipment_ID]          = c.[Equipment_ID]
-        LEFT JOIN [dbo].[DataProvenanceKind]  dp  ON dp.[DataProvenance_ID]    = c.[DataProvenance_ID]
-        LEFT JOIN [dbo].[ProcessingKind]      pd  ON pd.[ProcessingKind_ID]    = c.[ProcessingKind_ID]
+        LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
+            ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+            AND ewh.[ValidTo] IS NULL
+        LEFT JOIN [dbo].[Equipment]           e   ON e.[Equipment_ID]          = ewh.[Equipment_ID]
+        LEFT JOIN [dbo].[DataProvenanceKind]  dp  ON dp.[DataProvenanceKind_ID] = c.[DataProvenanceKind_ID]
+        LEFT JOIN [dbo].[ProcessingStep]      ps  ON ps.[ProcessingStep_ID]    = c.[ProducedByStep_ID]
+        LEFT JOIN [dbo].[ProcessingKind]      pk  ON pk.[ProcessingKind_ID]    = ps.[ProcessingKind_ID]
         WHERE c.[Channel_ID] = ?
     """
     cursor = conn.cursor()
@@ -96,25 +100,26 @@ def record_processing(
     method_parameters: dict,
     executed_at: datetime,
     executed_by_person_id: int | None,
-    output_metadata_id: int,
     conn,
 ) -> int:
-    """Insert a ProcessingStep row and its ProcessingLineage edges.
+    """Insert a ProcessingStep row and its ProcessingLineage input edges.
 
-    Idempotent: if a ProcessingStep with the same MethodName, ProcessingKind_ID,
-    MethodParameters (JSON-serialised), ExecutedDateTime, and the same set of source and
-    output channel IDs already exists, the function returns its ID without
-    inserting duplicates.
+    Idempotent: if a ProcessingStep with the same fingerprint already exists
+    and has the same set of source channels, its ID is returned without inserting
+    duplicates.
+
+    Output channels are identified by Channel.ProducedByStep_ID — they are not
+    registered as lineage edges here. The caller is responsible for creating the
+    output Channel with ProducedByStep_ID pointing to the returned step_id.
 
     Args:
         source_metadata_ids: Channel IDs that were consumed as inputs.
         method_name: Machine-readable method identifier (e.g. 'outlier_removal').
         method_version: Library/method version string, or None.
-        processing_kind_id: FK to ProcessingKind (replaces free-text ProcessingType).
+        processing_kind_id: FK to ProcessingKind.
         method_parameters: Dict of method parameters; serialised to JSON for storage.
         executed_at: UTC datetime when the processing ran.
         executed_by_person_id: Person_ID of the operator, or None.
-        output_metadata_id: Channel ID of the result time series.
         conn: A pyodbc connection to open_dateaubase.
 
     Returns:
@@ -123,31 +128,19 @@ def record_processing(
     params_json = json.dumps(method_parameters, default=str) if method_parameters else None
 
     # ----------------------------------------------------------------
-    # Idempotency check: look for an existing step with identical
-    # fingerprint that already links the same source→output pair.
+    # Idempotency check: look for an existing step with identical fingerprint.
     # ----------------------------------------------------------------
     check_sql = """
-        SELECT DISTINCT ps.[ProcessingStep_ID]
-        FROM [dbo].[ProcessingStep] ps
-        JOIN [dbo].[ProcessingLineage] out_dl
-            ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-           AND out_dl.[RoleInProcessingStep] = 'Output'
-           AND out_dl.[Channel_ID] = ?
-        WHERE ps.[MethodName]           = ?
-          AND ISNULL(ps.[ProcessingKind_ID], 0) = ISNULL(?, 0)
-          AND ISNULL(ps.[MethodParameters], '')   = ISNULL(?, '')
-          AND ISNULL(CONVERT(NVARCHAR(30), ps.[ExecutedDateTime], 126), '')
+        SELECT [ProcessingStep_ID]
+        FROM [dbo].[ProcessingStep]
+        WHERE [MethodName]           = ?
+          AND ISNULL([ProcessingKind_ID], 0) = ISNULL(?, 0)
+          AND ISNULL([MethodParameters], '')  = ISNULL(?, '')
+          AND ISNULL(CONVERT(NVARCHAR(30), [ExecutedDateTime], 126), '')
             = ISNULL(CONVERT(NVARCHAR(30), CAST(? AS DATETIME2(7)), 126), '')
     """
     cursor = conn.cursor()
-    cursor.execute(
-        check_sql,
-        output_metadata_id,
-        method_name,
-        processing_kind_id,
-        params_json,
-        executed_at,
-    )
+    cursor.execute(check_sql, method_name, processing_kind_id, params_json, executed_at)
     existing = cursor.fetchone()
     if existing is not None:
         return existing[0]
@@ -176,25 +169,15 @@ def record_processing(
     step_id: int = cursor.fetchone()[0]
 
     # ----------------------------------------------------------------
-    # Insert ProcessingLineage rows — Inputs
+    # Insert ProcessingLineage rows — Inputs only
     # ----------------------------------------------------------------
     for src_id in source_metadata_ids:
         cursor.execute(
-            "INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID], [Channel_ID], [RoleInProcessingStep]) "
-            "VALUES (?, ?, 'Input')",
+            "INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID], [Channel_ID]) "
+            "VALUES (?, ?)",
             step_id,
             src_id,
         )
-
-    # ----------------------------------------------------------------
-    # Insert ProcessingLineage row — Output
-    # ----------------------------------------------------------------
-    cursor.execute(
-        "INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID], [Channel_ID], [RoleInProcessingStep]) "
-        "VALUES (?, ?, 'Output')",
-        step_id,
-        output_metadata_id,
-    )
 
     conn.commit()
     return step_id
