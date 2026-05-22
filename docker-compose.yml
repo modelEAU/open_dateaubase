@@ -46,7 +46,7 @@ services:
       fi
 
       echo "Running init.sql..."
-      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -b -V 16 -r 1 -i /sql/init.sql
+      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -b -V 16 -r 1 -I -i /sql/init.sql
       echo "Done."
       '
 
@@ -95,6 +95,8 @@ services:
       - "8501:8501"
     environment:
       - API_BASE_URL=http://api:8000/api/v1
+      - APP_DEV_AUTO_LOGIN=1
+      - APP_DEV_NAME="dev account"  # optional
     depends_on:
       - api
     restart: unless-stopped

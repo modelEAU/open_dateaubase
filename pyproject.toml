@@ -32,6 +32,7 @@ api = [
     "pyodbc>=5.1",
     "python-dotenv>=1.0.0",
     "pillow>=10.0.0",
+    "pyjwt>=2.0",
 ]
 app = [
     "streamlit>=1.40",
@@ -40,10 +41,16 @@ app = [
     "folium>=0.17",
     "streamlit-folium>=0.22",
     "streamlit-searchbox>=0.1.24",
+    "shapely>=2.0",
+    "pyproj>=3.6",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+# Workspace members with their own pyproject + dev deps are excluded from
+# the root pytest run. Run their suites from inside the member dir:
+#   uv run --package table-import pytest
+norecursedirs = ["importer", ".git", ".venv", ".claude", "build", "dist", "site"]
 markers = [
     "db: requires running MSSQL Docker container",
 ]
