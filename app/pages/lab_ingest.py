@@ -22,14 +22,14 @@ from app.api_client import (
     create_analysis_series,
     create_sample,
     get_lab_experiment_series,
-    get_lab_experiment_template,
+    get_lab_panel,
     ingest_lab,
     ingest_lab_image,
     list_analysis_series_lookup,
     list_campaigns_lookup,
     list_equipment_lookup,
     list_lab_experiments_lookup,
-    list_lab_experiment_templates,
+    list_lab_panels,
     list_parameters_lookup,
     list_persons_lookup,
     list_processing_kinds_lookup,
@@ -54,7 +54,7 @@ try:
         _persons = list_persons_lookup()
         _collection_kinds = list_sample_collection_kinds()
         _equipment = list_equipment_lookup()
-        _templates = list_lab_experiment_templates()
+        _templates = list_lab_panels()
         _all_series = list_analysis_series_lookup()
         _experiments = list_lab_experiments_lookup()
         # Reverse-lookup dicts
@@ -155,29 +155,29 @@ def _render_experiment_step() -> None:
     with col1:
         mode = st.radio(
             "Mode",
-            options=["New", "From template", "Continue existing"],
+            options=["New", "From panel", "Continue existing"],
             horizontal=False,
-            index=["new", "template", "existing"].index(sess.get("mode", "new")),
+            index=["new", "panel", "existing"].index(sess.get("mode", "new")),
             key="lab_mode",
         )
     _mode_map = {
         "New": "new",
-        "From template": "template",
+        "From panel": "panel",
         "Continue existing": "existing",
     }
     sess["mode"] = _mode_map.get(mode, "new")
 
     with col2:
-        if sess["mode"] == "template":
+        if sess["mode"] == "panel":
             opts = [{"id": None, "label": "— select —"}] + [
                 {
-                    "id": t["lab_experiment_template_id"],
+                    "id": t["lab_panel_id"],
                     "label": f"{t['name']} ({t['series_count']} series)",
                 }
                 for t in _templates
             ]
             sel = st.selectbox(
-                "Template",
+                "Panel",
                 options=[o["label"] for o in opts],
                 index=0,
                 key="lab_template_sel",
@@ -187,7 +187,7 @@ def _render_experiment_step() -> None:
                 sess["template_id"] = t_id
                 # Load template series
                 try:
-                    detail = get_lab_experiment_template(t_id)
+                    detail = get_lab_panel(t_id)
                     sess["series"] = list(detail.get("series", []))
                 except APIError:
                     st.warning("Could not load template series.")
@@ -825,7 +825,7 @@ def _do_submit(sess: dict) -> None:
             if e["lab_experiment_id"] == sess["experiment_id"]:
                 exp_name = e.get("name", "")
                 break
-    if sess["mode"] == "template":
+    if sess["mode"] == "panel":
         exp_name = f"From {exp_name}" if exp_name else "From Template"
 
     payload = {

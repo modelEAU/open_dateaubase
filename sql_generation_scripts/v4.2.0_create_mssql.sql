@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v4.2.0
 -- Platform: mssql
--- Generated: 2026-06-03 13:48:29 UTC
+-- Generated: 2026-06-03 19:10:58 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -451,19 +451,19 @@ CREATE TABLE [dbo].[LabExperiment] (
     CONSTRAINT [PK_LabExperiment] PRIMARY KEY ([LabExperiment_ID])
 );
 
-CREATE TABLE [dbo].[LabExperimentTemplate] (
-    [LabExperimentTemplate_ID] INT IDENTITY(1,1) NOT NULL,
+CREATE TABLE [dbo].[LabPanel] (
+    [LabPanel_ID] INT IDENTITY(1,1) NOT NULL,
     [Name] NVARCHAR(200) NOT NULL,
     [Description] NVARCHAR(MAX),
     [CreatedByPerson_ID] INT,
     [CreatedAt] DATETIME2(7) NOT NULL DEFAULT GETUTCDATE(),
-    CONSTRAINT [PK_LabExperimentTemplate] PRIMARY KEY ([LabExperimentTemplate_ID])
+    CONSTRAINT [PK_LabPanel] PRIMARY KEY ([LabPanel_ID])
 );
 
-CREATE TABLE [dbo].[LabExperimentTemplateSeries] (
-    [LabExperimentTemplate_ID] INT NOT NULL,
+CREATE TABLE [dbo].[LabPanelSeries] (
+    [LabPanel_ID] INT NOT NULL,
     [AnalysisSeries_ID] INT NOT NULL,
-    CONSTRAINT [PK_LabExperimentTemplateSeries] PRIMARY KEY ([LabExperimentTemplate_ID], [AnalysisSeries_ID])
+    CONSTRAINT [PK_LabPanelSeries] PRIMARY KEY ([LabPanel_ID], [AnalysisSeries_ID])
 );
 
 CREATE TABLE [dbo].[Laboratory] (
@@ -867,9 +867,9 @@ ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_AnalystPerson_ID]
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_Procedure_ID] FOREIGN KEY ([Procedure_ID]) REFERENCES [dbo].[Procedures] ([Procedure_ID]);
 ALTER TABLE [dbo].[LabExperiment] ADD CONSTRAINT [FK_LabExperiment_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
 ALTER TABLE [dbo].[LabExperiment] ADD CONSTRAINT [FK_LabExperiment_CreatedByPerson_ID] FOREIGN KEY ([CreatedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
-ALTER TABLE [dbo].[LabExperimentTemplate] ADD CONSTRAINT [FK_LabExperimentTemplate_CreatedByPerson_ID] FOREIGN KEY ([CreatedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
-ALTER TABLE [dbo].[LabExperimentTemplateSeries] ADD CONSTRAINT [FK_LabExperimentTemplateSeries_LabExperimentTemplate_ID] FOREIGN KEY ([LabExperimentTemplate_ID]) REFERENCES [dbo].[LabExperimentTemplate] ([LabExperimentTemplate_ID]);
-ALTER TABLE [dbo].[LabExperimentTemplateSeries] ADD CONSTRAINT [FK_LabExperimentTemplateSeries_AnalysisSeries_ID] FOREIGN KEY ([AnalysisSeries_ID]) REFERENCES [dbo].[AnalysisSeries] ([AnalysisSeries_ID]);
+ALTER TABLE [dbo].[LabPanel] ADD CONSTRAINT [FK_LabPanel_CreatedByPerson_ID] FOREIGN KEY ([CreatedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
+ALTER TABLE [dbo].[LabPanelSeries] ADD CONSTRAINT [FK_LabPanelSeries_LabPanel_ID] FOREIGN KEY ([LabPanel_ID]) REFERENCES [dbo].[LabPanel] ([LabPanel_ID]);
+ALTER TABLE [dbo].[LabPanelSeries] ADD CONSTRAINT [FK_LabPanelSeries_AnalysisSeries_ID] FOREIGN KEY ([AnalysisSeries_ID]) REFERENCES [dbo].[AnalysisSeries] ([AnalysisSeries_ID]);
 ALTER TABLE [dbo].[Laboratory] ADD CONSTRAINT [FK_Laboratory_Site_ID] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
 ALTER TABLE [dbo].[LandUse] ADD CONSTRAINT [FK_LandUse_Watershed_ID] FOREIGN KEY ([Watershed_ID]) REFERENCES [dbo].[Watershed] ([Watershed_ID]);
 ALTER TABLE [dbo].[Observation] ADD CONSTRAINT [FK_Observation_Channel_ID] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);

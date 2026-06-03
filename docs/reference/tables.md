@@ -673,29 +673,11 @@ Session container for lab work — groups heterogeneous LabAnalyses that were pe
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this experiment | - |
 | CreatedByPerson_ID | INT | - |  | <span id="CreatedByPerson_ID"></span>Person who recorded this experiment session | FK → [Person.Person_ID](#Person) |
 
-<span id="LabExperimentTemplate"></span>
+<span id="LabPanel"></span>
 
-### LabExperimentTemplate
+### LabPanel
 
-Reusable recipe that defines which AnalysisSeries belong together in a lab experiment session. Copy-on-use: creating a LabExperiment from a template copies the series list into session state; the published experiment is fully independent of the template.
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| LabExperimentTemplate_ID | INT **(PK)** | - | ✓ | <span id="LabExperimentTemplate_ID"></span>Surrogate primary key | - |
-| Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable template name (e.g. 'PSVD Weekly Panel') | - |
-| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text description of the template's purpose | - |
-| CreatedByPerson_ID | INT | - |  | <span id="CreatedByPerson_ID"></span>Person who created this template | FK → [Person.Person_ID](#Person) |
-| CreatedAt | DATETIME2(7) | - | ✓ | <span id="CreatedAt"></span>When this template was created (UTC) | Default: `GETUTCDATE()` |
-
-<span id="LabExperimentTemplateSeries"></span>
-
-### LabExperimentTemplateSeries
-
-Junction table linking a LabExperimentTemplate to the AnalysisSeries it prescribes. When a user creates an experiment "from template", all series listed here are pre-populated into the session.
+Named, reusable bundle of AnalysisSeries to run together in a lab session. Copy-on-use: selecting a panel pre-populates the series list for a new LabExperiment; the resulting experiment is fully independent. Analogous to a clinical lab panel.
 
 
 
@@ -703,8 +685,26 @@ Junction table linking a LabExperimentTemplate to the AnalysisSeries it prescrib
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| LabExperimentTemplate_ID | INT **(PK)** | - | ✓ | <span id="LabExperimentTemplate_ID"></span>References the template (FK) | FK → [LabExperimentTemplate.LabExperimentTemplate_ID](#LabExperimentTemplate) |
-| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>References an analysis series to include in the template | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
+| LabPanel_ID | INT **(PK)** | - | ✓ | <span id="LabPanel_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable panel name (e.g. 'PSVD Weekly Panel') | - |
+| Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text description of the panel's purpose | - |
+| CreatedByPerson_ID | INT | - |  | <span id="CreatedByPerson_ID"></span>Person who created this panel | FK → [Person.Person_ID](#Person) |
+| CreatedAt | DATETIME2(7) | - | ✓ | <span id="CreatedAt"></span>When this panel was created (UTC) | Default: `GETUTCDATE()` |
+
+<span id="LabPanelSeries"></span>
+
+### LabPanelSeries
+
+Junction table linking a LabPanel to the AnalysisSeries it prescribes. When a user creates an experiment "from panel", all series listed here are pre-populated into the session.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| LabPanel_ID | INT **(PK)** | - | ✓ | <span id="LabPanel_ID"></span>References the panel (FK) | FK → [LabPanel.LabPanel_ID](#LabPanel) |
+| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>References an analysis series to include in the panel | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
 
 <span id="Laboratory"></span>
 

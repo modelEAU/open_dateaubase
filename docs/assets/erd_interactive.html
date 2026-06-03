@@ -2480,12 +2480,12 @@
       "group_color": "#6b7280"
     },
     {
-      "id": "LabExperimentTemplate",
-      "label": "LabExperimentTemplate",
-      "description": "Reusable recipe that defines which AnalysisSeries belong together in a lab experiment session. Copy-on-use: creating a LabExperiment from a template copies the series list into session state; the published experiment is fully independent of the template.\n",
+      "id": "LabPanel",
+      "label": "LabPanel",
+      "description": "Named, reusable bundle of AnalysisSeries to run together in a lab session. Copy-on-use: selecting a panel pre-populates the series list for a new LabExperiment; the resulting experiment is fully independent. Analogous to a clinical lab panel.\n",
       "fields": [
         {
-          "name": "LabExperimentTemplate_ID",
+          "name": "LabPanel_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": false,
@@ -2500,7 +2500,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Human-readable template name (e.g. 'PSVD Weekly Panel')"
+          "description": "Human-readable panel name (e.g. 'PSVD Weekly Panel')"
         },
         {
           "name": "Description",
@@ -2509,7 +2509,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Free-text description of the template's purpose"
+          "description": "Free-text description of the panel's purpose"
         },
         {
           "name": "CreatedByPerson_ID",
@@ -2518,7 +2518,7 @@
           "is_fk": true,
           "is_required": false,
           "fk_target": "Person.Person_ID",
-          "description": "Person who created this template"
+          "description": "Person who created this panel"
         },
         {
           "name": "CreatedAt",
@@ -2527,25 +2527,25 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "When this template was created (UTC)"
+          "description": "When this panel was created (UTC)"
         }
       ],
       "group_name": "Uncategorized",
       "group_color": "#6b7280"
     },
     {
-      "id": "LabExperimentTemplateSeries",
-      "label": "LabExperimentTemplateSeries",
-      "description": "Junction table linking a LabExperimentTemplate to the AnalysisSeries it prescribes. When a user creates an experiment \"from template\", all series listed here are pre-populated into the session.\n",
+      "id": "LabPanelSeries",
+      "label": "LabPanelSeries",
+      "description": "Junction table linking a LabPanel to the AnalysisSeries it prescribes. When a user creates an experiment \"from panel\", all series listed here are pre-populated into the session.\n",
       "fields": [
         {
-          "name": "LabExperimentTemplate_ID",
+          "name": "LabPanel_ID",
           "sql_type": "INT",
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "LabExperimentTemplate.LabExperimentTemplate_ID",
-          "description": "References the template (FK)"
+          "fk_target": "LabPanel.LabPanel_ID",
+          "description": "References the panel (FK)"
         },
         {
           "name": "AnalysisSeries_ID",
@@ -2554,7 +2554,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "AnalysisSeries.AnalysisSeries_ID",
-          "description": "References an analysis series to include in the template"
+          "description": "References an analysis series to include in the panel"
         }
       ],
       "group_name": "Uncategorized",
@@ -5400,21 +5400,21 @@
       "relationship_type": null
     },
     {
-      "from_table": "LabExperimentTemplate",
+      "from_table": "LabPanel",
       "to_table": "Person",
       "from_field": "CreatedByPerson_ID",
       "to_field": "Person_ID",
       "relationship_type": null
     },
     {
-      "from_table": "LabExperimentTemplateSeries",
-      "to_table": "LabExperimentTemplate",
-      "from_field": "LabExperimentTemplate_ID",
-      "to_field": "LabExperimentTemplate_ID",
+      "from_table": "LabPanelSeries",
+      "to_table": "LabPanel",
+      "from_field": "LabPanel_ID",
+      "to_field": "LabPanel_ID",
       "relationship_type": null
     },
     {
-      "from_table": "LabExperimentTemplateSeries",
+      "from_table": "LabPanelSeries",
       "to_table": "AnalysisSeries",
       "from_field": "AnalysisSeries_ID",
       "to_field": "AnalysisSeries_ID",

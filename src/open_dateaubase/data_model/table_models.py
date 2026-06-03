@@ -1447,7 +1447,7 @@ class LabExperiment(LabExperimentBase):
 
 
 
-class LabExperimentTemplateBase(BaseModel):
+class LabPanelBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     name: str = Field(
@@ -1471,36 +1471,36 @@ class LabExperimentTemplateBase(BaseModel):
     )
 
 
-class LabExperimentTemplateCreate(LabExperimentTemplateBase):
+class LabPanelCreate(LabPanelBase):
     pass
 
 
-class LabExperimentTemplate(LabExperimentTemplateBase):
+class LabPanel(LabPanelBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    labexperimenttemplateID: int = Field(
-        alias="LabExperimentTemplate_ID", description="Surrogate primary key"
+    labpanelID: int = Field(
+        alias="LabPanel_ID", description="Surrogate primary key"
     )
 
 
-class LabExperimentTemplateSeriesBase(BaseModel):
+class LabPanelSeriesBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    labexperimenttemplateID: int = Field(
-        alias="LabExperimentTemplate_ID",
-        description="References the template",
+    labpanelID: int = Field(
+        alias="LabPanel_ID",
+        description="References the panel",
     )
     analysisseriesID: int = Field(
         alias="AnalysisSeries_ID",
-        description="References an analysis series to include in the template",
+        description="References an analysis series to include in the panel",
     )
 
 
-class LabExperimentTemplateSeriesCreate(LabExperimentTemplateSeriesBase):
+class LabPanelSeriesCreate(LabPanelSeriesBase):
     pass
 
 
-class LabExperimentTemplateSeries(LabExperimentTemplateSeriesBase):
+class LabPanelSeries(LabPanelSeriesBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 class SignalInterfaceBase(BaseModel):

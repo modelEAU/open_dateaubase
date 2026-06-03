@@ -187,8 +187,8 @@ class LabExperimentLookupItem(BaseModel):
     series_count: int
 
 
-class LabExperimentTemplateCreateRequest(BaseModel):
-    """Request to create a new LabExperimentTemplate."""
+class LabPanelCreateRequest(BaseModel):
+    """Request to create a new LabPanel."""
 
     name: str
     description: str | None = None
@@ -196,26 +196,26 @@ class LabExperimentTemplateCreateRequest(BaseModel):
     series_ids: list[int]
 
 
-class LabExperimentTemplateSeriesAddRequest(BaseModel):
-    """Request to add a series to an existing template."""
+class LabPanelSeriesAddRequest(BaseModel):
+    """Request to add a series to an existing panel."""
 
     analysis_series_id: int
 
 
-class LabExperimentTemplateResponse(BaseModel):
-    """Template info returned by lookup endpoints."""
+class LabPanelResponse(BaseModel):
+    """Panel info returned by lookup endpoints."""
 
-    lab_experiment_template_id: int
+    lab_panel_id: int
     name: str
     description: str | None = None
     created_by_person_id: int | None = None
     series_count: int
 
 
-class LabExperimentTemplateDetailResponse(BaseModel):
-    """Template with its full series list."""
+class LabPanelDetailResponse(BaseModel):
+    """Panel with its full series list."""
 
-    lab_experiment_template_id: int
+    lab_panel_id: int
     name: str
     description: str | None = None
     series: list[AnalysisSeriesLookupItem]

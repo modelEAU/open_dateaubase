@@ -14,10 +14,10 @@ from ..schemas.ingestion import (
     AnalysisSeriesCreateRequest,
     AnalysisSeriesLookupItem,
     LabExperimentLookupItem,
-    LabExperimentTemplateCreateRequest,
-    LabExperimentTemplateDetailResponse,
-    LabExperimentTemplateResponse,
-    LabExperimentTemplateSeriesAddRequest,
+    LabPanelCreateRequest,
+    LabPanelDetailResponse,
+    LabPanelResponse,
+    LabPanelSeriesAddRequest,
 )
 
 router = APIRouter()
@@ -94,27 +94,27 @@ def create_analysis_series(
 
 @router.get(
     "/templates",
-    response_model=list[LabExperimentTemplateResponse],
+    response_model=list[LabPanelResponse],
 )
-def list_lab_experiment_templates(conn=Depends(get_db)):
-    """Return all templates with series count."""
-    return ingestion_repository.list_lab_experiment_templates(conn)
+def list_lab_panels(conn=Depends(get_db)):
+    """Return all panels with series count."""
+    return ingestion_repository.list_lab_panels(conn)
 
 
 @router.get(
     "/templates/{template_id}",
-    response_model=LabExperimentTemplateDetailResponse,
+    response_model=LabPanelDetailResponse,
 )
-def get_lab_experiment_template(
+def get_lab_panel(
     template_id: int, conn=Depends(get_db)
 ):
     """Return a template with its full series list."""
     series = ingestion_repository.get_template_series(conn, template_id)
     if not series:
         # Check if the template itself exists
-        templates = ingestion_repository.list_lab_experiment_templates(conn)
+        templates = ingestion_repository.list_lab_panels(conn)
         t = next(
-            (t for t in templates if t["lab_experiment_template_id"] == template_id),
+            (t for t in templates if t["lab_panel_id"] == template_id),
             None,
         )
         if t is None:
@@ -123,16 +123,16 @@ def get_lab_experiment_template(
                 detail=f"Template {template_id} not found.",
             )
         # Template exists but has no series yet
-        return LabExperimentTemplateDetailResponse(
-            lab_experiment_template_id=template_id,
+        return LabPanelDetailResponse(
+            lab_panel_id=template_id,
             name=t["name"],
             description=t["description"],
             series=[],
         )
     # Reconstruct template metadata from first series lookup
-    templates = ingestion_repository.list_lab_experiment_templates(conn)
+    templates = ingestion_repository.list_lab_panels(conn)
     t = next(
-        (t for t in templates if t["lab_experiment_template_id"] == template_id),
+        (t for t in templates if t["lab_panel_id"] == template_id),
         None,
     )
     if t is None:
@@ -140,8 +140,8 @@ def get_lab_experiment_template(
             status_code=404,
             detail=f"Template {template_id} not found.",
         )
-    return LabExperimentTemplateDetailResponse(
-        lab_experiment_template_id=template_id,
+    return LabPanelDetailResponse(
+        lab_panel_id=template_id,
         name=t["name"],
         description=t["description"],
         series=[AnalysisSeriesLookupItem(**s) for s in series],
@@ -149,24 +149,24 @@ def get_lab_experiment_template(
 
 
 @router.post("/templates", status_code=201)
-def create_lab_experiment_template(
-    body: LabExperimentTemplateCreateRequest, conn=Depends(get_db)
+def create_lab_panel(
+    body: LabPanelCreateRequest, conn=Depends(get_db)
 ):
     """Create a template with its series in one transaction."""
-    template_id = ingestion_repository.create_lab_experiment_template(
+    template_id = ingestion_repository.create_lab_panel(
         conn,
         name=body.name,
         description=body.description,
         created_by_person_id=body.created_by_person_id,
         series_ids=body.series_ids,
     )
-    return {"lab_experiment_template_id": template_id}
+    return {"lab_panel_id": template_id}
 
 
 @router.post("/templates/{template_id}/series", status_code=201)
 def add_series_to_template(
     template_id: int,
-    body: LabExperimentTemplateSeriesAddRequest,
+    body: LabPanelSeriesAddRequest,
     conn=Depends(get_db),
 ):
     """Add an AnalysisSeries to a template."""

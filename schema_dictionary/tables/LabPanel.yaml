@@ -1,15 +1,15 @@
 _format_version: "1.0"
 table:
-  name: LabExperimentTemplate
+  name: LabPanel
   schema: dbo
   description: >
-    Reusable recipe that defines which AnalysisSeries belong together in a lab
-    experiment session. Copy-on-use: creating a LabExperiment from a template
-    copies the series list into session state; the published experiment is fully
-    independent of the template.
+    Named, reusable bundle of AnalysisSeries to run together in a lab session.
+    Copy-on-use: selecting a panel pre-populates the series list for a new
+    LabExperiment; the resulting experiment is fully independent. Analogous to
+    a clinical lab panel.
 
   columns:
-    - name: LabExperimentTemplate_ID
+    - name: LabPanel_ID
       logical_type: integer
       nullable: false
       identity: true
@@ -19,18 +19,18 @@ table:
       logical_type: string
       max_length: 200
       nullable: false
-      description: "Human-readable template name (e.g. 'PSVD Weekly Panel')"
+      description: "Human-readable panel name (e.g. 'PSVD Weekly Panel')"
 
     - name: Description
       logical_type: string
       max_length: max
       nullable: true
-      description: "Free-text description of the template's purpose"
+      description: "Free-text description of the panel's purpose"
 
     - name: CreatedByPerson_ID
       logical_type: integer
       nullable: true
-      description: "Person who created this template"
+      description: "Person who created this panel"
       foreign_key:
         table: Person
         column: Person_ID
@@ -39,7 +39,7 @@ table:
       logical_type: timestamp
       precision: 7
       nullable: false
-      description: "When this template was created (UTC)"
+      description: "When this panel was created (UTC)"
       default: "GETUTCDATE()"
 
-  primary_key: [LabExperimentTemplate_ID]
+  primary_key: [LabPanel_ID]

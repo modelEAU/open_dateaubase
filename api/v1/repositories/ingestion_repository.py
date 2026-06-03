@@ -758,25 +758,25 @@ def create_analysis_series(
     return new_id
 
 
-def list_lab_experiment_templates(conn: pyodbc.Connection) -> list[dict]:
+def list_lab_panels(conn: pyodbc.Connection) -> list[dict]:
     """Return templates with series count."""
     cursor = conn.cursor()
     cursor.execute(
         """
         SELECT
-            t.[LabExperimentTemplate_ID],
+            t.[LabPanel_ID],
             t.[Name],
             t.[Description],
             t.[CreatedByPerson_ID],
-            (SELECT COUNT(*) FROM [dbo].[LabExperimentTemplateSeries] ts
-             WHERE ts.[LabExperimentTemplate_ID] = t.[LabExperimentTemplate_ID]) AS [SeriesCount]
-        FROM [dbo].[LabExperimentTemplate] t
+            (SELECT COUNT(*) FROM [dbo].[LabPanelSeries] ts
+             WHERE ts.[LabPanel_ID] = t.[LabPanel_ID]) AS [SeriesCount]
+        FROM [dbo].[LabPanel] t
         ORDER BY t.[Name]
         """
     )
     return [
         {
-            "lab_experiment_template_id": r[0],
+            "lab_panel_id": r[0],
             "name": r[1],
             "description": r[2],
             "created_by_person_id": r[3],
@@ -805,13 +805,13 @@ def get_template_series(
             as_.[ValueKind_ID],
             as_.[ProcessingKind_ID],
             pk.[Name] AS [ProcessingKindName]
-        FROM [dbo].[LabExperimentTemplateSeries] ts
+        FROM [dbo].[LabPanelSeries] ts
         JOIN [dbo].[AnalysisSeries] as_ ON ts.[AnalysisSeries_ID] = as_.[AnalysisSeries_ID]
         JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
         JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
         JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
         JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
-        WHERE ts.[LabExperimentTemplate_ID] = ?
+        WHERE ts.[LabPanel_ID] = ?
         ORDER BY as_.[Name]
         """,
         template_id,
@@ -834,7 +834,7 @@ def get_template_series(
     ]
 
 
-def create_lab_experiment_template(
+def create_lab_panel(
     conn: pyodbc.Connection,
     *,
     name: str,
@@ -846,9 +846,9 @@ def create_lab_experiment_template(
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO [dbo].[LabExperimentTemplate]
+        INSERT INTO [dbo].[LabPanel]
             ([Name], [Description], [CreatedByPerson_ID])
-        OUTPUT INSERTED.[LabExperimentTemplate_ID]
+        OUTPUT INSERTED.[LabPanel_ID]
         VALUES (?, ?, ?)
         """,
         name,
@@ -859,8 +859,8 @@ def create_lab_experiment_template(
     for sid in series_ids:
         cursor.execute(
             """
-            INSERT INTO [dbo].[LabExperimentTemplateSeries]
-                ([LabExperimentTemplate_ID], [AnalysisSeries_ID])
+            INSERT INTO [dbo].[LabPanelSeries]
+                ([LabPanel_ID], [AnalysisSeries_ID])
             VALUES (?, ?)
             """,
             template_id,
@@ -878,11 +878,11 @@ def add_series_to_template(
     cursor.execute(
         """
         IF NOT EXISTS (
-            SELECT 1 FROM [dbo].[LabExperimentTemplateSeries]
-            WHERE [LabExperimentTemplate_ID] = ? AND [AnalysisSeries_ID] = ?
+            SELECT 1 FROM [dbo].[LabPanelSeries]
+            WHERE [LabPanel_ID] = ? AND [AnalysisSeries_ID] = ?
         )
-        INSERT INTO [dbo].[LabExperimentTemplateSeries]
-            ([LabExperimentTemplate_ID], [AnalysisSeries_ID])
+        INSERT INTO [dbo].[LabPanelSeries]
+            ([LabPanel_ID], [AnalysisSeries_ID])
         VALUES (?, ?)
         """,
         template_id,
@@ -900,8 +900,8 @@ def remove_series_from_template(
     cursor = conn.cursor()
     cursor.execute(
         """
-        DELETE FROM [dbo].[LabExperimentTemplateSeries]
-        WHERE [LabExperimentTemplate_ID] = ? AND [AnalysisSeries_ID] = ?
+        DELETE FROM [dbo].[LabPanelSeries]
+        WHERE [LabPanel_ID] = ? AND [AnalysisSeries_ID] = ?
         """,
         template_id,
         analysis_series_id,

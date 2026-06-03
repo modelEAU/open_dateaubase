@@ -2540,7 +2540,7 @@ def create_analysis_series(data: dict) -> dict:
     return r.json()
 
 
-def list_lab_experiment_templates() -> list[dict]:
+def list_lab_panels() -> list[dict]:
     """Return templates with series count."""
     try:
         with _get_client() as client:
@@ -2551,7 +2551,7 @@ def list_lab_experiment_templates() -> list[dict]:
     return r.json()
 
 
-def get_lab_experiment_template(template_id: int) -> dict:
+def get_lab_panel(template_id: int) -> dict:
     """Return template with its series list."""
     try:
         with _get_client() as client:
@@ -2562,8 +2562,8 @@ def get_lab_experiment_template(template_id: int) -> dict:
     return r.json()
 
 
-def create_lab_experiment_template(data: dict) -> dict:
-    """Create template with series. Returns {lab_experiment_template_id}."""
+def create_lab_panel(data: dict) -> dict:
+    """Create panel with series. Returns {lab_panel_id}."""
     try:
         with _get_client() as client:
             r = client.post("/ingest/lab/templates", json=data)
