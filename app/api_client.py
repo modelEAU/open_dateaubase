@@ -2573,6 +2573,16 @@ def create_lab_panel(data: dict) -> dict:
     return r.json()
 
 
+def delete_lab_panel(lab_panel_id: int) -> None:
+    """Delete a panel and its series rows."""
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/ingest/lab/templates/{lab_panel_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
 def add_series_to_template(template_id: int, analysis_series_id: int) -> None:
     """Add an AnalysisSeries to a template."""
     try:

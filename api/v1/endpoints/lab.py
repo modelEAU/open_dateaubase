@@ -189,3 +189,12 @@ def remove_series_from_template(
     ingestion_repository.remove_series_from_template(
         conn, template_id, analysis_series_id
     )
+
+
+@router.delete("/templates/{template_id}", status_code=204)
+def delete_lab_panel(template_id: int, conn=Depends(get_db)):
+    """Delete a LabPanel and all its series rows. Returns 404 if not found."""
+    panels = ingestion_repository.list_lab_panels(conn)
+    if not any(p["lab_panel_id"] == template_id for p in panels):
+        raise HTTPException(status_code=404, detail=f"Panel {template_id} not found.")
+    ingestion_repository.delete_lab_panel(conn, template_id)

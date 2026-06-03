@@ -919,3 +919,17 @@ def remove_series_from_template(
         analysis_series_id,
     )
     conn.commit()
+
+
+def delete_lab_panel(conn: pyodbc.Connection, lab_panel_id: int) -> None:
+    """Delete a LabPanel and all its LabPanelSeries rows in a transaction."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM [dbo].[LabPanelSeries] WHERE [LabPanel_ID] = ?",
+        lab_panel_id,
+    )
+    cursor.execute(
+        "DELETE FROM [dbo].[LabPanel] WHERE [LabPanel_ID] = ?",
+        lab_panel_id,
+    )
+    conn.commit()

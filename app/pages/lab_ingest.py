@@ -20,6 +20,7 @@ import streamlit as st
 from app.api_client import (
     APIError,
     create_analysis_series,
+    create_lab_panel,
     create_sample,
     get_lab_experiment_series,
     get_lab_panel,
@@ -302,6 +303,38 @@ def _render_experiment_step() -> None:
         st.caption("No series assigned yet. Add at least one below.")
 
     _render_add_series_row(sess)
+
+    if sess.get("series"):
+        with st.popover("💾 Save as panel", use_container_width=False):
+            st.caption("Save the current series list as a reusable panel.")
+            panel_name = st.text_input(
+                "Panel name *",
+                value=sess.get("name", ""),
+                key="lab_save_panel_name",
+            )
+            panel_desc = st.text_area("Description (optional)", key="lab_save_panel_desc")
+            if st.button("Save", type="primary", key="lab_save_panel_btn"):
+                _panel_name = (panel_name or "").strip()
+                _panel_desc = (panel_desc or "").strip() or None
+                if not _panel_name:
+                    st.error("Panel name is required.")
+                else:
+                    series_ids = [
+                        s["analysis_series_id"]
+                        for s in sess["series"]
+                        if s.get("analysis_series_id")
+                    ]
+                    try:
+                        result = create_lab_panel(
+                            {
+                                "name": _panel_name,
+                                "description": _panel_desc,
+                                "series_ids": series_ids,
+                            }
+                        )
+                        st.success(f"Panel saved (ID {result['lab_panel_id']}).")
+                    except APIError as e:
+                        st.error(f"Failed to save panel: {e.message}")
 
     with st.popover("➕ Add Lab Series", use_container_width=False):
         st.caption("Create a new AnalysisSeries and add it immediately.")

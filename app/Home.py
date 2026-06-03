@@ -76,6 +76,7 @@ pg = st.navigation(
         "Operations": [
             st.Page(str(_pages / "sensor_ingest.py"), title="Insert Sensor Data", icon="📡"),
             st.Page(str(_pages / "lab_ingest.py"), title="Insert Lab Data", icon="🧪"),
+            st.Page(str(_pages / "lab_panels.py"), title="Lab Panels", icon="🗂️"),
             st.Page(str(_pages / "explore.py"), title="Visualize Data", icon="📊"),
             st.Page(str(_pages / "equipment_move.py"), title="Move a sensor", icon="➡️"),
         ],

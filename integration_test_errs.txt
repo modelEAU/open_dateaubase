@@ -1,0 +1,649 @@
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+____________________________________________________ ERROR at setup of TestValidationLookups.test_unknown_unit_returns_none _____________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+______________________________________________________ ERROR at setup of TestValidationLookups.test_known_unit_returns_id _______________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+__________________________________________________________ ERROR at setup of test_equipment_swap_channel_id_unchanged ___________________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+__________________________________________________ ERROR at setup of test_second_active_equipment_row_raises_constraint_error ___________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+______________________________________________________ ERROR at setup of test_commission_sets_is_active_and_records_event _______________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+___________________________________________________ ERROR at setup of test_decommission_sets_is_active_and_channel_unaffected ___________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+_________________________________________________________ ERROR at setup of test_sensor_relocation_channel_id_unchanged _________________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+___________________________________________________ ERROR at setup of test_second_active_location_row_raises_constraint_error ___________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+_____________________________________________________________ ERROR at setup of test_relocation_creates_annotation ______________________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+__________________________________________________________ ERROR at setup of test_equipment_rewire_creates_annotation ___________________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+______________________________________________________________ ERROR at setup of test_late_equipment_registration _______________________________________________________________
+tests/integration/conftest.py:435: in db_at_v400
+    _apply_schema_and_seeds(
+tests/integration/conftest.py:223: in _apply_schema_and_seeds
+    run_sql_file(conn, SQL_FILES[key])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+=================================================================================== FAILURES ====================================================================================
+__________________________________________________________________ TestV100Baseline.test_all_v100_tables_exist __________________________________________________________________
+tests/integration/test_migrations.py:89: in test_all_v100_tables_exist
+    assert V100_TABLES.issubset(tables), (
+E   AssertionError: Missing tables: {'LandUse'}
+E   assert False
+E    +  where False = <built-in method issubset of set object at 0x10a93e500>({'Comments', 'Contact', 'Equipment', 'EquipmentModel', 'EquipmentModelHasParameter', 'EquipmentModelHasProcedures', ...})
+E    +    where <built-in method issubset of set object at 0x10a93e500> = {'Comments', 'Contact', 'Equipment', 'EquipmentModel', 'EquipmentModelHasParameter', 'EquipmentModelHasProcedures', ...}.issubset
+_________________________________________________________________ TestV100Baseline.test_sample_data_row_counts __________________________________________________________________
+tests/integration/test_migrations.py:96: in test_sample_data_row_counts
+    actual = get_table_row_count(conn, table)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/integration/conftest.py:134: in get_table_row_count
+    cursor.execute(f"SELECT COUNT(*) FROM [dbo].[{table}]")
+E   pyodbc.ProgrammingError: ('42S02', "[42S02] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Invalid object name 'dbo.LandUse'. (208) (SQLExecDirectW)")
+_______________________________________________________________________ TestRollbacks.test_rollback_v101 ________________________________________________________________________
+tests/integration/test_migrations.py:408: in test_rollback_v101
+    run_sql_file(conn, SQL_FILES["v1.0.0_to_v1.0.1"])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+_______________________________________________________________________ TestRollbacks.test_rollback_v102 ________________________________________________________________________
+tests/integration/test_migrations.py:431: in test_rollback_v102
+    run_sql_file(conn, SQL_FILES["v1.0.0_to_v1.0.1"])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+_______________________________________________________________________ TestRollbacks.test_rollback_v110 ________________________________________________________________________
+tests/integration/test_migrations.py:469: in test_rollback_v110
+    run_sql_file(conn, SQL_FILES["v1.0.0_to_v1.0.1"])
+tests/integration/conftest.py:115: in run_sql_file
+    sql = filepath.read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+=============================================================================== warnings summary ================================================================================
+tests/api/auth/test_auth_service.py::TestTokens::test_generate_and_decode_roundtrip
+tests/api/auth/test_auth_service.py::TestTokens::test_tampered_token_raises
+tests/api/auth/test_auth_service.py::TestSignup::test_signup_creates_user_and_returns_token
+tests/api/auth/test_auth_service.py::TestLogin::test_login_valid_credentials
+tests/api/auth/test_auth_service.py::TestGetCurrentUser::test_valid_token_returns_user
+tests/api/auth/test_auth_service.py::TestGetCurrentUser::test_user_not_found_raises
+tests/api/auth/test_auth_service.py::TestGetCurrentUser::test_inactive_user_raises
+  /Users/jeandavidt/Developer/modelEAU/open_dateaubase/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 11 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests/api/auth/test_auth_service.py::TestTokens::test_generate_and_decode_roundtrip
+tests/api/auth/test_auth_service.py::TestTokens::test_tampered_token_raises
+tests/api/auth/test_auth_service.py::TestGetCurrentUser::test_valid_token_returns_user
+tests/api/auth/test_auth_service.py::TestGetCurrentUser::test_user_not_found_raises
+tests/api/auth/test_auth_service.py::TestGetCurrentUser::test_inactive_user_raises
+  /Users/jeandavidt/Developer/modelEAU/open_dateaubase/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:365: InsecureKeyLengthWarning: The HMAC key is 11 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================================================================ short test summary info ============================================================================
+FAILED tests/integration/test_migrations.py::TestV100Baseline::test_all_v100_tables_exist - AssertionError: Missing tables: {'LandUse'}
+FAILED tests/integration/test_migrations.py::TestV100Baseline::test_sample_data_row_counts - pyodbc.ProgrammingError: ('42S02', "[42S02] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Invalid object name 'dbo.LandUse'. (208) (SQLExecDirectW)")
+FAILED tests/integration/test_migrations.py::TestRollbacks::test_rollback_v101 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+FAILED tests/integration/test_migrations.py::TestRollbacks::test_rollback_v102 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+FAILED tests/integration/test_migrations.py::TestRollbacks::test_rollback_v110 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ01AllTSSAtWWTPInlet::test_returns_six_rows - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ01AllTSSAtWWTPInlet::test_values_include_known_measurements - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ01AllTSSAtWWTPInlet::test_null_timestamp_row_is_present - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ02TSSDateRange::test_returns_three_rows - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ02TSSDateRange::test_values_are_correct - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ03AverageTSSPerLocation::test_three_sampling_points_have_tss - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ03AverageTSSPerLocation::test_wwtp_inlet_average_and_count - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ03AverageTSSPerLocation::test_wwtp_effluent_average_and_count - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ03AverageTSSPerLocation::test_cso_count - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ04EquipmentForTSS::test_only_isco_can_measure_tss - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ05ParametersPerEquipmentModel::test_five_capability_records - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ05ParametersPerEquipmentModel::test_isco_measures_cod_and_tss - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ05ParametersPerEquipmentModel::test_ysi_measures_three_params - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ06EquipmentDeploymentHistory::test_isco_deployed_in_two_projects - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ06EquipmentDeploymentHistory::test_total_deployments - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ07SamplingPointsInProject::test_two_sampling_points - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ08MeasurementCountsPerWatershed::test_six_parameter_location_combinations - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ08MeasurementCountsPerWatershed::test_tss_inlet_count - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ08MeasurementCountsPerWatershed::test_cod_count - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ08MeasurementCountsPerWatershed::test_ph_count - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ09ContactsInProject::test_one_contact_in_cso_project - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ10MeasurementsWithComments::test_four_annotated_rows - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ10MeasurementsWithComments::test_drift_flag_on_value_9 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ10MeasurementsWithComments::test_duplicate_flag_on_value_12 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ11DuplicateTimestamps::test_exactly_one_duplicate_group - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ11DuplicateTimestamps::test_duplicate_is_at_cso_metadata - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ12MetaDataCompleteness::test_six_incomplete_metadata_rows - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ12MetaDataCompleteness::test_metadata_3_missing_only_weather - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ12MetaDataCompleteness::test_metadata_5_missing_contact_and_equipment - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ12MetaDataCompleteness::test_polymorphic_metadata_missing_only_equipment - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ13ValueTypesPerLocation::test_six_location_type_combinations - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ13ValueTypesPerLocation::test_wwtp_inlet_has_scalar_vector_matrix - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ13ValueTypesPerLocation::test_cso_has_scalar_and_image - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ14UVVisSpectrum::test_seven_bins_at_morning_timestamp - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ14UVVisSpectrum::test_first_bin_bounds_and_absorbance - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ14UVVisSpectrum::test_all_bins_have_no_quality_flag - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ14UVVisSpectrum::test_afternoon_spectrum_has_three_bins_and_one_flag - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ15ParticleSizeDistribution::test_two_timestamps - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ15ParticleSizeDistribution::test_each_timestamp_has_four_fractions - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ15ParticleSizeDistribution::test_morning_total_concentration - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ15ParticleSizeDistribution::test_afternoon_total_concentration - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ16ParticleSizeVelocityMatrix::test_six_cells_at_morning_timestamp - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ16ParticleSizeVelocityMatrix::test_smallest_size_slow_velocity_cell - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestBQ16ParticleSizeVelocityMatrix::test_all_cells_have_no_quality_flag - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC01HydrologicalCharacteristics::test_no_watershed_missing_hydro_data - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC01HydrologicalCharacteristics::test_no_watershed_missing_land_use_data - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC03PHRange::test_no_out_of_range_ph_values - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC03PHRange::test_all_ph_values_are_realistic - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC04UnitConsistency::test_no_unit_mismatches - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC05EquipmentProjectConsistency::test_no_unregistered_equipment_in_metadata - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC06VectorMatrixRequiresMetaDataAxis::test_no_vector_metadata_without_axis - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC07ScalarMetaDataIsolation::test_no_scalar_metadata_in_value_vector - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC07ScalarMetaDataIsolation::test_no_scalar_metadata_in_value_matrix - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_business_queries.py::TestIC08OrphanedValues::test_no_orphaned_value_rows - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopCreation::test_create_pid_loop - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopCreation::test_create_all_supported_types[PI] - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopCreation::test_create_all_supported_types[P] - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopCreation::test_create_all_supported_types[BangBang] - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopCreation::test_create_all_supported_types[Manual] - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopCreation::test_create_custom_loop_with_algorithm_reference - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopCreation::test_get_nonexistent_loop_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopPort::test_add_three_ports - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopPort::test_duplicate_port_raises - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopApplication::test_open_application_creates_active_row - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopApplication::test_second_open_raises_value_error - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopApplication::test_retune_closes_old_and_opens_new - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopApplication::test_retune_without_active_creates_first_row - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestControlLoopApplication::test_old_tuning_preserved_with_time_window - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestPointInTimeQuery::test_query_in_first_window - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestPointInTimeQuery::test_query_in_second_window - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestPointInTimeQuery::test_query_before_any_tuning_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestPointInTimeQuery::test_query_at_exact_start_time - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestCascadeArchitecture::test_shared_port_different_roles - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestFallbackChain::test_three_level_chain - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestFallbackChain::test_single_loop_chain - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestCascadeDeactivation::test_close_outer_leaves_inner_active - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_control_loop.py::TestModelBasedLoop::test_mpc_loop_with_custom_params - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV101::test_schema_version_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV101::test_schema_version_has_records - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV101::test_original_data_unchanged - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV101::test_value_data_intact - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV102::test_timestamp_column_is_datetimeoffset - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV102::test_unix_timestamps_converted_correctly - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV102::test_null_timestamps_preserved - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV102::test_new_datetimeoffset_values_inserted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV102::test_schema_version_recorded - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV102::test_applied_at_is_datetimeoffset - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV102::test_original_row_counts_preserved - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV102::test_value_magnitudes_preserved - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_new_tables_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_value_type_seed_data - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_metadata_has_new_column - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_existing_metadata_defaulted_to_scalar - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_vector_data_inserted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_matrix_data_inserted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_image_data_inserted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_value_bins_inserted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_original_data_intact - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_schema_version_recorded - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestMigrationV110::test_new_metadata_value_types_correct - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestFullMigrationChain::test_sequential_full_migration - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestFullMigrationChain::test_data_survives_full_migration_chain - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_migrations.py::TestFullMigrationChain::test_schema_version_history_complete - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_person_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_contact_table_is_gone - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_person_id_column_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_contact_id_column_gone_from_person - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_role_column_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_status_column_gone - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_obsolete_columns_dropped - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_retained_columns_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_existing_person_data_preserved - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_insert_and_query_person - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestPersonTable::test_metadata_contact_id_fk_still_works - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaignType::test_campaign_type_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaignType::test_campaign_type_seed_data - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaign::test_campaign_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaign::test_seed_campaigns_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaign::test_insert_experiment_campaign - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaign::test_campaign_requires_valid_type - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaign::test_campaign_requires_valid_site - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaign::test_campaign_project_link_optional - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaign::test_filter_metadata_by_campaign - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestCampaign::test_cross_campaign_site_query - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_data_provenance_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_data_provenance_seed_data - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_metadata_has_data_provenance_id_column - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_metadata_data_provenance_id_is_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_metadata_has_campaign_id_column - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_metadata_campaign_id_is_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_set_provenance_on_metadata - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_invalid_provenance_fk_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestDataProvenance::test_filter_metadata_by_provenance - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestSchemaVersionV120::test_schema_version_is_120 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestRollbackV120::test_rollback_restores_contact_table - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestRollbackV120::test_rollback_removes_campaign_tables - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestRollbackV120::test_rollback_restores_contact_id_column - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestRollbackV120::test_rollback_restores_status_column - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestRollbackV120::test_rollback_removes_metadata_columns - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2a.py::TestRollbackV120::test_schema_version_reverted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestLaboratory::test_laboratory_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestLaboratory::test_seed_laboratory_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestLaboratory::test_insert_external_laboratory - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestLaboratory::test_laboratory_fk_site_enforced - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_sample_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_seed_sample_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_insert_grab_sample - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_insert_composite_sample_with_end_time - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_sample_requires_sampling_point - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_sample_category_field - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_parent_sample_self_fk - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_parent_sample_fk_enforced - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSample::test_sample_fk_to_person - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestMetaDataLabColumns::test_sample_id_column_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestMetaDataLabColumns::test_laboratory_id_column_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestMetaDataLabColumns::test_analyst_person_id_column_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestMetaDataLabColumns::test_legacy_rows_unaffected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestMetaDataLabColumns::test_invalid_sample_fk_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestCampaignJunctionTables::test_all_junction_tables_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestCampaignJunctionTables::test_seed_campaign_sampling_location - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestCampaignJunctionTables::test_seed_campaign_equipment - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestCampaignJunctionTables::test_seed_campaign_parameter - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestCampaignJunctionTables::test_composability_scenario - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestEndToEndLabData::test_lab_and_sensor_data_coexist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestEndToEndLabData::test_filter_lab_data_by_provenance - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestEndToEndLabData::test_filter_sensor_data_by_provenance - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestEndToEndLabData::test_filter_all_data_by_campaign - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestEndToEndLabData::test_lab_metadata_has_full_context - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestEndToEndLabData::test_lab_values_retrievable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestEndToEndLabData::test_sensor_values_retrievable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestSchemaVersionV130::test_schema_version_is_130 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestRollbackV130::test_rollback_removes_lab_tables - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestRollbackV130::test_rollback_removes_metadata_lab_columns - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestRollbackV130::test_rollback_preserves_v120_tables - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2b.py::TestRollbackV130::test_schema_version_reverted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventType::test_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventType::test_seed_data_count - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventType::test_calibration_is_id_1 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventType::test_all_event_type_names_present - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEvent::test_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEvent::test_required_columns_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEvent::test_event_datetime_type - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEvent::test_insert_basic_event - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEvent::test_fk_to_invalid_equipment_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEvent::test_fk_to_invalid_event_type_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEvent::test_seed_calibration_event_present - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventMetaData::test_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventMetaData::test_required_columns_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventMetaData::test_window_columns_are_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventMetaData::test_insert_link_without_window - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventMetaData::test_insert_link_with_window - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentEventMetaData::test_composite_pk_prevents_duplicate_link - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentInstallation::test_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentInstallation::test_required_columns_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentInstallation::test_removed_date_is_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentInstallation::test_insert_installation - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentInstallation::test_fk_to_invalid_sampling_point_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestEquipmentInstallation::test_seed_installation_present - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestSamplingPointsTemporalColumns::test_valid_from_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestSamplingPointsTemporalColumns::test_valid_to_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestSamplingPointsTemporalColumns::test_created_by_campaign_id_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestSamplingPointsTemporalColumns::test_all_three_are_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestSamplingPointsTemporalColumns::test_existing_rows_unaffected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestSamplingPointsTemporalColumns::test_fk_to_campaign_accepted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestSamplingPointsTemporalColumns::test_fk_to_invalid_campaign_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestCalibrationCrossReferenceQuery::test_cross_reference_query_executes - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestSchemaVersionV140::test_schema_version_is_140 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestRollbackV140::test_rollback_removes_new_tables - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestRollbackV140::test_rollback_removes_sampling_points_columns - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestRollbackV140::test_rollback_removes_version_entry - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2c.py::TestRollbackV140::test_rollback_preserves_v130_tables - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestIngestionRouteTable::test_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestIngestionRouteTable::test_required_columns_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestIngestionRouteTable::test_valid_from_type_is_datetime2 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestIngestionRouteTable::test_valid_to_is_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestIngestionRouteTable::test_equipment_id_is_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestIngestionRouteTable::test_processing_degree_default_is_raw - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestIngestionRouteTable::test_fk_to_invalid_parameter_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestIngestionRouteTable::test_fk_to_invalid_metadata_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestSeedRoute::test_at_least_one_route_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestSeedRoute::test_seed_route_has_raw_processing_degree - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestSeedRoute::test_seed_route_has_null_valid_to - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRouteResolution::test_happy_path_single_active_route - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRouteResolution::test_no_route_raises_error - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRouteResolution::test_expired_route_not_returned - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRouteResolution::test_route_transition_boundary - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRouteResolution::test_ambiguous_routes_raises_error - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRouteResolution::test_route_before_valid_from_not_returned - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRouteResolution::test_different_processing_degree_not_matched - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestBackfillIdempotency::test_backfill_runs_without_error - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestBackfillIdempotency::test_backfill_twice_no_duplicates - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestSchemaVersionV150::test_schema_version_is_150 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRollbackV150::test_rollback_removes_ingestion_route_table - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRollbackV150::test_rollback_removes_version_entry - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase2d.py::TestRollbackV150::test_rollback_preserves_v140_tables - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestProcessingStepTable::test_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestProcessingStepTable::test_required_columns_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestProcessingStepTable::test_name_is_not_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestProcessingStepTable::test_insert_and_query - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestProcessingStepTable::test_fk_to_invalid_person_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestProcessingStepTable::test_parameters_stored_as_json - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestDataLineageTable::test_table_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestDataLineageTable::test_required_columns_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestDataLineageTable::test_role_check_constraint_input_accepted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestDataLineageTable::test_role_check_constraint_output_accepted - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestDataLineageTable::test_role_check_constraint_invalid_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestDataLineageTable::test_fk_to_invalid_processing_step_rejected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestDataLineageTable::test_indexes_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestMetaDataProcessingDegree::test_column_exists - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestMetaDataProcessingDegree::test_column_type_is_nvarchar - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestMetaDataProcessingDegree::test_existing_rows_backfilled_to_raw - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestMetaDataProcessingDegree::test_default_value_is_raw - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestMetaDataProcessingDegree::test_filter_by_processing_degree - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestLinearChain::test_forward_from_raw - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestLinearChain::test_forward_from_cleaned - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestLinearChain::test_backward_from_validated - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestLinearChain::test_backward_from_cleaned - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestLinearChain::test_full_lineage_tree_has_parents_and_children - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestFanOut::test_forward_from_raw_returns_two_branches - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestFanOut::test_backward_from_cleaned_only_one_input - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestFanOut::test_backward_from_aggregated_only_one_input - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestFanIn::test_backward_from_derived_has_both_inputs - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestFanIn::test_forward_from_each_source_reaches_derived - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestIdempotency::test_duplicate_call_returns_same_step_id - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestIdempotency::test_duplicate_call_creates_no_extra_lineage_rows - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestSchemaVersionV160::test_schema_version_is_160 - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestRollback::test_rollback_removes_processing_step_table - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestRollback::test_rollback_removes_data_lineage_table - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestRollback::test_rollback_removes_processing_degree_column - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestRollback::test_rollback_removes_version_entry - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase3.py::TestRollback::test_rollback_preserves_v150_tables - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v1.0.1_mssql.sql'
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_observation_table_exists - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_observation_columns - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_value_dropped_columns - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_value_has_observation_id - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_valuevector_dropped_columns - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_valuematrix_dropped_columns - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_valueimage_swapped_pk - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_annotation_observation_id_nullable - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_phase_d.py::TestV220Schema::test_processing_lineage_unchanged - pyodbc.ProgrammingError: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The name "True" is not permitted in this context. Valid expressions are co...
+ERROR tests/integration/test_process_unit.py::TestProcessUnitTypeCRUD::test_insert_and_retrieve - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitTypeCRUD::test_list_includes_seeded_types - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitTypeCRUD::test_update_type - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitTypeCRUD::test_update_missing_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitTypeCRUD::test_delete_type - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitCRUD::test_insert_and_retrieve - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitCRUD::test_list_by_site - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitCRUD::test_get_by_id_missing_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitCRUD::test_update_unit - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitCRUD::test_patch_unit - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitCRUD::test_delete_unit - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitCRUD::test_unique_tag_per_site_enforced - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitTree::test_three_level_hierarchy - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestProcessUnitTree::test_lookup_returns_expected_fields - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestDeletionGuard::test_blocks_delete_when_children_exist - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestDeletionGuard::test_blocks_delete_when_sampling_point_linked - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestSamplingPointProcessUnitFK::test_process_unit_id_stored_and_returned - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_process_unit.py::TestSamplingPointProcessUnitFK::test_process_unit_id_nullable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestUnknownPortUnknownEquipment::test_data_lands_without_port_or_wiring - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestUnknownPortUnknownEquipment::test_vw_channel_equipment_returns_null_equipment - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestPortAndEquipmentWired::test_traversal_resolves_cleanly - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestTresCONMux::test_two_channels_on_same_port_with_gating_note - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestTresCONMux::test_vw_channel_status_links_status_to_measurement - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestBackfillBlankPort::test_prior_observations_resolve_via_channel_id - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestBackfillBlankPort::test_new_observations_use_populated_port - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestEquipmentSwapHistoricalResolution::test_observations_before_swap_resolve_to_old_equipment - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestEquipmentSwapHistoricalResolution::test_observations_after_swap_resolve_to_new_equipment - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_signal_interface_lifecycle.py::TestEquipmentSwapHistoricalResolution::test_swap_with_port_preserves_historical_resolution - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestResolveTag::test_resolve_creates_das_and_signal_interface_on_first_call - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestResolveTag::test_repeated_resolve_is_idempotent - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestResolveTag::test_first_ingest_creates_channel - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestResolveTag::test_repeated_find_or_create_channel_is_idempotent - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestDASAutoCreate::test_unrecognised_das_auto_creates_with_warning - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestDASAutoCreate::test_known_das_returns_created_false - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestSignalInterfaceAutoCreate::test_unrecognised_tag_auto_creates_signal_interface - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestSignalInterfaceAutoCreate::test_known_tag_returns_created_false - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestValidationLookups::test_unknown_parameter_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestValidationLookups::test_unknown_unit_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestValidationLookups::test_known_parameter_returns_id - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestValidationLookups::test_known_unit_returns_id - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestNormalisation::test_das_lookup_case_insensitive - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestNormalisation::test_das_lookup_trims_whitespace - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestNormalisation::test_signal_interface_lookup_case_insensitive - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestNormalisation::test_signal_interface_lookup_trims_whitespace - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestNormalisation::test_parameter_lookup_case_insensitive - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestNormalisation::test_unit_lookup_case_insensitive - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestNormalisation::test_channel_role_lookup_case_insensitive - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestDeactivation::test_deactivate_signal_interface_sets_is_active_false - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestDeactivation::test_deactivate_signal_interface_does_not_affect_channel - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tag_ingest.py::TestDeactivation::test_deactivate_missing_signal_interface_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestTagGeneration::test_generate_tagless_tagname_strips_and_lowercases - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestTagGeneration::test_generate_tagless_tagname_is_deterministic - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestFirstTaglessIngest::test_first_ingest_creates_signal_interface_with_synthetic_tag - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestFirstTaglessIngest::test_first_ingest_wiring_row_links_correct_signal_interface - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestIdempotency::test_repeated_ingest_does_not_duplicate_signal_interface - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestIdempotency::test_repeated_ingest_does_not_open_extra_history_row - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestEquipmentAutoCreate::test_unknown_equipment_identifier_auto_creates - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestEquipmentAutoCreate::test_known_equipment_identifier_returns_created_false - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestEquipmentAutoCreate::test_equipment_lookup_case_insensitive - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestEquipmentAutoCreate::test_equipment_lookup_trims_whitespace - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestValidationLookups::test_unknown_parameter_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestValidationLookups::test_known_parameter_returns_id - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestValidationLookups::test_unknown_unit_returns_none - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_tagless_ingest.py::TestValidationLookups::test_known_unit_returns_id - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_equipment_swap_channel_id_unchanged - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_second_active_equipment_row_raises_constraint_error - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_commission_sets_is_active_and_records_event - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_decommission_sets_is_active_and_channel_unaffected - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_sensor_relocation_channel_id_unchanged - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_second_active_location_row_raises_constraint_error - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_relocation_creates_annotation - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_equipment_rewire_creates_annotation - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+ERROR tests/integration/test_temporal_lifecycle.py::test_late_equipment_registration - FileNotFoundError: [Errno 2] No such file or directory: '/Users/jeandavidt/Developer/modelEAU/open_dateaubase/migrations/v1.0.0_to_v3.0.0_mssql.sql'
+5 failed, 462 passed, 12 warnings, 353 errors in 1296.99s (0:21:36)
