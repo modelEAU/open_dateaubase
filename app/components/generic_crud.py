@@ -34,44 +34,48 @@ def render_crud_page(
     update_fn: Callable[[int, dict], object] | None = None,
     delete_fn: Callable[[int], None] | None = None,
     label_field: str = "name",
-) -> None:
-    """Render a standard list + create/edit/delete CRUD page.
+    embedded: bool = False,
+) -> bool | None:
+    """Render CRUD list + create/edit/delete.
 
     Parameters
     ----------
     title:       Page heading and entity name used in dialog titles.
     pk_field:    Key in each API response row that holds the primary key integer.
-    form_fields: List of field dicts for form_dialog (type, required, help, …).
+    form_fields: List of field dicts for form_dialog (type, required, help, ...).
                  Fields with an ``options_fn`` key have that function resolved
                  against app.api_client at render time.
     list_fn:     Callable returning list[dict] or {"items": list[dict]}.
-    create_fn:   Callable(data: dict) → any. Omit to hide the New button.
-    update_fn:   Callable(pk: int, data: dict) → any. Omit to hide Edit.
-    delete_fn:   Callable(pk: int) → None. Omit to hide Delete.
-    label_field: Field name shown in the Edit dialog title (default "name").
+    create_fn:   Callable(data: dict) -> any. Omit to hide the New button.
+    update_fn:   Callable(pk: int, data: dict) -> any. Omit to hide Edit.
+    delete_fn:   Callable(pk: int) -> None. Omit to hide Delete.
+    label_field: Field name in Edit dialog title (default "name").
+    embedded:    If True, skip container-level chrome (title, full-width cols)
+                 and return True when a mutation (create/update/delete) is
+                 performed so the caller can refresh.
     """
-    st.title(title)
+    _modified = False
+
+    if not embedded:
+        st.title(title)
 
     resolved_fields = _resolve_fk_options(form_fields)
 
     try:
         with st.spinner("Loading…"):
             result = list_fn()
-            items: list[dict] = result.get("items", result) if isinstance(result, dict) else result
+            items: list[dict] = (
+                result.get("items", result) if isinstance(result, dict) else result
+            )
     except APIError as e:
         st.error(f"Cannot load data: {e.message}")
         st.stop()
         return
 
-    col_new, col_edit, col_del, _ = st.columns([2, 2, 2, 6])
-
-    with col_new:
-        if create_fn and st.button("➕ New", type="primary", use_container_width=True):
-            create_form_dialog(
-                fields=resolved_fields,
-                on_submit=lambda data: _handle_create(create_fn, data, title),
-                title=f"Create {title}",
-            )
+    if not embedded:
+        col_new, col_edit, col_del, _ = st.columns([2, 2, 2, 6])
+    else:
+        new_btn_col, edit_btn_col, del_btn_col, _ = st.columns([1, 1, 1, 7])
 
     session_key = f"_crud_sel_{pk_field}"
     if session_key not in st.session_state:
@@ -95,31 +99,79 @@ def render_crud_page(
         else:
             st.session_state[session_key] = None
     else:
-        st.info(f"No {title.lower()} found. Click '➕ New' to create one.")
+        msg = f"No {title.lower()} found. Click '➕ New' to create one."
+        if embedded:
+            st.caption(msg)
+        else:
+            st.info(msg)
 
     item_label = selected.get(label_field, "") if selected else ""
 
-    with col_edit:
-        if update_fn and st.button("✏️ Edit", disabled=selected is None, use_container_width=True):
-            if selected:
-                edit_form_dialog(
-                    item_data=selected,
+    if not embedded:
+        with col_new:
+            if create_fn and st.button(
+                "➕ New", type="primary", use_container_width=True
+            ):
+                create_form_dialog(
                     fields=resolved_fields,
-                    on_submit=lambda data: _handle_update(
-                        update_fn, selected[pk_field], data, title
-                    ),
-                    title=f"Edit {title}: {item_label}",
+                    on_submit=lambda data: _handle_create(create_fn, data, title),
+                    title=f"Create {title}",
                 )
+        with col_edit:
+            btn = st.button(
+                "✏️ Edit", disabled=selected is None, use_container_width=True
+            )
+        with col_del:
+            btn_del = st.button(
+                "🗑️ Delete",
+                disabled=selected is None,
+                type="secondary",
+                use_container_width=True,
+            )
+    else:
+        with new_btn_col:
+            if create_fn and st.button(
+                "➕ New", type="primary", use_container_width=True
+            ):
+                create_form_dialog(
+                    fields=resolved_fields,
+                    on_submit=lambda data: _handle_create(create_fn, data, title),
+                    title=f"Create {title}",
+                )
+        with edit_btn_col:
+            btn = st.button("✏️", disabled=selected is None, use_container_width=True)
+        with del_btn_col:
+            btn_del = st.button(
+                "🗑️",
+                disabled=selected is None,
+                type="secondary",
+                use_container_width=True,
+            )
 
-    with col_del:
-        if delete_fn and st.button("🗑️ Delete", disabled=selected is None, type="secondary", use_container_width=True):
-            if selected:
-                try:
-                    delete_fn(selected[pk_field])
-                    st.success(f"{title} deleted.")
-                    st.rerun()
-                except APIError as e:
-                    st.error(f"Delete failed: {e.message}")
+    # Edit action (shared layout)
+    if update_fn and btn and selected:
+        edit_form_dialog(
+            item_data=selected,
+            fields=resolved_fields,
+            on_submit=lambda data: _handle_update(
+                update_fn, selected[pk_field], data, title
+            ),
+            title=f"Edit {title}: {item_label}",
+        )
+
+    # Delete action
+    if delete_fn and btn_del and selected:
+        _modified = True
+        try:
+            delete_fn(selected[pk_field])
+            st.success(f"{title} deleted.")
+            if not embedded:
+                st.rerun()
+        except APIError as e:
+            st.error(f"Delete failed: {e.message}")
+
+    # Return mutation flag for embedded callers
+    return _modified if embedded else None
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +204,9 @@ def _normalize_options(raw: list[dict]) -> list[dict]:
         return []
     sample = raw[0]
     id_keys = [k for k in sample if k.endswith("_id")]
-    label_keys = [k for k in sample if k in ("name", "label", "unit", "identifier", "code", "tag")]
+    label_keys = [
+        k for k in sample if k in ("name", "label", "unit", "identifier", "code", "tag")
+    ]
     has_desc = "description" in sample
     if id_keys and label_keys:
         return [

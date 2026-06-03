@@ -1,6 +1,7 @@
-"""Lab Analysis Ingest page — Scalar, Vector, Matrix, and Image tabs.
+"""Lab Analysis Ingest page — accordion layout with experiment context,
+sample creation, and per-series measurement entry.
 
-Uses the LabIngestRequest / LabImageIngestResponse API introduced in Wave D/F3.
+Uses the LabIngestRequest / LabImageIngestResponse API.
 """
 
 from __future__ import annotations
@@ -18,27 +19,28 @@ import streamlit as st
 
 from app.api_client import (
     APIError,
+    create_analysis_series,
     create_sample,
+    get_lab_experiment_series,
+    get_lab_experiment_template,
     ingest_lab,
     ingest_lab_image,
+    list_analysis_series_lookup,
     list_campaigns_lookup,
-    list_laboratories_lookup,
+    list_equipment_lookup,
+    list_lab_experiments_lookup,
+    list_lab_experiment_templates,
     list_parameters_lookup,
-    list_procedures_lookup,
+    list_persons_lookup,
     list_processing_kinds_lookup,
+    list_sample_collection_kinds,
     list_samples_lookup,
     list_sampling_points_lookup,
     list_units_lookup,
 )
 
-st.title("Lab Analysis Ingest")
-st.markdown(
-    "Record laboratory analysis results. Choose the shape that matches your data "
-    "(Scalar, Vector, Matrix, or Image), fill in the experiment details, and submit."
-)
-
 # ---------------------------------------------------------------------------
-# Load lookups once
+# Lookups — loaded once per page load
 # ---------------------------------------------------------------------------
 
 try:
@@ -46,353 +48,795 @@ try:
         _samples = list_samples_lookup()
         _sp = list_sampling_points_lookup()
         _campaigns = list_campaigns_lookup()
-        _labs = list_laboratories_lookup()
-        _procedures = list_procedures_lookup()
         _parameters = list_parameters_lookup()
         _units = list_units_lookup()
         _processing_kinds = list_processing_kinds_lookup()
+        _persons = list_persons_lookup()
+        _collection_kinds = list_sample_collection_kinds()
+        _equipment = list_equipment_lookup()
+        _templates = list_lab_experiment_templates()
+        _all_series = list_analysis_series_lookup()
+        _experiments = list_lab_experiments_lookup()
+        # Reverse-lookup dicts
+        _param_name_to_id = {
+            p["parameter_name"]: p["parameter_id"] for p in _parameters
+        }
+        _unit_name_to_id = {u["unit"]: u["unit_id"] for u in _units}
+        _sp_label_to_id = {s["label"]: s["sampling_point_id"] for s in _sp}
 except APIError as e:
     st.error(f"Cannot load lookup data: {e.message}")
     st.stop()
 
-# Reverse-lookup dicts (name → id)
-_param_name_to_id: dict[str, int] = {p["parameter_name"]: p["parameter_id"] for p in _parameters}
-_unit_name_to_id: dict[str, int] = {u["unit"]: u["unit_id"] for u in _units}
-_sp_label_to_id: dict[str, int] = {s["label"]: s["sampling_point_id"] for s in _sp}
 
 # ---------------------------------------------------------------------------
-# Section A — Experiment header
+# Session state
 # ---------------------------------------------------------------------------
 
-with st.container(border=True):
-    st.subheader("Experiment")
-    col1, col2 = st.columns(2)
-    with col1:
-        exp_name = st.text_input(
-            "Experiment name *",
-            placeholder="e.g. Run-2026-05-21-A",
-            key="lab_exp_name",
-        )
-    with col2:
-        camp_options = [{"id": None, "label": "— none —"}] + [
-            {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
-        ]
-        selected_camp = st.selectbox(
-            "Campaign (optional)",
-            options=[o["label"] for o in camp_options],
-            index=0,
-            key="lab_exp_campaign",
-        )
-        exp_campaign_id = next((o["id"] for o in camp_options if o["label"] == selected_camp), None)
+_SESSION_DEFAULTS = {
+    "mode": "new",
+    "template_id": None,
+    "experiment_id": None,
+    "name": "",
+    "campaign_id": None,
+    "datetime": datetime.now(),
+    "description": "",
+    "created_by_person_id": None,
+    "series": [],
+    "sample_mode": "new",
+    "sample_id": None,
+    "sample_sp_id": None,
+    "sample_collection_kind_id": None,
+    "sample_equipment_id": None,
+    "sample_sampled_by_id": None,
+    "sample_campaign_id": None,
+    "sample_start": datetime.now(),
+    "sample_end": None,
+    "sample_description": "",
+    "measurements": {},
+}
 
-    col3, col4 = st.columns(2)
-    with col3:
-        exp_date = st.date_input("Experiment date *", value=datetime.now(), key="lab_exp_date")
-    with col4:
-        exp_time = st.time_input("Experiment time *", value=time(12, 0), key="lab_exp_time")
-    exp_datetime = datetime.combine(exp_date, exp_time)
+if "lab_session" not in st.session_state:
+    st.session_state.lab_session = dict(_SESSION_DEFAULTS)
 
-    exp_description = st.text_area("Description (optional)", max_chars=500, key="lab_exp_desc")
-    exp_person_id = st.number_input(
-        "Created by Person ID (optional)", min_value=1, step=1, value=None, key="lab_exp_person"
-    )
+
+def _reset_form() -> None:
+    st.session_state.lab_session = dict(_SESSION_DEFAULTS)
+
 
 # ---------------------------------------------------------------------------
-# Section B — Sample
+# Value-kind descriptions
 # ---------------------------------------------------------------------------
 
-if "lab_created_sample_id" not in st.session_state:
-    st.session_state["lab_created_sample_id"] = None
-
-with st.container(border=True):
-    st.subheader("Sample")
-    sample_mode = st.radio(
-        "Sample",
-        ["Use existing sample", "Create new sample"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="lab_sample_mode",
-    )
-    sample_id: int | None = None
-
-    if sample_mode == "Use existing sample":
-        st.session_state["lab_created_sample_id"] = None
-        s_options = [{"id": None, "label": "— none —"}] + [
-            {"id": s["sample_id"], "label": s["label"]} for s in _samples
-        ]
-        selected_s = st.selectbox(
-            "Select sample",
-            options=[o["label"] for o in s_options],
-            index=0,
-            key="lab_sample_select",
-        )
-        sample_id = next((o["id"] for o in s_options if o["label"] == selected_s), None)
-    else:
-        col1, col2 = st.columns(2)
-        with col1:
-            sp_labels = [s["label"] for s in _sp]
-            sel_sp = st.selectbox(
-                "Sampling point *",
-                options=sp_labels,
-                index=None,
-                placeholder="Select sampling point...",
-                key="lab_new_sample_sp",
-            )
-            new_sample_sp_id = _sp_label_to_id.get(sel_sp or "", None) if sel_sp else None
-        with col2:
-            camp_opts2 = [{"id": None, "label": "— none —"}] + [
-                {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
-            ]
-            sel_camp2 = st.selectbox(
-                "Campaign (optional)",
-                options=[o["label"] for o in camp_opts2],
-                index=0,
-                key="lab_new_sample_camp",
-            )
-            new_sample_camp_id = next(
-                (o["id"] for o in camp_opts2 if o["label"] == sel_camp2), None
-            )
-
-        col3, col4 = st.columns(2)
-        with col3:
-            ns_start_date = st.date_input("Start date *", value=datetime.now(), key="lab_ns_start_date")
-            ns_start_time = st.time_input("Start time *", value=time(12, 0), key="lab_ns_start_time")
-        with col4:
-            ns_end_date = st.date_input("End date (optional)", value=None, key="lab_ns_end_date")
-            ns_end_time = st.time_input("End time (optional)", value=None, key="lab_ns_end_time")
-
-        ns_description = st.text_area("Description (optional)", max_chars=500, key="lab_ns_desc")
-        ns_person_id = st.number_input(
-            "Sampled by Person ID (optional)", min_value=1, step=1, value=None, key="lab_ns_person"
-        )
-
-        if st.button("Create Sample", type="secondary", key="lab_create_sample_btn"):
-            if new_sample_sp_id is None:
-                st.error("Sampling point is required.")
-            else:
-                ns_start = datetime.combine(ns_start_date, ns_start_time)
-                ns_end = None
-                if ns_end_date and ns_end_time:
-                    ns_end = datetime.combine(ns_end_date, ns_end_time)
-                try:
-                    result = create_sample({
-                        "sampling_point_id": new_sample_sp_id,
-                        "campaign_id": new_sample_camp_id,
-                        "sample_datetime_start": ns_start.isoformat(),
-                        "sample_datetime_end": ns_end.isoformat() if ns_end else None,
-                        "description": ns_description or None,
-                        "sampled_by_person_id": ns_person_id,
-                    })
-                    st.session_state["lab_created_sample_id"] = result["sample_id"]
-                    st.success(f"Sample {result['sample_id']} created.")
-                except APIError as e:
-                    st.error(f"Failed to create sample: {e.message}")
-
-        if st.session_state["lab_created_sample_id"]:
-            sample_id = st.session_state["lab_created_sample_id"]
-            st.info(f"Using created sample: ID {sample_id}")
-
-# ---------------------------------------------------------------------------
-# Section C — Shared measurement defaults
-# ---------------------------------------------------------------------------
-
-with st.container(border=True):
-    st.subheader("Measurement defaults")
-    st.caption("Applied to every measurement in this submission.")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        lab_opts = [{"id": None, "label": "— none —"}] + [
-            {"id": l["laboratory_id"], "label": l["name"]} for l in _labs
-        ]
-        sel_lab = st.selectbox(
-            "Laboratory",
-            options=[o["label"] for o in lab_opts],
-            index=0,
-            key="lab_shared_lab",
-        )
-        shared_lab_id = next((o["id"] for o in lab_opts if o["label"] == sel_lab), None)
-    with col2:
-        proc_opts = [{"id": None, "label": "— none —"}] + [
-            {"id": p["procedure_id"], "label": p["procedure_name"]} for p in _procedures
-        ]
-        sel_proc = st.selectbox(
-            "Procedure",
-            options=[o["label"] for o in proc_opts],
-            index=0,
-            key="lab_shared_proc",
-        )
-        shared_proc_id = next((o["id"] for o in proc_opts if o["label"] == sel_proc), None)
-    with col3:
-        pk_opts = [{"id": p["processing_kind_id"], "label": p["name"]} for p in _processing_kinds]
-        sel_pk = st.selectbox(
-            "Processing kind",
-            options=[o["label"] for o in pk_opts],
-            index=0,
-            key="lab_shared_pk",
-        )
-        shared_pk_id = next(
-            (o["id"] for o in pk_opts if o["label"] == sel_pk),
-            1,
-        )
-    shared_analyst_id = st.number_input(
-        "Analyst Person ID (optional)", min_value=1, step=1, value=None, key="lab_shared_analyst"
-    )
-
+_VALUE_KIND_LABELS = {1: "Scalar", 2: "Vector", 3: "Matrix", 4: "Image"}
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-_param_names = [p["parameter_name"] for p in _parameters]
-_unit_names = [u["unit"] for u in _units]
-_sp_labels = [s["label"] for s in _sp]
 
-_default_row_scalar = {
-    "parameter_name": None,
-    "sampling_point_label": None,
-    "unit_name": None,
-    "series_name": "",
-    "value": None,
-    "replicate": 1,
-    "quality_code_id": None,
-    "notes": "",
-}
-
-_default_row_vector = {
-    "parameter_name": None,
-    "sampling_point_label": None,
-    "unit_name": None,
-    "series_name": "",
-    "value": "",
-    "replicate": 1,
-    "quality_code_id": None,
-    "notes": "",
-}
-
-_default_row_matrix = {
-    "parameter_name": None,
-    "sampling_point_label": None,
-    "unit_name": None,
-    "series_name": "",
-    "value": "",
-    "replicate": 1,
-    "quality_code_id": None,
-    "notes": "",
-}
-
-
-def _auto_series_name(param: str | None, sp: str | None) -> str:
-    if param and sp:
-        return f"{param}@{sp}"
+def _auto_series_name(param: str | None, sp_label: str | None) -> str:
+    if param and sp_label:
+        return f"{param}@{sp_label}"
     return ""
 
 
-def _build_measurements(rows: list[dict], value_kind_id: int) -> tuple[list[dict], list[str]]:
-    """Resolve names to IDs and build LabMeasurementItem dicts. Returns (measurements, errors)."""
-    measurements: list[dict] = []
-    errors: list[str] = []
-    for i, row in enumerate(rows, start=1):
-        param_name = row.get("parameter_name")
-        sp_label = row.get("sampling_point_label")
-        unit_name = row.get("unit_name")
-        raw_value = row.get("value")
+def _series_short_label(s: dict) -> str:
+    """Short label for a series tab."""
+    pk = ""
+    for p in _parameters:
+        if p["parameter_id"] == s.get("parameter_id"):
+            pk = p.get("parameter_name", "")
+            break
+    sp_label = ""
+    for sp in _sp:
+        if sp["sampling_point_id"] == s.get("sampling_point_id"):
+            sp_label = sp.get("label", "")
+            break
+    unit = ""
+    for u in _units:
+        if u["unit_id"] == s.get("unit_id"):
+            unit = u.get("unit", "")
+            break
+    vk = _VALUE_KIND_LABELS.get(s.get("value_kind_id", 1), "?")
+    return f"{pk}@{sp_label} ({unit}, {vk})"
 
-        if not param_name or raw_value is None or raw_value == "":
-            continue  # skip empty rows
 
-        param_id = _param_name_to_id.get(param_name)
-        sp_id = _sp_label_to_id.get(sp_label or "")
-        unit_id = _unit_name_to_id.get(unit_name or "")
 
-        if param_id is None:
-            errors.append(f"Row {i}: unknown parameter '{param_name}'")
-            continue
-        if sp_id is None:
-            errors.append(f"Row {i}: unknown sampling point '{sp_label}'")
-            continue
-        if unit_id is None:
-            errors.append(f"Row {i}: unknown unit '{unit_name}'")
-            continue
 
-        series = row.get("series_name") or _auto_series_name(param_name, sp_label)
+# ---------------------------------------------------------------------------
+# Step 1: Experiment
+# ---------------------------------------------------------------------------
 
-        if value_kind_id == 1:
-            try:
-                parsed_value = float(raw_value)
-            except (TypeError, ValueError):
-                errors.append(f"Row {i}: cannot parse value '{raw_value}' as float")
-                continue
-        elif value_kind_id == 2:
-            try:
-                parsed_value = [float(x.strip()) for x in str(raw_value).split(",") if x.strip()]
-                if not parsed_value:
-                    raise ValueError("empty")
-            except ValueError:
-                errors.append(f"Row {i}: cannot parse '{raw_value}' as comma-separated floats")
-                continue
-        elif value_kind_id == 3:
-            try:
-                parsed_value = [
-                    [float(x.strip()) for x in row_str.split(",") if x.strip()]
-                    for row_str in str(raw_value).split(";")
-                    if row_str.strip()
-                ]
-                if not parsed_value:
-                    raise ValueError("empty")
-            except ValueError:
-                errors.append(
-                    f"Row {i}: cannot parse '{raw_value}' as matrix "
-                    "(format: '1,2;3,4' — semicolons separate rows, commas separate columns)"
-                )
-                continue
+
+def _render_experiment_step() -> None:
+    sess = st.session_state.lab_session
+
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        mode = st.radio(
+            "Mode",
+            options=["New", "From template", "Continue existing"],
+            horizontal=False,
+            index=["new", "template", "existing"].index(sess.get("mode", "new")),
+            key="lab_mode",
+        )
+    _mode_map = {
+        "New": "new",
+        "From template": "template",
+        "Continue existing": "existing",
+    }
+    sess["mode"] = _mode_map.get(mode, "new")
+
+    with col2:
+        if sess["mode"] == "template":
+            opts = [{"id": None, "label": "— select —"}] + [
+                {
+                    "id": t["lab_experiment_template_id"],
+                    "label": f"{t['name']} ({t['series_count']} series)",
+                }
+                for t in _templates
+            ]
+            sel = st.selectbox(
+                "Template",
+                options=[o["label"] for o in opts],
+                index=0,
+                key="lab_template_sel",
+            )
+            t_id = next((o["id"] for o in opts if o["label"] == sel), None)
+            if t_id and t_id != sess.get("template_id"):
+                sess["template_id"] = t_id
+                # Load template series
+                try:
+                    detail = get_lab_experiment_template(t_id)
+                    sess["series"] = list(detail.get("series", []))
+                except APIError:
+                    st.warning("Could not load template series.")
+            sess["experiment_id"] = None
+
+        elif sess["mode"] == "existing":
+            opts = [{"id": None, "label": "— select —"}] + [
+                {
+                    "id": e["lab_experiment_id"],
+                    "label": f"{e['name']} ({e.get('experiment_datetime', '')[:10]})",
+                }
+                for e in _experiments
+            ]
+            sel = st.selectbox(
+                "Experiment",
+                options=[o["label"] for o in opts],
+                index=0,
+                key="lab_existing_exp_sel",
+            )
+            e_id = next((o["id"] for o in opts if o["label"] == sel), None)
+            if e_id and e_id != sess.get("experiment_id"):
+                sess["experiment_id"] = e_id
+                try:
+                    series_list = get_lab_experiment_series(e_id)
+                    sess["series"] = list(series_list)
+                except APIError:
+                    st.warning("Could not load experiment series.")
+            sess["template_id"] = None
+
+        else:  # "new"
+            sess["template_id"] = None
+            sess["experiment_id"] = None
+
+    if sess["mode"] == "new":
+        col_a, col_b = st.columns(2)
+        with col_a:
+            sess["name"] = st.text_input(
+                "Experiment name *",
+                value=sess.get("name", ""),
+                key="lab_exp_name",
+            )
+        with col_b:
+            camp_opts = [{"id": None, "label": "— none —"}] + [
+                {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
+            ]
+            sel_camp = st.selectbox(
+                "Campaign",
+                options=[o["label"] for o in camp_opts],
+                index=0,
+                key="lab_exp_campaign",
+            )
+            sess["campaign_id"] = next(
+                (o["id"] for o in camp_opts if o["label"] == sel_camp), None
+            )
+
+        col_c, col_d = st.columns(2)
+        with col_c:
+            d = st.date_input(
+                "Date *", value=sess.get("datetime", datetime.now()), key="lab_exp_date"
+            )
+        with col_d:
+            t = st.time_input("Time *", value=time(12, 0), key="lab_exp_time")
+        sess["datetime"] = datetime.combine(d, t)
+
+        sess["description"] = st.text_area(
+            "Description",
+            value=sess.get("description", ""),
+            max_chars=500,
+            key="lab_exp_desc",
+        )
+
+        person_opts = [{"id": None, "label": "— select —"}] + [
+            {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))}
+            for p in _persons
+        ]
+        sel_person = st.selectbox(
+            "Created by *",
+            options=[o["label"] for o in person_opts],
+            index=0,
+            key="lab_exp_person",
+        )
+        sess["created_by_person_id"] = next(
+            (o["id"] for o in person_opts if o["label"] == sel_person), None
+        )
+
+    # -- Series manager --
+    st.markdown("**Assigned AnalysisSeries**")
+    if sess["series"]:
+        _render_series_table(sess)
+    else:
+        st.caption("No series assigned yet. Add at least one below.")
+
+    _render_add_series_row(sess)
+
+    with st.popover("➕ Add Lab Series", use_container_width=False):
+        st.caption("Create a new AnalysisSeries and add it immediately.")
+        col_p, col_sp = st.columns(2)
+        with col_p:
+            param_names = [p["parameter_name"] for p in _parameters]
+            sel_param = st.selectbox(
+                "Parameter *", options=param_names, index=None, key="lab_quick_param"
+            )
+        with col_sp:
+            sp_labels = [s["label"] for s in _sp]
+            sel_sp = st.selectbox(
+                "Sampling point *", options=sp_labels, index=None, key="lab_quick_sp"
+            )
+        col_u, col_pk = st.columns(2)
+        with col_u:
+            unit_names = [u["unit"] for u in _units]
+            sel_unit = st.selectbox(
+                "Unit *", options=unit_names, index=None, key="lab_quick_unit"
+            )
+        with col_pk:
+            vk_opts = {"Scalar": 1, "Vector": 2, "Matrix": 3, "Image": 4}
+            sel_vk = st.selectbox(
+                "Value kind *",
+                options=list(vk_opts.keys()),
+                index=0,
+                key="lab_quick_vk",
+            )
+        pk_opts = {
+            pk["processing_kind_id"]: pk.get("name", str(pk["processing_kind_id"]))
+            for pk in _processing_kinds
+        }
+        sel_pk_id = st.selectbox(
+            "Processing kind",
+            options=list(pk_opts.values()),
+            index=0,
+            key="lab_quick_pk",
+        )
+        _pk_id_map = {v: k for k, v in pk_opts.items()}
+        auto_name = _auto_series_name(sel_param, sel_sp)
+        series_name = st.text_input(
+            "Series name",
+            value=auto_name or "Custom series",
+            key="lab_quick_series_name",
+        )
+
+        if st.button("Create & Add", type="primary", key="lab_quick_create"):
+            param_id = _param_name_to_id.get(sel_param or "")
+            sp_id = _sp_label_to_id.get(sel_sp or "")
+            unit_id = _unit_name_to_id.get(sel_unit or "")
+            vk_id = vk_opts.get(sel_vk, 1)
+            pk_id = _pk_id_map.get(sel_pk_id, 1)
+            if not (param_id and sp_id and unit_id and series_name):
+                st.error("Parameter, sampling point, unit, and name are required.")
+            else:
+                try:
+                    result = create_analysis_series(
+                        {
+                            "name": series_name,
+                            "parameter_id": param_id,
+                            "sampling_point_id": sp_id,
+                            "unit_id": unit_id,
+                            "value_kind_id": vk_id,
+                            "processing_kind_id": pk_id,
+                        }
+                    )
+                    new_id = result["analysis_series_id"]
+                    sess["series"].append(
+                        {
+                            "analysis_series_id": new_id,
+                            "name": series_name,
+                            "parameter_id": param_id,
+                            "sampling_point_id": sp_id,
+                            "unit_id": unit_id,
+                            "value_kind_id": vk_id,
+                            "processing_kind_id": pk_id,
+                        }
+                    )
+                    st.success(f"Series {new_id} added.")
+                    st.rerun()
+                except APIError as e:
+                    st.error(f"Create failed: {e.message}")
+
+
+def _render_series_table(sess: dict) -> None:
+    """Display the currently assigned series with remove buttons."""
+    for i, s in enumerate(sess["series"]):
+        pk = next(
+            (
+                p["parameter_name"]
+                for p in _parameters
+                if p["parameter_id"] == s.get("parameter_id")
+            ),
+            "?",
+        )
+        sp_label = next(
+            (
+                sp["label"]
+                for sp in _sp
+                if sp["sampling_point_id"] == s.get("sampling_point_id")
+            ),
+            "?",
+        )
+        unit = next(
+            (u["unit"] for u in _units if u["unit_id"] == s.get("unit_id")), "?"
+        )
+        vk = _VALUE_KIND_LABELS.get(s.get("value_kind_id", 1), "?")
+        col_a, col_b, col_c = st.columns([4, 1, 1])
+        with col_a:
+            st.caption(f"**{s.get('name', '')}** — {pk} @ {sp_label} ({unit}, {vk})")
+        with col_b:
+            st.caption(f"ID: {s.get('analysis_series_id', '')}")
+        with col_c:
+            if st.button(
+                "🗑️",
+                key=f"lab_remove_series_{i}",
+                help="Remove series from this session",
+            ):
+                sess["series"].pop(i)
+                # Also clean up any measurements for this series index
+                if str(i) in sess["measurements"]:
+                    del sess["measurements"][str(i)]
+                st.rerun()
+
+
+def _render_add_series_row(sess: dict) -> None:
+    """Inline add-series control."""
+    already_ids = {
+        s["analysis_series_id"] for s in sess["series"] if s.get("analysis_series_id")
+    }
+    available = [o for o in _all_series if o["analysis_series_id"] not in already_ids]
+    if not available:
+        return
+    opts = [{"id": None, "label": "— select —"}] + [
+        {
+            "id": a["analysis_series_id"],
+            "label": f"{a.get('name', '')} — {a.get('parameter_name', '')} @ {a.get('sampling_point_label', '')}",
+        }
+        for a in available
+    ]
+    sel = st.selectbox(
+        "Add existing series",
+        options=[o["label"] for o in opts],
+        index=0,
+        key="lab_add_series_sel",
+    )
+    s_id = next((o["id"] for o in opts if o["label"] == sel), None)
+    if s_id:
+        # Find full dict
+        found = next((a for a in _all_series if a["analysis_series_id"] == s_id), None)
+        if found and s_id not in already_ids:
+            sess["series"].append(dict(found))
+            st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Step 2: Sample
+# ---------------------------------------------------------------------------
+
+
+def _render_sample_step() -> None:
+    sess = st.session_state.lab_session
+
+    sample_mode = st.radio(
+        "Sample",
+        ["Create new sample", "Use existing sample"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="lab_sample_mode",
+    )
+    sess["sample_mode"] = "new" if sample_mode == "Create new sample" else "existing"
+
+    if sess["sample_mode"] == "existing":
+        _use_existing_sample(sess)
+    else:
+        _create_new_sample(sess)
+
+    if sess.get("sample_id"):
+        st.info(f"Sample ID: **{sess['sample_id']}**")
+
+
+def _use_existing_sample(sess: dict) -> None:
+    sess["sample_id"] = None
+    opts = [{"id": None, "label": "— none —"}] + [
+        {"id": s["sample_id"], "label": s["label"]} for s in _samples
+    ]
+    sel = st.selectbox(
+        "Select sample",
+        options=[o["label"] for o in opts],
+        index=0,
+        key="lab_use_sample_sel",
+    )
+    sess["sample_id"] = next((o["id"] for o in opts if o["label"] == sel), None)
+
+
+def _create_new_sample(sess: dict) -> None:
+    col1, col2 = st.columns(2)
+    with col1:
+        sel_sp = st.selectbox(
+            "Sampling point *",
+            options=[s["label"] for s in _sp],
+            index=None,
+            placeholder="Select sampling point...",
+            key="lab_sample_sp",
+        )
+        sess["sample_sp_id"] = _sp_label_to_id.get(sel_sp or "") if sel_sp else None
+    with col2:
+        # Sample collection kind
+        ck_opts = [{"id": None, "label": "— none —"}] + [
+            {
+                "id": c.get("sample_collection_kind_id") or c.get("id"),
+                "label": c.get("name", str(c)),
+            }
+            for c in _collection_kinds
+        ]
+        sel_ck = st.selectbox(
+            "Collection kind",
+            options=[o["label"] for o in ck_opts],
+            index=0,
+            key="lab_sample_ck",
+        )
+        sess["sample_collection_kind_id"] = next(
+            (o["id"] for o in ck_opts if o["label"] == sel_ck), None
+        )
+
+    col3, col4 = st.columns(2)
+    with col3:
+        eq_opts = [{"id": None, "label": "— none —"}] + [
+            {
+                "id": e.get("equipment_id") or e.get("id"),
+                "label": e.get("identifier", str(e)),
+            }
+            for e in _equipment
+        ]
+        sel_eq = st.selectbox(
+            "Equipment",
+            options=[o["label"] for o in eq_opts],
+            index=0,
+            key="lab_sample_eq",
+        )
+        sess["sample_equipment_id"] = next(
+            (o["id"] for o in eq_opts if o["label"] == sel_eq), None
+        )
+    with col4:
+        camp_opts = [{"id": None, "label": "— none —"}] + [
+            {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
+        ]
+        sel_camp = st.selectbox(
+            "Campaign (optional)",
+            options=[o["label"] for o in camp_opts],
+            index=0,
+            key="lab_sample_camp",
+        )
+        sess["sample_campaign_id"] = next(
+            (o["id"] for o in camp_opts if o["label"] == sel_camp), None
+        )
+
+    col5, col6 = st.columns(2)
+    with col5:
+        start_date = st.date_input(
+            "Start date *", value=datetime.now(), key="lab_sample_start_date"
+        )
+        start_time = st.time_input(
+            "Start time *", value=time(12, 0), key="lab_sample_start_time"
+        )
+        sess["sample_start"] = datetime.combine(start_date, start_time)
+    with col6:
+        end_date = st.date_input(
+            "End date (optional)", value=None, key="lab_sample_end_date"
+        )
+        end_time = st.time_input(
+            "End time (optional)", value=None, key="lab_sample_end_time"
+        )
+        if end_date and end_time:
+            sess["sample_end"] = datetime.combine(end_date, end_time)
         else:
-            parsed_value = None
+            sess["sample_end"] = None
 
-        measurements.append({
-            "parameter_id": param_id,
-            "sampling_point_id": sp_id,
-            "unit_id": unit_id,
-            "value_kind_id": value_kind_id,
-            "processing_kind_id": shared_pk_id,
-            "series_name": series,
-            "sample_id": sample_id,
-            "value": parsed_value,
-            "laboratory_id": shared_lab_id,
-            "analyst_person_id": shared_analyst_id,
-            "procedure_id": shared_proc_id,
-            "replicate": int(row.get("replicate") or 1),
-            "quality_code_id": row.get("quality_code_id"),
-            "notes": row.get("notes") or None,
-        })
-    return measurements, errors
+    sess["sample_description"] = st.text_area(
+        "Description (optional)",
+        value=sess.get("sample_description", ""),
+        max_chars=500,
+        key="lab_sample_desc",
+    )
+
+    person_opts = [{"id": None, "label": "— none —"}] + [
+        {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))}
+        for p in _persons
+    ]
+    sel_person = st.selectbox(
+        "Sampled by",
+        options=[o["label"] for o in person_opts],
+        index=0,
+        key="lab_sample_person",
+    )
+    sess["sample_sampled_by_id"] = next(
+        (o["id"] for o in person_opts if o["label"] == sel_person), None
+    )
+
+    if st.button("Create Sample", type="secondary", key="lab_create_sample_btn"):
+        if sess["sample_sp_id"] is None:
+            st.error("Sampling point is required.")
+        else:
+            try:
+                result = create_sample(
+                    {
+                        "sampling_point_id": sess["sample_sp_id"],
+                        "campaign_id": sess["sample_campaign_id"],
+                        "sample_datetime_start": sess["sample_start"].isoformat(),
+                        "sample_datetime_end": sess["sample_end"].isoformat()
+                        if sess["sample_end"]
+                        else None,
+                        "sample_collection_kind_id": sess["sample_collection_kind_id"],
+                        "sample_equipment_id": sess["sample_equipment_id"],
+                        "description": sess["sample_description"] or None,
+                        "sampled_by_person_id": sess["sample_sampled_by_id"],
+                    }
+                )
+                sess["sample_id"] = result["sample_id"]
+                st.success(f"Sample {result['sample_id']} created.")
+            except APIError as e:
+                st.error(f"Failed to create sample: {e.message}")
 
 
-def _submit_lab(rows: list[dict], value_kind_id: int) -> None:
-    """Validate, build payload, call ingest_lab, show result."""
-    if not exp_name:
+# ---------------------------------------------------------------------------
+# Step 3: Measurement Values
+# ---------------------------------------------------------------------------
+
+
+def _render_measurement_step() -> None:
+    sess = st.session_state.lab_session
+    series = sess.get("series", [])
+
+    if not series:
+        st.caption(
+            "Assign at least one AnalysisSeries in Step 1 before entering measurements."
+        )
+        return
+
+    if sess.get("sample_id") is None:
+        st.caption("Create or select a sample in Step 2 before entering measurements.")
+        return
+
+    tab_labels = [_series_short_label(s) for s in series]
+    tabs = st.tabs(tab_labels)
+
+    for i, tab in enumerate(tabs):
+        with tab:
+            _render_series_tab(sess, series[i], i)
+
+
+def _render_series_tab(sess: dict, series_item: dict, idx: int) -> None:
+    """Render one tab: data editor for measurements of a single series."""
+    s_key = str(idx)
+
+    # Ensure measurements list exists for this series
+    if s_key not in sess["measurements"]:
+        sess["measurements"][s_key] = []
+
+    rows = sess["measurements"][s_key]
+    vk = series_item.get("value_kind_id", 1)
+
+    # Show series identity
+    pk = next(
+        (
+            p["parameter_name"]
+            for p in _parameters
+            if p["parameter_id"] == series_item.get("parameter_id")
+        ),
+        "?",
+    )
+    unit = next(
+        (u["unit"] for u in _units if u["unit_id"] == series_item.get("unit_id")),
+        "?",
+    )
+    st.caption(
+        f"**{series_item.get('name', '')}** — {pk}  |  Unit: {unit}  |  "
+        f"Kind: {_VALUE_KIND_LABELS.get(vk, '?')}"
+    )
+
+    if vk == 4:  # Image — different handling
+        _render_image_tab(sess, series_item, idx)
+        return
+
+    # Build a dataframe from rows for the data editor
+    if rows:
+        df = pd.DataFrame(rows)
+    else:
+        df = pd.DataFrame(columns=["value", "replicate", "quality_code_id", "notes"])
+
+    # Ensure all columns exist
+    for col in ["value", "replicate", "quality_code_id", "notes"]:
+        if col not in df.columns:
+            df[col] = None
+
+    # Column config for the data editor
+    col_config = {
+        "value": st.column_config.NumberColumn(
+            "Value *",
+            required=True,
+            default=None,
+        ),
+        "replicate": st.column_config.NumberColumn(
+            "Replicate",
+            default=1,
+            min_value=1,
+        ),
+        "quality_code_id": st.column_config.NumberColumn(
+            "Quality Code",
+            default=None,
+            min_value=0,
+        ),
+        "notes": st.column_config.TextColumn("Notes"),
+    }
+    # For vector/matrix, value is text (comma/semicolon-separated)
+    if vk in (2, 3):
+        col_config["value"] = st.column_config.TextColumn(
+            "Value *",
+            required=True,
+            default=None,
+            placeholder="e.g. 12.4,10.1,8.9" if vk == 2 else "rows as CSV",
+        )
+
+    edited = st.data_editor(
+        df,
+        column_config=col_config,
+        use_container_width=True,
+        num_rows="dynamic",
+        key=f"lab_measure_editor_{idx}",
+    )
+
+    # Sync back to session
+    if not edited.empty:
+        # Drop fully empty rows (all NaN)
+        edited = edited.dropna(how="all")
+        sess["measurements"][s_key] = edited.to_dict("records")
+    else:
+        sess["measurements"][s_key] = []
+
+
+def _render_image_tab(sess: dict, _series_item: dict, idx: int) -> None:
+    """Simple image upload for Image value-kind series."""
+    uploaded = st.file_uploader(
+        "Select image file(s)",
+        type=["jpg", "jpeg", "png", "tif", "tiff", "bmp"],
+        accept_multiple_files=True,
+        key=f"lab_img_upload_{idx}",
+    )
+
+    if uploaded:
+        st.caption(f"{len(uploaded)} file(s) selected — replicate 1…{len(uploaded)}")
+        cols = st.columns(min(len(uploaded), 4))
+        for i_, f_ in enumerate(uploaded):
+            with cols[i_ % 4]:
+                st.image(f_, caption=f_.name, width=120)
+
+        sess["measurements"][str(idx)] = [
+            {"file": f_, "replicate": i_ + 1} for i_, f_ in enumerate(uploaded)
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Submit
+# ---------------------------------------------------------------------------
+
+
+def _render_submit() -> None:
+    sess = st.session_state.lab_session
+
+    if not sess.get("series"):
+        st.button(
+            "Submit", disabled=True, help="Assign at least one AnalysisSeries first."
+        )
+        return
+    if not sess.get("sample_id"):
+        st.button("Submit", disabled=True, help="Create or select a sample first.")
+        return
+
+    total_measurements = sum(len(v) for v in sess["measurements"].values())
+    st.caption(
+        f"Ready: {len(sess['series'])} series, {total_measurements} measurement row(s)."
+    )
+
+    col_a, col_b = st.columns([1, 1])
+    with col_a:
+        submitted = st.button(
+            "✅  Submit Experiment", type="primary", use_container_width=True
+        )
+    with col_b:
+        st.button("🔄  Clear form", on_click=_reset_form, use_container_width=True)
+
+    if submitted:
+        _do_submit(sess)
+
+
+def _do_submit(sess: dict) -> None:
+    """Build LabIngestRequest and call the API."""
+    if sess["mode"] == "new" and not sess.get("name"):
         st.error("Experiment name is required.")
         return
-    if sample_id is None:
-        st.error("A sample must be selected or created before submitting.")
+
+    measurements = []
+    for s_key, rows in sess["measurements"].items():
+        try:
+            idx = int(s_key)
+        except (ValueError, TypeError):
+            continue
+        if idx >= len(sess["series"]):
+            continue
+        series_item = sess["series"][idx]
+
+        for row in rows:
+            if row.get("file"):
+                # Image row — handled separately
+                continue
+            value = row.get("value")
+            vk = series_item.get("value_kind_id", 1)
+            measurements.append(
+                {
+                    "parameter_id": series_item["parameter_id"],
+                    "sampling_point_id": series_item["sampling_point_id"],
+                    "unit_id": series_item["unit_id"],
+                    "value_kind_id": vk,
+                    "processing_kind_id": series_item.get("processing_kind_id", 1),
+                    "series_name": series_item.get("name", ""),
+                    "sample_id": sess["sample_id"],
+                    "value": value,
+                    "replicate": row.get("replicate", 1),
+                    "quality_code_id": row.get("quality_code_id"),
+                    "notes": row.get("notes"),
+                }
+            )
+
+    if not measurements:
+        st.error("No scalar/vector/matrix measurements to submit.")
         return
 
-    measurements, errors = _build_measurements(rows, value_kind_id)
-    if errors:
-        for err in errors:
-            st.error(err)
-        return
-    if not measurements:
-        st.error("No valid measurement rows found. Fill in at least one row.")
-        return
+    exp_name = sess.get("name", "")
+    if sess["mode"] == "existing" and sess.get("experiment_id"):
+        # Lookup name from the selected experiment
+        for e in _experiments:
+            if e["lab_experiment_id"] == sess["experiment_id"]:
+                exp_name = e.get("name", "")
+                break
+    if sess["mode"] == "template":
+        exp_name = f"From {exp_name}" if exp_name else "From Template"
 
     payload = {
-        "name": exp_name,
-        "experiment_datetime": exp_datetime.isoformat(),
-        "campaign_id": exp_campaign_id,
-        "description": exp_description or None,
-        "created_by_person_id": exp_person_id,
+        "name": exp_name or f"Lab-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+        "experiment_datetime": sess.get("datetime", datetime.now()).isoformat(),
+        "campaign_id": sess.get("campaign_id"),
+        "description": sess.get("description") or None,
+        "created_by_person_id": sess.get("created_by_person_id"),
         "measurements": measurements,
     }
+
     try:
         with st.spinner("Submitting..."):
             result = ingest_lab(payload)
@@ -403,243 +847,71 @@ def _submit_lab(rows: list[dict], value_kind_id: int) -> None:
     except APIError as e:
         st.error(f"Ingest failed: {e.message}")
 
+    # Handle image uploads separately
+    for s_key, rows in sess["measurements"].items():
+        try:
+            idx = int(s_key)
+        except (ValueError, TypeError):
+            continue
+        if idx >= len(sess["series"]):
+            continue
+        series_item = sess["series"][idx]
+        if series_item.get("value_kind_id") != 4:
+            continue
+        image_rows = [r for r in rows if r.get("file")]
+        if not image_rows:
+            continue
+
+        image_files = [(r["file"].name, r["file"].read()) for r in image_rows]
+        try:
+            with st.spinner("Uploading images..."):
+                result_img = ingest_lab_image(
+                    name=payload["name"],
+                    experiment_datetime=payload["experiment_datetime"],
+                    sample_id=sess["sample_id"],
+                    parameter_id=series_item["parameter_id"],
+                    sampling_point_id=series_item["sampling_point_id"],
+                    unit_id=series_item["unit_id"],
+                    series_name=series_item.get("name", ""),
+                    image_files=image_files,
+                    processing_kind_id=series_item.get("processing_kind_id", 1),
+                    campaign_id=sess.get("campaign_id"),
+                    description=sess.get("description") or None,
+                    created_by_person_id=sess.get("created_by_person_id"),
+                    quality_code=None,
+                    notes=None,
+                )
+            st.success(
+                f"✅ {result_img['rows_written']} image(s) stored. "
+                f"Experiment ID: {result_img['lab_experiment_id']}"
+            )
+            for path in result_img.get("storage_paths", []):
+                st.caption(f"Stored at: {path}")
+        except APIError as e:
+            st.error(f"Image upload failed: {e.message}")
+
 
 # ---------------------------------------------------------------------------
-# Section D — Measurement tabs
+# Main layout
 # ---------------------------------------------------------------------------
 
-tab_scalar, tab_vector, tab_matrix, tab_image = st.tabs(["Scalar", "Vector", "Matrix", "Image"])
+st.title("Lab Analysis Ingest")
+st.markdown("Record laboratory analysis results. Expand each section, then submit.")
 
-# ---- Scalar ---------------------------------------------------------------
-with tab_scalar:
-    st.markdown("One numeric value per measurement.")
-    if "lab_scalar_rows" not in st.session_state:
-        st.session_state["lab_scalar_rows"] = [_default_row_scalar.copy()]
+with st.expander("**1. Experiment**", expanded=True):
+    _render_experiment_step()
 
-    edited_scalar = st.data_editor(
-        pd.DataFrame(st.session_state["lab_scalar_rows"]),
-        column_config={
-            "parameter_name": st.column_config.SelectboxColumn("Parameter *", options=_param_names),
-            "sampling_point_label": st.column_config.SelectboxColumn("Sampling Point *", options=_sp_labels),
-            "unit_name": st.column_config.SelectboxColumn("Unit *", options=_unit_names),
-            "series_name": st.column_config.TextColumn("Series name (auto if blank)"),
-            "value": st.column_config.NumberColumn("Value *"),
-            "replicate": st.column_config.NumberColumn("Replicate", min_value=1, default=1),
-            "quality_code_id": st.column_config.NumberColumn("Quality code"),
-            "notes": st.column_config.TextColumn("Notes"),
-        },
-        num_rows="dynamic",
-        use_container_width=True,
-        key="lab_scalar_editor",
-    )
-    if edited_scalar is not None:
-        st.session_state["lab_scalar_rows"] = edited_scalar.to_dict("records")
+with st.expander(
+    "**2. Sample**",
+    expanded=bool(st.session_state.lab_session.get("series")),
+):
+    _render_sample_step()
 
-    col_dup, col_sub = st.columns([1, 9])
-    with col_dup:
-        if st.button("Duplicate last", key="lab_scalar_dup"):
-            if st.session_state["lab_scalar_rows"]:
-                last = st.session_state["lab_scalar_rows"][-1].copy()
-                last["replicate"] = int(last.get("replicate") or 1) + 1
-                st.session_state["lab_scalar_rows"].append(last)
-                st.rerun()
-    with col_sub:
-        if st.button("Submit Scalar Experiment", type="primary", key="lab_scalar_submit"):
-            _submit_lab(st.session_state["lab_scalar_rows"], value_kind_id=1)
+with st.expander(
+    "**3. Measurement Values**",
+    expanded=bool(st.session_state.lab_session.get("sample_id")),
+):
+    _render_measurement_step()
 
-# ---- Vector ---------------------------------------------------------------
-with tab_vector:
-    st.markdown(
-        "One vector observation per row. Enter values as comma-separated floats, e.g. `1.2,3.4,5.6`."
-    )
-    if "lab_vector_rows" not in st.session_state:
-        st.session_state["lab_vector_rows"] = [_default_row_vector.copy()]
-
-    edited_vector = st.data_editor(
-        pd.DataFrame(st.session_state["lab_vector_rows"]),
-        column_config={
-            "parameter_name": st.column_config.SelectboxColumn("Parameter *", options=_param_names),
-            "sampling_point_label": st.column_config.SelectboxColumn("Sampling Point *", options=_sp_labels),
-            "unit_name": st.column_config.SelectboxColumn("Unit *", options=_unit_names),
-            "series_name": st.column_config.TextColumn("Series name (auto if blank)"),
-            "value": st.column_config.TextColumn("Values * (comma-separated)"),
-            "replicate": st.column_config.NumberColumn("Replicate", min_value=1, default=1),
-            "quality_code_id": st.column_config.NumberColumn("Quality code"),
-            "notes": st.column_config.TextColumn("Notes"),
-        },
-        num_rows="dynamic",
-        use_container_width=True,
-        key="lab_vector_editor",
-    )
-    if edited_vector is not None:
-        st.session_state["lab_vector_rows"] = edited_vector.to_dict("records")
-
-    col_dup, col_sub = st.columns([1, 9])
-    with col_dup:
-        if st.button("Duplicate last", key="lab_vector_dup"):
-            if st.session_state["lab_vector_rows"]:
-                last = st.session_state["lab_vector_rows"][-1].copy()
-                last["replicate"] = int(last.get("replicate") or 1) + 1
-                st.session_state["lab_vector_rows"].append(last)
-                st.rerun()
-    with col_sub:
-        if st.button("Submit Vector Experiment", type="primary", key="lab_vector_submit"):
-            _submit_lab(st.session_state["lab_vector_rows"], value_kind_id=2)
-
-# ---- Matrix ---------------------------------------------------------------
-with tab_matrix:
-    st.markdown(
-        "One 2D matrix observation per row. Format: rows separated by `;`, "
-        "columns by `,` — e.g. `1,2;3,4` is a 2×2 matrix."
-    )
-    if "lab_matrix_rows" not in st.session_state:
-        st.session_state["lab_matrix_rows"] = [_default_row_matrix.copy()]
-
-    edited_matrix = st.data_editor(
-        pd.DataFrame(st.session_state["lab_matrix_rows"]),
-        column_config={
-            "parameter_name": st.column_config.SelectboxColumn("Parameter *", options=_param_names),
-            "sampling_point_label": st.column_config.SelectboxColumn("Sampling Point *", options=_sp_labels),
-            "unit_name": st.column_config.SelectboxColumn("Unit *", options=_unit_names),
-            "series_name": st.column_config.TextColumn("Series name (auto if blank)"),
-            "value": st.column_config.TextColumn("Values * (rows=';', cols=',')"),
-            "replicate": st.column_config.NumberColumn("Replicate", min_value=1, default=1),
-            "quality_code_id": st.column_config.NumberColumn("Quality code"),
-            "notes": st.column_config.TextColumn("Notes"),
-        },
-        num_rows="dynamic",
-        use_container_width=True,
-        key="lab_matrix_editor",
-    )
-    if edited_matrix is not None:
-        st.session_state["lab_matrix_rows"] = edited_matrix.to_dict("records")
-
-    col_dup, col_sub = st.columns([1, 9])
-    with col_dup:
-        if st.button("Duplicate last", key="lab_matrix_dup"):
-            if st.session_state["lab_matrix_rows"]:
-                last = st.session_state["lab_matrix_rows"][-1].copy()
-                last["replicate"] = int(last.get("replicate") or 1) + 1
-                st.session_state["lab_matrix_rows"].append(last)
-                st.rerun()
-    with col_sub:
-        if st.button("Submit Matrix Experiment", type="primary", key="lab_matrix_submit"):
-            _submit_lab(st.session_state["lab_matrix_rows"], value_kind_id=3)
-
-# ---- Image ----------------------------------------------------------------
-with tab_image:
-    st.markdown(
-        "Upload one or more images. Multiple files = replicates of the same measurement "
-        "(each file gets its own LabAnalysis row with replicate index 1, 2, …)."
-    )
-    with st.container(border=True):
-        st.subheader("Image Measurement Identity")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            img_param = st.selectbox(
-                "Parameter *",
-                options=_param_names,
-                index=None,
-                placeholder="Select parameter...",
-                key="lab_img_param",
-            )
-            img_param_id = _param_name_to_id.get(img_param or "")
-        with col2:
-            img_sp = st.selectbox(
-                "Sampling point *",
-                options=_sp_labels,
-                index=None,
-                placeholder="Select sampling point...",
-                key="lab_img_sp",
-            )
-            img_sp_id = _sp_label_to_id.get(img_sp or "")
-        with col3:
-            img_unit = st.selectbox(
-                "Unit *",
-                options=_unit_names,
-                index=None,
-                placeholder="Select unit...",
-                key="lab_img_unit",
-            )
-            img_unit_id = _unit_name_to_id.get(img_unit or "")
-
-        auto_series = _auto_series_name(img_param, img_sp)
-        img_series_name = st.text_input(
-            "Series name",
-            value=auto_series,
-            placeholder=auto_series or "e.g. Turbidity@Inlet",
-            key="lab_img_series",
-        )
-        img_quality_code = st.number_input(
-            "Quality code (optional)", value=None, min_value=0, step=1, key="lab_img_qc"
-        )
-        img_notes = st.text_input("Notes (optional)", key="lab_img_notes")
-
-    uploaded_images = st.file_uploader(
-        "Select image file(s)",
-        type=["jpg", "jpeg", "png", "tif", "tiff", "bmp"],
-        accept_multiple_files=True,
-        key="lab_img_upload",
-    )
-
-    if uploaded_images:
-        st.caption(f"{len(uploaded_images)} file(s) selected — will be stored as replicate(s) 1…{len(uploaded_images)}.")
-        cols = st.columns(min(len(uploaded_images), 4))
-        for i, f in enumerate(uploaded_images):
-            with cols[i % 4]:
-                st.image(f, caption=f.name, width=120)
-
-        img_has_required = all([
-            exp_name,
-            sample_id is not None,
-            img_param_id,
-            img_sp_id,
-            img_unit_id,
-            img_series_name,
-        ])
-
-        if st.button(
-            "Upload Images",
-            type="primary",
-            key="lab_img_submit",
-            disabled=not img_has_required,
-        ):
-            if not exp_name:
-                st.error("Experiment name is required.")
-            elif sample_id is None:
-                st.error("A sample must be selected or created before submitting.")
-            elif img_param_id is None or img_sp_id is None or img_unit_id is None:
-                st.error("Parameter, sampling point, and unit are required.")
-            else:
-                image_files = [(f.name, f.read()) for f in uploaded_images]
-                try:
-                    with st.spinner("Uploading..."):
-                        result = ingest_lab_image(
-                            name=exp_name,
-                            experiment_datetime=exp_datetime.isoformat(),
-                            sample_id=sample_id,
-                            parameter_id=img_param_id,
-                            sampling_point_id=img_sp_id,
-                            unit_id=img_unit_id,
-                            series_name=img_series_name or auto_series,
-                            image_files=image_files,
-                            processing_kind_id=shared_pk_id,
-                            campaign_id=exp_campaign_id,
-                            description=exp_description or None,
-                            created_by_person_id=exp_person_id,
-                            laboratory_id=shared_lab_id,
-                            analyst_person_id=shared_analyst_id,
-                            procedure_id=shared_proc_id,
-                            quality_code=img_quality_code,
-                            notes=img_notes or None,
-                        )
-                    st.success(
-                        f"✅ {result['rows_written']} image(s) stored. "
-                        f"Experiment ID: {result['lab_experiment_id']}"
-                    )
-                    for path in result["storage_paths"]:
-                        st.caption(f"Stored at: {path}")
-                except APIError as e:
-                    st.error(f"Upload failed: {e.message}")
-    else:
-        st.info("Select one or more image files above to upload.")
+st.divider()
+_render_submit()

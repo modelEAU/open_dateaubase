@@ -195,6 +195,46 @@ def create_sampling_location(site_id: int, data: dict) -> dict:
     return r.json()
 
 
+def list_all_sampling_locations(
+    site_id: int | None = None,
+    process_unit_id: int | None = None,
+) -> list[dict]:
+    """Return sampling locations, optionally filtered by site and/or process unit."""
+    params: dict = {}
+    if site_id is not None:
+        params["site_id"] = site_id
+    if process_unit_id is not None:
+        params["process_unit_id"] = process_unit_id
+    try:
+        with _get_client() as client:
+            r = client.get("/sites/sampling-locations", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def update_sampling_location(sp_id: int, data: dict) -> dict:
+    """Update a sampling location."""
+    try:
+        with _get_client() as client:
+            r = client.put(f"/sites/sampling-locations/{sp_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def delete_sampling_location(sp_id: int) -> None:
+    """Delete a sampling location."""
+    try:
+        with _get_client() as client:
+            r = client.delete(f"/sites/sampling-locations/{sp_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
 # ---------------------------------------------------------------------------
 # Equipment
 # ---------------------------------------------------------------------------
@@ -2448,3 +2488,122 @@ def get_audit_logs(
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     return r.json()
+
+
+
+# ---------------------------------------------------------------------------
+# Lab ingest lookups (experiments, series, templates)
+# ---------------------------------------------------------------------------
+
+
+def list_lab_experiments_lookup() -> list[dict]:
+    """Return recent LabExperiments for dropdown."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lab/experiments/lookup")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_lab_experiment_series(experiment_id: int) -> list[dict]:
+    """Return distinct AnalysisSeries used in a LabExperiment."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/ingest/lab/experiments/{experiment_id}/series")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_analysis_series_lookup() -> list[dict]:
+    """Return all AnalysisSeries for dropdown."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lab/analysis-series/lookup")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_analysis_series(data: dict) -> dict:
+    """Create a new AnalysisSeries. Returns {analysis_series_id}."""
+    try:
+        with _get_client() as client:
+            r = client.post("/ingest/lab/analysis-series", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def list_lab_experiment_templates() -> list[dict]:
+    """Return templates with series count."""
+    try:
+        with _get_client() as client:
+            r = client.get("/ingest/lab/templates")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_lab_experiment_template(template_id: int) -> dict:
+    """Return template with its series list."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/ingest/lab/templates/{template_id}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def create_lab_experiment_template(data: dict) -> dict:
+    """Create template with series. Returns {lab_experiment_template_id}."""
+    try:
+        with _get_client() as client:
+            r = client.post("/ingest/lab/templates", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def add_series_to_template(template_id: int, analysis_series_id: int) -> None:
+    """Add an AnalysisSeries to a template."""
+    try:
+        with _get_client() as client:
+            r = client.post(
+                f"/ingest/lab/templates/{template_id}/series",
+                json={"analysis_series_id": analysis_series_id},
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+def remove_series_from_template(template_id: int, analysis_series_id: int) -> None:
+    """Remove an AnalysisSeries from a template."""
+    try:
+        with _get_client() as client:
+            r = client.delete(
+                f"/ingest/lab/templates/{template_id}/series/{analysis_series_id}"
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+
+
+
+def list_sample_collection_kinds_lookup() -> list[dict]:
+    """Return sample collection kinds for dropdown (wrapper for consistency)."""
+    return list_sample_collection_kinds()
+
+
+def list_sample_kinds_lookup() -> list[dict]:
+    """Return sample kinds for dropdown (wrapper for consistency)."""
+    return list_sample_kinds()
