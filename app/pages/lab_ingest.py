@@ -183,6 +183,9 @@ def _render_experiment_step() -> None:
                 key="lab_template_sel",
             )
             t_id = next((o["id"] for o in opts if o["label"] == sel), None)
+            panel_name = next(
+                (t["name"] for t in _templates if t["lab_panel_id"] == t_id), ""
+            ) if t_id else ""
             if t_id and t_id != sess.get("template_id"):
                 sess["template_id"] = t_id
                 # Load template series
@@ -191,6 +194,9 @@ def _render_experiment_step() -> None:
                     sess["series"] = list(detail.get("series", []))
                 except APIError:
                     st.warning("Could not load template series.")
+                # Auto-populate name from panel + today's date
+                from datetime import date as _date
+                sess["name"] = f"{panel_name} — {_date.today().strftime('%Y-%m-%d')}"
             sess["experiment_id"] = None
 
         elif sess["mode"] == "existing":
@@ -221,7 +227,7 @@ def _render_experiment_step() -> None:
             sess["template_id"] = None
             sess["experiment_id"] = None
 
-    if sess["mode"] == "new":
+    if sess["mode"] in ("new", "panel"):
         col_a, col_b = st.columns(2)
         with col_a:
             sess["name"] = st.text_input(
@@ -778,7 +784,7 @@ def _render_submit() -> None:
 
 def _do_submit(sess: dict) -> None:
     """Build LabIngestRequest and call the API."""
-    if sess["mode"] == "new" and not sess.get("name"):
+    if sess["mode"] in ("new", "panel") and not sess.get("name"):
         st.error("Experiment name is required.")
         return
 
@@ -826,7 +832,7 @@ def _do_submit(sess: dict) -> None:
                 exp_name = e.get("name", "")
                 break
     if sess["mode"] == "panel":
-        exp_name = f"From {exp_name}" if exp_name else "From Template"
+        exp_name = sess.get("name") or exp_name
 
     payload = {
         "name": exp_name or f"Lab-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
@@ -834,6 +840,7 @@ def _do_submit(sess: dict) -> None:
         "campaign_id": sess.get("campaign_id"),
         "description": sess.get("description") or None,
         "created_by_person_id": sess.get("created_by_person_id"),
+        "lab_panel_id": sess.get("template_id") if sess["mode"] == "panel" else None,
         "measurements": measurements,
     }
 

@@ -76,6 +76,7 @@ class LabIngestRequest(BaseModel):
     campaign_id: int | None = None
     description: str | None = None
     created_by_person_id: int | None = None
+    lab_panel_id: int | None = None
     measurements: list[LabMeasurementItem]
 
     @field_validator("measurements")

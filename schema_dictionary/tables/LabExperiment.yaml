@@ -52,4 +52,12 @@ table:
         table: Person
         column: Person_ID
 
+    - name: LabPanel_ID
+      logical_type: integer
+      nullable: true
+      description: "LabPanel this experiment was derived from, if any. NULL for experiments created from scratch."
+      foreign_key:
+        table: LabPanel
+        column: LabPanel_ID
+
   primary_key: [LabExperiment_ID]

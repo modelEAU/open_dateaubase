@@ -672,6 +672,7 @@ Session container for lab work — groups heterogeneous LabAnalyses that were pe
 | ExperimentDateTime | DATETIME2(7) | - | ✓ | <span id="ExperimentDateTime"></span>UTC datetime when the session took place | Default: `SYSUTCDATETIME()` |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this experiment | - |
 | CreatedByPerson_ID | INT | - |  | <span id="CreatedByPerson_ID"></span>Person who recorded this experiment session | FK → [Person.Person_ID](#Person) |
+| LabPanel_ID | INT | - |  | <span id="LabPanel_ID"></span>LabPanel this experiment was derived from, if any. NULL for experiments created from scratch. | FK → [LabPanel.LabPanel_ID](#LabPanel) |
 
 <span id="LabPanel"></span>
 

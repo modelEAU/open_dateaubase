@@ -677,6 +677,7 @@ def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
         campaign_id=data.campaign_id,
         description=data.description,
         created_by_person_id=data.created_by_person_id,
+        lab_panel_id=data.lab_panel_id,
     )
 
     rows = 0

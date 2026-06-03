@@ -92,8 +92,24 @@ class TestInsertLabExperiment:
         assert exp_id == 11
         sql = _executed_sql(cursor)
         assert "INSERT INTO [dbo].[LabExperiment]" in sql
-        for col in ("[Name]", "[Campaign_ID]", "[ExperimentDateTime]", "[Description]", "[CreatedByPerson_ID]"):
+        for col in ("[Name]", "[Campaign_ID]", "[ExperimentDateTime]", "[Description]", "[CreatedByPerson_ID]", "[LabPanel_ID]"):
             assert col in sql
+        conn.commit.assert_called_once()
+
+    def test_inserts_with_lab_panel_id(self):
+        conn, cursor = _conn_with_fetchone([(22,)])
+        ts = datetime(2026, 5, 20, 9, 30, tzinfo=timezone.utc)
+
+        exp_id = ingestion_repository.insert_lab_experiment(
+            conn,
+            name="PSVD Weekly Panel — 2026-05-20",
+            experiment_datetime=ts,
+            lab_panel_id=5,
+        )
+
+        assert exp_id == 22
+        sql = _executed_sql(cursor)
+        assert "[LabPanel_ID]" in sql
         conn.commit.assert_called_once()
 
 

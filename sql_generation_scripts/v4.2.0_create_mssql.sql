@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v4.2.0
 -- Platform: mssql
--- Generated: 2026-06-03 19:10:58 UTC
+-- Generated: 2026-06-03 19:17:43 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -448,6 +448,7 @@ CREATE TABLE [dbo].[LabExperiment] (
     [ExperimentDateTime] DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     [Description] NVARCHAR(MAX),
     [CreatedByPerson_ID] INT,
+    [LabPanel_ID] INT,
     CONSTRAINT [PK_LabExperiment] PRIMARY KEY ([LabExperiment_ID])
 );
 
@@ -867,6 +868,7 @@ ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_AnalystPerson_ID]
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_Procedure_ID] FOREIGN KEY ([Procedure_ID]) REFERENCES [dbo].[Procedures] ([Procedure_ID]);
 ALTER TABLE [dbo].[LabExperiment] ADD CONSTRAINT [FK_LabExperiment_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
 ALTER TABLE [dbo].[LabExperiment] ADD CONSTRAINT [FK_LabExperiment_CreatedByPerson_ID] FOREIGN KEY ([CreatedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
+ALTER TABLE [dbo].[LabExperiment] ADD CONSTRAINT [FK_LabExperiment_LabPanel_ID] FOREIGN KEY ([LabPanel_ID]) REFERENCES [dbo].[LabPanel] ([LabPanel_ID]);
 ALTER TABLE [dbo].[LabPanel] ADD CONSTRAINT [FK_LabPanel_CreatedByPerson_ID] FOREIGN KEY ([CreatedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[LabPanelSeries] ADD CONSTRAINT [FK_LabPanelSeries_LabPanel_ID] FOREIGN KEY ([LabPanel_ID]) REFERENCES [dbo].[LabPanel] ([LabPanel_ID]);
 ALTER TABLE [dbo].[LabPanelSeries] ADD CONSTRAINT [FK_LabPanelSeries_AnalysisSeries_ID] FOREIGN KEY ([AnalysisSeries_ID]) REFERENCES [dbo].[AnalysisSeries] ([AnalysisSeries_ID]);

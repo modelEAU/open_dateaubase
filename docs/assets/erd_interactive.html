@@ -2474,6 +2474,15 @@
           "is_required": false,
           "fk_target": "Person.Person_ID",
           "description": "Person who recorded this experiment session"
+        },
+        {
+          "name": "LabPanel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "LabPanel.LabPanel_ID",
+          "description": "LabPanel this experiment was derived from, if any. NULL for experiments created from scratch."
         }
       ],
       "group_name": "Uncategorized",
@@ -5397,6 +5406,13 @@
       "to_table": "Person",
       "from_field": "CreatedByPerson_ID",
       "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabExperiment",
+      "to_table": "LabPanel",
+      "from_field": "LabPanel_ID",
+      "to_field": "LabPanel_ID",
       "relationship_type": null
     },
     {

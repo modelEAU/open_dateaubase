@@ -242,21 +242,23 @@ def insert_lab_experiment(
     campaign_id: int | None = None,
     description: str | None = None,
     created_by_person_id: int | None = None,
+    lab_panel_id: int | None = None,
 ) -> int:
     """Insert a LabExperiment row. Returns LabExperiment_ID."""
     cursor = conn.cursor()
     cursor.execute(
         """
         INSERT INTO [dbo].[LabExperiment]
-            ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID])
+            ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID], [LabPanel_ID])
         OUTPUT INSERTED.[LabExperiment_ID]
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         name,
         campaign_id,
         experiment_datetime,
         description,
         created_by_person_id,
+        lab_panel_id,
     )
     new_id: int = cursor.fetchone()[0]
     conn.commit()
