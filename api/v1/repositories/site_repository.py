@@ -329,6 +329,83 @@ def get_sampling_locations_for_site(
     ]
 
 
+def get_all_sampling_locations(
+    conn: pyodbc.Connection,
+    site_id: int | None = None,
+    process_unit_id: int | None = None,
+) -> list[dict]:
+    cursor = conn.cursor()
+    where_clauses = []
+    params: list = []
+    if site_id is not None:
+        where_clauses.append("sp.[Site_ID] = ?")
+        params.append(site_id)
+    if process_unit_id is not None:
+        where_clauses.append("sp.[ProcessUnit_ID] = ?")
+        params.append(process_unit_id)
+    where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    cursor.execute(
+        f"""
+        SELECT sp.[SamplingPoint_ID], sp.[SamplingPoint], sp.[Description],
+               sp.[LatitudeWGS84], sp.[LongitudeWGS84], sp.[Site_ID], s.[Name] AS SiteName,
+               sp.[ProcessUnit_ID], sp.[PicturePath]
+        FROM [dbo].[SamplingPoint] sp
+        LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
+        {where_sql}
+        ORDER BY sp.[SamplingPoint_ID]
+        """,
+        *params,
+    )
+    return [
+        {
+            "id": row[0],
+            "name": row[1],
+            "description": row[2],
+            "latitude": row[3],
+            "longitude": row[4],
+            "site_id": row[5],
+            "site_name": row[6],
+            "process_unit_id": row[7],
+            "picture_path": row[8],
+        }
+        for row in cursor.fetchall()
+    ]
+
+
+def update_sampling_location(
+    conn: pyodbc.Connection, sp_id: int, data: dict
+) -> dict | None:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE [dbo].[SamplingPoint]
+        SET [SamplingPoint]=?, [Description]=?, [LatitudeWGS84]=?, [LongitudeWGS84]=?,
+            [ProcessUnit_ID]=?
+        WHERE [SamplingPoint_ID]=?
+        """,
+        data["name"],
+        data.get("description"),
+        data.get("latitude"),
+        data.get("longitude"),
+        data.get("process_unit_id"),
+        sp_id,
+    )
+    conn.commit()
+    if cursor.rowcount == 0:
+        return None
+    rows = get_all_sampling_locations(conn)
+    return next((r for r in rows if r["id"] == sp_id), None)
+
+
+def delete_sampling_location(conn: pyodbc.Connection, sp_id: int) -> bool:
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM [dbo].[SamplingPoint] WHERE [SamplingPoint_ID]=?", sp_id
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def update_sampling_location_picture(
     conn: pyodbc.Connection, sp_id: int, path: str | None
 ) -> None:

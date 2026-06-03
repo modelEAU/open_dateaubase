@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 
 from api.config import settings
@@ -21,8 +21,38 @@ from ..schemas.metadata import (
     SiteKindIn,
     SiteKindOut,
 )
+from typing import Optional
 
 router = APIRouter()
+
+
+@router.get("/sampling-locations", response_model=list[SamplingLocationOut])
+def list_all_sampling_locations(
+    site_id: Optional[int] = Query(None),
+    process_unit_id: Optional[int] = Query(None),
+    conn=Depends(get_db),
+):
+    """Return sampling locations, optionally filtered by site and/or process unit."""
+    return site_repository.get_all_sampling_locations(
+        conn, site_id=site_id, process_unit_id=process_unit_id
+    )
+
+
+@router.put("/sampling-locations/{sp_id}", response_model=SamplingLocationOut)
+def update_sampling_location(sp_id: int, body: SamplingLocationIn, conn=Depends(get_db)):
+    """Update a sampling location by ID."""
+    updated = site_repository.update_sampling_location(conn, sp_id, body.model_dump())
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"Sampling location {sp_id} not found.")
+    return updated
+
+
+@router.delete("/sampling-locations/{sp_id}", status_code=204)
+def delete_sampling_location(sp_id: int, conn=Depends(get_db)):
+    """Delete a sampling location by ID."""
+    deleted = site_repository.delete_sampling_location(conn, sp_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Sampling location {sp_id} not found.")
 
 
 @router.get("", response_model=list[SiteOut])
