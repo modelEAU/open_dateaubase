@@ -2480,6 +2480,87 @@
       "group_color": "#6b7280"
     },
     {
+      "id": "LabExperimentTemplate",
+      "label": "LabExperimentTemplate",
+      "description": "Reusable recipe that defines which AnalysisSeries belong together in a lab experiment session. Copy-on-use: creating a LabExperiment from a template copies the series list into session state; the published experiment is fully independent of the template.\n",
+      "fields": [
+        {
+          "name": "LabExperimentTemplate_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable template name (e.g. 'PSVD Weekly Panel')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text description of the template's purpose"
+        },
+        {
+          "name": "CreatedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who created this template"
+        },
+        {
+          "name": "CreatedAt",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "When this template was created (UTC)"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "LabExperimentTemplateSeries",
+      "label": "LabExperimentTemplateSeries",
+      "description": "Junction table linking a LabExperimentTemplate to the AnalysisSeries it prescribes. When a user creates an experiment \"from template\", all series listed here are pre-populated into the session.\n",
+      "fields": [
+        {
+          "name": "LabExperimentTemplate_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "LabExperimentTemplate.LabExperimentTemplate_ID",
+          "description": "References the template (FK)"
+        },
+        {
+          "name": "AnalysisSeries_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "AnalysisSeries.AnalysisSeries_ID",
+          "description": "References an analysis series to include in the template"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
       "id": "Laboratory",
       "label": "Laboratory",
       "description": "A laboratory where discrete samples are analysed. May be on-site or external.",
@@ -5316,6 +5397,27 @@
       "to_table": "Person",
       "from_field": "CreatedByPerson_ID",
       "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabExperimentTemplate",
+      "to_table": "Person",
+      "from_field": "CreatedByPerson_ID",
+      "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabExperimentTemplateSeries",
+      "to_table": "LabExperimentTemplate",
+      "from_field": "LabExperimentTemplate_ID",
+      "to_field": "LabExperimentTemplate_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabExperimentTemplateSeries",
+      "to_table": "AnalysisSeries",
+      "from_field": "AnalysisSeries_ID",
+      "to_field": "AnalysisSeries_ID",
       "relationship_type": null
     },
     {
