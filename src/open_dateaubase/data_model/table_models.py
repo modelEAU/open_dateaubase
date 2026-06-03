@@ -159,29 +159,29 @@ class Observation(ObservationBase):
     )
 
 
-class SampleMethodBase(BaseModel):
+class SampleCollectionKindBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    samplemethodID: int = Field(
-        alias="SampleMethod_ID", description="Surrogate primary key, manually assigned"
+    samplecollectionkindID: int = Field(
+        alias="SampleCollectionKind_ID", description="Surrogate primary key, manually assigned"
     )
     name: str = Field(
         alias="Name",
-        description="Collection method name (e.g. 'Grab', 'Composite24h')",
+        description="Collection kind name (e.g. 'Grab', 'Composite24h')",
         max_length=50,
     )
     description: Optional[str] = Field(
         alias="Description",
-        description="Explanation of the collection method",
+        description="Explanation of the collection kind",
         max_length=200,
     )
 
 
-class SampleMethodCreate(SampleMethodBase):
+class SampleCollectionKindCreate(SampleCollectionKindBase):
     pass
 
 
-class SampleMethod(SampleMethodBase):
+class SampleCollectionKind(SampleCollectionKindBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
@@ -1303,9 +1303,10 @@ class SampleBase(BaseModel):
         alias="SampleDateTimeEnd",
         description="Date and time sampling ended (UTC). NULL for instantaneous grab samples.",
     )
-    samplemethodID: Optional[int] = Field(
-        alias="SampleMethod_ID",
-        description="Method of sample collection (FK to SampleMethod lookup table)",
+    samplecollectionkindID: Optional[int] = Field(
+        default=None,
+        alias="SampleCollectionKind_ID",
+        description="How the sample was collected (FK to SampleCollectionKind lookup table)",
     )
     sampleequipmentID: Optional[int] = Field(
         alias="SampleEquipment_ID",
@@ -1444,6 +1445,63 @@ class LabExperiment(LabExperimentBase):
         alias="LabExperiment_ID", description="Surrogate primary key"
     )
 
+
+
+class LabExperimentTemplateBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    name: str = Field(
+        alias="Name",
+        description="Human-readable template name (e.g. 'PSVD Weekly Panel')",
+        max_length=200,
+    )
+    description: Optional[str] = Field(
+        default=None,
+        alias="Description",
+        description="Free-text description of the template's purpose",
+    )
+    createdbypersonID: Optional[int] = Field(
+        default=None,
+        alias="CreatedByPerson_ID",
+        description="Person who created this template",
+    )
+    createdat: datetime = Field(
+        alias="CreatedAt",
+        description="When this template was created (UTC)",
+    )
+
+
+class LabExperimentTemplateCreate(LabExperimentTemplateBase):
+    pass
+
+
+class LabExperimentTemplate(LabExperimentTemplateBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    labexperimenttemplateID: int = Field(
+        alias="LabExperimentTemplate_ID", description="Surrogate primary key"
+    )
+
+
+class LabExperimentTemplateSeriesBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    labexperimenttemplateID: int = Field(
+        alias="LabExperimentTemplate_ID",
+        description="References the template",
+    )
+    analysisseriesID: int = Field(
+        alias="AnalysisSeries_ID",
+        description="References an analysis series to include in the template",
+    )
+
+
+class LabExperimentTemplateSeriesCreate(LabExperimentTemplateSeriesBase):
+    pass
+
+
+class LabExperimentTemplateSeries(LabExperimentTemplateSeriesBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 class SignalInterfaceBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

@@ -1,0 +1,27 @@
+_format_version: "1.0"
+table:
+  name: LabExperimentTemplateSeries
+  schema: dbo
+  description: >
+    Junction table linking a LabExperimentTemplate to the AnalysisSeries
+    it prescribes. When a user creates an experiment "from template", all
+    series listed here are pre-populated into the session.
+
+  columns:
+    - name: LabExperimentTemplate_ID
+      logical_type: integer
+      nullable: false
+      description: "References the template (FK)"
+      foreign_key:
+        table: LabExperimentTemplate
+        column: LabExperimentTemplate_ID
+
+    - name: AnalysisSeries_ID
+      logical_type: integer
+      nullable: false
+      description: "References an analysis series to include in the template"
+      foreign_key:
+        table: AnalysisSeries
+        column: AnalysisSeries_ID
+
+  primary_key: [LabExperimentTemplate_ID, AnalysisSeries_ID]

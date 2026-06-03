@@ -1,0 +1,45 @@
+_format_version: "1.0"
+table:
+  name: LabExperimentTemplate
+  schema: dbo
+  description: >
+    Reusable recipe that defines which AnalysisSeries belong together in a lab
+    experiment session. Copy-on-use: creating a LabExperiment from a template
+    copies the series list into session state; the published experiment is fully
+    independent of the template.
+
+  columns:
+    - name: LabExperimentTemplate_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 200
+      nullable: false
+      description: "Human-readable template name (e.g. 'PSVD Weekly Panel')"
+
+    - name: Description
+      logical_type: string
+      max_length: max
+      nullable: true
+      description: "Free-text description of the template's purpose"
+
+    - name: CreatedByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who created this template"
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+    - name: CreatedAt
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "When this template was created (UTC)"
+      default: "GETUTCDATE()"
+
+  primary_key: [LabExperimentTemplate_ID]
