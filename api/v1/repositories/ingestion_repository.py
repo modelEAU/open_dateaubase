@@ -234,6 +234,16 @@ def find_or_create_analysis_series(
     return new_id
 
 
+def lab_experiment_exists(conn: pyodbc.Connection, experiment_id: int) -> bool:
+    """Return True if a LabExperiment row with the given ID exists."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT 1 FROM [dbo].[LabExperiment] WHERE [LabExperiment_ID] = ?",
+        experiment_id,
+    )
+    return cursor.fetchone() is not None
+
+
 def insert_lab_experiment(
     conn: pyodbc.Connection,
     *,

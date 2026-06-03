@@ -202,3 +202,16 @@ class TestInsertLabObservation:
             assert "value_kind_id=4" in str(exc)
         else:
             raise AssertionError("expected ValueError for unsupported value_kind_id")
+
+
+class TestLabExperimentExists:
+    def test_returns_true_when_row_found(self):
+        conn, cursor = _conn_with_fetchone([(1,)])
+        assert ingestion_repository.lab_experiment_exists(conn, 42) is True
+        sql = _executed_sql(cursor)
+        assert "LabExperiment" in sql
+        assert "LabExperiment_ID" in sql
+
+    def test_returns_false_when_row_not_found(self):
+        conn, cursor = _conn_with_fetchone([None])
+        assert ingestion_repository.lab_experiment_exists(conn, 999) is False

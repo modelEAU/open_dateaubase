@@ -155,7 +155,7 @@ def _render_experiment_step() -> None:
     with col1:
         mode = st.radio(
             "Mode",
-            options=["New", "From panel", "Continue existing"],
+            options=["New", "From panel", "Add to existing"],
             horizontal=False,
             index=["new", "panel", "existing"].index(sess.get("mode", "new")),
             key="lab_mode",
@@ -163,7 +163,7 @@ def _render_experiment_step() -> None:
     _mode_map = {
         "New": "new",
         "From panel": "panel",
-        "Continue existing": "existing",
+        "Add to existing": "existing",
     }
     sess["mode"] = _mode_map.get(mode, "new")
 
@@ -221,7 +221,22 @@ def _render_experiment_step() -> None:
                     sess["series"] = list(series_list)
                 except APIError:
                     st.warning("Could not load experiment series.")
+            elif not e_id:
+                sess["experiment_id"] = None
             sess["template_id"] = None
+
+            # Show a read-only summary of the selected experiment
+            if sess.get("experiment_id"):
+                exp_meta = next(
+                    (e for e in _experiments if e["lab_experiment_id"] == sess["experiment_id"]),
+                    None,
+                )
+                if exp_meta:
+                    dt_str = str(exp_meta.get("experiment_datetime", ""))[:16]
+                    st.info(
+                        f"Appending to **{exp_meta['name']}** "
+                        f"(ID {exp_meta['lab_experiment_id']}, {dt_str})"
+                    )
 
         else:  # "new"
             sess["template_id"] = None
@@ -788,6 +803,10 @@ def _do_submit(sess: dict) -> None:
         st.error("Experiment name is required.")
         return
 
+    if sess["mode"] == "existing" and not sess.get("experiment_id"):
+        st.error("Select an experiment to append to.")
+        return
+
     measurements = []
     for s_key, rows in sess["measurements"].items():
         try:
@@ -824,31 +843,30 @@ def _do_submit(sess: dict) -> None:
         st.error("No scalar/vector/matrix measurements to submit.")
         return
 
-    exp_name = sess.get("name", "")
-    if sess["mode"] == "existing" and sess.get("experiment_id"):
-        # Lookup name from the selected experiment
-        for e in _experiments:
-            if e["lab_experiment_id"] == sess["experiment_id"]:
-                exp_name = e.get("name", "")
-                break
-    if sess["mode"] == "panel":
-        exp_name = sess.get("name") or exp_name
-
-    payload = {
-        "name": exp_name or f"Lab-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
-        "experiment_datetime": sess.get("datetime", datetime.now()).isoformat(),
-        "campaign_id": sess.get("campaign_id"),
-        "description": sess.get("description") or None,
-        "created_by_person_id": sess.get("created_by_person_id"),
-        "lab_panel_id": sess.get("template_id") if sess["mode"] == "panel" else None,
-        "measurements": measurements,
-    }
+    if sess["mode"] == "existing":
+        # Append to existing experiment — only pass experiment_id and measurements
+        payload: dict = {
+            "experiment_id": sess["experiment_id"],
+            "measurements": measurements,
+        }
+    else:
+        exp_name = sess.get("name", "")
+        payload = {
+            "name": exp_name or f"Lab-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+            "experiment_datetime": sess.get("datetime", datetime.now()).isoformat(),
+            "campaign_id": sess.get("campaign_id"),
+            "description": sess.get("description") or None,
+            "created_by_person_id": sess.get("created_by_person_id"),
+            "lab_panel_id": sess.get("template_id") if sess["mode"] == "panel" else None,
+            "measurements": measurements,
+        }
 
     try:
         with st.spinner("Submitting..."):
             result = ingest_lab(payload)
+        action_word = "updated" if sess["mode"] == "existing" else "created"
         st.success(
-            f"✅ Experiment **{result['lab_experiment_id']}** created — "
+            f"Experiment **{result['lab_experiment_id']}** {action_word} — "
             f"{result['rows_written']} observation(s) stored."
         )
     except APIError as e:

@@ -663,22 +663,34 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
 def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
     """Ingest one LabExperiment session worth of lab measurements.
 
-    Flow:
+    Flow (new experiment):
     1. Insert a single ``LabExperiment`` row (the session).
     2. For each measurement: find-or-create its ``AnalysisSeries``,
        insert a ``LabAnalysis`` row, then insert an ``Observation`` routed
        to ``Value`` / ``ValueVector`` / ``ValueMatrix`` based on the
        measurement's ``value_kind_id``.
+
+    Flow (existing experiment — ``experiment_id`` is set):
+    1. Verify the ``LabExperiment`` row exists; 404 if not.
+    2. Same per-measurement loop, appending to the existing session.
     """
-    lab_experiment_id = ingestion_repository.insert_lab_experiment(
-        conn,
-        name=data.name,
-        experiment_datetime=data.experiment_datetime,
-        campaign_id=data.campaign_id,
-        description=data.description,
-        created_by_person_id=data.created_by_person_id,
-        lab_panel_id=data.lab_panel_id,
-    )
+    if data.experiment_id is not None:
+        if not ingestion_repository.lab_experiment_exists(conn, data.experiment_id):
+            raise HTTPException(
+                status_code=404,
+                detail=f"LabExperiment {data.experiment_id} not found.",
+            )
+        lab_experiment_id = data.experiment_id
+    else:
+        lab_experiment_id = ingestion_repository.insert_lab_experiment(
+            conn,
+            name=data.name,  # type: ignore[arg-type]  # validated in model_post_init
+            experiment_datetime=data.experiment_datetime,  # type: ignore[arg-type]
+            campaign_id=data.campaign_id,
+            description=data.description,
+            created_by_person_id=data.created_by_person_id,
+            lab_panel_id=data.lab_panel_id,
+        )
 
     rows = 0
     for item in data.measurements:

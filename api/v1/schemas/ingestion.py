@@ -66,13 +66,22 @@ class LabMeasurementItem(BaseModel):
 class LabIngestRequest(BaseModel):
     """Ingest one LabExperiment session worth of lab measurements.
 
-    Creates a single ``LabExperiment`` row, then for each measurement
-    find-or-creates its ``AnalysisSeries``, inserts a ``LabAnalysis`` row, and
-    inserts an ``Observation`` routed to the appropriate payload table.
+    Two modes:
+    - New experiment (``experiment_id`` is None): ``name`` and
+      ``experiment_datetime`` are required; a new ``LabExperiment`` row is
+      created.
+    - Existing experiment (``experiment_id`` is set): measurements are appended
+      to the existing session; ``name`` / ``experiment_datetime`` /
+      ``campaign_id`` / ``description`` / ``created_by_person_id`` are ignored.
+
+    For each measurement: find-or-creates its ``AnalysisSeries``, inserts a
+    ``LabAnalysis`` row, and inserts an ``Observation`` routed to the
+    appropriate payload table.
     """
 
-    name: str
-    experiment_datetime: datetime
+    experiment_id: int | None = None
+    name: str | None = None
+    experiment_datetime: datetime | None = None
     campaign_id: int | None = None
     description: str | None = None
     created_by_person_id: int | None = None
@@ -85,6 +94,15 @@ class LabIngestRequest(BaseModel):
         if not v:
             raise ValueError("measurements list must not be empty")
         return v
+
+    def model_post_init(self, __context) -> None:  # type: ignore[override]
+        if self.experiment_id is None:
+            if not self.name:
+                raise ValueError("name is required when experiment_id is not provided")
+            if self.experiment_datetime is None:
+                raise ValueError(
+                    "experiment_datetime is required when experiment_id is not provided"
+                )
 
 
 class ProcessingInfo(BaseModel):
