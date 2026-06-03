@@ -549,6 +549,8 @@ def insert_sample(
     campaign_id: int | None,
     sample_datetime_start: datetime,
     sample_datetime_end: datetime | None,
+    sample_collection_kind_id: int | None = None,
+    sample_equipment_id: int | None = None,
     description: str | None,
 ) -> int:
     """Insert a Sample row. Returns Sample_ID."""
@@ -557,17 +559,351 @@ def insert_sample(
         """
         INSERT INTO [dbo].[Sample]
             ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID],
-             [SampleDateTimeStart], [SampleDateTimeEnd], [Description])
-        VALUES (?, ?, ?, ?, ?, ?)
-        SELECT @@IDENTITY
+             [SampleDateTimeStart], [SampleDateTimeEnd],
+             [SampleCollectionKind_ID], [SampleEquipment_ID],
+             [Description])
+        OUTPUT INSERTED.[Sample_ID]
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         sampling_point_id,
         sampled_by_person_id,
         campaign_id,
         sample_datetime_start,
         sample_datetime_end,
+        sample_collection_kind_id,
+        sample_equipment_id,
         description,
     )
     new_id: int = cursor.fetchone()[0]
     conn.commit()
     return new_id
+
+
+# ---------------------------------------------------------------------------
+# Lab experiment / series / template lookups
+# ---------------------------------------------------------------------------
+
+
+def list_lab_experiments_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return recent LabExperiments with series count for dropdowns."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT TOP 50
+            le.[LabExperiment_ID],
+            le.[Name],
+            le.[ExperimentDateTime],
+            (SELECT COUNT(DISTINCT la.[AnalysisSeries_ID])
+             FROM [dbo].[LabAnalysis] la
+             WHERE la.[LabExperiment_ID] = le.[LabExperiment_ID]) AS [SeriesCount]
+        FROM [dbo].[LabExperiment] le
+        ORDER BY le.[ExperimentDateTime] DESC
+        """
+    )
+    return [
+        {
+            "lab_experiment_id": r[0],
+            "name": r[1],
+            "experiment_datetime": r[2],
+            "series_count": r[3],
+        }
+        for r in cursor.fetchall()
+    ]
+
+
+def get_lab_experiment_series(
+    conn: pyodbc.Connection, lab_experiment_id: int
+) -> list[dict]:
+    """Return distinct AnalysisSeries used in a LabExperiment."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT DISTINCT
+            as_.[AnalysisSeries_ID],
+            as_.[Name],
+            as_.[Parameter_ID],
+            p.[Parameter] AS [ParameterName],
+            as_.[SamplingPoint_ID],
+            COALESCE(sp.[SamplingPoint], 'Point ' + CAST(sp.[SamplingPoint_ID] AS NVARCHAR)) AS [SamplingPointLabel],
+            as_.[Unit_ID],
+            u.[Unit],
+            as_.[ValueKind_ID],
+            as_.[ProcessingKind_ID],
+            pk.[Name] AS [ProcessingKindName]
+        FROM [dbo].[LabAnalysis] la
+        JOIN [dbo].[AnalysisSeries] as_ ON la.[AnalysisSeries_ID] = as_.[AnalysisSeries_ID]
+        JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
+        JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
+        JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
+        JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
+        WHERE la.[LabExperiment_ID] = ?
+        """,
+        lab_experiment_id,
+    )
+    return [
+        {
+            "analysis_series_id": r[0],
+            "name": r[1],
+            "parameter_id": r[2],
+            "parameter_name": r[3],
+            "sampling_point_id": r[4],
+            "sampling_point_label": r[5],
+            "unit_id": r[6],
+            "unit_name": r[7],
+            "value_kind_id": r[8],
+            "processing_kind_id": r[9],
+            "processing_kind_name": r[10],
+        }
+        for r in cursor.fetchall()
+    ]
+
+
+def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
+    """Return all AnalysisSeries for dropdown."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            as_.[AnalysisSeries_ID],
+            as_.[Name],
+            as_.[Parameter_ID],
+            p.[Parameter] AS [ParameterName],
+            as_.[SamplingPoint_ID],
+            COALESCE(sp.[SamplingPoint], 'Point ' + CAST(sp.[SamplingPoint_ID] AS NVARCHAR)) AS [SamplingPointLabel],
+            as_.[Unit_ID],
+            u.[Unit],
+            as_.[ValueKind_ID],
+            as_.[ProcessingKind_ID],
+            pk.[Name] AS [ProcessingKindName]
+        FROM [dbo].[AnalysisSeries] as_
+        JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
+        JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
+        JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
+        JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
+        ORDER BY as_.[Name]
+        """
+    )
+    return [
+        {
+            "analysis_series_id": r[0],
+            "name": r[1],
+            "parameter_id": r[2],
+            "parameter_name": r[3],
+            "sampling_point_id": r[4],
+            "sampling_point_label": r[5],
+            "unit_id": r[6],
+            "unit_name": r[7],
+            "value_kind_id": r[8],
+            "processing_kind_id": r[9],
+            "processing_kind_name": r[10],
+        }
+        for r in cursor.fetchall()
+    ]
+
+
+def create_analysis_series(
+    conn: pyodbc.Connection,
+    *,
+    parameter_id: int,
+    sampling_point_id: int,
+    unit_id: int,
+    value_kind_id: int = 1,
+    processing_kind_id: int = 1,
+    name: str,
+) -> int:
+    """Insert an AnalysisSeries row. Returns AnalysisSeries_ID.
+
+    Raises ValueError if a series with the same identity constraint
+    (Parameter_ID, SamplingPoint_ID, ValueKind_ID, ProcessingKind_ID) already exists.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT [AnalysisSeries_ID]
+        FROM [dbo].[AnalysisSeries]
+        WHERE [Parameter_ID] = ?
+          AND [SamplingPoint_ID] = ?
+          AND [ValueKind_ID] = ?
+          AND [ProcessingKind_ID] = ?
+        """,
+        parameter_id,
+        sampling_point_id,
+        value_kind_id,
+        processing_kind_id,
+    )
+    row = cursor.fetchone()
+    if row is not None:
+        raise ValueError(
+            f"AnalysisSeries already exists (ID={row[0]}) for "
+            f"Parameter={parameter_id}, SamplingPoint={sampling_point_id}, "
+            f"ValueKind={value_kind_id}, ProcessingKind={processing_kind_id}"
+        )
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[AnalysisSeries]
+            ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID],
+             [Unit_ID], [ProcessingKind_ID])
+        OUTPUT INSERTED.[AnalysisSeries_ID]
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        name,
+        parameter_id,
+        sampling_point_id,
+        value_kind_id,
+        unit_id,
+        processing_kind_id,
+    )
+    new_id: int = cursor.fetchone()[0]
+    conn.commit()
+    return new_id
+
+
+def list_lab_experiment_templates(conn: pyodbc.Connection) -> list[dict]:
+    """Return templates with series count."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            t.[LabExperimentTemplate_ID],
+            t.[Name],
+            t.[Description],
+            t.[CreatedByPerson_ID],
+            (SELECT COUNT(*) FROM [dbo].[LabExperimentTemplateSeries] ts
+             WHERE ts.[LabExperimentTemplate_ID] = t.[LabExperimentTemplate_ID]) AS [SeriesCount]
+        FROM [dbo].[LabExperimentTemplate] t
+        ORDER BY t.[Name]
+        """
+    )
+    return [
+        {
+            "lab_experiment_template_id": r[0],
+            "name": r[1],
+            "description": r[2],
+            "created_by_person_id": r[3],
+            "series_count": r[4],
+        }
+        for r in cursor.fetchall()
+    ]
+
+
+def get_template_series(
+    conn: pyodbc.Connection, template_id: int
+) -> list[dict]:
+    """Return series list for a template (joined with lookup names)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            as_.[AnalysisSeries_ID],
+            as_.[Name],
+            as_.[Parameter_ID],
+            p.[Parameter] AS [ParameterName],
+            as_.[SamplingPoint_ID],
+            COALESCE(sp.[SamplingPoint], 'Point ' + CAST(sp.[SamplingPoint_ID] AS NVARCHAR)) AS [SamplingPointLabel],
+            as_.[Unit_ID],
+            u.[Unit],
+            as_.[ValueKind_ID],
+            as_.[ProcessingKind_ID],
+            pk.[Name] AS [ProcessingKindName]
+        FROM [dbo].[LabExperimentTemplateSeries] ts
+        JOIN [dbo].[AnalysisSeries] as_ ON ts.[AnalysisSeries_ID] = as_.[AnalysisSeries_ID]
+        JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
+        JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
+        JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
+        JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
+        WHERE ts.[LabExperimentTemplate_ID] = ?
+        ORDER BY as_.[Name]
+        """,
+        template_id,
+    )
+    return [
+        {
+            "analysis_series_id": r[0],
+            "name": r[1],
+            "parameter_id": r[2],
+            "parameter_name": r[3],
+            "sampling_point_id": r[4],
+            "sampling_point_label": r[5],
+            "unit_id": r[6],
+            "unit_name": r[7],
+            "value_kind_id": r[8],
+            "processing_kind_id": r[9],
+            "processing_kind_name": r[10],
+        }
+        for r in cursor.fetchall()
+    ]
+
+
+def create_lab_experiment_template(
+    conn: pyodbc.Connection,
+    *,
+    name: str,
+    description: str | None = None,
+    created_by_person_id: int | None = None,
+    series_ids: list[int],
+) -> int:
+    """Insert a template and its series rows in a transaction. Returns Template_ID."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[LabExperimentTemplate]
+            ([Name], [Description], [CreatedByPerson_ID])
+        OUTPUT INSERTED.[LabExperimentTemplate_ID]
+        VALUES (?, ?, ?)
+        """,
+        name,
+        description,
+        created_by_person_id,
+    )
+    template_id: int = cursor.fetchone()[0]
+    for sid in series_ids:
+        cursor.execute(
+            """
+            INSERT INTO [dbo].[LabExperimentTemplateSeries]
+                ([LabExperimentTemplate_ID], [AnalysisSeries_ID])
+            VALUES (?, ?)
+            """,
+            template_id,
+            sid,
+        )
+    conn.commit()
+    return template_id
+
+
+def add_series_to_template(
+    conn: pyodbc.Connection, template_id: int, analysis_series_id: int
+) -> None:
+    """Add an AnalysisSeries to a template. No-op if already present."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM [dbo].[LabExperimentTemplateSeries]
+            WHERE [LabExperimentTemplate_ID] = ? AND [AnalysisSeries_ID] = ?
+        )
+        INSERT INTO [dbo].[LabExperimentTemplateSeries]
+            ([LabExperimentTemplate_ID], [AnalysisSeries_ID])
+        VALUES (?, ?)
+        """,
+        template_id,
+        analysis_series_id,
+        template_id,
+        analysis_series_id,
+    )
+    conn.commit()
+
+
+def remove_series_from_template(
+    conn: pyodbc.Connection, template_id: int, analysis_series_id: int
+) -> None:
+    """Remove an AnalysisSeries from a template."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        DELETE FROM [dbo].[LabExperimentTemplateSeries]
+        WHERE [LabExperimentTemplate_ID] = ? AND [AnalysisSeries_ID] = ?
+        """,
+        template_id,
+        analysis_series_id,
+    )
+    conn.commit()

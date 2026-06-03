@@ -146,7 +146,79 @@ class SampleCreateRequest(BaseModel):
     campaign_id: int | None = None
     sample_datetime_start: datetime
     sample_datetime_end: datetime | None = None
+    sample_collection_kind_id: int | None = None
+    sample_equipment_id: int | None = None
     description: str | None = None
+
+
+class AnalysisSeriesLookupItem(BaseModel):
+    """Brief AnalysisSeries info for dropdowns."""
+
+    analysis_series_id: int
+    name: str
+    parameter_id: int
+    parameter_name: str
+    sampling_point_id: int
+    sampling_point_label: str
+    unit_id: int
+    unit_name: str
+    value_kind_id: int
+    processing_kind_id: int
+    processing_kind_name: str
+
+
+class AnalysisSeriesCreateRequest(BaseModel):
+    """Request to create a new AnalysisSeries."""
+
+    name: str
+    parameter_id: int
+    sampling_point_id: int
+    unit_id: int
+    value_kind_id: int = 1
+    processing_kind_id: int = 1
+
+
+class LabExperimentLookupItem(BaseModel):
+    """Brief LabExperiment info for dropdowns."""
+
+    lab_experiment_id: int
+    name: str
+    experiment_datetime: datetime
+    series_count: int
+
+
+class LabExperimentTemplateCreateRequest(BaseModel):
+    """Request to create a new LabExperimentTemplate."""
+
+    name: str
+    description: str | None = None
+    created_by_person_id: int | None = None
+    series_ids: list[int]
+
+
+class LabExperimentTemplateSeriesAddRequest(BaseModel):
+    """Request to add a series to an existing template."""
+
+    analysis_series_id: int
+
+
+class LabExperimentTemplateResponse(BaseModel):
+    """Template info returned by lookup endpoints."""
+
+    lab_experiment_template_id: int
+    name: str
+    description: str | None = None
+    created_by_person_id: int | None = None
+    series_count: int
+
+
+class LabExperimentTemplateDetailResponse(BaseModel):
+    """Template with its full series list."""
+
+    lab_experiment_template_id: int
+    name: str
+    description: str | None = None
+    series: list[AnalysisSeriesLookupItem]
 
 
 class SampleCreateResponse(BaseModel):

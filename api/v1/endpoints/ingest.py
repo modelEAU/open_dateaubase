@@ -1177,6 +1177,8 @@ def create_sample(data: SampleCreateRequest, conn=Depends(get_db)):
         campaign_id=data.campaign_id,
         sample_datetime_start=data.sample_datetime_start,
         sample_datetime_end=data.sample_datetime_end,
+        sample_collection_kind_id=data.sample_collection_kind_id,
+        sample_equipment_id=data.sample_equipment_id,
         description=data.description,
     )
     return SampleCreateResponse(sample_id=sample_id)

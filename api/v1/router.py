@@ -16,6 +16,7 @@ from .endpoints.equipment_move import router as equipment_move_router
 from .endpoints.das_move import router as das_move_router
 from .endpoints.lineage import router as lineage_router
 from .endpoints.ingest import router as ingest_router
+from .endpoints.lab import router as lab_router
 from .endpoints.annotations import (
     timeseries_router as timeseries_annotations_router,
     annotations_router,
@@ -59,6 +60,7 @@ router.include_router(
 router.include_router(das_move_router, prefix="/das", tags=["das-move"])
 router.include_router(lineage_router, prefix="/lineage", tags=["lineage"])
 router.include_router(ingest_router, prefix="/ingest", tags=["ingestion"])
+router.include_router(lab_router, prefix="/ingest/lab", tags=["ingestion-lab"])
 router.include_router(annotations_router, prefix="/annotations", tags=["annotations"])
 router.include_router(
     annotation_kinds_router, prefix="/annotation-kinds", tags=["annotation-types"]
