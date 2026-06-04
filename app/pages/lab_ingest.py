@@ -110,15 +110,7 @@ _SESSION_DEFAULTS = {
     "description": "",
     "created_by_person_id": _default_person_id,
     "series": [],
-    "sample_mode": "new",
-    "sample_id": None,
-    "sample_sp_id": None,
-    "sample_collection_kind_id": None,
-    "sample_equipment_id": None,
-    "sample_sampled_by_id": None,
-    "sample_start": datetime.now(),
-    "sample_end": None,
-    "sample_description": "",
+    "samples": [],
     "measurements": {},
 }
 
@@ -506,81 +498,104 @@ def _render_add_series_row(sess: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 2: Sample
+# Step 2: Sample — one section per unique sampling point in the series list
 # ---------------------------------------------------------------------------
+
+
+def _unique_sps_from_series(sess: dict) -> list[tuple[int, str]]:
+    """Return ordered list of (sampling_point_id, label) deduplicated from series."""
+    seen: dict[int, str] = {}
+    for s in sess.get("series", []):
+        sp_id = s.get("sampling_point_id")
+        if sp_id and sp_id not in seen:
+            label = next(
+                (sp["label"] for sp in _sp if sp["sampling_point_id"] == sp_id),
+                f"SP {sp_id}",
+            )
+            seen[sp_id] = label
+    return list(seen.items())
 
 
 def _render_sample_step() -> None:
     sess = st.session_state.lab_session
 
+    unique_sps = _unique_sps_from_series(sess)
+    if not unique_sps:
+        st.caption("Assign series in Step 1 to enable sample creation.")
+        return
+
+    # Sync sess["samples"] to match current unique SPs (preserve resolved entries)
+    existing_by_sp: dict[int, dict] = {
+        e["sampling_point_id"]: e for e in sess.get("samples", [])
+    }
+    sess["samples"] = [
+        existing_by_sp.get(sp_id) or {"sampling_point_id": sp_id, "label": label, "sample_id": None}
+        for sp_id, label in unique_sps
+    ]
+
+    for sp_idx, sample_entry in enumerate(sess["samples"]):
+        sp_label = sample_entry["label"]
+        resolved = sample_entry.get("sample_id") is not None
+        header = f"{'✅' if resolved else '○'} Sample — **{sp_label}**"
+        with st.expander(header, expanded=not resolved):
+            _render_sp_sample_section(sess, sample_entry, sp_idx)
+
+
+def _render_sp_sample_section(sess: dict, sample_entry: dict, sp_idx: int) -> None:
+    sp_id = sample_entry["sampling_point_id"]
+    sp_label = sample_entry["label"]
+
+    if sample_entry.get("sample_id"):
+        st.success(f"Sample ID: **{sample_entry['sample_id']}**")
+        if st.button("Change", key=f"lab_sp_change_{sp_idx}"):
+            sample_entry["sample_id"] = None
+            st.rerun()
+        return
+
+    mode_key = f"lab_sp_mode_{sp_idx}"
     sample_mode = st.radio(
-        "Sample",
+        "Mode",
         ["Create new sample", "Use existing sample"],
         horizontal=True,
         label_visibility="collapsed",
-        key="lab_sample_mode",
+        key=mode_key,
     )
-    sess["sample_mode"] = "new" if sample_mode == "Create new sample" else "existing"
 
-    if sess["sample_mode"] == "existing":
-        _use_existing_sample(sess)
-    else:
-        _create_new_sample(sess)
-
-    if sess.get("sample_id"):
-        st.info(f"Sample ID: **{sess['sample_id']}**")
-
-
-def _use_existing_sample(sess: dict) -> None:
-    sess["sample_id"] = None
-    opts = [{"id": None, "label": "— none —"}] + [
-        {"id": s["sample_id"], "label": s["label"]} for s in _samples
-    ]
-    sel = st.selectbox(
-        "Select sample",
-        options=[o["label"] for o in opts],
-        index=0,
-        key="lab_use_sample_sel",
-    )
-    sess["sample_id"] = next((o["id"] for o in opts if o["label"] == sel), None)
-
-
-def _create_new_sample(sess: dict) -> None:
-    col1, col2 = st.columns(2)
-    with col1:
-        sel_sp = st.selectbox(
-            "Sampling point *",
-            options=[s["label"] for s in _sp],
-            index=None,
-            placeholder="Select sampling point...",
-            key="lab_sample_sp",
-        )
-        sess["sample_sp_id"] = _sp_label_to_id.get(sel_sp or "") if sel_sp else None
-    with col2:
-        ck_opts = [{"id": None, "label": "— none —"}] + [
-            {
-                "id": c.get("sample_collection_kind_id") or c.get("id"),
-                "label": c.get("name", str(c)),
-            }
-            for c in _collection_kinds
+    if sample_mode == "Use existing sample":
+        opts = [{"id": None, "label": "— none —"}] + [
+            {"id": s["sample_id"], "label": s["label"]} for s in _samples
         ]
-        default_ck_id = sess.get("default_sample_collection_kind_id")
-        default_ck_idx = next((i for i, o in enumerate(ck_opts) if o["id"] == default_ck_id), 0)
-        sel_ck = st.selectbox(
-            "Collection kind",
-            options=[o["label"] for o in ck_opts],
-            index=default_ck_idx,
-            key="lab_sample_ck",
+        sel = st.selectbox(
+            "Select sample",
+            options=[o["label"] for o in opts],
+            index=0,
+            key=f"lab_sp_existing_{sp_idx}",
         )
-        sess["sample_collection_kind_id"] = next(
-            (o["id"] for o in ck_opts if o["label"] == sel_ck), None
-        )
+        chosen_id = next((o["id"] for o in opts if o["label"] == sel), None)
+        if st.button("Use this sample", key=f"lab_sp_use_{sp_idx}", disabled=chosen_id is None):
+            sample_entry["sample_id"] = chosen_id
+            st.rerun()
+        return
+
+    # --- Create new sample ---
+    st.caption(f"Sampling point: **{sp_label}**")
+
+    ck_opts = [{"id": None, "label": "— none —"}] + [
+        {"id": c.get("sample_collection_kind_id") or c.get("id"), "label": c.get("name", str(c))}
+        for c in _collection_kinds
+    ]
+    default_ck_id = sess.get("default_sample_collection_kind_id")
+    default_ck_idx = next((i for i, o in enumerate(ck_opts) if o["id"] == default_ck_id), 0)
+    sel_ck = st.selectbox(
+        "Collection kind",
+        options=[o["label"] for o in ck_opts],
+        index=default_ck_idx,
+        key=f"lab_sp_ck_{sp_idx}",
+    )
+    ck_id = next((o["id"] for o in ck_opts if o["label"] == sel_ck), None)
 
     eq_opts = [{"id": None, "label": "— none —"}] + [
-        {
-            "id": e.get("equipment_id") or e.get("id"),
-            "label": e.get("identifier", str(e)),
-        }
+        {"id": e.get("equipment_id") or e.get("id"), "label": e.get("identifier", str(e))}
         for e in _equipment
     ]
     default_eq_id = sess.get("default_sample_equipment_id")
@@ -589,80 +604,54 @@ def _create_new_sample(sess: dict) -> None:
         "Equipment",
         options=[o["label"] for o in eq_opts],
         index=default_eq_idx,
-        key="lab_sample_eq",
+        key=f"lab_sp_eq_{sp_idx}",
     )
-    sess["sample_equipment_id"] = next(
-        (o["id"] for o in eq_opts if o["label"] == sel_eq), None
-    )
+    eq_id = next((o["id"] for o in eq_opts if o["label"] == sel_eq), None)
 
-    col5, col6 = st.columns(2)
-    with col5:
-        start_date = st.date_input(
-            "Start date *", value=datetime.now(), key="lab_sample_start_date"
-        )
-        start_time = st.time_input(
-            "Start time *", value=time(12, 0), key="lab_sample_start_time"
-        )
-        sess["sample_start"] = datetime.combine(start_date, start_time)
-    with col6:
-        end_date = st.date_input(
-            "End date (optional)", value=None, key="lab_sample_end_date"
-        )
-        end_time = st.time_input(
-            "End time (optional)", value=None, key="lab_sample_end_time"
-        )
-        if end_date and end_time:
-            sess["sample_end"] = datetime.combine(end_date, end_time)
-        else:
-            sess["sample_end"] = None
-
-    sess["sample_description"] = st.text_area(
-        "Description (optional)",
-        value=sess.get("sample_description", ""),
-        max_chars=500,
-        key="lab_sample_desc",
-    )
+    col_a, col_b = st.columns(2)
+    with col_a:
+        start_date = st.date_input("Start date *", value=datetime.now(), key=f"lab_sp_sd_{sp_idx}")
+        start_time = st.time_input("Start time *", value=time(12, 0), key=f"lab_sp_st_{sp_idx}")
+        sample_start = datetime.combine(start_date, start_time)
+    with col_b:
+        end_date = st.date_input("End date (optional)", value=None, key=f"lab_sp_ed_{sp_idx}")
+        end_time = st.time_input("End time (optional)", value=None, key=f"lab_sp_et_{sp_idx}")
+        sample_end = datetime.combine(end_date, end_time) if end_date and end_time else None
 
     person_opts = [{"id": None, "label": "— none —"}] + [
-        {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))}
-        for p in _persons
+        {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))} for p in _persons
     ]
-    default_sb_idx = next(
-        (i for i, o in enumerate(person_opts) if o["id"] == sess.get("sample_sampled_by_id")), 0
-    )
     sel_person = st.selectbox(
         "Sampled by",
         options=[o["label"] for o in person_opts],
-        index=default_sb_idx,
-        key="lab_sample_person",
+        index=0,
+        key=f"lab_sp_person_{sp_idx}",
     )
-    sess["sample_sampled_by_id"] = next(
-        (o["id"] for o in person_opts if o["label"] == sel_person), None
+    sampled_by_id = next((o["id"] for o in person_opts if o["label"] == sel_person), None)
+
+    description = st.text_area(
+        "Description (optional)", max_chars=500, key=f"lab_sp_desc_{sp_idx}"
     )
 
-    if st.button("Create Sample", type="secondary", key="lab_create_sample_btn"):
-        if sess["sample_sp_id"] is None:
-            st.error("Sampling point is required.")
-        else:
-            try:
-                result = create_sample(
-                    {
-                        "sampling_point_id": sess["sample_sp_id"],
-                        "campaign_id": sess.get("campaign_id"),
-                        "sample_datetime_start": sess["sample_start"].isoformat(),
-                        "sample_datetime_end": sess["sample_end"].isoformat()
-                        if sess["sample_end"]
-                        else None,
-                        "sample_collection_kind_id": sess["sample_collection_kind_id"],
-                        "sample_equipment_id": sess["sample_equipment_id"],
-                        "description": sess["sample_description"] or None,
-                        "sampled_by_person_id": sess["sample_sampled_by_id"],
-                    }
-                )
-                sess["sample_id"] = result["sample_id"]
-                st.success(f"Sample {result['sample_id']} created.")
-            except APIError as e:
-                st.error(f"Failed to create sample: {e.message}")
+    if st.button("Create Sample", type="secondary", key=f"lab_sp_create_{sp_idx}"):
+        try:
+            result = create_sample(
+                {
+                    "sampling_point_id": sp_id,
+                    "campaign_id": sess.get("campaign_id"),
+                    "sample_datetime_start": sample_start.isoformat(),
+                    "sample_datetime_end": sample_end.isoformat() if sample_end else None,
+                    "sample_collection_kind_id": ck_id,
+                    "sample_equipment_id": eq_id,
+                    "description": description or None,
+                    "sampled_by_person_id": sampled_by_id,
+                }
+            )
+            sample_entry["sample_id"] = result["sample_id"]
+            st.success(f"Sample {result['sample_id']} created.")
+            st.rerun()
+        except APIError as e:
+            st.error(f"Failed to create sample: {e.message}")
 
 
 # ---------------------------------------------------------------------------
@@ -680,8 +669,17 @@ def _render_measurement_step() -> None:
         )
         return
 
-    if sess.get("sample_id") is None:
-        st.caption("Create or select a sample in Step 2 before entering measurements.")
+    unique_sp_ids = {s.get("sampling_point_id") for s in series if s.get("sampling_point_id")}
+    resolved_sp_ids = {
+        e["sampling_point_id"] for e in sess.get("samples", []) if e.get("sample_id")
+    }
+    missing = unique_sp_ids - resolved_sp_ids
+    if missing:
+        missing_labels = [
+            next((sp["label"] for sp in _sp if sp["sampling_point_id"] == m), f"SP {m}")
+            for m in missing
+        ]
+        st.caption(f"Create samples for: {', '.join(missing_labels)}")
         return
 
     tab_labels = [_series_short_label(s) for s in series]
@@ -810,8 +808,10 @@ def _render_submit() -> None:
             "Submit", disabled=True, help="Assign at least one AnalysisSeries first."
         )
         return
-    if not sess.get("sample_id"):
-        st.button("Submit", disabled=True, help="Create or select a sample first.")
+    _unique_sp_ids = {s.get("sampling_point_id") for s in sess.get("series", []) if s.get("sampling_point_id")}
+    _resolved_sp_ids = {e["sampling_point_id"] for e in sess.get("samples", []) if e.get("sample_id")}
+    if not _unique_sp_ids.issubset(_resolved_sp_ids):
+        st.button("Submit", disabled=True, help="Create samples for all sampling points first.")
         return
 
     total_measurements = sum(len(v) for v in sess["measurements"].values())
@@ -851,6 +851,12 @@ def _do_submit(sess: dict) -> None:
             continue
         series_item = sess["series"][idx]
 
+        sp_id = series_item.get("sampling_point_id")
+        sample_entry = next(
+            (e for e in sess.get("samples", []) if e["sampling_point_id"] == sp_id), None
+        )
+        sample_id = sample_entry["sample_id"] if sample_entry else None
+
         for row in rows:
             if row.get("file"):
                 # Image row — handled separately
@@ -860,12 +866,12 @@ def _do_submit(sess: dict) -> None:
             measurements.append(
                 {
                     "parameter_id": series_item["parameter_id"],
-                    "sampling_point_id": series_item["sampling_point_id"],
+                    "sampling_point_id": sp_id,
                     "unit_id": series_item["unit_id"],
                     "value_kind_id": vk,
                     "processing_kind_id": series_item.get("processing_kind_id", 1),
                     "series_name": series_item.get("name", ""),
-                    "sample_id": sess["sample_id"],
+                    "sample_id": sample_id,
                     "value": value,
                     "replicate": row.get("replicate", 1),
                     "quality_code_id": _qc_label_to_id.get(row.get("quality_code_id")) if row.get("quality_code_id") else None,
@@ -922,12 +928,17 @@ def _do_submit(sess: dict) -> None:
             continue
 
         image_files = [(r["file"].name, r["file"].read()) for r in image_rows]
+        _img_sp_id = series_item.get("sampling_point_id")
+        _img_sample_entry = next(
+            (e for e in sess.get("samples", []) if e["sampling_point_id"] == _img_sp_id), None
+        )
+        _img_sample_id = _img_sample_entry["sample_id"] if _img_sample_entry else None
         try:
             with st.spinner("Uploading images..."):
                 result_img = ingest_lab_image(
                     name=payload["name"],
                     experiment_datetime=payload["experiment_datetime"],
-                    sample_id=sess["sample_id"],
+                    sample_id=_img_sample_id,
                     parameter_id=series_item["parameter_id"],
                     sampling_point_id=series_item["sampling_point_id"],
                     unit_id=series_item["unit_id"],
@@ -981,7 +992,7 @@ with st.expander(
 
 with st.expander(
     "**3. Measurement Values**",
-    expanded=bool(st.session_state.lab_session.get("sample_id")),
+    expanded=any(e.get("sample_id") for e in st.session_state.lab_session.get("samples", [])),
 ):
     _render_measurement_step()
 
