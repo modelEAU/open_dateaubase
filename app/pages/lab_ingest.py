@@ -116,7 +116,6 @@ _SESSION_DEFAULTS = {
     "sample_collection_kind_id": None,
     "sample_equipment_id": None,
     "sample_sampled_by_id": None,
-    "sample_campaign_id": None,
     "sample_start": datetime.now(),
     "sample_end": None,
     "sample_description": "",
@@ -272,26 +271,11 @@ def _render_experiment_step() -> None:
             sess["experiment_id"] = None
 
     if sess["mode"] in ("new", "panel"):
-        col_a, col_b = st.columns(2)
-        with col_a:
-            sess["name"] = st.text_input(
-                "Experiment name *",
-                value=sess.get("name", ""),
-                key="lab_exp_name",
-            )
-        with col_b:
-            camp_opts = [{"id": None, "label": "— none —"}] + [
-                {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
-            ]
-            sel_camp = st.selectbox(
-                "Campaign",
-                options=[o["label"] for o in camp_opts],
-                index=0,
-                key="lab_exp_campaign",
-            )
-            sess["campaign_id"] = next(
-                (o["id"] for o in camp_opts if o["label"] == sel_camp), None
-            )
+        sess["name"] = st.text_input(
+            "Experiment name *",
+            value=sess.get("name", ""),
+            key="lab_exp_name",
+        )
 
         col_c, col_d = st.columns(2)
         with col_c:
@@ -589,37 +573,22 @@ def _create_new_sample(sess: dict) -> None:
             (o["id"] for o in ck_opts if o["label"] == sel_ck), None
         )
 
-    col3, col4 = st.columns(2)
-    with col3:
-        eq_opts = [{"id": None, "label": "— none —"}] + [
-            {
-                "id": e.get("equipment_id") or e.get("id"),
-                "label": e.get("identifier", str(e)),
-            }
-            for e in _equipment
-        ]
-        sel_eq = st.selectbox(
-            "Equipment",
-            options=[o["label"] for o in eq_opts],
-            index=0,
-            key="lab_sample_eq",
-        )
-        sess["sample_equipment_id"] = next(
-            (o["id"] for o in eq_opts if o["label"] == sel_eq), None
-        )
-    with col4:
-        camp_opts = [{"id": None, "label": "— none —"}] + [
-            {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
-        ]
-        sel_camp = st.selectbox(
-            "Campaign (optional)",
-            options=[o["label"] for o in camp_opts],
-            index=0,
-            key="lab_sample_camp",
-        )
-        sess["sample_campaign_id"] = next(
-            (o["id"] for o in camp_opts if o["label"] == sel_camp), None
-        )
+    eq_opts = [{"id": None, "label": "— none —"}] + [
+        {
+            "id": e.get("equipment_id") or e.get("id"),
+            "label": e.get("identifier", str(e)),
+        }
+        for e in _equipment
+    ]
+    sel_eq = st.selectbox(
+        "Equipment",
+        options=[o["label"] for o in eq_opts],
+        index=0,
+        key="lab_sample_eq",
+    )
+    sess["sample_equipment_id"] = next(
+        (o["id"] for o in eq_opts if o["label"] == sel_eq), None
+    )
 
     col5, col6 = st.columns(2)
     with col5:
@@ -674,7 +643,7 @@ def _create_new_sample(sess: dict) -> None:
                 result = create_sample(
                     {
                         "sampling_point_id": sess["sample_sp_id"],
-                        "campaign_id": sess["sample_campaign_id"],
+                        "campaign_id": sess.get("campaign_id"),
                         "sample_datetime_start": sess["sample_start"].isoformat(),
                         "sample_datetime_end": sess["sample_end"].isoformat()
                         if sess["sample_end"]
@@ -982,6 +951,19 @@ def _do_submit(sess: dict) -> None:
 
 st.title("Lab Analysis Ingest")
 st.markdown("Record laboratory analysis results. Expand each section, then submit.")
+
+_sess = st.session_state.lab_session
+if _sess.get("mode", "new") != "existing":
+    _camp_opts = [{"id": None, "label": "— none —"}] + [
+        {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
+    ]
+    _sel_camp = st.selectbox(
+        "Campaign",
+        options=[o["label"] for o in _camp_opts],
+        index=next((i for i, o in enumerate(_camp_opts) if o["id"] == _sess.get("campaign_id")), 0),
+        key="lab_top_campaign",
+    )
+    _sess["campaign_id"] = next((o["id"] for o in _camp_opts if o["label"] == _sel_camp), None)
 
 with st.expander("**1. Experiment**", expanded=True):
     _render_experiment_step()
