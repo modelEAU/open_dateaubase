@@ -780,6 +780,8 @@ def list_lab_panels(conn: pyodbc.Connection) -> list[dict]:
             t.[Name],
             t.[Description],
             t.[CreatedByPerson_ID],
+            t.[DefaultSampleCollectionKind_ID],
+            t.[DefaultSampleEquipment_ID],
             (SELECT COUNT(*) FROM [dbo].[LabPanelSeries] ts
              WHERE ts.[LabPanel_ID] = t.[LabPanel_ID]) AS [SeriesCount]
         FROM [dbo].[LabPanel] t
@@ -792,7 +794,9 @@ def list_lab_panels(conn: pyodbc.Connection) -> list[dict]:
             "name": r[1],
             "description": r[2],
             "created_by_person_id": r[3],
-            "series_count": r[4],
+            "default_sample_collection_kind_id": r[4],
+            "default_sample_equipment_id": r[5],
+            "series_count": r[6],
         }
         for r in cursor.fetchall()
     ]
@@ -852,6 +856,8 @@ def create_lab_panel(
     name: str,
     description: str | None = None,
     created_by_person_id: int | None = None,
+    default_sample_collection_kind_id: int | None = None,
+    default_sample_equipment_id: int | None = None,
     series_ids: list[int],
 ) -> int:
     """Insert a template and its series rows in a transaction. Returns Template_ID."""
@@ -859,13 +865,16 @@ def create_lab_panel(
     cursor.execute(
         """
         INSERT INTO [dbo].[LabPanel]
-            ([Name], [Description], [CreatedByPerson_ID])
+            ([Name], [Description], [CreatedByPerson_ID],
+             [DefaultSampleCollectionKind_ID], [DefaultSampleEquipment_ID])
         OUTPUT INSERTED.[LabPanel_ID]
-        VALUES (?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         """,
         name,
         description,
         created_by_person_id,
+        default_sample_collection_kind_id,
+        default_sample_equipment_id,
     )
     template_id: int = cursor.fetchone()[0]
     for sid in series_ids:

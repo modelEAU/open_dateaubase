@@ -215,10 +215,12 @@ def _render_experiment_step() -> None:
             ) if t_id else ""
             if t_id and t_id != sess.get("template_id"):
                 sess["template_id"] = t_id
-                # Load template series
+                # Load template series and defaults
                 try:
                     detail = get_lab_panel(t_id)
                     sess["series"] = list(detail.get("series", []))
+                    sess["default_sample_collection_kind_id"] = detail.get("default_sample_collection_kind_id")
+                    sess["default_sample_equipment_id"] = detail.get("default_sample_equipment_id")
                 except APIError:
                     st.warning("Could not load template series.")
                 # Auto-populate name from panel + today's date
@@ -555,7 +557,6 @@ def _create_new_sample(sess: dict) -> None:
         )
         sess["sample_sp_id"] = _sp_label_to_id.get(sel_sp or "") if sel_sp else None
     with col2:
-        # Sample collection kind
         ck_opts = [{"id": None, "label": "— none —"}] + [
             {
                 "id": c.get("sample_collection_kind_id") or c.get("id"),
@@ -563,10 +564,12 @@ def _create_new_sample(sess: dict) -> None:
             }
             for c in _collection_kinds
         ]
+        default_ck_id = sess.get("default_sample_collection_kind_id")
+        default_ck_idx = next((i for i, o in enumerate(ck_opts) if o["id"] == default_ck_id), 0)
         sel_ck = st.selectbox(
             "Collection kind",
             options=[o["label"] for o in ck_opts],
-            index=0,
+            index=default_ck_idx,
             key="lab_sample_ck",
         )
         sess["sample_collection_kind_id"] = next(
@@ -580,10 +583,12 @@ def _create_new_sample(sess: dict) -> None:
         }
         for e in _equipment
     ]
+    default_eq_id = sess.get("default_sample_equipment_id")
+    default_eq_idx = next((i for i, o in enumerate(eq_opts) if o["id"] == default_eq_id), 0)
     sel_eq = st.selectbox(
         "Equipment",
         options=[o["label"] for o in eq_opts],
-        index=0,
+        index=default_eq_idx,
         key="lab_sample_eq",
     )
     sess["sample_equipment_id"] = next(

@@ -19,7 +19,9 @@ from app.api_client import (
     create_lab_panel,
     delete_lab_panel,
     list_analysis_series_lookup,
+    list_equipment_lookup,
     list_lab_panels,
+    list_sample_collection_kinds,
 )
 
 st.title("Lab Panels")
@@ -36,6 +38,8 @@ try:
     with st.spinner("Loading panels..."):
         _panels = list_lab_panels()
         _all_series = list_analysis_series_lookup()
+        _collection_kinds = list_sample_collection_kinds()
+        _equipment = list_equipment_lookup()
 except APIError as e:
     st.error(f"Cannot load data: {e.message}")
     st.stop()
@@ -98,6 +102,20 @@ st.subheader("New panel")
 new_name = st.text_input("Panel name *", key="new_panel_name")
 new_desc = st.text_area("Description (optional)", key="new_panel_desc")
 
+_ck_opts = [{"id": None, "label": "— none —"}] + [
+    {"id": c.get("sample_collection_kind_id") or c.get("id"), "label": c.get("name", "")}
+    for c in _collection_kinds
+]
+_sel_ck = st.selectbox("Default collection kind", [o["label"] for o in _ck_opts], key="new_panel_ck")
+_default_ck_id = next((o["id"] for o in _ck_opts if o["label"] == _sel_ck), None)
+
+_eq_opts = [{"id": None, "label": "— none —"}] + [
+    {"id": e.get("equipment_id") or e.get("id"), "label": e.get("identifier", str(e))}
+    for e in _equipment
+]
+_sel_eq = st.selectbox("Default equipment", [o["label"] for o in _eq_opts], key="new_panel_eq")
+_default_eq_id = next((o["id"] for o in _eq_opts if o["label"] == _sel_eq), None)
+
 series_options = {
     s["analysis_series_id"]: (
         f"{s['name']}  —  {s['parameter_name']} @ {s['sampling_point_label']}"
@@ -124,6 +142,8 @@ if st.button("Create panel", type="primary", key="create_panel_btn"):
                 {
                     "name": new_name.strip(),
                     "description": new_desc.strip() or None,
+                    "default_sample_collection_kind_id": _default_ck_id,
+                    "default_sample_equipment_id": _default_eq_id,
                     "series_ids": selected_ids,
                 }
             )

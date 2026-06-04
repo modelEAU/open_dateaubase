@@ -127,6 +127,8 @@ def get_lab_panel(
             lab_panel_id=template_id,
             name=t["name"],
             description=t["description"],
+            default_sample_collection_kind_id=t.get("default_sample_collection_kind_id"),
+            default_sample_equipment_id=t.get("default_sample_equipment_id"),
             series=[],
         )
     # Reconstruct template metadata from first series lookup
@@ -144,6 +146,8 @@ def get_lab_panel(
         lab_panel_id=template_id,
         name=t["name"],
         description=t["description"],
+        default_sample_collection_kind_id=t.get("default_sample_collection_kind_id"),
+        default_sample_equipment_id=t.get("default_sample_equipment_id"),
         series=[AnalysisSeriesLookupItem(**s) for s in series],
     )
 
@@ -158,6 +162,8 @@ def create_lab_panel(
         name=body.name,
         description=body.description,
         created_by_person_id=body.created_by_person_id,
+        default_sample_collection_kind_id=body.default_sample_collection_kind_id,
+        default_sample_equipment_id=body.default_sample_equipment_id,
         series_ids=body.series_ids,
     )
     return {"lab_panel_id": template_id}

@@ -457,6 +457,8 @@ CREATE TABLE [dbo].[LabPanel] (
     [Name] NVARCHAR(200) NOT NULL,
     [Description] NVARCHAR(MAX),
     [CreatedByPerson_ID] INT,
+    [DefaultSampleCollectionKind_ID] INT,
+    [DefaultSampleEquipment_ID] INT,
     [CreatedAt] DATETIME2(7) NOT NULL DEFAULT GETUTCDATE(),
     CONSTRAINT [PK_LabPanel] PRIMARY KEY ([LabPanel_ID])
 );
@@ -870,6 +872,8 @@ ALTER TABLE [dbo].[LabExperiment] ADD CONSTRAINT [FK_LabExperiment_Campaign_ID] 
 ALTER TABLE [dbo].[LabExperiment] ADD CONSTRAINT [FK_LabExperiment_CreatedByPerson_ID] FOREIGN KEY ([CreatedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[LabExperiment] ADD CONSTRAINT [FK_LabExperiment_LabPanel_ID] FOREIGN KEY ([LabPanel_ID]) REFERENCES [dbo].[LabPanel] ([LabPanel_ID]);
 ALTER TABLE [dbo].[LabPanel] ADD CONSTRAINT [FK_LabPanel_CreatedByPerson_ID] FOREIGN KEY ([CreatedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
+ALTER TABLE [dbo].[LabPanel] ADD CONSTRAINT [FK_LabPanel_DefaultSampleCollectionKind_ID] FOREIGN KEY ([DefaultSampleCollectionKind_ID]) REFERENCES [dbo].[SampleCollectionKind] ([SampleCollectionKind_ID]);
+ALTER TABLE [dbo].[LabPanel] ADD CONSTRAINT [FK_LabPanel_DefaultSampleEquipment_ID] FOREIGN KEY ([DefaultSampleEquipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
 ALTER TABLE [dbo].[LabPanelSeries] ADD CONSTRAINT [FK_LabPanelSeries_LabPanel_ID] FOREIGN KEY ([LabPanel_ID]) REFERENCES [dbo].[LabPanel] ([LabPanel_ID]);
 ALTER TABLE [dbo].[LabPanelSeries] ADD CONSTRAINT [FK_LabPanelSeries_AnalysisSeries_ID] FOREIGN KEY ([AnalysisSeries_ID]) REFERENCES [dbo].[AnalysisSeries] ([AnalysisSeries_ID]);
 ALTER TABLE [dbo].[Laboratory] ADD CONSTRAINT [FK_Laboratory_Site_ID] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
