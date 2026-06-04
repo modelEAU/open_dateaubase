@@ -751,57 +751,51 @@ def _render_series_tab(sess: dict, series_item: dict, idx: int) -> None:
         _render_image_tab(sess, series_item, idx)
         return
 
-    # Build a dataframe from rows for the data editor
-    if rows:
-        df = pd.DataFrame(rows)
-    else:
-        df = pd.DataFrame(columns=["value", "replicate", "quality_code_id", "notes"])
-
-    # Ensure all columns exist
-    for col in ["value", "replicate", "quality_code_id", "notes"]:
-        if col not in df.columns:
-            df[col] = None
+    editor_key = f"lab_measure_editor_{idx}"
 
     # Column config for the data editor
     col_config = {
-        "value": st.column_config.NumberColumn(
-            "Value *",
-            required=True,
-            default=None,
-        ),
-        "replicate": st.column_config.NumberColumn(
-            "Replicate",
-            default=1,
-            min_value=1,
-        ),
+        "value": st.column_config.NumberColumn("Value *", required=True, default=None),
+        "replicate": st.column_config.NumberColumn("Replicate", default=1, min_value=1),
         "quality_code_id": st.column_config.SelectboxColumn(
-            "Quality Code",
-            options=_qc_labels,
-            default=None,
-            required=False,
+            "Quality Code", options=_qc_labels, default=None, required=False,
         ),
         "notes": st.column_config.TextColumn("Notes"),
     }
-    # For vector/matrix, value is text (comma/semicolon-separated)
     if vk in (2, 3):
         col_config["value"] = st.column_config.TextColumn(
             "Value *",
             required=True,
             default=None,
-            placeholder="e.g. 12.4,10.1,8.9" if vk == 2 else "rows as CSV",
         )
 
+    is_scalar = vk == 1
+
+    # For scalar series: explicit Add Row button with auto-incrementing replicate.
+    # Clears the editor key so the new row is seeded from session on next render.
+    if is_scalar:
+        next_rep = max((r.get("replicate") or 0 for r in rows), default=0) + 1
+        if st.button("+ Add row", key=f"lab_add_row_{idx}"):
+            rows.append({"value": None, "replicate": next_rep, "quality_code_id": None, "notes": None})
+            st.session_state.pop(editor_key, None)
+            st.rerun()
+
+    # Seed the editor from session on first render (or after Add Row reset).
+    # Passing an empty schema df ensures the key-stored DataFrame drives the content.
+    base_df = pd.DataFrame(columns=["value", "replicate", "quality_code_id", "notes"])
+    if editor_key not in st.session_state and rows:
+        st.session_state[editor_key] = pd.DataFrame(rows)
+
     edited = st.data_editor(
-        df,
+        base_df,
         column_config=col_config,
         use_container_width=True,
-        num_rows="dynamic",
-        key=f"lab_measure_editor_{idx}",
+        num_rows="fixed" if is_scalar else "dynamic",
+        key=editor_key,
     )
 
     # Sync back to session
     if not edited.empty:
-        # Drop fully empty rows (all NaN)
         edited = edited.dropna(how="all")
         sess["measurements"][s_key] = edited.to_dict("records")
     else:
