@@ -265,9 +265,10 @@ def _render_experiment_step() -> None:
             sess["experiment_id"] = None
 
     if sess["mode"] in ("new", "panel"):
+        if "lab_exp_name" not in st.session_state:
+            st.session_state["lab_exp_name"] = sess.get("name", "")
         sess["name"] = st.text_input(
             "Experiment name *",
-            value=sess.get("name", ""),
             key="lab_exp_name",
         )
 
@@ -752,14 +753,14 @@ def _render_series_tab(sess: dict, series_item: dict, idx: int) -> None:
             st.session_state.pop(editor_key, None)
             st.rerun()
 
-    # Seed the editor from session on first render (or after Add Row reset).
-    # Passing an empty schema df ensures the key-stored DataFrame drives the content.
+    # On first render or after Add Row (key was popped), seed from rows directly.
+    # On reruns where the key exists, pass empty schema df so the editor's own
+    # key state drives the content (avoids reverting in-progress edits).
     base_df = pd.DataFrame(columns=["value", "replicate", "quality_code_id", "notes"])
-    if editor_key not in st.session_state and rows:
-        st.session_state[editor_key] = pd.DataFrame(rows)
+    seed_df = pd.DataFrame(rows) if (editor_key not in st.session_state and rows) else base_df
 
     edited = st.data_editor(
-        base_df,
+        seed_df,
         column_config=col_config,
         use_container_width=True,
         num_rows="fixed" if is_scalar else "dynamic",
