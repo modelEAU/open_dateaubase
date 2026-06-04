@@ -774,10 +774,11 @@ def _render_series_tab(sess: dict, series_item: dict, idx: int) -> None:
             default=1,
             min_value=1,
         ),
-        "quality_code_id": st.column_config.NumberColumn(
+        "quality_code_id": st.column_config.SelectboxColumn(
             "Quality Code",
+            options=_qc_labels,
             default=None,
-            min_value=0,
+            required=False,
         ),
         "notes": st.column_config.TextColumn("Notes"),
     }
@@ -899,7 +900,7 @@ def _do_submit(sess: dict) -> None:
                     "sample_id": sess["sample_id"],
                     "value": value,
                     "replicate": row.get("replicate", 1),
-                    "quality_code_id": row.get("quality_code_id"),
+                    "quality_code_id": _qc_label_to_id.get(row.get("quality_code_id")) if row.get("quality_code_id") else None,
                     "notes": row.get("notes"),
                 }
             )
