@@ -32,8 +32,9 @@ from app.api_client import (
     list_lab_experiments_lookup,
     list_lab_panels,
     list_parameters_lookup,
-    list_persons_lookup,
+    list_persons,
     list_processing_kinds_lookup,
+    list_quality_codes,
     list_sample_collection_kinds,
     list_samples_lookup,
     list_sampling_points_lookup,
@@ -52,18 +53,44 @@ try:
         _parameters = list_parameters_lookup()
         _units = list_units_lookup()
         _processing_kinds = list_processing_kinds_lookup()
-        _persons = list_persons_lookup()
+        _persons_full = list_persons()
+        _persons = [
+            {
+                "person_id": p["person_id"],
+                "label": f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip()
+                         or f"Person {p['person_id']}",
+            }
+            for p in _persons_full
+        ]
         _collection_kinds = list_sample_collection_kinds()
         _equipment = list_equipment_lookup()
         _templates = list_lab_panels()
         _all_series = list_analysis_series_lookup()
         _experiments = list_lab_experiments_lookup()
+        _quality_codes = list_quality_codes()
+        _qc_label_to_id = {
+            f"{qc['name']} — {qc.get('description') or ''}".strip(" —"): qc["quality_code_id"]
+            for qc in _quality_codes
+            if qc.get("is_usable", True)
+        }
+        _qc_id_to_label = {v: k for k, v in _qc_label_to_id.items()}
+        _qc_labels = list(_qc_label_to_id.keys())
         # Reverse-lookup dicts
         _param_name_to_id = {
             p["parameter_name"]: p["parameter_id"] for p in _parameters
         }
         _unit_name_to_id = {u["unit"]: u["unit_id"] for u in _units}
         _sp_label_to_id = {s["label"]: s["sampling_point_id"] for s in _sp}
+        # Default person from authenticated user email
+        _current_email = (st.session_state.get("user") or {}).get("email") or ""
+        _default_person_id = next(
+            (
+                p["person_id"]
+                for p in _persons_full
+                if (p.get("email") or "").lower() == _current_email.lower()
+            ),
+            None,
+        )
 except APIError as e:
     st.error(f"Cannot load lookup data: {e.message}")
     st.stop()
@@ -81,7 +108,7 @@ _SESSION_DEFAULTS = {
     "campaign_id": None,
     "datetime": datetime.now(),
     "description": "",
-    "created_by_person_id": None,
+    "created_by_person_id": _default_person_id,
     "series": [],
     "sample_mode": "new",
     "sample_id": None,
@@ -286,10 +313,13 @@ def _render_experiment_step() -> None:
             {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))}
             for p in _persons
         ]
+        default_person_idx = next(
+            (i for i, o in enumerate(person_opts) if o["id"] == sess.get("created_by_person_id")), 0
+        )
         sel_person = st.selectbox(
             "Created by *",
             options=[o["label"] for o in person_opts],
-            index=0,
+            index=default_person_idx,
             key="lab_exp_person",
         )
         sess["created_by_person_id"] = next(
@@ -623,10 +653,13 @@ def _create_new_sample(sess: dict) -> None:
         {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))}
         for p in _persons
     ]
+    default_sb_idx = next(
+        (i for i, o in enumerate(person_opts) if o["id"] == sess.get("sample_sampled_by_id")), 0
+    )
     sel_person = st.selectbox(
         "Sampled by",
         options=[o["label"] for o in person_opts],
-        index=0,
+        index=default_sb_idx,
         key="lab_sample_person",
     )
     sess["sample_sampled_by_id"] = next(
