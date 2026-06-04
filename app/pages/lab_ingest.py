@@ -753,11 +753,11 @@ def _render_series_tab(sess: dict, series_item: dict, idx: int) -> None:
             st.session_state.pop(editor_key, None)
             st.rerun()
 
-    # On first render or after Add Row (key was popped), seed from rows directly.
-    # On reruns where the key exists, pass empty schema df so the editor's own
-    # key state drives the content (avoids reverting in-progress edits).
-    base_df = pd.DataFrame(columns=["value", "replicate", "quality_code_id", "notes"])
-    seed_df = pd.DataFrame(rows) if (editor_key not in st.session_state and rows) else base_df
+    # Always pass the current rows DataFrame. Streamlit applies the incoming
+    # edit event on top of this data, so committed edits are never lost.
+    # Sync-back below keeps rows up-to-date after every render.
+    _empty_schema = pd.DataFrame(columns=["value", "replicate", "quality_code_id", "notes"])
+    seed_df = pd.DataFrame(rows) if rows else _empty_schema
 
     edited = st.data_editor(
         seed_df,
