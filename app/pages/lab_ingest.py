@@ -198,6 +198,7 @@ def _render_experiment_step() -> None:
                 # Auto-populate name from panel + today's date
                 from datetime import date as _date
                 sess["name"] = f"{panel_name} — {_date.today().strftime('%Y-%m-%d')}"
+                st.session_state["lab_exp_name"] = sess["name"]
             sess["experiment_id"] = None
 
         elif sess["mode"] == "existing":
@@ -375,11 +376,9 @@ def _render_experiment_step() -> None:
         )
         _pk_id_map = {v: k for k, v in pk_opts.items()}
         auto_name = _auto_series_name(sel_param, sel_sp)
-        series_name = st.text_input(
-            "Series name",
-            value=auto_name or "Custom series",
-            key="lab_quick_series_name",
-        )
+        if auto_name:
+            st.session_state["lab_quick_series_name"] = auto_name
+        series_name = st.text_input("Series name", key="lab_quick_series_name")
 
         if st.button("Create & Add", type="primary", key="lab_quick_create"):
             param_id = _param_name_to_id.get(sel_param or "")
