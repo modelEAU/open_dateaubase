@@ -3,26 +3,34 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any
+from typing import Any, Callable
 
 import streamlit as st
 
 
 def render_form_field(
     field_name: str,
-    field_type: str,
+    field_type: str = "text",
     value: Any = None,
     required: bool = False,
     options: list[dict] | None = None,  # For dropdowns: [{"id": 1, "label": "Name"}]
     help_text: str | None = None,
     label: str | None = None,
+    render_fn: Callable[[dict], Any] | None = None,
 ) -> Any:
     """Render a single form field based on type.
 
     field_type: "text" | "number" | "select" | "date" | "datetime" | "textarea"
     """
     display_name = label if label else field_name
-    label = f"{display_name}{' *' if required else ''}"
+    label_str = f"{display_name}{' *' if required else ''}"
+
+    if render_fn is not None:
+        return render_fn(
+            {"field_name": field_name, "value": value, "label": label_str, "required": required}
+        )
+
+    label = label_str
 
     if field_type == "multiselect" and options:
         option_map = {opt["label"]: opt["id"] for opt in options}

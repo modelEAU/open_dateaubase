@@ -49,11 +49,12 @@ def create_form_dialog(
             required_fields.append(field["name"])
         form_data[field["name"]] = render_form_field(
             field_name=field["name"],
-            field_type=field["type"],
+            field_type=field.get("type", "text"),
             required=field.get("required", False),
             options=field.get("options"),
             help_text=field.get("help"),
             label=field.get("label"),
+            render_fn=field.get("render_fn"),
         )
 
     col1, col2, col3 = st.columns([1, 1, 4])
@@ -106,12 +107,13 @@ def edit_form_dialog(
 
         form_data[field_name] = render_form_field(
             field_name=field_name,
-            field_type=field["type"],
+            field_type=field.get("type", "text"),
             value=current_value,
             required=field.get("required", False),
             options=field.get("options"),
             help_text=field.get("help"),
             label=field.get("label"),
+            render_fn=field.get("render_fn"),
         )
 
     col1, col2, col3 = st.columns([1, 1, 4])
