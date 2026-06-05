@@ -930,6 +930,57 @@ def remove_series_from_template(
     conn.commit()
 
 
+def patch_lab_panel(
+    conn: pyodbc.Connection,
+    lab_panel_id: int,
+    data: dict,
+) -> dict | None:
+    """Partial update of a LabPanel. If series_ids is present, replaces the full series list."""
+    panels = list_lab_panels(conn)
+    if not any(p["lab_panel_id"] == lab_panel_id for p in panels):
+        return None
+
+    cursor = conn.cursor()
+
+    fields = []
+    values = []
+    if "name" in data:
+        fields.append("[Name]=?")
+        values.append(data["name"])
+    if "description" in data:
+        fields.append("[Description]=?")
+        values.append(data["description"])
+    if "default_sample_collection_kind_id" in data:
+        fields.append("[DefaultSampleCollectionKind_ID]=?")
+        values.append(data["default_sample_collection_kind_id"])
+    if "default_sample_equipment_id" in data:
+        fields.append("[DefaultSampleEquipment_ID]=?")
+        values.append(data["default_sample_equipment_id"])
+
+    if fields:
+        values.append(lab_panel_id)
+        cursor.execute(
+            f"UPDATE [dbo].[LabPanel] SET {', '.join(fields)} WHERE [LabPanel_ID]=?",
+            *values,
+        )
+
+    if "series_ids" in data:
+        cursor.execute(
+            "DELETE FROM [dbo].[LabPanelSeries] WHERE [LabPanel_ID]=?",
+            lab_panel_id,
+        )
+        for series_id in data["series_ids"]:
+            cursor.execute(
+                "INSERT INTO [dbo].[LabPanelSeries] ([LabPanel_ID], [AnalysisSeries_ID]) VALUES (?, ?)",
+                lab_panel_id,
+                series_id,
+            )
+
+    conn.commit()
+    updated = list_lab_panels(conn)
+    return next((p for p in updated if p["lab_panel_id"] == lab_panel_id), None)
+
+
 def delete_lab_panel(conn: pyodbc.Connection, lab_panel_id: int) -> None:
     """Delete a LabPanel and all its LabPanelSeries rows in a transaction."""
     cursor = conn.cursor()

@@ -2573,6 +2573,17 @@ def create_lab_panel(data: dict) -> dict:
     return r.json()
 
 
+def patch_lab_panel(lab_panel_id: int, data: dict) -> dict:
+    """Partial update of a panel. If series_ids is included, replaces the full list."""
+    try:
+        with _get_client() as client:
+            r = client.patch(f"/ingest/lab/templates/{lab_panel_id}", json=data)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 def delete_lab_panel(lab_panel_id: int) -> None:
     """Delete a panel and its series rows."""
     try:

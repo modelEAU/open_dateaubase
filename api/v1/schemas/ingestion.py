@@ -217,6 +217,16 @@ class LabPanelCreateRequest(BaseModel):
     series_ids: list[int]
 
 
+class LabPanelPatchRequest(BaseModel):
+    """Partial update for a LabPanel. Only sent fields are updated."""
+
+    name: str | None = None
+    description: str | None = None
+    default_sample_collection_kind_id: int | None = None
+    default_sample_equipment_id: int | None = None
+    series_ids: list[int] | None = None
+
+
 class LabPanelSeriesAddRequest(BaseModel):
     """Request to add a series to an existing panel."""
 

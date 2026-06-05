@@ -24,7 +24,13 @@ def render_form_field(
     display_name = label if label else field_name
     label = f"{display_name}{' *' if required else ''}"
 
-    if field_type == "select" and options:
+    if field_type == "multiselect" and options:
+        option_map = {opt["label"]: opt["id"] for opt in options}
+        labels = list(option_map.keys())
+        current_labels = [opt["label"] for opt in options if opt["id"] in (value or [])]
+        selected = st.multiselect(label, options=labels, default=current_labels, help=help_text)
+        return [option_map[lbl] for lbl in selected]
+    elif field_type == "select" and options:
         # If any option carries a description, route through kind_select so the
         # long-form description renders as a caption beneath the selectbox.
         if any(opt.get("description") for opt in options):
@@ -86,7 +92,11 @@ def validate_required_fields(data: dict, required_fields: list[str]) -> list[str
     errors = []
     for field in required_fields:
         value = data.get(field)
-        # Booleans are always valid; only flag empty strings and None
-        if value is None or (isinstance(value, str) and not value.strip()):
+        # Booleans are always valid; flag None, empty strings, and empty lists
+        if (
+            value is None
+            or (isinstance(value, str) and not value.strip())
+            or (isinstance(value, list) and not value)
+        ):
             errors.append(f"{field} is required")
     return errors

@@ -16,6 +16,7 @@ from ..schemas.ingestion import (
     LabExperimentLookupItem,
     LabPanelCreateRequest,
     LabPanelDetailResponse,
+    LabPanelPatchRequest,
     LabPanelResponse,
     LabPanelSeriesAddRequest,
 )
@@ -150,6 +151,19 @@ def get_lab_panel(
         default_sample_equipment_id=t.get("default_sample_equipment_id"),
         series=[AnalysisSeriesLookupItem(**s) for s in series],
     )
+
+
+@router.patch("/templates/{template_id}", response_model=LabPanelResponse)
+def patch_lab_panel(
+    template_id: int, body: LabPanelPatchRequest, conn=Depends(get_db)
+):
+    """Partial update of a LabPanel. If series_ids is included, replaces the full list."""
+    result = ingestion_repository.patch_lab_panel(
+        conn, template_id, body.model_dump(exclude_unset=True)
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Panel {template_id} not found.")
+    return result
 
 
 @router.post("/templates", status_code=201)
