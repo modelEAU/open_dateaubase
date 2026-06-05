@@ -188,6 +188,7 @@ CREATE TABLE [dbo].[AnalysisSeries] (
     [ValueKind_ID] INT NOT NULL DEFAULT 1,
     [Unit_ID] INT NOT NULL,
     [ProcessingKind_ID] INT NOT NULL DEFAULT 1,
+    [Campaign_ID] INT NULL,
     [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_AnalysisSeries] PRIMARY KEY ([AnalysisSeries_ID]),
     CONSTRAINT [UQ_AnalysisSeries_Identity] UNIQUE ([Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [ProcessingKind_ID])
@@ -801,6 +802,7 @@ ALTER TABLE [dbo].[AnalysisSeries] ADD CONSTRAINT [FK_AnalysisSeries_SamplingPoi
 ALTER TABLE [dbo].[AnalysisSeries] ADD CONSTRAINT [FK_AnalysisSeries_ValueKind_ID] FOREIGN KEY ([ValueKind_ID]) REFERENCES [dbo].[ValueKind] ([ValueKind_ID]);
 ALTER TABLE [dbo].[AnalysisSeries] ADD CONSTRAINT [FK_AnalysisSeries_Unit_ID] FOREIGN KEY ([Unit_ID]) REFERENCES [dbo].[Unit] ([Unit_ID]);
 ALTER TABLE [dbo].[AnalysisSeries] ADD CONSTRAINT [FK_AnalysisSeries_ProcessingKind_ID] FOREIGN KEY ([ProcessingKind_ID]) REFERENCES [dbo].[ProcessingKind] ([ProcessingKind_ID]);
+ALTER TABLE [dbo].[AnalysisSeries] ADD CONSTRAINT [FK_AnalysisSeries_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
 ALTER TABLE [dbo].[AnalysisSeriesAxis] ADD CONSTRAINT [FK_AnalysisSeriesAxis_AnalysisSeries_ID] FOREIGN KEY ([AnalysisSeries_ID]) REFERENCES [dbo].[AnalysisSeries] ([AnalysisSeries_ID]);
 ALTER TABLE [dbo].[AnalysisSeriesAxis] ADD CONSTRAINT [FK_AnalysisSeriesAxis_ValueBinningAxis_ID] FOREIGN KEY ([ValueBinningAxis_ID]) REFERENCES [dbo].[ValueBinningAxis] ([ValueBinningAxis_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Channel_ID] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);

@@ -80,6 +80,14 @@ table:
         table: ProcessingKind
         column: ProcessingKind_ID
 
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Campaign this series belongs to; scopes the series to a specific monitoring campaign"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+
     - name: Description
       logical_type: string
       max_length: max
