@@ -184,6 +184,7 @@ class AnalysisSeriesLookupItem(BaseModel):
     value_kind_id: int
     processing_kind_id: int
     processing_kind_name: str
+    campaign_id: int | None = None
 
 
 class AnalysisSeriesCreateRequest(BaseModel):
@@ -195,6 +196,7 @@ class AnalysisSeriesCreateRequest(BaseModel):
     unit_id: int
     value_kind_id: int = 1
     processing_kind_id: int = 1
+    campaign_id: int | None = None
 
 
 class LabExperimentLookupItem(BaseModel):

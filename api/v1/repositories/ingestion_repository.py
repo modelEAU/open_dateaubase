@@ -185,6 +185,7 @@ def find_or_create_analysis_series(
     processing_kind_id: int,
     unit_id: int,
     name: str,
+    campaign_id: int | None = None,
 ) -> int:
     """Find or create an AnalysisSeries row. Returns AnalysisSeries_ID.
 
@@ -218,9 +219,9 @@ def find_or_create_analysis_series(
         """
         INSERT INTO [dbo].[AnalysisSeries]
             ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID],
-             [Unit_ID], [ProcessingKind_ID])
+             [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
         OUTPUT INSERTED.[AnalysisSeries_ID]
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         name,
         parameter_id,
@@ -228,6 +229,7 @@ def find_or_create_analysis_series(
         value_kind_id,
         unit_id,
         processing_kind_id,
+        campaign_id,
     )
     new_id: int = cursor.fetchone()[0]
     conn.commit()
@@ -686,7 +688,8 @@ def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
             u.[Unit],
             as_.[ValueKind_ID],
             as_.[ProcessingKind_ID],
-            pk.[Name] AS [ProcessingKindName]
+            pk.[Name] AS [ProcessingKindName],
+            as_.[Campaign_ID]
         FROM [dbo].[AnalysisSeries] as_
         JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
         JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
@@ -708,6 +711,7 @@ def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
             "value_kind_id": r[8],
             "processing_kind_id": r[9],
             "processing_kind_name": r[10],
+            "campaign_id": r[11],
         }
         for r in cursor.fetchall()
     ]
@@ -722,6 +726,7 @@ def create_analysis_series(
     value_kind_id: int = 1,
     processing_kind_id: int = 1,
     name: str,
+    campaign_id: int | None = None,
 ) -> int:
     """Insert an AnalysisSeries row. Returns AnalysisSeries_ID.
 
@@ -754,9 +759,9 @@ def create_analysis_series(
         """
         INSERT INTO [dbo].[AnalysisSeries]
             ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID],
-             [Unit_ID], [ProcessingKind_ID])
+             [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
         OUTPUT INSERTED.[AnalysisSeries_ID]
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         name,
         parameter_id,
@@ -764,6 +769,7 @@ def create_analysis_series(
         value_kind_id,
         unit_id,
         processing_kind_id,
+        campaign_id,
     )
     new_id: int = cursor.fetchone()[0]
     conn.commit()

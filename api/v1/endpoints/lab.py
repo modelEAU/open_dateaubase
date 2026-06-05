@@ -82,6 +82,7 @@ def create_analysis_series(
             value_kind_id=body.value_kind_id,
             processing_kind_id=body.processing_kind_id,
             name=body.name,
+            campaign_id=body.campaign_id,
         )
         return {"analysis_series_id": series_id}
     except ValueError as e:
