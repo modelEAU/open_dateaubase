@@ -25,7 +25,8 @@ build/
 uv.lock
 
 # AI
-.claude
+.claude/*
+!.claude/skills/
 .kilo/
 
 # Docker
