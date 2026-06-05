@@ -18,12 +18,18 @@ from app.api_client import (
     delete_lab_panel,
     get_lab_panel,
     list_analysis_series_lookup,
+    list_campaigns_lookup,
     list_equipment_lookup,
     list_lab_panels,
+    list_parameters_lookup,
+    list_processing_kinds_lookup,
     list_sample_collection_kinds,
+    list_sampling_points_lookup,
+    list_units_lookup,
     patch_lab_panel,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.series_picker import render_series_picker
 
 st.title("Lab Panels")
 
@@ -31,19 +37,16 @@ try:
     with st.spinner("Loading..."):
         _panels = list_lab_panels()
         _all_series = list_analysis_series_lookup()
+        _campaigns = list_campaigns_lookup()
+        _parameters = list_parameters_lookup()
+        _sp = list_sampling_points_lookup()
+        _units = list_units_lookup()
+        _processing_kinds = list_processing_kinds_lookup()
         _collection_kinds = list_sample_collection_kinds()
         _equipment = list_equipment_lookup()
 except APIError as e:
     st.error(f"Cannot load data: {e.message}")
     st.stop()
-
-_series_options = [
-    {
-        "id": s["analysis_series_id"],
-        "label": f"{s['name']}  —  {s['parameter_name']} @ {s['sampling_point_label']}",
-    }
-    for s in _all_series
-]
 
 _ck_options = [{"id": None, "label": "— none —"}] + [
     {
@@ -60,6 +63,16 @@ _eq_options = [{"id": None, "label": "— none —"}] + [
     }
     for e in _equipment
 ]
+
+_series_render_fn = lambda ctx: render_series_picker(
+    ctx,
+    series_list=_all_series,
+    campaigns=_campaigns,
+    parameters=_parameters,
+    sampling_points=_sp,
+    units=_units,
+    processing_kinds=_processing_kinds,
+)
 
 _fields = [
     {"name": "name", "type": "text", "required": True, "label": "Panel name"},
@@ -80,10 +93,9 @@ _fields = [
     },
     {
         "name": "series_ids",
-        "type": "multiselect",
         "required": True,
         "label": "AnalysisSeries",
-        "options": _series_options,
+        "render_fn": _series_render_fn,
     },
 ]
 
