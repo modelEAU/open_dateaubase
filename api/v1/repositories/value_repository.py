@@ -31,15 +31,40 @@ def _utc_naive(dt: datetime) -> datetime:
     return dt
 
 
-def get_scalar_values(
+# ---------------------------------------------------------------------------
+# Observation source specs
+#
+# Sensor and lab reads are identical except for how the Observation is filtered
+# to its source: sensors key on Observation.Channel_ID; lab observations carry
+# Channel_ID = NULL and reach their AnalysisSeries via LabAnalysis. Since lab
+# ingest now stores the sample collection time directly in Observation.Timestamp
+# (ADR 0002), there is no extra Sample join and the timestamp/payload/return
+# shape are shared. Each spec is (source_join, source_where, params).
+# ---------------------------------------------------------------------------
+
+
+def _channel_source(channel_id: int) -> tuple[str, str, list]:
+    return "", "o.[Channel_ID] = ?", [channel_id]
+
+
+def _analysis_series_source(analysis_series_id: int) -> tuple[str, str, list]:
+    return (
+        "JOIN [dbo].[LabAnalysis] la ON la.[LabAnalysis_ID] = o.[LabAnalysis_ID]",
+        "la.[AnalysisSeries_ID] = ?",
+        [analysis_series_id],
+    )
+
+
+def _scalar_values_by_source(
     conn: pyodbc.Connection,
-    channel_id: int,
+    source_join: str,
+    source_where: str,
+    params: list,
     from_dt: datetime | None,
     to_dt: datetime | None,
     operational_only: bool = False,
 ) -> list[dict]:
-    params: list = [channel_id]
-    where = "WHERE o.[Channel_ID] = ?"
+    where = f"WHERE {source_where}"
     if from_dt:
         where += " AND o.[Timestamp] >= ?"
         params.append(from_dt)
@@ -82,6 +107,7 @@ def get_scalar_values(
         SELECT o.[Timestamp], v.[Value], v.[QualityCode]
         FROM [dbo].[Value] v
         JOIN [dbo].[Observation] o ON o.[Observation_ID] = v.[Observation_ID]
+        {source_join}
         {where}
         ORDER BY o.[Timestamp]
         """,
@@ -93,14 +119,38 @@ def get_scalar_values(
     ]
 
 
-def get_vector_values(
+def get_scalar_values(
     conn: pyodbc.Connection,
     channel_id: int,
     from_dt: datetime | None,
     to_dt: datetime | None,
+    operational_only: bool = False,
 ) -> list[dict]:
-    params: list = [channel_id]
-    where = "WHERE o.[Channel_ID] = ?"
+    join, where, params = _channel_source(channel_id)
+    return _scalar_values_by_source(
+        conn, join, where, params, from_dt, to_dt, operational_only
+    )
+
+
+def get_analysis_series_scalar_values(
+    conn: pyodbc.Connection,
+    analysis_series_id: int,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    join, where, params = _analysis_series_source(analysis_series_id)
+    return _scalar_values_by_source(conn, join, where, params, from_dt, to_dt)
+
+
+def _vector_values_by_source(
+    conn: pyodbc.Connection,
+    source_join: str,
+    source_where: str,
+    params: list,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    where = f"WHERE {source_where}"
     if from_dt:
         where += " AND o.[Timestamp] >= ?"
         params.append(from_dt)
@@ -116,6 +166,7 @@ def get_vector_values(
         FROM [dbo].[ValueVector] vv
         JOIN [dbo].[Observation] o  ON o.[Observation_ID]  = vv.[Observation_ID]
         JOIN [dbo].[ValueBin]    vb ON vb.[ValueBin_ID]    = vv.[ValueBin_ID]
+        {source_join}
         {where}
         ORDER BY o.[Timestamp], vb.[BinIndex]
         """,
@@ -135,14 +186,35 @@ def get_vector_values(
     ]
 
 
-def get_matrix_values(
+def get_vector_values(
     conn: pyodbc.Connection,
     channel_id: int,
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
-    params: list = [channel_id]
-    where = "WHERE o.[Channel_ID] = ?"
+    join, where, params = _channel_source(channel_id)
+    return _vector_values_by_source(conn, join, where, params, from_dt, to_dt)
+
+
+def get_analysis_series_vector_values(
+    conn: pyodbc.Connection,
+    analysis_series_id: int,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    join, where, params = _analysis_series_source(analysis_series_id)
+    return _vector_values_by_source(conn, join, where, params, from_dt, to_dt)
+
+
+def _matrix_values_by_source(
+    conn: pyodbc.Connection,
+    source_join: str,
+    source_where: str,
+    params: list,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    where = f"WHERE {source_where}"
     if from_dt:
         where += " AND o.[Timestamp] >= ?"
         params.append(from_dt)
@@ -163,6 +235,7 @@ def get_matrix_values(
         JOIN [dbo].[Observation] o  ON o.[Observation_ID]   = vm.[Observation_ID]
         JOIN [dbo].[ValueBin]    rb ON rb.[ValueBin_ID]     = vm.[RowValueBin_ID]
         JOIN [dbo].[ValueBin]    cb ON cb.[ValueBin_ID]     = vm.[ColValueBin_ID]
+        {source_join}
         {where}
         ORDER BY o.[Timestamp], rb.[BinIndex], cb.[BinIndex]
         """,
@@ -186,14 +259,35 @@ def get_matrix_values(
     ]
 
 
-def get_image_values(
+def get_matrix_values(
     conn: pyodbc.Connection,
     channel_id: int,
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
-    params: list = [channel_id]
-    where = "WHERE o.[Channel_ID] = ?"
+    join, where, params = _channel_source(channel_id)
+    return _matrix_values_by_source(conn, join, where, params, from_dt, to_dt)
+
+
+def get_analysis_series_matrix_values(
+    conn: pyodbc.Connection,
+    analysis_series_id: int,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    join, where, params = _analysis_series_source(analysis_series_id)
+    return _matrix_values_by_source(conn, join, where, params, from_dt, to_dt)
+
+
+def _image_values_by_source(
+    conn: pyodbc.Connection,
+    source_join: str,
+    source_where: str,
+    params: list,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    where = f"WHERE {source_where}"
     if from_dt:
         where += " AND o.[Timestamp] >= ?"
         params.append(from_dt)
@@ -209,6 +303,7 @@ def get_image_values(
                vi.[StorageBackend], vi.[StoragePath], vi.[QualityCode]
         FROM [dbo].[ValueImage] vi
         JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
+        {source_join}
         {where}
         ORDER BY o.[Timestamp]
         """,
@@ -230,21 +325,39 @@ def get_image_values(
     ]
 
 
-def get_image_thumbnail(
-    conn,
+def get_image_values(
+    conn: pyodbc.Connection,
     channel_id: int,
-    timestamp: datetime,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    join, where, params = _channel_source(channel_id)
+    return _image_values_by_source(conn, join, where, params, from_dt, to_dt)
+
+
+def get_analysis_series_image_values(
+    conn: pyodbc.Connection,
+    analysis_series_id: int,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    join, where, params = _analysis_series_source(analysis_series_id)
+    return _image_values_by_source(conn, join, where, params, from_dt, to_dt)
+
+
+def _image_thumbnail_by_source(
+    conn, source_join: str, source_where: str, params: list, timestamp: datetime
 ) -> bytes | None:
-    """Return the thumbnail bytes for a specific image, or None if not found."""
     cursor = conn.cursor()
     cursor.execute(
-        """
+        f"""
         SELECT vi.[Thumbnail]
         FROM [dbo].[ValueImage] vi
         JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
-        WHERE o.[Channel_ID] = ? AND o.[Timestamp] = ?
+        {source_join}
+        WHERE {source_where} AND o.[Timestamp] = ?
         """,
-        channel_id,
+        *params,
         timestamp,
     )
     row = cursor.fetchone()
@@ -253,27 +366,61 @@ def get_image_thumbnail(
     return bytes(row[0]) if row[0] is not None else None
 
 
-def get_image_metadata_by_timestamp(
+def get_image_thumbnail(
     conn,
     channel_id: int,
     timestamp: datetime,
+) -> bytes | None:
+    """Return the thumbnail bytes for a specific image, or None if not found."""
+    join, where, params = _channel_source(channel_id)
+    return _image_thumbnail_by_source(conn, join, where, params, timestamp)
+
+
+def get_analysis_series_image_thumbnail(
+    conn, analysis_series_id: int, timestamp: datetime
+) -> bytes | None:
+    """Thumbnail bytes for a lab image at a sample-collection timestamp."""
+    join, where, params = _analysis_series_source(analysis_series_id)
+    return _image_thumbnail_by_source(conn, join, where, params, timestamp)
+
+
+def _image_metadata_by_source(
+    conn, source_join: str, source_where: str, params: list, timestamp: datetime
 ) -> dict | None:
-    """Return storage_path and format for a specific image."""
     cursor = conn.cursor()
     cursor.execute(
-        """
+        f"""
         SELECT vi.[StoragePath], vi.[ImageFormat]
         FROM [dbo].[ValueImage] vi
         JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
-        WHERE o.[Channel_ID] = ? AND o.[Timestamp] = ?
+        {source_join}
+        WHERE {source_where} AND o.[Timestamp] = ?
         """,
-        channel_id,
+        *params,
         timestamp,
     )
     row = cursor.fetchone()
     if row is None:
         return None
     return {"storage_path": row[0], "image_format": row[1]}
+
+
+def get_image_metadata_by_timestamp(
+    conn,
+    channel_id: int,
+    timestamp: datetime,
+) -> dict | None:
+    """Return storage_path and format for a specific image."""
+    join, where, params = _channel_source(channel_id)
+    return _image_metadata_by_source(conn, join, where, params, timestamp)
+
+
+def get_analysis_series_image_metadata_by_timestamp(
+    conn, analysis_series_id: int, timestamp: datetime
+) -> dict | None:
+    """storage_path + format for a lab image at a sample-collection timestamp."""
+    join, where, params = _analysis_series_source(analysis_series_id)
+    return _image_metadata_by_source(conn, join, where, params, timestamp)
 
 
 def get_values_for_metadata(
@@ -294,6 +441,28 @@ def get_values_for_metadata(
         return get_image_values(conn, channel_id, from_dt, to_dt)
     else:
         return get_scalar_values(conn, channel_id, from_dt, to_dt, operational_only)
+
+
+def get_analysis_series_values_for_metadata(
+    conn: pyodbc.Connection,
+    analysis_series_id: int,
+    value_kind_id: int | None,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> list[dict]:
+    """Dispatch a lab AnalysisSeries read to the correct value table.
+
+    Mirrors get_values_for_metadata for the lab source. No operational_only
+    (lab has no status channels)."""
+    vt = value_kind_id or _VALUE_TYPE_SCALAR
+    if vt == _VALUE_TYPE_VECTOR:
+        return get_analysis_series_vector_values(conn, analysis_series_id, from_dt, to_dt)
+    elif vt == _VALUE_TYPE_MATRIX:
+        return get_analysis_series_matrix_values(conn, analysis_series_id, from_dt, to_dt)
+    elif vt == _VALUE_TYPE_IMAGE:
+        return get_analysis_series_image_values(conn, analysis_series_id, from_dt, to_dt)
+    else:
+        return get_analysis_series_scalar_values(conn, analysis_series_id, from_dt, to_dt)
 
 
 def insert_scalar_values(
@@ -641,12 +810,13 @@ _STATS_TABLE = {
 }
 
 
-def get_channel_stats(
+def _stats_by_source(
     conn: pyodbc.Connection,
-    channel_id: int,
     value_kind_id: int,
-) -> dict:
-    """Return min/max timestamp and observation count for a channel without loading data."""
+    source_join: str,
+    source_where: str,
+    params: list,
+) -> tuple:
     vt = value_kind_id if value_kind_id in _STATS_TABLE else _VALUE_TYPE_SCALAR
     # Vector/matrix have multiple rows per observation; COUNT DISTINCT gives measurement count.
     table = _STATS_TABLE[vt]
@@ -657,16 +827,48 @@ def get_channel_stats(
                COUNT(DISTINCT o.[Observation_ID])
         FROM {table} v
         JOIN [dbo].[Observation] o ON o.[Observation_ID] = v.[Observation_ID]
-        WHERE o.[Channel_ID] = ?
+        {source_join}
+        WHERE {source_where}
         """,
-        channel_id,
+        *params,
     )
     row = cursor.fetchone()
+    return (row[0], row[1], row[2] or 0) if row else (None, None, 0)
+
+
+def get_channel_stats(
+    conn: pyodbc.Connection,
+    channel_id: int,
+    value_kind_id: int,
+) -> dict:
+    """Return min/max timestamp and observation count for a channel without loading data."""
+    join, where, params = _channel_source(channel_id)
+    min_ts, max_ts, count = _stats_by_source(
+        conn, value_kind_id, join, where, params
+    )
     return {
         "channel_id": channel_id,
-        "min_timestamp": row[0],
-        "max_timestamp": row[1],
-        "row_count": row[2] or 0,
+        "min_timestamp": min_ts,
+        "max_timestamp": max_ts,
+        "row_count": count,
+    }
+
+
+def get_analysis_series_stats(
+    conn: pyodbc.Connection,
+    analysis_series_id: int,
+    value_kind_id: int,
+) -> dict:
+    """min/max sample-collection time + measurement count for a lab series."""
+    join, where, params = _analysis_series_source(analysis_series_id)
+    min_ts, max_ts, count = _stats_by_source(
+        conn, value_kind_id, join, where, params
+    )
+    return {
+        "analysis_series_id": analysis_series_id,
+        "min_timestamp": min_ts,
+        "max_timestamp": max_ts,
+        "row_count": count,
     }
 
 

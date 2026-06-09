@@ -80,3 +80,23 @@ class TimeseriesOut(BaseModel):
     to_timestamp: datetime | None
     row_count: int
     data: list[Any]
+
+
+class AnalysisSeriesTimeseriesOut(BaseModel):
+    """Time series response for a lab AnalysisSeries (Trace).
+
+    Mirrors TimeseriesOut but keyed on analysis_series_id and carrying the
+    series' sampling point. Timestamps are sample collection times (ADR 0002).
+    """
+
+    analysis_series_id: int
+    name: str | None
+    parameter: str | None
+    unit: str | None
+    sampling_point: str | None
+    data_shape: str
+    processing_degree: str | None
+    from_timestamp: datetime | None
+    to_timestamp: datetime | None
+    row_count: int
+    data: list[Any]

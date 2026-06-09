@@ -11,7 +11,50 @@ from datetime import datetime
 import pyodbc
 from fastapi import HTTPException
 
-from ..repositories import channel_repository, value_repository
+from ..repositories import channel_repository, value_repository, ingestion_repository
+
+_VALUE_KIND_NAMES = {1: "Scalar", 2: "Vector", 3: "Matrix", 4: "Image"}
+
+
+def get_analysis_series_timeseries(
+    conn: pyodbc.Connection,
+    analysis_series_id: int,
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+) -> dict:
+    """Load lab AnalysisSeries context and dispatch to the correct value table.
+
+    Timestamps are sample collection times (ADR 0002), so this reuses the same
+    payload reads as the sensor path via the analysis-series source filter."""
+    series = ingestion_repository.get_analysis_series_by_id(conn, analysis_series_id)
+    if series is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"AnalysisSeries {analysis_series_id} not found.",
+        )
+
+    data = value_repository.get_analysis_series_values_for_metadata(
+        conn,
+        analysis_series_id,
+        series.get("value_kind_id"),
+        from_dt,
+        to_dt,
+    )
+
+    timestamps = [row["timestamp"] for row in data if row.get("timestamp")]
+    return {
+        "analysis_series_id": analysis_series_id,
+        "name": series.get("name"),
+        "parameter": series.get("parameter_name"),
+        "unit": series.get("unit_name"),
+        "sampling_point": series.get("sampling_point_label"),
+        "data_shape": _VALUE_KIND_NAMES.get(series.get("value_kind_id") or 1, "Scalar"),
+        "processing_degree": series.get("processing_kind_name"),
+        "from_timestamp": min(timestamps) if timestamps else None,
+        "to_timestamp": max(timestamps) if timestamps else None,
+        "row_count": len(data),
+        "data": data,
+    }
 
 
 def get_timeseries(

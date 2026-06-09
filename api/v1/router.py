@@ -10,6 +10,9 @@ from .endpoints.health import router as health_router
 from .endpoints.sites import router as sites_router
 from .endpoints.channels import router as channels_router
 from .endpoints.timeseries import router as timeseries_router
+from .endpoints.analysis_series_timeseries import (
+    router as analysis_series_timeseries_router,
+)
 from .endpoints.campaigns import router as campaigns_router
 from .endpoints.equipment import router as equipment_router
 from .endpoints.equipment_move import router as equipment_move_router
@@ -49,6 +52,11 @@ router.include_router(health_router, tags=["health"])
 router.include_router(sites_router, prefix="/sites", tags=["sites"])
 router.include_router(channels_router, prefix="/channels", tags=["channels"])
 router.include_router(timeseries_router, prefix="/timeseries", tags=["timeseries"])
+router.include_router(
+    analysis_series_timeseries_router,
+    prefix="/analysis-series",
+    tags=["analysis-series-timeseries"],
+)
 router.include_router(
     timeseries_annotations_router, prefix="/timeseries", tags=["annotations"]
 )

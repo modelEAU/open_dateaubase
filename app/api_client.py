@@ -823,6 +823,67 @@ def get_channel_image(channel_id: int, timestamp: str) -> bytes:
 
 
 # ---------------------------------------------------------------------------
+# Lab AnalysisSeries time series (Traces) — mirror of the channel helpers.
+# Timestamps are sample collection times (ADR 0002).
+# ---------------------------------------------------------------------------
+
+
+def get_analysis_series_timeseries(
+    analysis_series_id: int,
+    start: str | None = None,
+    end: str | None = None,
+) -> dict:
+    """Fetch time series for a lab AnalysisSeries via /analysis-series/{id}."""
+    params: dict = {}
+    if start is not None:
+        params["from"] = start
+    if end is not None:
+        params["to"] = end
+    try:
+        with _get_client() as client:
+            r = client.get(f"/analysis-series/{analysis_series_id}", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_analysis_series_stats(analysis_series_id: int) -> dict:
+    """Fetch min/max sample-collection time and measurement count for a series."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/analysis-series/{analysis_series_id}/stats")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
+def get_analysis_series_thumbnail(analysis_series_id: int, timestamp: str) -> bytes:
+    """Fetch the JPEG thumbnail bytes for a lab image measurement."""
+    try:
+        with _get_client() as client:
+            r = client.get(
+                f"/analysis-series/{analysis_series_id}/thumbnail/{timestamp}"
+            )
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.content
+
+
+def get_analysis_series_image(analysis_series_id: int, timestamp: str) -> bytes:
+    """Fetch the full-resolution image bytes for a lab image measurement."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/analysis-series/{analysis_series_id}/image/{timestamp}")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.content
+
+
+# ---------------------------------------------------------------------------
 # Sampling point pictures
 # ---------------------------------------------------------------------------
 

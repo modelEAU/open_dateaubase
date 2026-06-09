@@ -740,6 +740,54 @@ def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
     ]
 
 
+def get_analysis_series_by_id(
+    conn: pyodbc.Connection, analysis_series_id: int
+) -> dict | None:
+    """Return one AnalysisSeries with resolved labels, or None if not found."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            as_.[AnalysisSeries_ID],
+            as_.[Name],
+            as_.[Parameter_ID],
+            p.[Parameter] AS [ParameterName],
+            as_.[SamplingPoint_ID],
+            COALESCE(sp.[SamplingPoint], 'Point ' + CAST(sp.[SamplingPoint_ID] AS NVARCHAR)) AS [SamplingPointLabel],
+            as_.[Unit_ID],
+            u.[Unit],
+            as_.[ValueKind_ID],
+            as_.[ProcessingKind_ID],
+            pk.[Name] AS [ProcessingKindName],
+            as_.[Campaign_ID]
+        FROM [dbo].[AnalysisSeries] as_
+        JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
+        JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
+        JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
+        JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
+        WHERE as_.[AnalysisSeries_ID] = ?
+        """,
+        analysis_series_id,
+    )
+    r = cursor.fetchone()
+    if r is None:
+        return None
+    return {
+        "analysis_series_id": r[0],
+        "name": r[1],
+        "parameter_id": r[2],
+        "parameter_name": r[3],
+        "sampling_point_id": r[4],
+        "sampling_point_label": r[5],
+        "unit_id": r[6],
+        "unit_name": r[7],
+        "value_kind_id": r[8],
+        "processing_kind_id": r[9],
+        "processing_kind_name": r[10],
+        "campaign_id": r[11],
+    }
+
+
 def create_analysis_series(
     conn: pyodbc.Connection,
     *,
