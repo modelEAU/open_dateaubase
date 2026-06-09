@@ -880,8 +880,13 @@ def _do_submit(sess: dict) -> None:
                 }
             )
 
-    if not measurements:
-        st.error("No scalar/vector/matrix measurements to submit.")
+    has_images = any(
+        r.get("file")
+        for rows in sess["measurements"].values()
+        for r in rows
+    )
+    if not measurements and not has_images:
+        st.error("No measurements to submit.")
         return
 
     if sess["mode"] == "existing":
@@ -902,16 +907,17 @@ def _do_submit(sess: dict) -> None:
             "measurements": measurements,
         }
 
-    try:
-        with st.spinner("Submitting..."):
-            result = ingest_lab(payload)
-        action_word = "updated" if sess["mode"] == "existing" else "created"
-        st.success(
-            f"Experiment **{result['lab_experiment_id']}** {action_word} — "
-            f"{result['rows_written']} observation(s) stored."
-        )
-    except APIError as e:
-        st.error(f"Ingest failed: {e.message}")
+    if measurements:
+        try:
+            with st.spinner("Submitting..."):
+                result = ingest_lab(payload)
+            action_word = "updated" if sess["mode"] == "existing" else "created"
+            st.success(
+                f"Experiment **{result['lab_experiment_id']}** {action_word} — "
+                f"{result['rows_written']} observation(s) stored."
+            )
+        except APIError as e:
+            st.error(f"Ingest failed: {e.message}")
 
     # Handle image uploads separately
     for s_key, rows in sess["measurements"].items():
@@ -934,6 +940,14 @@ def _do_submit(sess: dict) -> None:
             (e for e in sess.get("samples", []) if e["sampling_point_id"] == _img_sp_id), None
         )
         _img_sample_id = _img_sample_entry["sample_id"] if _img_sample_entry else None
+        if _img_sample_id is None:
+            sp_label = series_item.get("sampling_point_label", f"SP {_img_sp_id}")
+            st.error(
+                f"Cannot upload images for **{series_item.get('name', '')}**: "
+                f"no sample was registered for '{sp_label}'. "
+                "Add a sample for that sampling point in Step 2 first."
+            )
+            continue
         try:
             with st.spinner("Uploading images..."):
                 result_img = ingest_lab_image(

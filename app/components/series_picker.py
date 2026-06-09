@@ -39,9 +39,6 @@ def render_series_picker(
     field = ctx["field_name"]
     label = ctx["label"]
     sk_sel = f"spkr_{field}_selected"
-    sk_camp = f"spkr_{field}_campaign"
-    sk_param = f"spkr_{field}_param"
-    sk_sp = f"spkr_{field}_sp"
     sk_creating = f"spkr_{field}_creating"
 
     # Initialise selected IDs from ctx["value"] on first render
@@ -69,7 +66,6 @@ def render_series_picker(
             with cols[i % 4]:
                 if st.button(f"{chip_label} ×", key=f"spkr_{field}_rm_{sid}"):
                     st.session_state[sk_sel] = [x for x in selected_ids if x != sid]
-                    st.rerun()
     else:
         st.caption("No series selected yet.")
 
@@ -147,7 +143,6 @@ def render_series_picker(
             with c2:
                 if st.button("+ Add", key=f"spkr_{field}_add_{s['analysis_series_id']}"):
                     st.session_state[sk_sel] = selected_ids + [s["analysis_series_id"]]
-                    st.rerun()
         if len(matches) > 20:
             st.caption(f"…and {len(matches) - 20} more. Narrow your filters.")
     else:
@@ -162,7 +157,6 @@ def render_series_picker(
         key=f"spkr_{field}_toggle_create",
     ):
         st.session_state[sk_creating] = not creating
-        st.rerun()
 
     if st.session_state.get(sk_creating, False):
         with st.container(border=True):
@@ -266,7 +260,6 @@ def render_series_picker(
                         new_id = result["analysis_series_id"]
                         st.session_state[sk_sel] = selected_ids + [new_id]
                         st.session_state[sk_creating] = False
-                        st.rerun()
                     except APIError as e:
                         st.error(f"Failed to create series: {e.message}")
 
