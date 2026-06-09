@@ -8,7 +8,7 @@ USE open_dateaubase;
 GO
 
 -- Full schema — generated from schema_dictionary/tables/*.yaml via `uv run mkdocs build`
-:r /sql_generation_scripts/v4.1.0_create_mssql.sql
+:r /sql_generation_scripts/v4.2.0_create_mssql.sql
 GO
 
 -- Vocabulary seed (auto-generated from YAML seed_data fields):
@@ -16,15 +16,20 @@ GO
 -- SignalInterfaceKind, SignalInterfacePortKind, QualityCode, AnnotationKind,
 -- BinKind, CampaignKind, EquipmentEventKind, ControlLoopPortKind,
 -- ProcessUnitKind, SampleKind, SampleCollectionKind, Unit, Parameter, ParameterHasUnit.
-:r /sql_generation_scripts/v4.1.0_seed_mssql.sql
+:r /sql_generation_scripts/v4.2.0_seed_mssql.sql
 GO
 
--- Fixture seed: units, parameters, procedures, one TEST_ watershed, one TEST_ lab.
+-- Fixture seed: procedures, one TEST_ watershed, one TEST_ lab.
 -- No equipment, sites, campaigns, or channels — those are created by the importer.
 :r /sql/seed_fixtures.sql
 GO
 
-PRINT 'Database initialized with sample data (schema + generated vocabulary seed + fixtures).';
+-- Demo seed: TEST_ site, process units, sampling points, persons, campaigns, analysis
+-- series, and a pre-built LabPanel. Safe for the importer — no Equipment or Channel rows.
+:r /sql/seed_demo.sql
+GO
+
+PRINT 'Database initialized with sample data (schema + generated vocabulary seed + fixtures + demo).';
 SELECT [Version], [AppliedDateTime], [Description] FROM dbo.SchemaVersion ORDER BY [AppliedDateTime];
 SELECT 'channel'     AS t, COUNT(*) AS n FROM dbo.Channel;
 SELECT 'value'       AS t, COUNT(*) AS n FROM dbo.[Value];
