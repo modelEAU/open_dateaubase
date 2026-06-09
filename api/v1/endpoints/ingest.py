@@ -693,6 +693,7 @@ def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
         )
 
     rows = 0
+    sample_times: dict[int, datetime] = {}
     for item in data.measurements:
         analysis_series_id = ingestion_repository.find_or_create_analysis_series(
             conn,
@@ -718,18 +719,16 @@ def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
             notes=item.notes,
         )
 
-        # Observation Timestamp mirrors LabAnalysis.AnalysisDateTime; when the
-        # caller omitted it the LabAnalysis row carries the default
-        # SYSUTCDATETIME() — re-read it so the Observation row matches.
-        if item.analysis_datetime is None:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT [AnalysisDateTime] FROM [dbo].[LabAnalysis] WHERE [LabAnalysis_ID] = ?",
-                lab_analysis_id,
+        # Observation Timestamp is the sample collection time — the moment the
+        # analyte was extracted from the observed system (see ADR 0002), not the
+        # later analysis time. AnalysisDateTime stays on LabAnalysis as metadata.
+        if item.sample_id not in sample_times:
+            sample_times[item.sample_id] = (
+                ingestion_repository.get_sample_collection_time(
+                    conn, sample_id=item.sample_id
+                )
             )
-            obs_timestamp = cursor.fetchone()[0]
-        else:
-            obs_timestamp = item.analysis_datetime
+        obs_timestamp = sample_times[item.sample_id]
 
         ingestion_repository.insert_lab_observation(
             conn,
@@ -800,6 +799,13 @@ def ingest_lab_image(
         name=series_name,
     )
 
+    # Observation Timestamp is the sample collection time (see ADR 0002), not the
+    # experiment/analysis time. `ts` above still anchors LabExperiment and the
+    # stored filename.
+    obs_timestamp = ingestion_repository.get_sample_collection_time(
+        conn, sample_id=sample_id
+    )
+
     storage_paths: list[str] = []
     for replicate, img_file in enumerate(images, start=1):
         image_bytes = img_file.file.read()
@@ -845,7 +851,7 @@ def ingest_lab_image(
         value_repository.insert_lab_image_value(
             conn,
             lab_analysis_id=lab_analysis_id,
-            timestamp=ts,
+            timestamp=obs_timestamp,
             image_width=width,
             image_height=height,
             number_of_channels=n_channels,

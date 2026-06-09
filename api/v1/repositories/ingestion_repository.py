@@ -535,6 +535,29 @@ def upsert_channel_axis(
     conn.commit()
 
 
+def get_sample_collection_time(
+    conn: pyodbc.Connection,
+    *,
+    sample_id: int,
+) -> datetime:
+    """Return Sample.SampleDateTimeStart (collection time) for a Sample_ID.
+
+    This is the real-world moment the water was sampled — the time anchor for
+    lab Observations. Raises HTTPException(404) if the sample does not exist.
+    """
+    from fastapi import HTTPException
+
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [SampleDateTimeStart] FROM [dbo].[Sample] WHERE [Sample_ID] = ?",
+        sample_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Sample {sample_id} not found.")
+    return row[0]
+
+
 def get_last_timestamp_for_channel(
     conn: pyodbc.Connection,
     *,

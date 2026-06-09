@@ -41,8 +41,11 @@ table:
       precision: 7
       nullable: false
       description: >
-        UTC timestamp of the observation. For lab observations this is set
-        from LabAnalysis.AnalysisDateTime at insert time.
+        UTC timestamp of the observation — the real-world moment it was
+        measured. For sensor observations this is the channel read time; for
+        lab observations it is set from Sample.SampleDateTimeStart (the sample
+        collection time) at insert time. LabAnalysis.AnalysisDateTime is kept
+        separately as analytical-provenance metadata.
     - name: ValueKind_ID
       logical_type: integer
       nullable: false

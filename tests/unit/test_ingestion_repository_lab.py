@@ -12,6 +12,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+import pytest
+from fastapi import HTTPException
+
 from api.v1.repositories import ingestion_repository
 
 
@@ -202,6 +205,28 @@ class TestInsertLabObservation:
             assert "value_kind_id=4" in str(exc)
         else:
             raise AssertionError("expected ValueError for unsupported value_kind_id")
+
+
+class TestGetSampleCollectionTime:
+    def test_returns_sample_datetime_start(self):
+        ts = datetime(2026, 5, 18, 8, 15, tzinfo=timezone.utc)
+        conn, cursor = _conn_with_fetchone([(ts,)])
+
+        result = ingestion_repository.get_sample_collection_time(conn, sample_id=7)
+
+        assert result == ts
+        sql = _executed_sql(cursor)
+        assert "SampleDateTimeStart" in sql
+        assert "[dbo].[Sample]" in sql
+
+    def test_raises_404_when_sample_missing(self):
+        conn, _ = _conn_with_fetchone([None])
+
+        with pytest.raises(HTTPException) as exc_info:
+            ingestion_repository.get_sample_collection_time(conn, sample_id=999)
+
+        assert exc_info.value.status_code == 404
+        assert "999" in str(exc_info.value.detail)
 
 
 class TestLabExperimentExists:
