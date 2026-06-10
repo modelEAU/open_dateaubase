@@ -43,4 +43,4 @@ Relationships use standard crow's foot notation:
 The current schema contains:
 - **71** tables
 - **4** views
-- **120** relationships
+- **124** relationships

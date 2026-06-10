@@ -1,17 +1,9 @@
-schema_version: "4.1.0"
+schema_version: "4.2.0"
 description: >
-  SignalInterface redesign. SignalPort, SignalPortType,
-  SignalPortEquipmentHistory, SignalPortLocationHistory are removed.
-  New first-class tables: SignalInterface, SignalInterfacePort,
-  EquipmentWiringHistory, EquipmentLocationHistory, ChannelPortHistory,
-  ChannelRole. SignalInterfaceKind and SignalInterfacePortKind removed —
-  interfaces are categorised by name/model, not a controlled-vocab kind.
-  Channel keeps its name and gains SignalInterface_ID, TagName,
-  SignalInterfacePort_ID (nullable), ParentChannel_ID, ChannelRole_ID —
-  replacing the old SignalPort_ID column. ControlLoopPort now references
-  Channel_ID instead of SignalPort_ID. Views vw_ChannelStatus,
-  vw_DeviceStatus rewritten; vw_ChannelEquipmentAtTime,
-  vw_ChannelLocationAtTime added. Location history now lives on
-  Equipment (not on the port), absorbing the retired EquipmentInstallation
-  table.
-date: "2026-04-21"
+  Annotation lab parity. Annotation gains an exclusive-arc anchor: Channel_ID
+  becomes nullable, a new nullable AnalysisSeries_ID FK is added, and a
+  CK_Annotation_Source XOR CHECK enforces exactly one of the two is set, so a
+  lab AnalysisSeries can be annotated with the same range/point semantics as a
+  sensor Channel (mirrors the Observation hub; see ADR 0003). Adds
+  IX_Annotation_Series_Time. Builds on the 4.1.0 SignalInterface redesign.
+date: "2026-06-10"

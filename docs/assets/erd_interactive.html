@@ -451,6 +451,15 @@
           "description": "How values in this series were produced (1=Raw, ...). Supports raw vs. corrected lab series for the same parameter at the same location.\n"
         },
         {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Campaign this series belongs to; scopes the series to a specific monitoring campaign"
+        },
+        {
           "name": "Description",
           "sql_type": "NVARCHAR(MAX)",
           "is_pk": false,
@@ -502,7 +511,7 @@
     {
       "id": "Annotation",
       "label": "Annotation",
-      "description": "Human-authored annotations on time series data. Each annotation applies to a single Channel entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.\n",
+      "description": "Human-authored annotations on time series data. Each annotation anchors to a single measurement stream \u2014 either a sensor Channel (Channel_ID NOT NULL, AnalysisSeries_ID NULL) or a lab AnalysisSeries (AnalysisSeries_ID NOT NULL, Channel_ID NULL) \u2014 over a time range; an XOR CHECK constraint (CK_Annotation_Source) enforces that exactly one is set per row. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.\n",
       "fields": [
         {
           "name": "Annotation_ID",
@@ -518,9 +527,18 @@
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": true,
+          "is_required": false,
           "fk_target": "Channel.Channel_ID",
-          "description": "The time series this annotation applies to"
+          "description": "The sensor channel this annotation applies to. NULL for lab annotations (which set AnalysisSeries_ID instead). Exactly one of Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).\n"
+        },
+        {
+          "name": "AnalysisSeries_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "AnalysisSeries.AnalysisSeries_ID",
+          "description": "The lab analysis series this annotation applies to. NULL for sensor annotations (which set Channel_ID instead). Exactly one of Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).\n"
         },
         {
           "name": "AnnotationKind_ID",
@@ -619,7 +637,7 @@
           "is_fk": true,
           "is_required": false,
           "fk_target": "Observation.Observation_ID",
-          "description": "Optional link to a specific Observation for point-level annotations (e.g., 'wrong focal length on this image'). When NULL, the annotation applies to the time range [StartTime, EndTime] on the channel. When set, StartTime should match Observation.Timestamp.\n"
+          "description": "Optional link to a specific Observation for point-level annotations (e.g., 'wrong focal length on this image'). Valid for either anchor: for a sensor annotation it pins one Channel Observation; for a lab annotation it pins one Replicate (the Observation backing a single AnalysisSeries reading). When NULL, the annotation applies to the time range [StartTime, EndTime] on the anchored stream. When set, StartTime should match Observation.Timestamp.\n"
         }
       ],
       "group_name": "Annotations",
@@ -2530,6 +2548,24 @@
           "description": "Person who created this panel"
         },
         {
+          "name": "DefaultSampleCollectionKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SampleCollectionKind.SampleCollectionKind_ID",
+          "description": "Default sample collection method pre-filled when this panel is loaded (e.g. Grab)"
+        },
+        {
+          "name": "DefaultSampleEquipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Default equipment pre-filled when this panel is loaded (e.g. auto-sampler ID)"
+        },
+        {
           "name": "CreatedAt",
           "sql_type": "DATETIME2(7)",
           "is_pk": false,
@@ -2734,7 +2770,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "UTC timestamp of the observation. For lab observations this is set from LabAnalysis.AnalysisDateTime at insert time.\n"
+          "description": "UTC timestamp of the observation \u2014 the real-world moment it was measured. For sensor observations this is the channel read time; for lab observations it is set from Sample.SampleDateTimeStart (the sample collection time) at insert time. LabAnalysis.AnalysisDateTime is kept separately as analytical-provenance metadata.\n"
         },
         {
           "name": "ValueKind_ID",
@@ -4926,6 +4962,13 @@
       "relationship_type": null
     },
     {
+      "from_table": "AnalysisSeries",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "AnalysisSeriesAxis",
       "to_table": "AnalysisSeries",
       "from_field": "AnalysisSeries_ID",
@@ -4944,6 +4987,13 @@
       "to_table": "Channel",
       "from_field": "Channel_ID",
       "to_field": "Channel_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Annotation",
+      "to_table": "AnalysisSeries",
+      "from_field": "AnalysisSeries_ID",
+      "to_field": "AnalysisSeries_ID",
       "relationship_type": null
     },
     {
@@ -5420,6 +5470,20 @@
       "to_table": "Person",
       "from_field": "CreatedByPerson_ID",
       "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabPanel",
+      "to_table": "SampleCollectionKind",
+      "from_field": "DefaultSampleCollectionKind_ID",
+      "to_field": "SampleCollectionKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabPanel",
+      "to_table": "Equipment",
+      "from_field": "DefaultSampleEquipment_ID",
+      "to_field": "Equipment_ID",
       "relationship_type": null
     },
     {

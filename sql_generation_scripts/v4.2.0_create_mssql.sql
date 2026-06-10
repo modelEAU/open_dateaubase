@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v4.2.0
 -- Platform: mssql
--- Generated: 2026-06-03 19:17:43 UTC
+-- Generated: 2026-06-10 21:09:29 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -188,7 +188,7 @@ CREATE TABLE [dbo].[AnalysisSeries] (
     [ValueKind_ID] INT NOT NULL DEFAULT 1,
     [Unit_ID] INT NOT NULL,
     [ProcessingKind_ID] INT NOT NULL DEFAULT 1,
-    [Campaign_ID] INT NULL,
+    [Campaign_ID] INT,
     [Description] NVARCHAR(MAX),
     CONSTRAINT [PK_AnalysisSeries] PRIMARY KEY ([AnalysisSeries_ID]),
     CONSTRAINT [UQ_AnalysisSeries_Identity] UNIQUE ([Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [ProcessingKind_ID])
@@ -204,7 +204,8 @@ CREATE TABLE [dbo].[AnalysisSeriesAxis] (
 
 CREATE TABLE [dbo].[Annotation] (
     [Annotation_ID] INT IDENTITY(1,1) NOT NULL,
-    [Channel_ID] INT NOT NULL,
+    [Channel_ID] INT,
+    [AnalysisSeries_ID] INT,
     [AnnotationKind_ID] INT NOT NULL,
     [StartTime] DATETIME2(7) NOT NULL,
     [EndTime] DATETIME2(7),
@@ -216,7 +217,8 @@ CREATE TABLE [dbo].[Annotation] (
     [CreatedDateTime] DATETIME2(7) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     [ModifiedDateTime] DATETIME2(7),
     [Observation_ID] INT,
-    CONSTRAINT [PK_Annotation] PRIMARY KEY ([Annotation_ID])
+    CONSTRAINT [PK_Annotation] PRIMARY KEY ([Annotation_ID]),
+    CONSTRAINT [CK_Annotation_Source] CHECK ((Channel_ID IS NOT NULL AND AnalysisSeries_ID IS NULL) OR (Channel_ID IS NULL AND AnalysisSeries_ID IS NOT NULL))
 );
 
 CREATE TABLE [dbo].[AuditLog] (
@@ -727,6 +729,7 @@ CREATE INDEX [IX_UserAccount_Email] ON [dbo].[UserAccount] ([Email]);
 
 
 CREATE INDEX [IX_Annotation_Channel_Time] ON [dbo].[Annotation] ([Channel_ID], [StartTime], [EndTime]);
+CREATE INDEX [IX_Annotation_Series_Time] ON [dbo].[Annotation] ([AnalysisSeries_ID], [StartTime], [EndTime]);
 CREATE INDEX [IX_Annotation_Author] ON [dbo].[Annotation] ([AuthorPerson_ID], [CreatedDateTime]);
 
 CREATE INDEX [IX_AuditLog_UserAccount_ID] ON [dbo].[AuditLog] ([UserAccount_ID]);
@@ -806,6 +809,7 @@ ALTER TABLE [dbo].[AnalysisSeries] ADD CONSTRAINT [FK_AnalysisSeries_Campaign_ID
 ALTER TABLE [dbo].[AnalysisSeriesAxis] ADD CONSTRAINT [FK_AnalysisSeriesAxis_AnalysisSeries_ID] FOREIGN KEY ([AnalysisSeries_ID]) REFERENCES [dbo].[AnalysisSeries] ([AnalysisSeries_ID]);
 ALTER TABLE [dbo].[AnalysisSeriesAxis] ADD CONSTRAINT [FK_AnalysisSeriesAxis_ValueBinningAxis_ID] FOREIGN KEY ([ValueBinningAxis_ID]) REFERENCES [dbo].[ValueBinningAxis] ([ValueBinningAxis_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Channel_ID] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Channel_ID]);
+ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_AnalysisSeries_ID] FOREIGN KEY ([AnalysisSeries_ID]) REFERENCES [dbo].[AnalysisSeries] ([AnalysisSeries_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_AnnotationKind_ID] FOREIGN KEY ([AnnotationKind_ID]) REFERENCES [dbo].[AnnotationKind] ([AnnotationKind_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_AuthorPerson_ID] FOREIGN KEY ([AuthorPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
