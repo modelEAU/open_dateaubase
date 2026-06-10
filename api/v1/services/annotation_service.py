@@ -30,6 +30,45 @@ def _resolve_annotation_type(conn: pyodbc.Connection, annotation_type: str | int
     return at
 
 
+def _assert_pin_in_anchor(
+    conn: pyodbc.Connection,
+    observation_id: int,
+    anchor: dict,
+) -> None:
+    """Verify a pinned Observation belongs to the anchored stream.
+
+    ``anchor`` is ``{"kind": "channel" | "series", "id": int}``. For a series
+    anchor the pin must resolve via Observation → LabAnalysis → AnalysisSeries;
+    for a channel anchor Observation.Channel_ID must equal the anchor. Raises
+    HTTPException 422 on a missing Observation or a cross-stream mismatch.
+    """
+    obs = annotation_repository.get_observation_anchor(conn, observation_id)
+    if obs is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Observation {observation_id} not found.",
+        )
+
+    if anchor["kind"] == "series":
+        if obs["analysis_series_id"] != anchor["id"]:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Observation {observation_id} does not belong to "
+                    f"AnalysisSeries {anchor['id']}."
+                ),
+            )
+    else:  # channel
+        if obs["channel_id"] != anchor["id"]:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Observation {observation_id} does not belong to "
+                    f"Channel {anchor['id']}."
+                ),
+            )
+
+
 def _build_annotation_response(row: dict) -> dict:
     """Convert a flat annotation repository row into the nested response shape."""
     author = None
@@ -45,6 +84,7 @@ def _build_annotation_response(row: dict) -> dict:
     return {
         "annotation_id": row["annotation_id"],
         "anchor": anchor,
+        "observation_id": row.get("observation_id"),
         "type": {
             "id": row["annotation_kind_id"],
             "name": row["annotation_type_name"],
@@ -116,6 +156,10 @@ def create_annotation(
 
     at = _resolve_annotation_type(conn, data.annotation_type)
 
+    anchor = {"kind": "channel", "id": channel_id}
+    if data.observation_id is not None:
+        _assert_pin_in_anchor(conn, data.observation_id, anchor)
+
     created = annotation_repository.create_annotation(
         conn,
         channel_id=channel_id,
@@ -127,11 +171,13 @@ def create_annotation(
         equipment_event_id=data.equipment_event_id,
         title=data.title,
         comment=data.comment,
+        observation_id=data.observation_id,
     )
 
     return {
         "annotation_id": created["annotation_id"],
-        "anchor": {"kind": "channel", "id": channel_id},
+        "anchor": anchor,
+        "observation_id": data.observation_id,
         "type": {
             "id": at["annotation_kind_id"],
             "name": at["annotation_type_name"],
@@ -188,6 +234,10 @@ def create_annotation_for_series(
 
     at = _resolve_annotation_type(conn, data.annotation_type)
 
+    anchor = {"kind": "series", "id": series_id}
+    if data.observation_id is not None:
+        _assert_pin_in_anchor(conn, data.observation_id, anchor)
+
     created = annotation_repository.create_annotation(
         conn,
         analysis_series_id=series_id,
@@ -199,11 +249,13 @@ def create_annotation_for_series(
         equipment_event_id=data.equipment_event_id,
         title=data.title,
         comment=data.comment,
+        observation_id=data.observation_id,
     )
 
     return {
         "annotation_id": created["annotation_id"],
-        "anchor": {"kind": "series", "id": series_id},
+        "anchor": anchor,
+        "observation_id": data.observation_id,
         "type": {
             "id": at["annotation_kind_id"],
             "name": at["annotation_type_name"],

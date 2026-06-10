@@ -30,6 +30,7 @@ class AnnotationAnchor(BaseModel):
 class AnnotationResponse(BaseModel):
     annotation_id: int
     anchor: AnnotationAnchor
+    observation_id: Optional[int] = None  # set when the annotation pins one exact Observation
     type: AnnotationKindResponse
     start_time: datetime
     end_time: Optional[datetime] = None
@@ -64,6 +65,7 @@ class AnnotationCreate(BaseModel):
     campaign_id: Optional[int] = None
     equipment_event_id: Optional[int] = None
     author_person_id: Optional[int] = None  # TODO: replace with auth context
+    observation_id: Optional[int] = None  # optional point pin (one exact Observation/Replicate)
 
     @field_validator("end_time")
     @classmethod

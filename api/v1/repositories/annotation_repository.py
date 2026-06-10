@@ -99,6 +99,7 @@ def _row_to_annotation(row) -> dict:
         "created_datetime": row[14],
         "modified_datetime": row[15],
         "analysis_series_id": row[16],
+        "observation_id": row[17],
     }
 
 
@@ -120,7 +121,8 @@ _ANNOTATION_SELECT = """
         a.[EquipmentEvent_ID],
         a.[CreatedDateTime],
         a.[ModifiedDateTime],
-        a.[AnalysisSeries_ID]
+        a.[AnalysisSeries_ID],
+        a.[Observation_ID]
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationKind] at
         ON at.[AnnotationKind_ID] = a.[AnnotationKind_ID]
@@ -225,6 +227,7 @@ def get_annotations_by_kind(
         a.[CreatedDateTime],
         a.[ModifiedDateTime],
         a.[AnalysisSeries_ID],
+        a.[Observation_ID],
         NULL                      AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
@@ -248,8 +251,8 @@ def get_annotations_by_kind(
     rows = []
     for row in cursor.fetchall():
         d = _row_to_annotation(row)
-        d["location_name"] = row[17]
-        d["parameter_name"] = row[18]
+        d["location_name"] = row[18]
+        d["parameter_name"] = row[19]
         rows.append(d)
     return rows
 
@@ -283,6 +286,7 @@ def get_recent_annotations(
         a.[CreatedDateTime],
         a.[ModifiedDateTime],
         a.[AnalysisSeries_ID],
+        a.[Observation_ID],
         NULL                      AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
@@ -308,8 +312,8 @@ def get_recent_annotations(
     rows = []
     for row in cursor.fetchall():
         d = _row_to_annotation(row)
-        d["location_name"] = row[17]
-        d["parameter_name"] = row[18]
+        d["location_name"] = row[18]
+        d["parameter_name"] = row[19]
         rows.append(d)
     return rows
 
@@ -349,6 +353,38 @@ def get_annotation_by_id(conn: pyodbc.Connection, annotation_id: int) -> dict | 
 
 
 # ---------------------------------------------------------------------------
+# Observation → anchor resolution (for the point-pin integrity guard)
+# ---------------------------------------------------------------------------
+
+
+def get_observation_anchor(
+    conn: pyodbc.Connection, observation_id: int
+) -> dict | None:
+    """Resolve an Observation to the stream it belongs to.
+
+    Returns ``{"channel_id": int | None, "analysis_series_id": int | None}`` —
+    a sensor observation carries Channel_ID; a lab observation reaches its
+    AnalysisSeries via Observation → LabAnalysis. Returns None if the
+    Observation does not exist.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT o.[Channel_ID], la.[AnalysisSeries_ID]
+        FROM [dbo].[Observation] o
+        LEFT JOIN [dbo].[LabAnalysis] la
+            ON la.[LabAnalysis_ID] = o.[LabAnalysis_ID]
+        WHERE o.[Observation_ID] = ?
+        """,
+        observation_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return {"channel_id": row[0], "analysis_series_id": row[1]}
+
+
+# ---------------------------------------------------------------------------
 # Query 4: Insert annotation
 # ---------------------------------------------------------------------------
 
@@ -366,11 +402,13 @@ def create_annotation(
     equipment_event_id: int | None,
     title: str | None,
     comment: str | None,
+    observation_id: int | None = None,
 ) -> dict:
     """Insert an annotation anchored to exactly one of Channel / AnalysisSeries.
 
     Exactly one of ``channel_id`` / ``analysis_series_id`` must be set (the DB
     CK_Annotation_Source XOR check enforces this; we guard it here too).
+    ``observation_id`` is the optional point pin (one exact Observation).
     """
     if (channel_id is None) == (analysis_series_id is None):
         raise ValueError(
@@ -384,10 +422,10 @@ def create_annotation(
             [Channel_ID], [AnalysisSeries_ID], [AnnotationKind_ID],
             [StartTime], [EndTime],
             [AuthorPerson_ID], [Campaign_ID], [EquipmentEvent_ID],
-            [Title], [Comment]
+            [Title], [Comment], [Observation_ID]
         )
         OUTPUT INSERTED.[Annotation_ID], INSERTED.[CreatedDateTime]
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         channel_id,
         analysis_series_id,
@@ -399,6 +437,7 @@ def create_annotation(
         equipment_event_id,
         title,
         comment,
+        observation_id,
     )
     row = cursor.fetchone()
     conn.commit()

@@ -478,6 +478,123 @@ class TestCreateAnnotationForSeries:
 
 
 # ---------------------------------------------------------------------------
+# Point-pin integrity guard (Slice 3) — exercises the REAL service guard
+# (only the repository layer is patched, so _assert_pin_in_anchor actually runs).
+# ---------------------------------------------------------------------------
+
+_KIND_ROW = {"annotation_kind_id": 1, "annotation_type_name": "Fault", "color": "#FF4444"}
+
+
+class TestPinIntegrityGuardEndpoint:
+    """Both arms: a cross-stream pin → 422; a matching pin → 201 with Observation_ID."""
+
+    def _pin_payload(self, observation_id: int):
+        return {
+            "annotation_type": "Fault",
+            "start_time": "2026-01-15T10:00:00",
+            "observation_id": observation_id,
+        }
+
+    # --- sensor arm (backfilled guard) ------------------------------------
+    def test_sensor_pin_wrong_channel_returns_422(self, patched_client):
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.channel_repository.get_channel_by_id",
+            return_value={"channel_id": 42},
+        ), patch(
+            "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
+            return_value=_KIND_ROW,
+        ), patch(
+            # Observation 70 belongs to channel 99, not the anchored channel 42.
+            "api.v1.repositories.annotation_repository.get_observation_anchor",
+            return_value={"channel_id": 99, "analysis_series_id": None},
+        ), patch(
+            "api.v1.repositories.annotation_repository.create_annotation",
+        ) as mock_create:
+            r = c.post("/api/v1/timeseries/42/annotations", json=self._pin_payload(70))
+        assert r.status_code == 422
+        mock_create.assert_not_called()  # guard ran before the INSERT
+
+    def test_sensor_pin_matching_channel_returns_201(self, patched_client):
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.channel_repository.get_channel_by_id",
+            return_value={"channel_id": 42},
+        ), patch(
+            "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
+            return_value=_KIND_ROW,
+        ), patch(
+            "api.v1.repositories.annotation_repository.get_observation_anchor",
+            return_value={"channel_id": 42, "analysis_series_id": None},
+        ), patch(
+            "api.v1.repositories.annotation_repository.create_annotation",
+            return_value={"annotation_id": 17, "created_datetime": "2026-06-10T11:22:33"},
+        ):
+            r = c.post("/api/v1/timeseries/42/annotations", json=self._pin_payload(70))
+        assert r.status_code == 201
+        assert r.json()["observation_id"] == 70
+
+    # --- lab arm ----------------------------------------------------------
+    def test_lab_pin_wrong_series_returns_422(self, patched_client):
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.ingestion_repository.get_analysis_series_by_id",
+            return_value={"analysis_series_id": 7},
+        ), patch(
+            "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
+            return_value=_KIND_ROW,
+        ), patch(
+            # Observation 50 belongs to series 8, not the anchored series 7.
+            "api.v1.repositories.annotation_repository.get_observation_anchor",
+            return_value={"channel_id": None, "analysis_series_id": 8},
+        ), patch(
+            "api.v1.repositories.annotation_repository.create_annotation",
+        ) as mock_create:
+            r = c.post("/api/v1/analysis-series/7/annotations", json=self._pin_payload(50))
+        assert r.status_code == 422
+        mock_create.assert_not_called()
+
+    def test_lab_pin_matching_series_returns_201(self, patched_client):
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.ingestion_repository.get_analysis_series_by_id",
+            return_value={"analysis_series_id": 7},
+        ), patch(
+            "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
+            return_value=_KIND_ROW,
+        ), patch(
+            "api.v1.repositories.annotation_repository.get_observation_anchor",
+            return_value={"channel_id": None, "analysis_series_id": 7},
+        ), patch(
+            "api.v1.repositories.annotation_repository.create_annotation",
+            return_value={"annotation_id": 31, "created_datetime": "2026-06-10T11:22:33"},
+        ):
+            r = c.post("/api/v1/analysis-series/7/annotations", json=self._pin_payload(50))
+        assert r.status_code == 201
+        assert r.json()["observation_id"] == 50
+
+    def test_lab_pin_replicate2_of_correct_series_returns_201(self, patched_client):
+        """Exact-replicate case: replicate-2's Observation still resolves to series 7."""
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.ingestion_repository.get_analysis_series_by_id",
+            return_value={"analysis_series_id": 7},
+        ), patch(
+            "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
+            return_value=_KIND_ROW,
+        ), patch(
+            "api.v1.repositories.annotation_repository.get_observation_anchor",
+            return_value={"channel_id": None, "analysis_series_id": 7},
+        ), patch(
+            "api.v1.repositories.annotation_repository.create_annotation",
+            return_value={"annotation_id": 32, "created_datetime": "2026-06-10T11:22:33"},
+        ):
+            r = c.post("/api/v1/analysis-series/7/annotations", json=self._pin_payload(61))
+        assert r.status_code == 201
+        assert r.json()["observation_id"] == 61
+
+
+# ---------------------------------------------------------------------------
 # PUT /api/v1/annotations/{annotation_id}
 # ---------------------------------------------------------------------------
 
