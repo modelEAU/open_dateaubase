@@ -511,6 +511,161 @@ class TestServiceUpdateDeleteLabAware:
         assert exc.value.status_code == 404
 
 
+# ---------------------------------------------------------------------------
+# Slice 5 — Cross-series feeds (/recent, /by-type) include lab annotations
+#
+# get_recent_annotations / get_annotations_by_kind UNION a Channel-enriched half
+# (Channel_ID NOT NULL) with an AnalysisSeries-enriched half (AnalysisSeries_ID
+# NOT NULL). The lab half derives location from SamplingPoint and variable from
+# Parameter. Before Slice 5 these queries INNER JOINed Channel, excluding lab
+# rows entirely.
+# ---------------------------------------------------------------------------
+
+
+def _feed_row(
+    annotation_id: int,
+    *,
+    channel_id=None,
+    series_id=None,
+    location=None,
+    parameter=None,
+    created=FROM,
+    start=FROM,
+):
+    """A 20-column feed row: 18 _row_to_annotation cols + LocationName + ParameterName."""
+    return (
+        annotation_id,  # Annotation_ID
+        channel_id,     # Channel_ID
+        3,              # AnnotationKind_ID
+        "Fault",        # Name
+        "#FF0000",      # Color
+        start,          # StartTime
+        TO,             # EndTime
+        "title",        # Title
+        "comment",      # Comment
+        None,           # AuthorPerson_ID
+        None,           # AuthorName
+        None,           # Campaign_ID
+        None,           # CampaignName
+        None,           # EquipmentEvent_ID
+        created,        # CreatedDateTime
+        None,           # ModifiedDateTime
+        series_id,      # AnalysisSeries_ID
+        None,           # Observation_ID
+        location,       # LocationName
+        parameter,      # ParameterName
+    )
+
+
+class TestRecentAnnotationsUnion:
+    def test_sql_unions_sensor_and_lab_halves(self):
+        conn, cursor = _conn_returning([])
+        repo.get_recent_annotations(conn, limit=20)
+        sql = _sql(cursor)
+        # The lab half must be present — a UNION over AnalysisSeries, not a
+        # Channel-only inner join. (pre-Slice-5 SQL had no AnalysisSeries join.)
+        assert "UNION ALL" in sql
+        assert "[dbo].[AnalysisSeries]" in sql
+        assert "a.[AnalysisSeries_ID] IS NOT NULL" in sql
+        assert "a.[Channel_ID] IS NOT NULL" in sql
+
+    def test_lab_row_surfaces_with_location_and_variable(self):
+        # Two rows back from the (UNIONed) query: one sensor, one lab. The lab row
+        # must come through with its SamplingPoint location + Parameter variable
+        # and a NULL Channel_ID / set AnalysisSeries_ID.
+        conn, cursor = _conn_returning(
+            [
+                _feed_row(1, channel_id=42, parameter="TSS"),
+                _feed_row(2, series_id=7, location="Effluent", parameter="COD"),
+            ]
+        )
+        rows = repo.get_recent_annotations(conn, limit=20)
+        lab = next(r for r in rows if r["analysis_series_id"] == 7)
+        assert lab["channel_id"] is None
+        assert lab["location_name"] == "Effluent"
+        assert lab["parameter_name"] == "COD"
+
+    def test_limit_applies_to_combined_set(self):
+        conn, cursor = _conn_returning([])
+        repo.get_recent_annotations(conn, limit=5)
+        sql = _sql(cursor)
+        # TOP wraps the UNION (outer select), so the limit spans both halves.
+        assert "TOP (?)" in sql
+        assert sql.index("TOP (?)") < sql.index("UNION ALL")
+        assert cursor.execute.call_args_list[0].args[1] == 5  # limit bound first
+
+
+class TestByKindAnnotationsUnion:
+    def test_sql_unions_sensor_and_lab_halves(self):
+        conn, cursor = _conn_returning([])
+        repo.get_annotations_by_kind(conn, 3, FROM, TO)
+        sql = _sql(cursor)
+        assert "UNION ALL" in sql
+        assert "[dbo].[AnalysisSeries]" in sql
+        # kind + time-range filter on BOTH halves => AnnotationKind_ID bound twice.
+        bound = cursor.execute.call_args_list[0].args[1:]
+        assert bound.count(3) == 2  # kind id repeated per half
+
+    def test_lab_row_surfaces_with_location_and_variable(self):
+        conn, cursor = _conn_returning(
+            [
+                _feed_row(1, channel_id=42, parameter="TSS"),
+                _feed_row(2, series_id=7, location="Effluent", parameter="COD"),
+            ]
+        )
+        rows = repo.get_annotations_by_kind(conn, 3, FROM, TO)
+        lab = next(r for r in rows if r["analysis_series_id"] == 7)
+        assert lab["channel_id"] is None
+        assert lab["location_name"] == "Effluent"
+        assert lab["parameter_name"] == "COD"
+
+
+class TestServiceFeedsSurfaceLab:
+    """The service maps both halves onto the generic location/variable fields and
+    builds the correct anchor per row (channel vs series)."""
+
+    def test_recent_includes_series_anchored_row(self, monkeypatch):
+        monkeypatch.setattr(
+            svc.annotation_repository,
+            "get_recent_annotations",
+            lambda conn, limit, kind_id: [
+                repo._feed_row(_feed_row(1, channel_id=42, parameter="TSS")),
+                repo._feed_row(
+                    _feed_row(2, series_id=7, location="Effluent", parameter="COD")
+                ),
+            ],
+        )
+        out = svc.get_recent_annotations(MagicMock(), limit=20)
+        anchors = {a["anchor"]["kind"] for a in out["annotations"]}
+        assert anchors == {"channel", "series"}
+        lab = next(
+            a for a in out["annotations"] if a["anchor"] == {"kind": "series", "id": 7}
+        )
+        assert lab["location"] == "Effluent"
+        assert lab["variable"] == "COD"
+
+    def test_by_type_includes_series_anchored_row(self, monkeypatch):
+        monkeypatch.setattr(
+            svc.annotation_repository,
+            "get_annotation_kind_by_name",
+            lambda conn, name: {"annotation_kind_id": 3},
+        )
+        monkeypatch.setattr(
+            svc.annotation_repository,
+            "get_annotations_by_kind",
+            lambda conn, kind_id, f, t: [
+                repo._feed_row(
+                    _feed_row(2, series_id=7, location="Effluent", parameter="COD")
+                ),
+            ],
+        )
+        out = svc.get_annotations_by_kind(MagicMock(), "Fault", FROM, TO)
+        ann = out["annotations"][0]
+        assert ann["anchor"] == {"kind": "series", "id": 7}
+        assert ann["location"] == "Effluent"
+        assert ann["variable"] == "COD"
+
+
 class TestAnnotationUpdateSchema:
     def test_update_has_no_observation_id_field(self):
         """Pin-mutation is deliberately out of scope for Slice 4: AnnotationUpdate

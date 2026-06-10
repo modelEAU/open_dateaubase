@@ -201,14 +201,10 @@ def get_annotations_for_series(
 # ---------------------------------------------------------------------------
 
 
-def get_annotations_by_kind(
-    conn: pyodbc.Connection,
-    annotation_kind_id: int,
-    from_dt: datetime,
-    to_dt: datetime,
-) -> list[dict]:
-    # Extend _ANNOTATION_SELECT with Channel join for parameter context
-    select_with_context = """
+# Column list shared by both halves of the cross-stream feeds. The first 18
+# columns match the _row_to_annotation index contract (0..17); columns 18/19 are
+# the enrichment context (LocationName, ParameterName) the service bolts on.
+_FEED_SENSOR_HALF = """
     SELECT
         a.[Annotation_ID],
         a.[Channel_ID],
@@ -228,7 +224,7 @@ def get_annotations_by_kind(
         a.[ModifiedDateTime],
         a.[AnalysisSeries_ID],
         a.[Observation_ID],
-        NULL                      AS LocationName,
+        CAST(NULL AS NVARCHAR(100)) AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationKind] at
@@ -241,34 +237,11 @@ def get_annotations_by_kind(
         ON p.[Person_ID] = a.[AuthorPerson_ID]
     LEFT JOIN [dbo].[Campaign] c
         ON c.[Campaign_ID] = a.[Campaign_ID]
-    WHERE a.[AnnotationKind_ID] = ?
-      AND a.[StartTime] <= ?
-      AND (a.[EndTime] IS NULL OR a.[EndTime] >= ?)
-    ORDER BY a.[StartTime]
-    """
-    cursor = conn.cursor()
-    cursor.execute(select_with_context, annotation_kind_id, to_dt, from_dt)
-    rows = []
-    for row in cursor.fetchall():
-        d = _row_to_annotation(row)
-        d["location_name"] = row[18]
-        d["parameter_name"] = row[19]
-        rows.append(d)
-    return rows
+    WHERE a.[Channel_ID] IS NOT NULL
+"""
 
-
-# ---------------------------------------------------------------------------
-# Query 3: Recent annotations (dashboard feed)
-# ---------------------------------------------------------------------------
-
-
-def get_recent_annotations(
-    conn: pyodbc.Connection,
-    limit: int = 20,
-    annotation_kind_id: int | None = None,
-) -> list[dict]:
-    select_with_context = """
-    SELECT TOP (?)
+_FEED_LAB_HALF = """
+    SELECT
         a.[Annotation_ID],
         a.[Channel_ID],
         at.[AnnotationKind_ID],
@@ -287,35 +260,93 @@ def get_recent_annotations(
         a.[ModifiedDateTime],
         a.[AnalysisSeries_ID],
         a.[Observation_ID],
-        NULL                      AS LocationName,
+        sp.[SamplingPoint]        AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationKind] at
         ON at.[AnnotationKind_ID] = a.[AnnotationKind_ID]
-    JOIN [dbo].[Channel] ch
-        ON ch.[Channel_ID] = a.[Channel_ID]
+    JOIN [dbo].[AnalysisSeries] ser
+        ON ser.[AnalysisSeries_ID] = a.[AnalysisSeries_ID]
+    LEFT JOIN [dbo].[SamplingPoint] sp
+        ON sp.[SamplingPoint_ID] = ser.[SamplingPoint_ID]
     LEFT JOIN [dbo].[Parameter] par
-        ON par.[Parameter_ID] = ch.[Parameter_ID]
+        ON par.[Parameter_ID] = ser.[Parameter_ID]
     LEFT JOIN [dbo].[Person] p
         ON p.[Person_ID] = a.[AuthorPerson_ID]
     LEFT JOIN [dbo].[Campaign] c
         ON c.[Campaign_ID] = a.[Campaign_ID]
-    """
-    params: list = [limit]
-    if annotation_kind_id is not None:
-        select_with_context += " WHERE a.[AnnotationKind_ID] = ?"
-        params.append(annotation_kind_id)
-    select_with_context += " ORDER BY a.[CreatedDateTime] DESC"
+    WHERE a.[AnalysisSeries_ID] IS NOT NULL
+"""
 
+
+def _feed_row(row) -> dict:
+    d = _row_to_annotation(row)
+    d["location_name"] = row[18]
+    d["parameter_name"] = row[19]
+    return d
+
+
+def get_annotations_by_kind(
+    conn: pyodbc.Connection,
+    annotation_kind_id: int,
+    from_dt: datetime,
+    to_dt: datetime,
+) -> list[dict]:
+    # The kind + time-range filter applies to BOTH halves, so each half carries
+    # its own WHERE clause; the UNION ALL combines them and ORDER BY sorts the
+    # whole result set.
+    time_filter = (
+        "  AND a.[AnnotationKind_ID] = ?"
+        "  AND a.[StartTime] <= ?"
+        "  AND (a.[EndTime] IS NULL OR a.[EndTime] >= ?)"
+    )
+    sql = (
+        _FEED_SENSOR_HALF
+        + time_filter
+        + "\nUNION ALL\n"
+        + _FEED_LAB_HALF
+        + time_filter
+        + "\nORDER BY [StartTime]"
+    )
+    # Params repeat once per half (sensor first, then lab).
+    params = [annotation_kind_id, to_dt, from_dt, annotation_kind_id, to_dt, from_dt]
     cursor = conn.cursor()
-    cursor.execute(select_with_context, *params)
-    rows = []
-    for row in cursor.fetchall():
-        d = _row_to_annotation(row)
-        d["location_name"] = row[18]
-        d["parameter_name"] = row[19]
-        rows.append(d)
-    return rows
+    cursor.execute(sql, *params)
+    return [_feed_row(row) for row in cursor.fetchall()]
+
+
+# ---------------------------------------------------------------------------
+# Query 3: Recent annotations (dashboard feed)
+# ---------------------------------------------------------------------------
+
+
+def get_recent_annotations(
+    conn: pyodbc.Connection,
+    limit: int = 20,
+    annotation_kind_id: int | None = None,
+) -> list[dict]:
+    # UNION ALL the sensor + lab halves, then apply TOP/ORDER BY to the combined
+    # set so the limit and recency ordering span both streams (not per-half).
+    kind_filter = ""
+    half_params: list = []
+    if annotation_kind_id is not None:
+        kind_filter = "  AND a.[AnnotationKind_ID] = ?"
+        half_params = [annotation_kind_id]
+
+    union = (
+        _FEED_SENSOR_HALF + kind_filter + "\nUNION ALL\n" + _FEED_LAB_HALF + kind_filter
+    )
+    sql = (
+        "SELECT TOP (?) * FROM (\n"
+        + union
+        + "\n) AS feed\n"
+        + "ORDER BY feed.[CreatedDateTime] DESC"
+    )
+    # limit first, then the kind filter for each half (sensor, then lab).
+    params: list = [limit, *half_params, *half_params]
+    cursor = conn.cursor()
+    cursor.execute(sql, *params)
+    return [_feed_row(row) for row in cursor.fetchall()]
 
 
 # ---------------------------------------------------------------------------

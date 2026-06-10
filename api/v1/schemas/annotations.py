@@ -42,6 +42,11 @@ class AnnotationResponse(BaseModel):
     equipment_event_id: Optional[int] = None
     created_at: datetime
     modified_at: Optional[datetime] = None
+    # Cross-stream feed enrichment (/recent, /by-type): derived location +
+    # variable for the anchored stream (sensor: Parameter; lab: SamplingPoint +
+    # Parameter). Omitted on per-stream list endpoints.
+    location: Optional[str] = None
+    variable: Optional[str] = None
 
 
 class AnnotationListResponse(BaseModel):

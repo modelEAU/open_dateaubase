@@ -790,6 +790,70 @@ class TestAnnotationsByType:
 
 
 # ---------------------------------------------------------------------------
+# Cross-stream feeds include lab annotations (Slice 5) — exercises the REAL
+# service + repository against a mocked cursor, so the UNION SQL and the
+# location/variable enrichment for the lab half are actually run. A pre-Slice-5
+# Channel-only inner join would never surface the series-anchored row.
+# ---------------------------------------------------------------------------
+
+FROM = "2026-01-01T00:00:00"
+TO = "2026-02-28T23:59:59"
+
+
+def _feed_row(annotation_id, *, channel_id=None, series_id=None,
+              location=None, parameter=None, created="2026-01-15T10:00:00"):
+    """A 20-column feed row matching the repo's UNION SELECT shape."""
+    return (
+        annotation_id, channel_id, 3, "Fault", "#FF0000",
+        "2026-01-10T00:00:00", "2026-01-20T00:00:00", "title", "comment",
+        None, None, None, None, None, created, None,
+        series_id, None, location, parameter,
+    )
+
+
+class TestRecentIncludesLabAnnotations:
+    def test_lab_annotation_appears_alongside_sensor(self, patched_client):
+        c, conn, cursor = patched_client
+        # Cursor returns one sensor + one lab row (lab is more recent).
+        cursor.fetchall.return_value = [
+            _feed_row(2, series_id=7, location="Effluent", parameter="COD",
+                      created="2026-01-16T00:00:00"),
+            _feed_row(1, channel_id=42, parameter="TSS",
+                      created="2026-01-15T00:00:00"),
+        ]
+        r = c.get("/api/v1/annotations/recent")
+        assert r.status_code == 200
+        anns = r.json()["annotations"]
+        anchors = [(a["anchor"]["kind"], a["anchor"]["id"]) for a in anns]
+        assert ("series", 7) in anchors  # lab row surfaced
+        assert ("channel", 42) in anchors  # sensor row still there
+        lab = next(a for a in anns if a["anchor"] == {"kind": "series", "id": 7})
+        assert lab["location"] == "Effluent"
+        assert lab["variable"] == "COD"
+
+
+class TestByTypeIncludesLabAnnotations:
+    def test_lab_annotation_appears_with_location_and_variable(self, patched_client):
+        c, conn, cursor = patched_client
+        cursor.fetchall.return_value = [
+            _feed_row(1, channel_id=42, parameter="TSS"),
+            _feed_row(2, series_id=7, location="Effluent", parameter="COD"),
+        ]
+        with patch(
+            "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
+            return_value={"annotation_kind_id": 3, "annotation_type_name": "Fault",
+                          "color": "#FF0000"},
+        ):
+            r = c.get(f"/api/v1/annotations/by-type/Fault?from={FROM}&to={TO}")
+        assert r.status_code == 200
+        anns = r.json()["annotations"]
+        lab = next(a for a in anns if a["anchor"] == {"kind": "series", "id": 7})
+        assert lab["anchor"]["kind"] == "series"
+        assert lab["location"] == "Effluent"
+        assert lab["variable"] == "COD"
+
+
+# ---------------------------------------------------------------------------
 # OpenAPI spec — annotation paths are documented
 # ---------------------------------------------------------------------------
 
