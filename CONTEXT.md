@@ -54,6 +54,17 @@ A repeated measurement of the same AnalysisSeries on the same Sample
 (Replicate 1 = primary, 2+ = duplicates). Multiple replicates share one sample
 collection time.
 
+### Annotation
+
+A human-authored note attached to a **Trace** — applying *either* over a time
+range *or* pinned to a single measurement point. Because it attaches to a Trace,
+an Annotation can target *either* half: a sensor **Channel** or a lab
+**AnalysisSeries**. A **point** Annotation pins to one exact **Observation**
+(for lab, that is a single **Replicate**, since replicates share a collection
+time and stack at the same instant). Every Annotation carries an
+**AnnotationKind** (a controlled vocabulary term: Fault, Maintenance, Anomaly,
+Note, …).
+
 ## Resolved conventions (Data Explorer)
 
 - **Lab x-axis = Sample collection time** (`Sample.SampleDateTimeStart`), *not*
@@ -63,3 +74,8 @@ collection time.
   no special join and reuses the sensor read functions. See
   [ADR 0002](docs/adr/0002-lab-observation-timestamp-sample-time.md).
 - **Replicates plot as individual points** at the same x, not aggregated.
+- **Annotations apply to both Trace halves.** A Channel and an AnalysisSeries can
+  each be annotated with full parity (range and point). A point Annotation on a
+  lab Trace pins one specific Replicate. See
+  [ADR 0003](docs/adr/0003-exclusive-arc-for-sensor-lab-polymorphism.md) for why
+  the two halves are kept as an exclusive arc rather than a shared supertype.
