@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -20,9 +20,16 @@ class AnnotationAuthor(BaseModel):
     name: str
 
 
+class AnnotationAnchor(BaseModel):
+    """What an annotation is anchored to: a sensor Channel or a lab AnalysisSeries."""
+
+    kind: Literal["channel", "series"]
+    id: int
+
+
 class AnnotationResponse(BaseModel):
     annotation_id: int
-    channel_id: int
+    anchor: AnnotationAnchor
     type: AnnotationKindResponse
     start_time: datetime
     end_time: Optional[datetime] = None
@@ -37,6 +44,9 @@ class AnnotationResponse(BaseModel):
 
 
 class AnnotationListResponse(BaseModel):
+    # Top-level echo of the queried channel (sensor list/timeseries endpoints).
+    # This is a query parameter echo, NOT a per-annotation field — the per-row
+    # anchor lives on each AnnotationResponse.anchor.
     channel_id: Optional[int] = None
     query_range: Optional[dict] = None
     annotations: list[AnnotationResponse]

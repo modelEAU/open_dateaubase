@@ -36,7 +36,7 @@ def _build_annotation_response(row: dict) -> dict:
         }
     return {
         "annotation_id": row["annotation_id"],
-        "channel_id": row["channel_id"],
+        "anchor": {"kind": "channel", "id": row["channel_id"]},
         "type": {
             "id": row["annotation_kind_id"],
             "name": row["annotation_type_name"],
@@ -123,7 +123,7 @@ def create_annotation(
 
     return {
         "annotation_id": created["annotation_id"],
-        "channel_id": channel_id,
+        "anchor": {"kind": "channel", "id": channel_id},
         "type": {
             "id": at["annotation_kind_id"],
             "name": at["annotation_type_name"],

@@ -72,7 +72,7 @@ def _mock_annotation_type():
 def _mock_annotation():
     return {
         "annotation_id": 1,
-        "channel_id": 42,
+        "anchor": {"kind": "channel", "id": 42},
         "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
         "start_time": "2025-02-15T10:00:00",
         "end_time": "2025-02-15T14:00:00",
@@ -89,6 +89,8 @@ def _mock_annotation():
 
 def _mock_annotation_list():
     return {
+        # Top-level channel_id is the query echo (the queried channel), distinct
+        # from the per-annotation anchor.
         "channel_id": 42,
         "query_range": {"from": "2025-02-01T00:00:00", "to": "2025-02-28T23:59:59"},
         "annotations": [_mock_annotation()],
@@ -160,7 +162,7 @@ class TestAnnotationTypesContract:
 # ---------------------------------------------------------------------------
 
 REQUIRED_ANNOTATION_LIST_FIELDS = {"annotations", "count"}
-REQUIRED_ANNOTATION_FIELDS = {"annotation_id", "channel_id", "type", "start_time", "created_at"}
+REQUIRED_ANNOTATION_FIELDS = {"annotation_id", "anchor", "type", "start_time", "created_at"}
 REQUIRED_ANNOTATION_TYPE_IN_ANNOTATION = {"id", "name"}
 
 
@@ -227,6 +229,19 @@ class TestGetAnnotationsForTimeseries:
         for field in REQUIRED_ANNOTATION_TYPE_IN_ANNOTATION:
             assert field in type_obj, f"Missing type field: {field}"
 
+    def test_annotation_carries_discriminated_channel_anchor(self, patched_client):
+        """Per-annotation anchor is a discriminated {kind, id} object, and the
+        flat per-annotation `channel_id` field is gone (Slice 1 rename)."""
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.get_annotations_for_timeseries",
+            return_value=_mock_annotation_list(),
+        ):
+            r = c.get("/api/v1/timeseries/42/annotations?from=2025-02-01T00:00:00&to=2025-02-28T23:59:59")
+        ann = r.json()["annotations"][0]
+        assert ann["anchor"] == {"kind": "channel", "id": 42}
+        assert "channel_id" not in ann, "per-annotation channel_id must be replaced by anchor"
+
     def test_count_is_int(self, patched_client):
         c, conn, cursor = patched_client
         with patch(
@@ -253,7 +268,7 @@ class TestGetAnnotationsForTimeseries:
 # POST /api/v1/timeseries/{id}/annotations
 # ---------------------------------------------------------------------------
 
-REQUIRED_CREATE_RESPONSE_FIELDS = {"annotation_id", "channel_id", "type", "start_time", "created_at"}
+REQUIRED_CREATE_RESPONSE_FIELDS = {"annotation_id", "anchor", "type", "start_time", "created_at"}
 
 
 class TestCreateAnnotation:
@@ -270,7 +285,7 @@ class TestCreateAnnotation:
         c, conn, cursor = patched_client
         mock_response = {
             "annotation_id": 17,
-            "channel_id": 42,
+            "anchor": {"kind": "channel", "id": 42},
             "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
             "start_time": "2025-02-15T10:00:00",
             "end_time": "2025-02-15T14:00:00",
@@ -288,7 +303,7 @@ class TestCreateAnnotation:
         c, conn, cursor = patched_client
         mock_response = {
             "annotation_id": 17,
-            "channel_id": 42,
+            "anchor": {"kind": "channel", "id": 42},
             "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
             "start_time": "2025-02-15T10:00:00",
             "end_time": "2025-02-15T14:00:00",
@@ -327,7 +342,7 @@ class TestCreateAnnotation:
         c, conn, cursor = patched_client
         mock_response = {
             "annotation_id": 18,
-            "channel_id": 42,
+            "anchor": {"kind": "channel", "id": 42},
             "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
             "start_time": "2025-02-15T10:00:00",
             "end_time": None,
