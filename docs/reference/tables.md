@@ -28,6 +28,7 @@ Unlike Channel — which intentionally excludes sampling location from its ident
  | FK → [Unit.Unit_ID](#Unit) |
 | ProcessingKind_ID | INT | - | ✓ | <span id="ProcessingKind_ID"></span>How values in this series were produced (1=Raw, ...). Supports raw vs. corrected lab series for the same parameter at the same location.
  | FK → [ProcessingKind.ProcessingKind_ID](#ProcessingKind)<br>Default: `1` |
+| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this series belongs to; scopes the series to a specific monitoring campaign | FK → [Campaign.Campaign_ID](#Campaign) |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this analysis series | - |
 
 <span id="AnalysisSeriesAxis"></span>
@@ -50,7 +51,7 @@ Junction table linking an AnalysisSeries to its binning axis or axes (analogous 
 
 ### Annotation
 
-Human-authored annotations on time series data. Each annotation applies to a single Channel entry (one measurement channel) over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.
+Human-authored annotations on time series data. Each annotation anchors to a single measurement stream — either a sensor Channel (Channel_ID NOT NULL, AnalysisSeries_ID NULL) or a lab AnalysisSeries (AnalysisSeries_ID NOT NULL, Channel_ID NULL) — over a time range; an XOR CHECK constraint (CK_Annotation_Source) enforces that exactly one is set per row. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.
 
 
 
@@ -59,7 +60,10 @@ Human-authored annotations on time series data. Each annotation applies to a sin
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Annotation_ID | INT **(PK)** | - | ✓ | <span id="Annotation_ID"></span>Primary key, auto-incremented | - |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The time series this annotation applies to | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT | - |  | <span id="Channel_ID"></span>The sensor channel this annotation applies to. NULL for lab annotations (which set AnalysisSeries_ID instead). Exactly one of Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).
+ | FK → [Channel.Channel_ID](#Channel) |
+| AnalysisSeries_ID | INT | - |  | <span id="AnalysisSeries_ID"></span>The lab analysis series this annotation applies to. NULL for sensor annotations (which set Channel_ID instead). Exactly one of Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).
+ | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
 | AnnotationKind_ID | INT | - | ✓ | <span id="AnnotationKind_ID"></span>What kind of annotation this is | FK → [AnnotationKind.AnnotationKind_ID](#AnnotationKind) |
 | StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>Start of the annotated time range | - |
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the annotated range. NULL = point annotation or ongoing | - |
@@ -70,7 +74,7 @@ Human-authored annotations on time series data. Each annotation applies to a sin
 | Comment | NVARCHAR(MAX) | - |  | <span id="Comment"></span>Detailed free-text comment | - |
 | CreatedDateTime | DATETIME2(7) | - | ✓ | <span id="CreatedDateTime"></span>When this annotation was created | Default: `CURRENT_TIMESTAMP` |
 | ModifiedDateTime | DATETIME2(7) | - |  | <span id="ModifiedDateTime"></span>When this annotation was last modified | - |
-| Observation_ID | INT | - |  | <span id="Observation_ID"></span>Optional link to a specific Observation for point-level annotations (e.g., 'wrong focal length on this image'). When NULL, the annotation applies to the time range [StartTime, EndTime] on the channel. When set, StartTime should match Observation.Timestamp.
+| Observation_ID | INT | - |  | <span id="Observation_ID"></span>Optional link to a specific Observation for point-level annotations (e.g., 'wrong focal length on this image'). Valid for either anchor: for a sensor annotation it pins one Channel Observation; for a lab annotation it pins one Replicate (the Observation backing a single AnalysisSeries reading). When NULL, the annotation applies to the time range [StartTime, EndTime] on the anchored stream. When set, StartTime should match Observation.Timestamp.
  | FK → [Observation.Observation_ID](#Observation) |
 
 <span id="AnnotationKind"></span>
@@ -690,6 +694,8 @@ Named, reusable bundle of AnalysisSeries to run together in a lab session. Copy-
 | Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable panel name (e.g. 'PSVD Weekly Panel') | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text description of the panel's purpose | - |
 | CreatedByPerson_ID | INT | - |  | <span id="CreatedByPerson_ID"></span>Person who created this panel | FK → [Person.Person_ID](#Person) |
+| DefaultSampleCollectionKind_ID | INT | - |  | <span id="DefaultSampleCollectionKind_ID"></span>Default sample collection method pre-filled when this panel is loaded (e.g. Grab) | FK → [SampleCollectionKind.SampleCollectionKind_ID](#SampleCollectionKind) |
+| DefaultSampleEquipment_ID | INT | - |  | <span id="DefaultSampleEquipment_ID"></span>Default equipment pre-filled when this panel is loaded (e.g. auto-sampler ID) | FK → [Equipment.Equipment_ID](#Equipment) |
 | CreatedAt | DATETIME2(7) | - | ✓ | <span id="CreatedAt"></span>When this panel was created (UTC) | Default: `GETUTCDATE()` |
 
 <span id="LabPanelSeries"></span>
@@ -760,7 +766,7 @@ Shared hub table representing a single measurement event at a timestamp. The sou
  | FK → [Channel.Channel_ID](#Channel) |
 | LabAnalysis_ID | INT | - |  | <span id="LabAnalysis_ID"></span>The lab analysis this observation belongs to. NULL for sensor observations (which set Channel_ID instead). Exactly one of Channel_ID / LabAnalysis_ID is non-NULL per row (XOR CHECK).
  | FK → [LabAnalysis.LabAnalysis_ID](#LabAnalysis) |
-| Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the observation. For lab observations this is set from LabAnalysis.AnalysisDateTime at insert time.
+| Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the observation — the real-world moment it was measured. For sensor observations this is the channel read time; for lab observations it is set from Sample.SampleDateTimeStart (the sample collection time) at insert time. LabAnalysis.AnalysisDateTime is kept separately as analytical-provenance metadata.
  | - |
 | ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). For sensor observations must match the Channel's ValueKind; for lab observations must match the AnalysisSeries's ValueKind.
  | FK → [ValueKind.ValueKind_ID](#ValueKind) |

@@ -189,6 +189,35 @@ def test_lab_series_annotation_renders_overlay():
     ), f"lab annotation overlay row not found in {records}"
 
 
+def test_lab_annotation_dialog_is_homogeneous_no_quality_flag_tab():
+    """Decision 7 (per-arm, no mixing): opening the annotation dialog for a lab
+    AnalysisSeries shows ONLY the annotation form — no 'Quality Flag' tab (quality
+    flags are sensor-only). The sensor dialog, by contrast, DOES show both tabs.
+
+    This guards the `is_lab` branch in _annotation_dialog: reverting it (always
+    rendering st.tabs(["Annotation", "Quality Flag"])) makes this test fail because
+    a 'Quality Flag' tab would appear in the lab dialog.
+    """
+    # --- lab arm: open the dialog for a lab series, assert no Quality Flag tab ---
+    with ExitStack() as stack:
+        _patches(stack)
+        stack.enter_context(
+            patch(f"{MOD}.list_annotation_kinds",
+                  return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
+        )
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_series"] = [1]
+        at.session_state["explore_series_meta"] = {1: _SERIES[0]}
+        at.run()
+        at.button(key="btn_lab_ann").click().run()
+        assert not at.exception
+        lab_tab_labels = [lbl for t in at.tabs for lbl in (t.label or "",)]
+        assert "Quality Flag" not in lab_tab_labels, (
+            f"lab annotation dialog must not expose a Quality Flag tab; "
+            f"saw tabs {lab_tab_labels}"
+        )
+
+
 def test_page_renders_with_active_traces_of_both_sources():
     """With one sensor channel and one lab series active, the page renders the
     scalar overlay without error (a plotly chart is produced)."""

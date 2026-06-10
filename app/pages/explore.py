@@ -1118,7 +1118,10 @@ def _image_viewer_dialog(
     except APIError as e:
         st.warning(f"Could not load full image: {e.message}")
 
-    # Annotation is sensor-only (lab traces are read-only).
+    # Image-level annotation is sensor-only for now. Lab AnalysisSeries traces
+    # are fully annotatable from the scalar chart view (range + point, via
+    # /analysis-series/{id}/annotations); only this per-image affordance remains
+    # channel-only.
     if kind == "channel":
         st.divider()
         if st.button("Create Annotation for this image"):
@@ -1733,7 +1736,8 @@ def _render_scalar_view(
     )
     st.session_state.explore_selected_points = selection
 
-    # Selection actions — sensor channels only (lab traces are read-only)
+    # Point-selection actions (quality flag / equipment event) are sensor-only.
+    # Lab AnalysisSeries traces get their own range-annotation affordance below.
     selected = selection.get("selection", {}) if selection else {}
     selected_pts = selected.get("points", [])
 

@@ -2,14 +2,21 @@
 
 ## What annotations are and why they exist
 
-Annotations are human-authored interval records attached to a measurement channel
-(`Channel` row). They capture expert knowledge that cannot be inferred from raw
-values alone — a sensor was being cleaned, an anomaly was investigated, a storm event
-affected a reading, etc.
+Annotations are human-authored interval records attached to a measurement stream.
+They capture expert knowledge that cannot be inferred from raw values alone — a
+sensor was being cleaned, an anomaly was investigated, a storm event affected a
+reading, etc.
 
-Each annotation spans a `[StartTime, EndTime]` window on a single channel.
+An annotation anchors to **exactly one** stream — either a sensor `Channel`
+(`Channel_ID` set) **or** a lab `AnalysisSeries` (`AnalysisSeries_ID` set). The two
+anchors are mutually exclusive: a database `CK_Annotation_Source` XOR check enforces
+that precisely one is non-NULL per row. Lab AnalysisSeries annotations have **full
+parity** with sensor Channel annotations — range and point, create/read/update/delete,
+and inclusion in the cross-stream `/recent` and `/by-type` feeds.
+
+Each annotation spans a `[StartTime, EndTime]` window on its anchored stream.
 `EndTime = NULL` means either a point-in-time note or an **ongoing** situation (no
-resolved end yet). Multiple annotations may overlap on the same channel and time range.
+resolved end yet). Multiple annotations may overlap on the same stream and time range.
 
 Annotations are distinct from:
 
@@ -48,10 +55,13 @@ Seeded at migration time. Never changes in normal operation.
 
 ```text
 Annotation_ID     — surrogate PK (IDENTITY)
-Channel_ID        — the channel being annotated (FK → Channel)
+Channel_ID        — the sensor channel being annotated (FK → Channel, NULL for lab)
+AnalysisSeries_ID — the lab analysis series being annotated (FK → AnalysisSeries, NULL for sensor)
 AnnotationType_ID — what kind of annotation (FK → AnnotationType)
 StartTime         — start of annotated range (DATETIME2, NOT NULL)
 EndTime           — end of annotated range (DATETIME2, NULL = point or ongoing)
+Observation_ID    — optional point pin to one exact Observation (FK → Observation, optional);
+                    for sensor pins one Channel Observation, for lab pins one Replicate
 AuthorPerson_ID   — who wrote it (FK → Person, optional)
 Campaign_ID       — associated campaign (FK → Campaign, optional)
 EquipmentEvent_ID — triggering event (FK → EquipmentEvent, optional)
@@ -61,9 +71,14 @@ CreatedAt         — server-set UTC creation time
 ModifiedAt        — server-set UTC last-edit time (NULL until first edit)
 ```
 
+Exactly one of `Channel_ID` / `AnalysisSeries_ID` is non-NULL per row, enforced by the
+`CK_Annotation_Source` XOR check constraint (the exclusive-arc pattern — see
+[ADR 0003](../adr/0003-exclusive-arc-for-sensor-lab-polymorphism.md)).
+
 Indexes:
 
-- `IX_Annotation_Channel_Time` on `(Channel_ID, StartTime, EndTime)` — optimises interval overlap queries
+- `IX_Annotation_Channel_Time` on `(Channel_ID, StartTime, EndTime)` — optimises interval overlap queries for sensor-anchored annotations
+- `IX_Annotation_Series_Time` on `(AnalysisSeries_ID, StartTime, EndTime)` — optimises interval overlap queries for lab-anchored annotations
 - `IX_Annotation_Author` on `(AuthorPerson_ID, CreatedAt)` — optimises "my annotations" and dashboard feeds
 
 ---
@@ -119,7 +134,8 @@ Returns all annotations overlapping `[from, to]` for the given channel.
   "annotations": [
     {
       "annotation_id": 7,
-      "channel_id": 42,
+      "anchor": {"kind": "channel", "id": 42},
+      "observation_id": null,
       "type": {"id": 2, "name": "Maintenance", "description": "...", "color": "#FFA500"},
       "start_time": "2025-02-10T08:00:00",
       "end_time": "2025-02-10T11:30:00",
@@ -156,15 +172,53 @@ POST /timeseries/{channel_id}/annotations
 
 `annotation_type` accepts either the type name (string) or `AnnotationType_ID` (integer).
 
+To pin an annotation to one exact reading, pass `observation_id`. The service rejects
+(HTTP 422) a pin whose `Observation` does not belong to the anchored stream.
+
+### List annotations for a lab AnalysisSeries
+
+```http
+GET /analysis-series/{series_id}/annotations?from=<ISO8601>&to=<ISO8601>[&type=<name|id>]
+```
+
+The parallel lab sub-resource. The envelope echoes `analysis_series_id` (instead of
+`channel_id`) and each annotation carries `anchor: {"kind": "series", "id": <series_id>}`.
+
+### Create annotation on a lab AnalysisSeries
+
+```http
+POST /analysis-series/{series_id}/annotations
+```
+
+Same body shape as the channel create. The created annotation is anchored to the
+series (`anchor.kind == "series"`). A lab `observation_id` pin targets one Replicate of
+the series.
+
+### The per-annotation `anchor`
+
+Every annotation in a response carries a discriminated `anchor` object identifying what
+it is attached to:
+
+```json
+{"kind": "channel", "id": 42}   // sensor Channel
+{"kind": "series",  "id": 7}    // lab AnalysisSeries
+```
+
+This replaced the earlier flat per-annotation `channel_id` field. (The list envelope
+still echoes the queried `channel_id` / `analysis_series_id` at the top level as a
+query echo — distinct from the per-row `anchor`.)
+
 ### Get recent annotations (dashboard feed)
 
 ```http
 GET /annotations/recent?limit=20[&type=<name|id>]
 ```
 
-Returns the most recently created annotations across all channels.
+Returns the most recently created annotations across all streams — both sensor
+Channels and lab AnalysisSeries (UNIONed), ordered by creation time. Each item carries
+its `anchor` plus a derived `location` and `variable` for the anchored stream.
 
-### Get annotations by type across all channels
+### Get annotations by type across all streams
 
 ```http
 GET /annotations/by-type/{type_name}?from=<ISO8601>&to=<ISO8601>
@@ -229,8 +283,9 @@ maintaining a traceable link.
 
 - **Annotation threading**: A `ParentAnnotation_ID` self-FK would allow replies/follow-ups
   on a single annotation, creating discussion threads.
-- **Multi-channel annotations**: A junction table `AnnotationCoversChannel(Annotation_ID,
-  Channel_ID)` would allow one annotation to span multiple channels simultaneously (e.g.,
-  a storm event affecting an entire site). Currently, one annotation per channel is required.
+- **Multi-stream annotations**: A junction table `AnnotationCoversChannel(Annotation_ID,
+  Channel_ID)` would allow one annotation to span multiple streams simultaneously (e.g.,
+  a storm event affecting an entire site). Currently, one annotation anchors to exactly
+  one stream (a Channel **or** an AnalysisSeries).
 - **Authentication**: `AuthorPerson_ID` is supplied by the client today. In a future
   authenticated API, this would be set from the JWT claim automatically.
