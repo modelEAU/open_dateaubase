@@ -24,7 +24,7 @@ from fastapi import HTTPException
 
 from api.v1.repositories import annotation_repository as repo
 from api.v1.services import annotation_service as svc
-from api.v1.schemas.annotations import AnnotationCreate
+from api.v1.schemas.annotations import AnnotationCreate, AnnotationUpdate
 
 
 FROM = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -402,3 +402,119 @@ class TestServiceRead:
         with pytest.raises(HTTPException) as exc:
             svc.get_annotations_for_series(MagicMock(), 999, FROM, TO)
         assert exc.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Slice 4 — Edit / delete, lab-aware
+#
+# PUT/DELETE/GET-by-id are keyed on annotation_id and so are anchor-agnostic.
+# These tests pin that a *series-anchored* row survives those paths intact:
+#   - get_annotation_by_id returns it with anchor.kind == "series"
+#   - update_annotation does not silently coerce the anchor to channel
+#   - delete_annotation removes it
+# The JOIN-drop regression test below proves the shared read SELECT does not
+# inner-join Channel (which would make a lab row, Channel_ID NULL, vanish).
+# ---------------------------------------------------------------------------
+
+
+class TestRepositoryGetByIdLabSafe:
+    def test_get_by_id_returns_series_anchored_row(self):
+        # A lab row (Channel_ID NULL, AnalysisSeries_ID 7) must come back whole.
+        conn, cursor = _conn_returning([])
+        cursor.fetchone.return_value = _series_row(7)
+        out = repo.get_annotation_by_id(conn, 1)
+        assert out is not None
+        assert out["analysis_series_id"] == 7
+        assert out["channel_id"] is None
+
+    def test_get_by_id_select_does_not_inner_join_channel(self):
+        """Regression: the shared read SELECT must not inner-join Channel.
+
+        An inner JOIN [dbo].[Channel] (or a Channel_ID IS NOT NULL filter) would
+        exclude lab-anchored rows (Channel_ID is NULL). This test fails if such a
+        join is reintroduced on the get_annotation_by_id path.
+        """
+        conn, cursor = _conn_returning([])
+        cursor.fetchone.return_value = _series_row(7)
+        repo.get_annotation_by_id(conn, 1)
+        sql = _sql(cursor)
+        assert "JOIN [dbo].[Channel]" not in sql
+        assert "Channel_ID] IS NOT NULL" not in sql
+
+
+class TestRepositoryUpdateLabSafe:
+    def test_update_returns_via_lab_safe_select(self):
+        # update_annotation re-reads through get_annotation_by_id; the returned
+        # row must still be the series-anchored row, not dropped.
+        conn, cursor = _conn_returning([])
+        # First execute = UPDATE (fetchone unused), second = get_annotation_by_id.
+        cursor.fetchone.return_value = _series_row(7)
+        out = repo.update_annotation(
+            conn,
+            1,
+            annotation_kind_id=None,
+            start_time=None,
+            end_time=None,
+            title=None,
+            comment="edited",
+        )
+        sql = _sql(cursor)
+        assert "JOIN [dbo].[Channel]" not in sql
+        assert out is not None
+        assert out["analysis_series_id"] == 7
+        assert out["channel_id"] is None
+
+
+class TestServiceUpdateDeleteLabAware:
+    def _patch_get_by_id(self, monkeypatch, row: dict | None):
+        monkeypatch.setattr(
+            svc.annotation_repository,
+            "get_annotation_by_id",
+            lambda conn, aid: row,
+        )
+
+    def test_update_preserves_series_anchor(self, monkeypatch):
+        """Editing a field must not coerce a lab annotation to a channel anchor."""
+        existing = repo._row_to_annotation(_series_row(7))
+        self._patch_get_by_id(monkeypatch, existing)
+        monkeypatch.setattr(
+            svc.annotation_repository,
+            "update_annotation",
+            lambda conn, aid, **kw: repo._row_to_annotation(_series_row(7)),
+        )
+        data = AnnotationUpdate(comment="edited")
+        out = svc.update_annotation(MagicMock(), 1, data)
+        assert out["anchor"] == {"kind": "series", "id": 7}
+
+    def test_update_missing_annotation_404(self, monkeypatch):
+        self._patch_get_by_id(monkeypatch, None)
+        with pytest.raises(HTTPException) as exc:
+            svc.update_annotation(MagicMock(), 999, AnnotationUpdate(comment="x"))
+        assert exc.value.status_code == 404
+
+    def test_delete_series_anchored_annotation(self, monkeypatch):
+        existing = repo._row_to_annotation(_series_row(7))
+        self._patch_get_by_id(monkeypatch, existing)
+        deleted: dict = {}
+        monkeypatch.setattr(
+            svc.annotation_repository,
+            "delete_annotation",
+            lambda conn, aid: deleted.update({"id": aid}) or True,
+        )
+        svc.delete_annotation(MagicMock(), 1)
+        assert deleted["id"] == 1
+
+    def test_delete_missing_annotation_404(self, monkeypatch):
+        self._patch_get_by_id(monkeypatch, None)
+        with pytest.raises(HTTPException) as exc:
+            svc.delete_annotation(MagicMock(), 999)
+        assert exc.value.status_code == 404
+
+
+class TestAnnotationUpdateSchema:
+    def test_update_has_no_observation_id_field(self):
+        """Pin-mutation is deliberately out of scope for Slice 4: AnnotationUpdate
+        must NOT expose observation_id (changing the pin would require re-running
+        _assert_pin_in_anchor against the stored anchor). If a future slice adds
+        it, this guard flags that the guard wiring must be added too."""
+        assert "observation_id" not in AnnotationUpdate.model_fields

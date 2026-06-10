@@ -639,6 +639,20 @@ class TestUpdateAnnotation:
             r = c.put("/api/v1/annotations/1", json={})
         assert r.status_code == 200
 
+    def test_update_preserves_series_anchor(self, patched_client):
+        """Slice 4: editing a series-anchored annotation keeps anchor.kind=='series'
+        (not silently coerced to channel). The endpoint is keyed by annotation_id,
+        so a lab row round-trips through PUT unchanged."""
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.update_annotation",
+            return_value=_mock_series_annotation(),
+        ):
+            r = c.put("/api/v1/annotations/31", json={"comment": "Re-checked"})
+        assert r.status_code == 200
+        assert r.json()["anchor"] == {"kind": "series", "id": 7}
+        assert "channel_id" not in r.json()
+
 
 # ---------------------------------------------------------------------------
 # DELETE /api/v1/annotations/{annotation_id}
@@ -673,6 +687,17 @@ class TestDeleteAnnotation:
         ):
             r = c.delete("/api/v1/annotations/999")
         assert r.status_code == 404
+
+    def test_delete_series_anchored_returns_204(self, patched_client):
+        """Slice 4: DELETE works on a series-anchored annotation (keyed by id)."""
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.delete_annotation",
+            return_value=None,
+        ):
+            r = c.delete("/api/v1/annotations/31")
+        assert r.status_code == 204
+        assert r.content == b""
 
 
 # ---------------------------------------------------------------------------
