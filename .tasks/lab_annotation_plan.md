@@ -154,6 +154,28 @@ Tests are authored per-slice (above); this slice proves the *net* is complete.
 
 ---
 
-## Review (fill in on completion)
+## Review (completed 2026-06-10)
 
--
+Delivered via one-agent-per-slice delegation, dependency-ordered, each slice a
+single semantic commit gated on a red→green test before commit.
+
+| Slice | Commit | Result |
+|---|---|---|
+| 0 Schema | `ef68581` | XOR anchor in dictionary; +7 schema tests (red→green) |
+| 1 Contract | `2eda421` | `anchor:{kind,id}` response, sensor-only no-behavior-change |
+| 2 Tracer | `24f202b` | lab range annotation DB→UI; +8 unit/+8 contract/+1 app |
+| 3 Pin+guard | `3b058a0` | Observation_ID pin + symmetric 422 guard (both arms) |
+| 4 Edit/delete | `643f54d` | audit found paths already lab-safe; +regression tests (inject-the-bug proof) |
+| 5 Feeds | `80e3200` | `/recent`+`/by-type` UNION; caught latent dropped-enrichment bug |
+| 6 Audit | `638a113` | all 8 decisions mapped to teeth-tested coverage; docs + stale comments fixed |
+
+**Final suites:** 188 unit · 222 contract · 42 app — all green (baseline was 147 unit).
+
+**Residual nits (non-blocking, noted by audit):** contract feed tests mock the
+cursor so they prove anchor/enrichment mapping but not the UNION SQL (carried by
+separate SQL-shape unit tests); update lab-safety rests on SQL-string-absence
+assertions, slightly brittle to refactors. Both acceptable under unit-tests-only.
+
+**Not done (out of scope by decision):** `AnnotationUpdate` pin-mutation
+(deferred, absence is test-pinned); DB-level XOR rejection can't be unit-tested
+(no live DB) — verified at dictionary+generator level instead.
