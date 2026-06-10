@@ -99,6 +99,7 @@ class TestScalarFigureOverlay:
         ]}
         with patch.object(explore, "_load_timeseries", return_value=ch_data), \
              patch.object(explore, "_load_annotations", return_value=[]), \
+             patch.object(explore, "_load_series_annotations", return_value=[]), \
              patch.object(explore, "_load_equipment_events", return_value=[]), \
              patch.object(explore, "_load_series_timeseries", return_value=s_data):
             fig, _ = explore._build_scalar_figure(

@@ -140,6 +140,55 @@ def test_lab_image_replicates_same_timestamp_no_duplicate_key():
     assert not at.exception  # would be StreamlitDuplicateElementKey before the fix
 
 
+_LAB_ANNOTATION = {
+    "annotation_id": 1,
+    "anchor": {"kind": "series", "id": 1},
+    "type": {"id": 3, "name": "Fault", "color": "#FF0000"},
+    "start_time": "2026-05-02T00:00:00",
+    "end_time": "2026-05-04T00:00:00",
+    "title": "Lab QA flag",
+    "comment": "Re-run requested.",
+    "created_at": "2026-06-10T00:00:00",
+}
+
+
+def test_lab_series_annotation_renders_overlay():
+    """With the series-annotations API mocked to return a lab annotation, the
+    explore scalar view draws the overlay for the lab Trace: the page renders a
+    chart (the vrect/vline are added onto it) and the overlay summary table
+    lists the lab annotation row anchored to the series (source LAB-1).
+
+    NOTE: AppTest exposes the plotly element's selection state, not the Figure
+    object, so the vrect shape itself can't be asserted directly. We assert the
+    overlay_rows entry — the same record produced in lock-step with the vrect in
+    the lab render loop — which is the faithful proxy for "the overlay rendered".
+    """
+    with ExitStack() as stack:
+        _patches(stack)
+        # The lab annotation loader hits this thin httpx wrapper; mock it.
+        stack.enter_context(
+            patch(f"{MOD}._api_list_annotations_for_series", return_value=[_LAB_ANNOTATION])
+        )
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_series"] = [1]
+        at.session_state["explore_series_meta"] = {1: _SERIES[0]}
+        at.run()
+
+    assert not at.exception
+    assert list(at.get("plotly_chart")), "no scalar chart rendered"
+    # The overlay summary table lists the lab annotation anchored to LAB-1.
+    overlay_tables = [
+        df.value for df in at.dataframe
+        if "Channel / Equipment" in df.value.columns
+    ]
+    assert overlay_tables, "no annotation overlay summary table rendered"
+    records = overlay_tables[0].to_dict("records")
+    assert any(
+        r["Channel / Equipment"] == "LAB-1" and r["Title / Notes"] == "Lab QA flag"
+        for r in records
+    ), f"lab annotation overlay row not found in {records}"
+
+
 def test_page_renders_with_active_traces_of_both_sources():
     """With one sensor channel and one lab series active, the page renders the
     scalar overlay without error (a plotly chart is produced)."""

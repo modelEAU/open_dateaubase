@@ -98,6 +98,7 @@ def _row_to_annotation(row) -> dict:
         "equipment_event_id": row[13],
         "created_datetime": row[14],
         "modified_datetime": row[15],
+        "analysis_series_id": row[16],
     }
 
 
@@ -118,7 +119,8 @@ _ANNOTATION_SELECT = """
         c.[Name]                AS CampaignName,
         a.[EquipmentEvent_ID],
         a.[CreatedDateTime],
-        a.[ModifiedDateTime]
+        a.[ModifiedDateTime],
+        a.[AnalysisSeries_ID]
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationKind] at
         ON at.[AnnotationKind_ID] = a.[AnnotationKind_ID]
@@ -147,6 +149,38 @@ def get_annotations_for_timeseries(
         "  AND (a.[EndTime] IS NULL OR a.[EndTime] >= ?)"
     )
     params: list = [channel_id, to_dt, from_dt]
+
+    if annotation_kind_id is not None:
+        where += "  AND a.[AnnotationKind_ID] = ?"
+        params.append(annotation_kind_id)
+
+    cursor = conn.cursor()
+    cursor.execute(
+        _ANNOTATION_SELECT + where + " ORDER BY a.[StartTime], a.[AnnotationKind_ID]",
+        *params,
+    )
+    return [_row_to_annotation(row) for row in cursor.fetchall()]
+
+
+# ---------------------------------------------------------------------------
+# Query 1b: Annotations overlapping a time range for a single AnalysisSeries
+# (lab arm — mirrors get_annotations_for_timeseries)
+# ---------------------------------------------------------------------------
+
+
+def get_annotations_for_series(
+    conn: pyodbc.Connection,
+    series_id: int,
+    from_dt: datetime,
+    to_dt: datetime,
+    annotation_kind_id: int | None = None,
+) -> list[dict]:
+    where = (
+        "WHERE a.[AnalysisSeries_ID] = ?"
+        "  AND a.[StartTime] <= ?"
+        "  AND (a.[EndTime] IS NULL OR a.[EndTime] >= ?)"
+    )
+    params: list = [series_id, to_dt, from_dt]
 
     if annotation_kind_id is not None:
         where += "  AND a.[AnnotationKind_ID] = ?"
@@ -190,6 +224,7 @@ def get_annotations_by_kind(
         a.[EquipmentEvent_ID],
         a.[CreatedDateTime],
         a.[ModifiedDateTime],
+        a.[AnalysisSeries_ID],
         NULL                      AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
@@ -213,8 +248,8 @@ def get_annotations_by_kind(
     rows = []
     for row in cursor.fetchall():
         d = _row_to_annotation(row)
-        d["location_name"] = row[16]
-        d["parameter_name"] = row[17]
+        d["location_name"] = row[17]
+        d["parameter_name"] = row[18]
         rows.append(d)
     return rows
 
@@ -247,6 +282,7 @@ def get_recent_annotations(
         a.[EquipmentEvent_ID],
         a.[CreatedDateTime],
         a.[ModifiedDateTime],
+        a.[AnalysisSeries_ID],
         NULL                      AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
@@ -272,8 +308,8 @@ def get_recent_annotations(
     rows = []
     for row in cursor.fetchall():
         d = _row_to_annotation(row)
-        d["location_name"] = row[16]
-        d["parameter_name"] = row[17]
+        d["location_name"] = row[17]
+        d["parameter_name"] = row[18]
         rows.append(d)
     return rows
 
@@ -320,7 +356,8 @@ def get_annotation_by_id(conn: pyodbc.Connection, annotation_id: int) -> dict | 
 def create_annotation(
     conn: pyodbc.Connection,
     *,
-    channel_id: int,
+    channel_id: int | None = None,
+    analysis_series_id: int | None = None,
     annotation_kind_id: int,
     start_time: datetime,
     end_time: datetime | None,
@@ -330,18 +367,30 @@ def create_annotation(
     title: str | None,
     comment: str | None,
 ) -> dict:
+    """Insert an annotation anchored to exactly one of Channel / AnalysisSeries.
+
+    Exactly one of ``channel_id`` / ``analysis_series_id`` must be set (the DB
+    CK_Annotation_Source XOR check enforces this; we guard it here too).
+    """
+    if (channel_id is None) == (analysis_series_id is None):
+        raise ValueError(
+            "Exactly one of channel_id / analysis_series_id must be provided."
+        )
+
     cursor = conn.cursor()
     cursor.execute(
         """
         INSERT INTO [dbo].[Annotation] (
-            [Channel_ID], [AnnotationKind_ID], [StartTime], [EndTime],
+            [Channel_ID], [AnalysisSeries_ID], [AnnotationKind_ID],
+            [StartTime], [EndTime],
             [AuthorPerson_ID], [Campaign_ID], [EquipmentEvent_ID],
             [Title], [Comment]
         )
         OUTPUT INSERTED.[Annotation_ID], INSERTED.[CreatedDateTime]
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         channel_id,
+        analysis_series_id,
         annotation_kind_id,
         start_time,
         end_time,

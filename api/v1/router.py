@@ -22,6 +22,7 @@ from .endpoints.ingest import router as ingest_router
 from .endpoints.lab import router as lab_router
 from .endpoints.annotations import (
     timeseries_router as timeseries_annotations_router,
+    analysis_series_annotations_router,
     annotations_router,
     annotation_kinds_router,
 )
@@ -56,6 +57,11 @@ router.include_router(
     analysis_series_timeseries_router,
     prefix="/analysis-series",
     tags=["analysis-series-timeseries"],
+)
+router.include_router(
+    analysis_series_annotations_router,
+    prefix="/analysis-series",
+    tags=["annotations"],
 )
 router.include_router(
     timeseries_annotations_router, prefix="/timeseries", tags=["annotations"]

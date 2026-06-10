@@ -1,7 +1,8 @@
 """Annotation endpoints.
 
-Three router groups registered in api/v1/router.py:
+Router groups registered in api/v1/router.py:
   - timeseries_router  → prefix /timeseries   (GET/POST /{channel_id}/annotations)
+  - analysis_series_annotations_router → prefix /analysis-series  (GET/POST /{series_id}/annotations)
   - annotations_router → prefix /annotations  (GET/PUT/DELETE /{annotation_id}, /recent, /by-type/{type_name})
   - annotation_kinds_router → prefix /annotation-kinds  (GET /)
 """
@@ -73,6 +74,50 @@ def create_annotation(
 ):
     """Create a new annotation on a time series."""
     return annotation_service.create_annotation(conn, channel_id, body)
+
+
+# ---------------------------------------------------------------------------
+# AnalysisSeries sub-resource: /analysis-series/{series_id}/annotations (lab arm)
+# ---------------------------------------------------------------------------
+
+analysis_series_annotations_router = APIRouter()
+
+
+@analysis_series_annotations_router.get(
+    "/{series_id}/annotations",
+    response_model=AnnotationListResponse,
+)
+def list_annotations_for_series(
+    series_id: int,
+    from_dt: datetime = Query(..., alias="from", description="Start of query range (ISO 8601)"),
+    to_dt: datetime = Query(..., alias="to", description="End of query range (ISO 8601)"),
+    type: str | None = Query(None, description="Filter by annotation type name or ID"),
+    conn=Depends(get_db),
+):
+    """Get all annotations overlapping [from, to] for a specific lab AnalysisSeries."""
+    type_filter: str | int | None = None
+    if type is not None:
+        try:
+            type_filter = int(type)
+        except ValueError:
+            type_filter = type
+    return annotation_service.get_annotations_for_series(
+        conn, series_id, from_dt, to_dt, type_filter
+    )
+
+
+@analysis_series_annotations_router.post(
+    "/{series_id}/annotations",
+    response_model=AnnotationResponse,
+    status_code=201,
+)
+def create_annotation_for_series(
+    series_id: int,
+    body: AnnotationCreate,
+    conn=Depends(get_db),
+):
+    """Create a new annotation on a lab AnalysisSeries."""
+    return annotation_service.create_annotation_for_series(conn, series_id, body)
 
 
 # ---------------------------------------------------------------------------

@@ -359,6 +359,125 @@ class TestCreateAnnotation:
 
 
 # ---------------------------------------------------------------------------
+# GET / POST /api/v1/analysis-series/{series_id}/annotations (lab arm, Slice 2)
+# ---------------------------------------------------------------------------
+
+
+def _mock_series_annotation():
+    a = _mock_annotation()
+    a["anchor"] = {"kind": "series", "id": 7}
+    return a
+
+
+def _mock_series_annotation_list():
+    return {
+        "analysis_series_id": 7,
+        "query_range": {"from": "2026-01-01T00:00:00", "to": "2026-02-28T23:59:59"},
+        "annotations": [_mock_series_annotation()],
+        "count": 1,
+    }
+
+
+class TestGetAnnotationsForSeries:
+    def test_returns_ok(self, patched_client):
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.get_annotations_for_series",
+            return_value=_mock_series_annotation_list(),
+        ):
+            r = c.get("/api/v1/analysis-series/7/annotations?from=2026-01-01T00:00:00&to=2026-02-28T23:59:59")
+        assert r.status_code == 200
+
+    def test_annotation_carries_series_anchor(self, patched_client):
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.get_annotations_for_series",
+            return_value=_mock_series_annotation_list(),
+        ):
+            r = c.get("/api/v1/analysis-series/7/annotations?from=2026-01-01T00:00:00&to=2026-02-28T23:59:59")
+        ann = r.json()["annotations"][0]
+        assert ann["anchor"] == {"kind": "series", "id": 7}
+        assert "channel_id" not in ann
+
+    def test_missing_from_param_returns_422(self, patched_client):
+        c, conn, cursor = patched_client
+        r = c.get("/api/v1/analysis-series/7/annotations?to=2026-02-28T23:59:59")
+        assert r.status_code == 422
+
+    def test_series_404_propagates(self, patched_client):
+        c, conn, cursor = patched_client
+        from fastapi import HTTPException
+
+        with patch(
+            "api.v1.services.annotation_service.get_annotations_for_series",
+            side_effect=HTTPException(status_code=404, detail="AnalysisSeries 999 not found."),
+        ):
+            r = c.get("/api/v1/analysis-series/999/annotations?from=2026-01-01T00:00:00&to=2026-02-28T23:59:59")
+        assert r.status_code == 404
+
+
+class TestCreateAnnotationForSeries:
+    def _valid_payload(self):
+        return {
+            "annotation_type": "Fault",
+            "start_time": "2026-01-15T10:00:00",
+            "end_time": "2026-01-15T14:00:00",
+            "title": "Out-of-range lab result",
+            "comment": "Re-run requested.",
+        }
+
+    def _mock_create_response(self):
+        return {
+            "annotation_id": 31,
+            "anchor": {"kind": "series", "id": 7},
+            "type": {"id": 1, "name": "Fault", "color": "#FF4444"},
+            "start_time": "2026-01-15T10:00:00",
+            "end_time": "2026-01-15T14:00:00",
+            "title": "Out-of-range lab result",
+            "created_at": "2026-06-10T11:22:33",
+        }
+
+    def test_returns_201(self, patched_client):
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.create_annotation_for_series",
+            return_value=self._mock_create_response(),
+        ):
+            r = c.post("/api/v1/analysis-series/7/annotations", json=self._valid_payload())
+        assert r.status_code == 201
+
+    def test_response_carries_series_anchor(self, patched_client):
+        c, conn, cursor = patched_client
+        with patch(
+            "api.v1.services.annotation_service.create_annotation_for_series",
+            return_value=self._mock_create_response(),
+        ):
+            r = c.post("/api/v1/analysis-series/7/annotations", json=self._valid_payload())
+        body = r.json()
+        for field in REQUIRED_CREATE_RESPONSE_FIELDS:
+            assert field in body, f"Missing field: {field}"
+        assert body["anchor"] == {"kind": "series", "id": 7}
+
+    def test_series_404_propagates(self, patched_client):
+        c, conn, cursor = patched_client
+        from fastapi import HTTPException
+
+        with patch(
+            "api.v1.services.annotation_service.create_annotation_for_series",
+            side_effect=HTTPException(status_code=404, detail="AnalysisSeries 999 not found."),
+        ):
+            r = c.post("/api/v1/analysis-series/999/annotations", json=self._valid_payload())
+        assert r.status_code == 404
+
+    def test_end_before_start_returns_422(self, patched_client):
+        c, conn, cursor = patched_client
+        payload = self._valid_payload()
+        payload["end_time"] = "2026-01-14T00:00:00"
+        r = c.post("/api/v1/analysis-series/7/annotations", json=payload)
+        assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
 # PUT /api/v1/annotations/{annotation_id}
 # ---------------------------------------------------------------------------
 
@@ -536,6 +655,7 @@ class TestAnnotationOpenAPISpec:
     REQUIRED_ANNOTATION_PATHS = [
         "/api/v1/annotation-kinds",
         "/api/v1/timeseries/{channel_id}/annotations",
+        "/api/v1/analysis-series/{series_id}/annotations",
         "/api/v1/annotations/recent",
         "/api/v1/annotations/by-type/{type_name}",
         "/api/v1/annotations/{annotation_id}",

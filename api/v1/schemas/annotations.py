@@ -44,10 +44,12 @@ class AnnotationResponse(BaseModel):
 
 
 class AnnotationListResponse(BaseModel):
-    # Top-level echo of the queried channel (sensor list/timeseries endpoints).
-    # This is a query parameter echo, NOT a per-annotation field — the per-row
-    # anchor lives on each AnnotationResponse.anchor.
+    # Top-level echo of the queried stream (sensor list/timeseries endpoints
+    # echo channel_id; the lab series-annotations endpoint echoes
+    # analysis_series_id). This is a query-parameter echo, NOT a per-annotation
+    # field — the per-row anchor lives on each AnnotationResponse.anchor.
     channel_id: Optional[int] = None
+    analysis_series_id: Optional[int] = None
     query_range: Optional[dict] = None
     annotations: list[AnnotationResponse]
     count: int

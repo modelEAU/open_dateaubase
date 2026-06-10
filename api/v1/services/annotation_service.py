@@ -7,7 +7,11 @@ from datetime import datetime
 import pyodbc
 from fastapi import HTTPException
 
-from ..repositories import annotation_repository, channel_repository
+from ..repositories import (
+    annotation_repository,
+    channel_repository,
+    ingestion_repository,
+)
 from ..schemas.annotations import AnnotationCreate, AnnotationUpdate
 
 
@@ -34,9 +38,13 @@ def _build_annotation_response(row: dict) -> dict:
             "person_id": row["author_person_id"],
             "name": row.get("author_name") or "",
         }
+    if row.get("analysis_series_id") is not None:
+        anchor = {"kind": "series", "id": row["analysis_series_id"]}
+    else:
+        anchor = {"kind": "channel", "id": row["channel_id"]}
     return {
         "annotation_id": row["annotation_id"],
-        "anchor": {"kind": "channel", "id": row["channel_id"]},
+        "anchor": anchor,
         "type": {
             "id": row["annotation_kind_id"],
             "name": row["annotation_type_name"],
@@ -124,6 +132,78 @@ def create_annotation(
     return {
         "annotation_id": created["annotation_id"],
         "anchor": {"kind": "channel", "id": channel_id},
+        "type": {
+            "id": at["annotation_kind_id"],
+            "name": at["annotation_type_name"],
+            "color": at.get("color"),
+        },
+        "start_time": data.start_time,
+        "end_time": data.end_time,
+        "title": data.title,
+        "created_at": created["created_datetime"],
+    }
+
+
+def _require_series(conn: pyodbc.Connection, series_id: int) -> dict:
+    """Resolve an AnalysisSeries or raise 404 (mirrors the channel guard)."""
+    series = ingestion_repository.get_analysis_series_by_id(conn, series_id)
+    if series is None:
+        raise HTTPException(
+            status_code=404, detail=f"AnalysisSeries {series_id} not found."
+        )
+    return series
+
+
+def get_annotations_for_series(
+    conn: pyodbc.Connection,
+    series_id: int,
+    from_dt: datetime,
+    to_dt: datetime,
+    type_filter: str | int | None = None,
+) -> dict:
+    _require_series(conn, series_id)
+
+    annotation_kind_id: int | None = None
+    if type_filter is not None:
+        at = _resolve_annotation_type(conn, type_filter)
+        annotation_kind_id = at["annotation_kind_id"]
+
+    rows = annotation_repository.get_annotations_for_series(
+        conn, series_id, from_dt, to_dt, annotation_kind_id
+    )
+    return {
+        "analysis_series_id": series_id,
+        "query_range": {"from": from_dt.isoformat(), "to": to_dt.isoformat()},
+        "annotations": [_build_annotation_response(r) for r in rows],
+        "count": len(rows),
+    }
+
+
+def create_annotation_for_series(
+    conn: pyodbc.Connection,
+    series_id: int,
+    data: AnnotationCreate,
+) -> dict:
+    _require_series(conn, series_id)
+
+    at = _resolve_annotation_type(conn, data.annotation_type)
+
+    created = annotation_repository.create_annotation(
+        conn,
+        analysis_series_id=series_id,
+        annotation_kind_id=at["annotation_kind_id"],
+        start_time=data.start_time,
+        end_time=data.end_time,
+        author_person_id=data.author_person_id,
+        campaign_id=data.campaign_id,
+        equipment_event_id=data.equipment_event_id,
+        title=data.title,
+        comment=data.comment,
+    )
+
+    return {
+        "annotation_id": created["annotation_id"],
+        "anchor": {"kind": "series", "id": series_id},
         "type": {
             "id": at["annotation_kind_id"],
             "name": at["annotation_type_name"],

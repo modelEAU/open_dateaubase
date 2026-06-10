@@ -109,6 +109,7 @@ def _init_state() -> None:
         "explore_mode": "viz",
         "explore_data": {},  # (channel_id, start, end) → timeseries dict
         "explore_annotations": {},  # channel_id → list[dict]
+        "explore_series_annotations": {},  # analysis_series_id → list[dict]
         "explore_eq_events": {},  # equipment_id → list[dict]
         "explore_selected_points": {},  # Plotly selection result
         "explore_channel_stats": {},     # channel_id -> stats dict (cached)
@@ -138,6 +139,7 @@ def _init_state() -> None:
 def _invalidate_data_cache() -> None:
     st.session_state.explore_data = {}
     st.session_state.explore_annotations = {}
+    st.session_state.explore_series_annotations = {}
     st.session_state.explore_eq_events = {}
 
 
@@ -254,6 +256,41 @@ def _api_list_annotations_for_channel(
     try:
         with _get_client() as client:
             r = client.get(f"/timeseries/{channel_id}/annotations", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    data = r.json()
+    return data.get("annotations", [])
+
+
+def _load_series_annotations(series_id: int) -> list[dict]:
+    cache = st.session_state.explore_series_annotations
+    if series_id not in cache:
+        try:
+            start = st.session_state.explore_start
+            end = st.session_state.explore_end
+            cache[series_id] = _api_list_annotations_for_series(
+                series_id, start, end
+            )
+        except APIError:
+            cache[series_id] = []
+    return cache[series_id]
+
+
+def _api_list_annotations_for_series(
+    series_id: int, start: date, end: date
+) -> list[dict]:
+    """Call GET /analysis-series/{series_id}/annotations with time range."""
+    from app.api_client import _get_client, _raise_for_status, APIError
+    import httpx
+
+    params = {
+        "from": datetime.combine(start, datetime.min.time()).isoformat(),
+        "to": datetime.combine(end, datetime.max.time()).isoformat(),
+    }
+    try:
+        with _get_client() as client:
+            r = client.get(f"/analysis-series/{series_id}/annotations", params=params)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -571,6 +608,50 @@ def _build_scalar_figure(
             )
         )
 
+        # Annotation overlays for the lab Trace — same treatment as sensors.
+        for ann in _load_series_annotations(s_id):
+            t_start = ann.get("start_time")
+            t_end = ann.get("end_time") or t_start
+            ann_color = ann.get("type", {}).get("color") or "#888888"
+            ref = len(overlay_rows) + 1
+            overlay_rows.append(
+                {
+                    "ref": ref,
+                    "kind": "Annotation",
+                    "source": f"LAB-{s_id}",
+                    "category": ann.get("type", {}).get("name", ""),
+                    "title": ann.get("title", "") or "",
+                    "start": t_start,
+                    "end": ann.get("end_time") or "",
+                    "comment": ann.get("comment", "") or "",
+                }
+            )
+            fig.add_vrect(
+                x0=t_start,
+                x1=t_end,
+                fillcolor=ann_color,
+                opacity=0.08,
+                line_width=0,
+            )
+            fig.add_vline(
+                x=t_start,
+                line_color=ann_color,
+                line_width=1.5,
+                line_dash="dash",
+            )
+            fig.add_annotation(
+                x=t_start,
+                y=1,
+                yref="paper",
+                text=f"[{ref}]",
+                showarrow=False,
+                xanchor="left",
+                yanchor="top",
+                font=dict(size=11, color=ann_color),
+                bgcolor="rgba(0,0,0,0.55)",
+                borderpad=2,
+            )
+
     y_labels: list[str] = []
     seen_labels: set[str] = set()
     for ch_id in active_channels:
@@ -842,8 +923,17 @@ def _annotation_dialog(
     start_time: str | None,
     end_time: str | None,
     annotation_types: list[dict],
+    series_ids: list[int] | None = None,
 ) -> None:
-    tab_ann, tab_qc = st.tabs(["Annotation", "Quality Flag"])
+    # Homogeneous per-arm dialog (no mixing sensor + lab in one Save): a lab
+    # series target only shows the Annotation tab (quality flags are sensor-only).
+    series_ids = series_ids or []
+    is_lab = bool(series_ids)
+    if is_lab:
+        tab_ann = st.container()
+        tab_qc = None
+    else:
+        tab_ann, tab_qc = st.tabs(["Annotation", "Quality Flag"])
 
     # ------------------------------------------------------------------
     # Tab 1: Annotation
@@ -882,26 +972,31 @@ def _annotation_dialog(
             errors = []
             from app.api_client import _get_client, _raise_for_status
 
-            for ch_id in channel_ids:
+            if is_lab:
+                targets = [(f"/analysis-series/{s_id}/annotations", f"LAB-{s_id}") for s_id in series_ids]
+            else:
+                targets = [(f"/timeseries/{ch_id}/annotations", f"CH-{ch_id}") for ch_id in channel_ids]
+
+            for url, label in targets:
                 try:
                     with _get_client() as client:
-                        r = client.post(
-                            f"/timeseries/{ch_id}/annotations", json=payload
-                        )
+                        r = client.post(url, json=payload)
                     _raise_for_status(r)
                 except (APIError, Exception) as e:
-                    errors.append(f"CH-{ch_id}: {e}")
+                    errors.append(f"{label}: {e}")
 
             if errors:
                 st.error("Some annotations failed:\n" + "\n".join(errors))
             else:
-                st.success(f"Annotation saved for {len(channel_ids)} channel(s).")
+                st.success(f"Annotation saved for {len(targets)} trace(s).")
                 _invalidate_data_cache()
                 st.rerun()
 
     # ------------------------------------------------------------------
-    # Tab 2: Quality Flag
+    # Tab 2: Quality Flag (sensor-only)
     # ------------------------------------------------------------------
+    if tab_qc is None:
+        return
     with tab_qc:
         st.markdown(
             "Apply a quality code to all data points in the selected time range."
@@ -1667,9 +1762,29 @@ def _render_scalar_view(
                 st.session_state._ann_start = str(t_start_sel)
                 st.session_state._ann_end = str(t_end_sel)
     elif selected_pts and not scalar_channels:
-        st.caption("Annotation / event actions are available for sensor channels only.")
+        st.caption("Point selection actions are available for sensor channels only.")
     else:
         st.caption("Use box or lasso selection on the chart to select points.")
+
+    # Lab AnalysisSeries annotation — range over the current view window.
+    if scalar_series and annotation_types:
+        sel_lab = st.selectbox(
+            "Annotate lab series",
+            options=scalar_series,
+            format_func=lambda s: f"LAB-{s}: "
+            f"{series_meta.get(s, {}).get('name') or series_meta.get(s, {}).get('parameter_name', '?')}",
+            key="lab_ann_series_sel",
+        )
+        if st.button("Create Lab Annotation", key="btn_lab_ann"):
+            start = st.session_state.explore_start
+            end = st.session_state.explore_end
+            _annotation_dialog(
+                channel_ids=[],
+                series_ids=[sel_lab],
+                start_time=datetime.combine(start, datetime.min.time()).isoformat(),
+                end_time=datetime.combine(end, datetime.max.time()).isoformat(),
+                annotation_types=annotation_types,
+            )
 
     # Annotations & events summary table
     if overlay_rows:
