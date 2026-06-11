@@ -15,15 +15,22 @@ from streamlit.testing.v1 import AppTest
 HARNESS = str(Path(__file__).parent / "explore_harness.py")
 MOD = "app.pages.explore"
 
-_CAMPAIGNS = [{"campaign_id": 1, "name": "Campaign A"}]
 _EQUIPMENT = [{"equipment_id": 5, "identifier": "EQ5"}]
-_PARAMETERS = [{"parameter_id": 10, "parameter_name": "TSS"}]
 _SERIES = [
     {"analysis_series_id": 1, "name": "TSS@Eff", "parameter_id": 10,
      "parameter_name": "TSS", "sampling_point_id": 100,
      "sampling_point_label": "Effluent", "unit_id": 1, "unit_name": "mg/L",
-     "value_kind_id": 1, "processing_kind_id": 1, "campaign_id": 1},
+     "value_kind_id": 1, "processing_kind_id": 1,
+     "campaign_id": 1, "campaign_name": "Campaign A"},
 ]
+_DEPLOYMENT_TRACE = {
+    "equipment_location_history_id": 1,
+    "channel_id": 5, "equipment_id": 5, "equipment_identifier": "EQ5",
+    "sampling_point_id": 100, "sampling_point_label": "Effluent",
+    "parameter_id": 10, "parameter_name": "TSS",
+    "value_kind_id": 1, "campaign_id": 1, "campaign_name": "Campaign A",
+    "valid_from": "2026-01-01T00:00:00", "valid_to": None,
+}
 _CHANNEL = {
     "channel_id": 5, "equipment_id": 5, "equipment_identifier": "EQ5",
     "parameter_id": 10, "parameter_name": "TSS", "unit_name": "mg/L",
@@ -52,14 +59,12 @@ _CHANNEL_TS = {
 
 
 def _patches(stack: ExitStack) -> None:
-    stack.enter_context(patch(f"{MOD}.list_campaigns_lookup", return_value=_CAMPAIGNS))
     stack.enter_context(patch(f"{MOD}.list_equipment_lookup", return_value=_EQUIPMENT))
-    stack.enter_context(patch(f"{MOD}.list_parameters_lookup", return_value=_PARAMETERS))
     stack.enter_context(patch(f"{MOD}.list_annotation_kinds", return_value=[]))
     stack.enter_context(patch(f"{MOD}.list_equipment_event_kinds", return_value=[]))
     stack.enter_context(patch(f"{MOD}.list_analysis_series_lookup", return_value=_SERIES))
     stack.enter_context(
-        patch(f"{MOD}.list_channels", return_value={"items": [_CHANNEL]})
+        patch(f"{MOD}.list_deployment_traces_lookup", return_value=[_DEPLOYMENT_TRACE])
     )
     stack.enter_context(
         patch(f"{MOD}.get_analysis_series_timeseries", return_value=_SERIES_TS)
@@ -79,14 +84,15 @@ def _patches(stack: ExitStack) -> None:
     )
 
 
-def test_page_renders_with_both_pickers():
+def test_page_renders_with_unified_picker():
     with ExitStack() as stack:
         _patches(stack)
         at = AppTest.from_file(HARNESS).run()
     assert not at.exception
     labels = [e.label for e in at.expander]
-    assert any("Sensor" in (l or "") for l in labels)
-    assert any("Lab" in (l or "") for l in labels)
+    assert any("Add traces" in (l or "") for l in labels), (
+        f"Unified picker expander not found; saw: {labels}"
+    )
 
 
 _IMG_SERIES = {
