@@ -1,6 +1,6 @@
--- Seed data for schema v4.3.0
+-- Seed data for schema v2.0.0
 -- Platform: mssql
--- Generated: 2026-06-11 01:59:21 UTC
+-- Generated: 2026-06-11 15:36:46 UTC
 -- AnnotationKind
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (1, N'Fault', N'Sensor or process fault', N'#FF4444');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (2, N'Maintenance', N'Sensor under maintenance', N'#FFA500');

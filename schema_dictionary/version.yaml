@@ -1,6 +1,6 @@
-schema_version: "4.3.0"
+schema_version: "2.0.0"
 description: >
-  Campaign_ID made mandatory on EquipmentLocationHistory. Every equipment
-  deployment must belong to a campaign; permanent baseline sensors use a
-  standing operational campaign. Builds on 4.2.0 annotation lab parity.
-date: "2026-06-10"
+  Initial public release. Complete redesign of the signal interface,
+  annotation model, lab observation model, and deployment trace concept.
+  Breaking change from v1.x — no migration provided; fresh install only.
+date: "2026-06-11"

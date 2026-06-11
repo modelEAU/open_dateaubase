@@ -2,9 +2,11 @@ services:
   db:
     image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: open_dateaubase_db
+    env_file:
+      - .env.docker
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "StrongPwd123!"
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD}"
       MSSQL_PID: "Developer"
     ports:
       - "14330:1433"
@@ -17,6 +19,8 @@ services:
     platform: linux/amd64
     container_name: open_dateaubase_db_init
     restart: "no"
+    env_file:
+      - .env.docker
     depends_on:
       - db
     volumes:
@@ -32,12 +36,12 @@ services:
 
       echo "Waiting for SQL Server..."
       for i in $$(seq 1 60); do
-        "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -Q "SELECT 1" > /dev/null 2>&1 && break
+        "$$SQLCMD" -S db,1433 -U SA -P "$$DB_PASSWORD" -Q "SELECT 1" > /dev/null 2>&1 && break
         sleep 2
       done
 
       # Check if DB is already initialised; skip if so
-      INITIALIZED=$$("$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -h-1 \
+      INITIALIZED=$$("$$SQLCMD" -S db,1433 -U SA -P "$$DB_PASSWORD" -h-1 \
         -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.databases WHERE name = '"'"'open_dateaubase'"'"'" \
         2>/dev/null | tr -d " \r\n")
       if [ "$$INITIALIZED" = "1" ]; then
@@ -46,7 +50,7 @@ services:
       fi
 
       echo "Running init.sql..."
-      "$$SQLCMD" -S db,1433 -U SA -P "StrongPwd123!" -b -V 16 -r 1 -I -i /sql/init.sql
+      "$$SQLCMD" -S db,1433 -U SA -P "$$DB_PASSWORD" -b -V 16 -r 1 -I -i /sql/init.sql
       echo "Done."
       '
 
