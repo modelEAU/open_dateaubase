@@ -22,6 +22,7 @@ class ScalarValueOut(BaseModel):
     timestamp: datetime
     value: float | None
     quality_code: int | None
+    observation_id: int | None = None
 
 
 class VectorValueOut(BaseModel):

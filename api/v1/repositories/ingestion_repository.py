@@ -712,12 +712,14 @@ def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
             as_.[ValueKind_ID],
             as_.[ProcessingKind_ID],
             pk.[Name] AS [ProcessingKindName],
-            as_.[Campaign_ID]
+            as_.[Campaign_ID],
+            c.[Name] AS [CampaignName]
         FROM [dbo].[AnalysisSeries] as_
         JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
         JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
         JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
         JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
+        LEFT JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = as_.[Campaign_ID]
         ORDER BY as_.[Name]
         """
     )
@@ -735,6 +737,7 @@ def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
             "processing_kind_id": r[9],
             "processing_kind_name": r[10],
             "campaign_id": r[11],
+            "campaign_name": r[12],
         }
         for r in cursor.fetchall()
     ]

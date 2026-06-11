@@ -44,6 +44,7 @@ from .endpoints.process_units import (
 )
 from .endpoints.vocab import router as vocab_router
 from .endpoints.convert import router as convert_router
+from .endpoints.deployment_traces import router as deployment_traces_router
 
 router = APIRouter()
 
@@ -113,3 +114,6 @@ router.include_router(
 )
 router.include_router(vocab_router, prefix="/vocab", tags=["vocabulary"])
 router.include_router(convert_router, tags=["conversion"])
+router.include_router(
+    deployment_traces_router, prefix="/deployment-traces", tags=["deployment-traces"]
+)

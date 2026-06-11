@@ -39,14 +39,12 @@ from app.api_client import (
     get_channel_image,
     get_equipment_events,
     list_annotation_kinds,
-    list_campaigns_lookup,
     list_equipment_lookup,
-    list_parameters_lookup,
-    list_channels,
     list_equipment_event_kinds,
     list_quality_codes,
     create_equipment_event,
     list_analysis_series_lookup,
+    list_deployment_traces_lookup,
     get_analysis_series_timeseries,
     get_analysis_series_stats,
     get_analysis_series_thumbnail,
@@ -121,15 +119,13 @@ def _init_state() -> None:
         "_ann_channel_id": None,
         "_ann_start": None,
         "_ann_end": None,
-        # Picker filter state — kept in session state so cross-filter changes
-        # don't cause rerun loops from widget key collisions.
+        # Unified picker filter state
         "picker_campaign_id": None,
-        "picker_eq_id": None,
-        "picker_param_id": None,
+        "picker_location_id": None,
+        "picker_parameter_id": None,
+        "picker_equipment_id": None,
         "picker_vtype_id": None,
-        # Lab picker cross-filter state (campaign is the shared top-level filter)
-        "picker_series_param_id": None,
-        "picker_series_sp_id": None,
+        "picker_search_text": "",
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -315,70 +311,6 @@ def _load_equipment_events(equipment_id: int) -> list[dict]:
     return cache[equipment_id]
 
 
-# ---------------------------------------------------------------------------
-# Cross-filtering helpers
-# ---------------------------------------------------------------------------
-
-
-def _fetch_channels_for_filters(
-    campaign_id: int | None,
-    equipment_id: int | None,
-    parameter_id: int | None,
-    value_kind_id: int | None,
-) -> list[dict]:
-    """Return channel items matching ALL supplied filters (None = no filter)."""
-    try:
-        result = list_channels(
-            campaign_id=campaign_id,
-            equipment_id=equipment_id,
-            parameter_id=parameter_id,
-            value_kind_id=value_kind_id,
-            page_size=1000,
-        )
-        return result.get("items", [])
-    except APIError:
-        return []
-
-
-def _derive_available_options(
-    channels: list[dict],
-    equipment_lookup: list[dict],
-    parameters_lookup: list[dict],
-) -> tuple[dict[str, int | None], dict[str, int | None], dict[str, int | None]]:
-    """Derive available Equipment, Parameter, and Value Type options from a channel list.
-
-    Returns three {label: id} dicts with a leading "all" sentinel entry.
-    """
-    eq_ids = {c["equipment_id"] for c in channels if c.get("equipment_id") is not None}
-    param_ids = {c["parameter_id"] for c in channels if c.get("parameter_id") is not None}
-    vtype_ids = {c["value_kind_id"] for c in channels if c.get("value_kind_id") is not None}
-
-    eq_opts: dict[str, int | None] = {"(all equipment)": None}
-    eq_opts.update(
-        {
-            e.get("identifier", str(e["equipment_id"])): e["equipment_id"]
-            for e in equipment_lookup
-            if e["equipment_id"] in eq_ids
-        }
-    )
-
-    param_opts: dict[str, int | None] = {"(all parameters)": None}
-    param_opts.update(
-        {
-            p.get("parameter_name", str(p["parameter_id"])): p["parameter_id"]
-            for p in parameters_lookup
-            if p["parameter_id"] in param_ids
-        }
-    )
-
-    vtype_opts: dict[str, int | None] = {"(all types)": None}
-    for vt_id in sorted(vtype_ids):
-        name = VALUE_TYPE_NAMES.get(vt_id, str(vt_id))
-        vtype_opts[name] = vt_id
-
-    return eq_opts, param_opts, vtype_opts
-
-
 def _channel_label(ch: dict) -> str:
     eq = ch.get("equipment_identifier") or ch.get("tag_name") or f"EQ-{ch.get('equipment_id') or '?'}"
     param = ch.get("parameter_name") or f"P-{ch.get('parameter_id', '?')}"
@@ -436,6 +368,8 @@ def _build_scalar_figure(
         ts_list = [r.get("timestamp") for r in rows]
         v_list = [r.get("value") for r in rows]
         qc_list = [r.get("quality_code") for r in rows]
+        # Build obs_id lookup before LTTB (which selects a subset of original timestamps)
+        ts_to_obs: dict = {r.get("timestamp"): r.get("observation_id") for r in rows}
 
         if mode == "viz":
             ts_list, v_list = lttb(ts_list, v_list, VIZ_MAX_POINTS)
@@ -448,6 +382,7 @@ def _build_scalar_figure(
         marker_colors = [
             QUALITY_COLORS.get(qc, DEFAULT_QUALITY_COLOR) for qc in qc_list
         ]
+        obs_id_list = [ts_to_obs.get(ts) for ts in ts_list]
 
         fig.add_trace(
             go.Scatter(
@@ -457,7 +392,7 @@ def _build_scalar_figure(
                 name=label,
                 line=dict(color=color, width=1.5),
                 marker=dict(color=marker_colors, size=5),
-                customdata=[[ch_id, i] for i in range(len(ts_list))],
+                customdata=[["sensor", ch_id, obs_id] for obs_id in obs_id_list],
                 hovertemplate=(
                     "<b>%{fullData.name}</b><br>"
                     "Time: %{x}<br>Value: %{y}<extra></extra>"
@@ -578,6 +513,7 @@ def _build_scalar_figure(
         ts_list = [r.get("timestamp") for r in rows]
         v_list = [r.get("value") for r in rows]
         qc_list = [r.get("quality_code") for r in rows]
+        obs_id_list_lab = [r.get("observation_id") for r in rows]
 
         smeta = series_meta.get(s_id, {})
         label = (
@@ -601,6 +537,7 @@ def _build_scalar_figure(
                     symbol="diamond",
                     line=dict(color=outline, width=1.5),
                 ),
+                customdata=[["lab", s_id, obs_id] for obs_id in obs_id_list_lab],
                 hovertemplate=(
                     "<b>%{fullData.name}</b><br>"
                     "Sample time: %{x}<br>Value: %{y}<extra>lab</extra>"
@@ -924,6 +861,8 @@ def _annotation_dialog(
     end_time: str | None,
     annotation_types: list[dict],
     series_ids: list[int] | None = None,
+    observation_id: int | None = None,
+    point_value: float | None = None,
 ) -> None:
     # Homogeneous per-arm dialog (no mixing sensor + lab in one Save): a lab
     # series target only shows the Annotation tab (quality flags are sensor-only).
@@ -939,9 +878,16 @@ def _annotation_dialog(
     # Tab 1: Annotation
     # ------------------------------------------------------------------
     with tab_ann:
-        st.markdown(
-            "Fill in the annotation details. Time range is pre-filled from your selection."
-        )
+        if observation_id is not None:
+            val_str = f" (value: {point_value})" if point_value is not None else ""
+            st.info(
+                f"Pinning to Observation #{observation_id}{val_str} — "
+                "this annotation is anchored to the exact replicate you clicked."
+            )
+        else:
+            st.markdown(
+                "Fill in the annotation details. Time range is pre-filled from your selection."
+            )
 
         type_options = {at["name"]: at["id"] for at in annotation_types}
         sel_type_name = st.selectbox("Annotation type *", list(type_options.keys()))
@@ -962,13 +908,16 @@ def _annotation_dialog(
         comment = st.text_area("Comment (optional)")
 
         if st.button("Save Annotation", type="primary", key="btn_save_ann"):
-            payload = {
+            payload: dict = {
                 "annotation_type": type_options[sel_type_name],
                 "start_time": t_start,
                 "end_time": t_end or None,
                 "title": title or None,
                 "comment": comment or None,
             }
+            if observation_id is not None:
+                payload["observation_id"] = observation_id
+
             errors = []
             from app.api_client import _get_client, _raise_for_status
 
@@ -982,7 +931,16 @@ def _annotation_dialog(
                     with _get_client() as client:
                         r = client.post(url, json=payload)
                     _raise_for_status(r)
-                except (APIError, Exception) as e:
+                except APIError as e:
+                    if e.status_code == 422:
+                        errors.append(
+                            f"{label}: the selected point is not part of this series "
+                            f"(Observation #{observation_id}). "
+                            "Try refreshing the chart."
+                        )
+                    else:
+                        errors.append(f"{label}: {e.message}")
+                except Exception as e:
                     errors.append(f"{label}: {e}")
 
             if errors:
@@ -1198,39 +1156,100 @@ def _flat_series_scalar_rows(series_ids: list[int], series_meta: dict) -> list[d
 
 
 def _render_top_bar() -> None:
-    """Render the full-width top bar: title left, controls right."""
-    title_col, spacer_col, controls_col = st.columns([3, 1, 4])
-
+    """Render the full-width top bar: title left, Viz/Extract toggle right."""
+    title_col, _, mode_col = st.columns([4, 2, 2])
     with title_col:
         st.title("Data Explorer")
+    with mode_col:
+        mode_val = st.radio(
+            "Mode",
+            options=["Viz", "Extract"],
+            index=0 if st.session_state.explore_mode == "viz" else 1,
+            key="mode_radio",
+            horizontal=True,
+        )
+        st.session_state.explore_mode = "viz" if mode_val == "Viz" else "extract"
 
-    with controls_col:
-        date_a, date_b, mode_col = st.columns([2, 2, 2])
-        with date_a:
+
+def _render_time_strip(
+    channel_meta: dict[int, dict],
+    channel_stats: dict[int, dict | None],
+    series_stats: dict[int, dict | None],
+) -> None:
+    """Global time range controls: quick-select buttons + From/To date inputs.
+
+    Placed between the active traces list and the visualization area so the
+    spatial relationship with the chart is obvious."""
+
+    def _to_date(ts) -> date | None:
+        if ts is None:
+            return None
+        return ts.date() if hasattr(ts, "date") else date.fromisoformat(str(ts)[:10])
+
+    # Collect min/max across all active traces (eager stats already fetched at add time)
+    all_min: list[date] = []
+    all_max: list[date] = []
+    for stats in channel_stats.values():
+        if stats:
+            d = _to_date(stats.get("min_timestamp"))
+            if d:
+                all_min.append(d)
+            d = _to_date(stats.get("max_timestamp"))
+            if d:
+                all_max.append(d)
+    for stats in series_stats.values():
+        if stats:
+            d = _to_date(stats.get("min_timestamp"))
+            if d:
+                all_min.append(d)
+            d = _to_date(stats.get("max_timestamp"))
+            if d:
+                all_max.append(d)
+
+    global_min = min(all_min) if all_min else None
+    global_max = max(all_max) if all_max else None
+
+    with st.container(border=True):
+        btn_col1, btn_col2, btn_col3, spacer, from_col, to_col = st.columns(
+            [1, 1, 1, 1, 2, 2]
+        )
+
+        range_update: tuple[date, date] | None = None
+
+        if btn_col1.button("Last 7d", disabled=global_max is None, key="tstrip_7d"):
+            end = global_max or date.today()
+            range_update = (end - timedelta(days=7), end)
+
+        if btn_col2.button("Last 30d", disabled=global_max is None, key="tstrip_30d"):
+            end = global_max or date.today()
+            range_update = (end - timedelta(days=30), end)
+
+        if btn_col3.button(
+            "All data",
+            disabled=global_min is None or global_max is None,
+            key="tstrip_all",
+        ):
+            if global_min and global_max:
+                range_update = (global_min, global_max)
+
+        with from_col:
             new_start = st.date_input(
                 "From",
                 value=st.session_state.explore_start,
-                label_visibility="collapsed",
+                key="tstrip_from",
             )
-            st.caption("From")
-        with date_b:
+        with to_col:
             new_end = st.date_input(
                 "To",
                 value=st.session_state.explore_end,
-                label_visibility="collapsed",
+                key="tstrip_to",
             )
-            st.caption("To")
-        with mode_col:
-            mode_val = st.radio(
-                "Mode",
-                options=["Viz", "Extract"],
-                index=0 if st.session_state.explore_mode == "viz" else 1,
-                key="mode_radio",
-                horizontal=True,
-            )
-            st.session_state.explore_mode = "viz" if mode_val == "Viz" else "extract"
 
-        # Apply time range changes immediately
+        if range_update is not None:
+            st.session_state.explore_start, st.session_state.explore_end = range_update
+            _invalidate_data_cache()
+            st.rerun()
+
         if (
             new_start != st.session_state.explore_start
             or new_end != st.session_state.explore_end
@@ -1242,307 +1261,285 @@ def _render_top_bar() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Channel picker panel (main content area, bidirectional cross-filtering)
+# Unified picker (sensor Deployment Traces + lab AnalysisSeries)
 # ---------------------------------------------------------------------------
 
 
-def _render_campaign_selector(campaigns: list[dict]) -> None:
-    """Top-level Campaign filter shared by both the sensor and lab pickers.
+def _deployment_trace_label(item: dict) -> str:
+    """URI-style label: Campaign › Location / Parameter (Equipment)."""
+    campaign = item.get("campaign_name") or "—"
+    location = item.get("sampling_point_label") or "?"
+    parameter = item.get("parameter_name") or "?"
+    equipment = item.get("equipment_identifier") or "?"
+    return f"{campaign} › {location} / {parameter} ({equipment})"
 
-    Writing picker_campaign_id here scopes channels AND analysis series; changing
-    it resets the downstream filters on both sides."""
+
+def _series_label(item: dict) -> str:
+    """URI-style label: Campaign › Location / Parameter (Lab)."""
+    campaign = item.get("campaign_name") or "—"
+    location = item.get("sampling_point_label") or "?"
+    parameter = item.get("parameter_name") or "?"
+    return f"{campaign} › {location} / {parameter} (Lab)"
+
+
+def _build_picker_opts(
+    deployment_traces: list[dict],
+    series_list: list[dict],
+) -> tuple[
+    dict[str, int | None],
+    dict[str, int | None],
+    dict[str, int | None],
+    dict[str, int | None],
+]:
+    """Build campaign / location / parameter / equipment option dicts from the combined lists."""
     campaign_opts: dict[str, int | None] = {"(all campaigns)": None}
-    campaign_opts.update(
-        {c.get("name", str(c["campaign_id"])): c["campaign_id"] for c in campaigns}
-    )
-    campaign_labels = list(campaign_opts.keys())
-    current_campaign_id = st.session_state.picker_campaign_id
-    current_campaign_label = next(
-        (lbl for lbl, v in campaign_opts.items() if v == current_campaign_id),
-        campaign_labels[0],
-    )
-    sel_campaign_label = st.selectbox(
-        "Campaign (filters both sensor & lab)",
-        campaign_labels,
-        index=campaign_labels.index(current_campaign_label),
-        key="picker_campaign_select",
-    )
-    new_campaign_id = campaign_opts[sel_campaign_label]
-    if new_campaign_id != st.session_state.picker_campaign_id:
-        st.session_state.picker_campaign_id = new_campaign_id
-        # Reset downstream filters on both pickers when campaign changes
-        st.session_state.picker_eq_id = None
-        st.session_state.picker_param_id = None
-        st.session_state.picker_vtype_id = None
-        st.session_state.picker_series_param_id = None
-        st.session_state.picker_series_sp_id = None
-        st.rerun()
+    location_opts: dict[str, int | None] = {"(all locations)": None}
+    parameter_opts: dict[str, int | None] = {"(all parameters)": None}
+    equipment_opts: dict[str, int | None] = {"(all equipment)": None}
+
+    seen_campaigns: set = set()
+    seen_locations: set = set()
+    seen_parameters: set = set()
+    seen_equipment: set = set()
+
+    for item in deployment_traces:
+        cid = item.get("campaign_id")
+        if cid and cid not in seen_campaigns:
+            seen_campaigns.add(cid)
+            campaign_opts[item.get("campaign_name") or str(cid)] = cid
+        lid = item.get("sampling_point_id")
+        if lid and lid not in seen_locations:
+            seen_locations.add(lid)
+            location_opts[item.get("sampling_point_label") or str(lid)] = lid
+        pid = item.get("parameter_id")
+        if pid and pid not in seen_parameters:
+            seen_parameters.add(pid)
+            parameter_opts[item.get("parameter_name") or str(pid)] = pid
+        eid = item.get("equipment_id")
+        if eid and eid not in seen_equipment:
+            seen_equipment.add(eid)
+            equipment_opts[item.get("equipment_identifier") or str(eid)] = eid
+
+    for item in series_list:
+        cid = item.get("campaign_id")
+        if cid and cid not in seen_campaigns:
+            seen_campaigns.add(cid)
+            campaign_opts[item.get("campaign_name") or str(cid)] = cid
+        lid = item.get("sampling_point_id")
+        if lid and lid not in seen_locations:
+            seen_locations.add(lid)
+            location_opts[item.get("sampling_point_label") or str(lid)] = lid
+        pid = item.get("parameter_id")
+        if pid and pid not in seen_parameters:
+            seen_parameters.add(pid)
+            parameter_opts[item.get("parameter_name") or str(pid)] = pid
+
+    return campaign_opts, location_opts, parameter_opts, equipment_opts
 
 
-def _render_channel_picker(
-    campaigns: list[dict],
-    equipment_lookup: list[dict],
-    parameters_lookup: list[dict],
+def _apply_picker_filters(
+    deployment_traces: list[dict],
+    series_list: list[dict],
+    campaign_id: int | None,
+    location_id: int | None,
+    parameter_id: int | None,
+    equipment_id: int | None,
+    vtype_id: int | None,
+    search_text: str,
+) -> tuple[list[dict], list[dict]]:
+    """Filter both lists by active dropdown values and text search."""
+    needle = search_text.strip().lower()
+
+    def dt_matches(item: dict) -> bool:
+        if campaign_id is not None and item.get("campaign_id") != campaign_id:
+            return False
+        if location_id is not None and item.get("sampling_point_id") != location_id:
+            return False
+        if parameter_id is not None and item.get("parameter_id") != parameter_id:
+            return False
+        if equipment_id is not None and item.get("equipment_id") != equipment_id:
+            return False
+        if vtype_id is not None and item.get("value_kind_id") != vtype_id:
+            return False
+        if needle:
+            haystack = " ".join([
+                item.get("campaign_name") or "",
+                item.get("sampling_point_label") or "",
+                item.get("parameter_name") or "",
+                item.get("equipment_identifier") or "",
+            ]).lower()
+            if needle not in haystack:
+                return False
+        return True
+
+    def series_matches(item: dict) -> bool:
+        if campaign_id is not None and item.get("campaign_id") != campaign_id:
+            return False
+        if location_id is not None and item.get("sampling_point_id") != location_id:
+            return False
+        if parameter_id is not None and item.get("parameter_id") != parameter_id:
+            return False
+        if vtype_id is not None and item.get("value_kind_id") != vtype_id:
+            return False
+        if needle:
+            haystack = " ".join([
+                item.get("campaign_name") or "",
+                item.get("sampling_point_label") or "",
+                item.get("parameter_name") or "",
+            ]).lower()
+            if needle not in haystack:
+                return False
+        return True
+
+    return (
+        [dt for dt in deployment_traces if dt_matches(dt)],
+        [s for s in series_list if series_matches(s)],
+    )
+
+
+def _render_unified_picker(
+    deployment_traces: list[dict],
+    series_list: list[dict],
 ) -> None:
-    """Render the collapsible channel picker with bidirectional cross-filtering.
+    """Unified sensor + lab picker with in-memory cross-filtering.
 
-    Campaign is the shared top-level filter (see _render_campaign_selector)."""
+    Sensor side: Deployment Traces (Channel × EquipmentLocationHistory, already
+    filtered by the active time window by the caller).
+    Lab side: AnalysisSeries, filtered in-memory.
+    Both appear in one merged results list, distinguished by (Equipment) vs (Lab)."""
 
-    with st.expander("📡 Sensor data", expanded=True):
-        # --- Fetch channels matching current filter combination ---
-        # For cross-filtering: when deriving available options for dimension X,
-        # we query with all OTHER filters active (not X itself).
-        current_eq = st.session_state.picker_eq_id
-        current_param = st.session_state.picker_param_id
-        current_vtype = st.session_state.picker_vtype_id
+    with st.expander("🔍 Add traces", expanded=True):
         campaign_id = st.session_state.picker_campaign_id
+        location_id = st.session_state.picker_location_id
+        parameter_id = st.session_state.picker_parameter_id
+        equipment_id = st.session_state.picker_equipment_id
+        vtype_id = st.session_state.picker_vtype_id
+        search_text = st.session_state.picker_search_text
 
-        # Channels matching all three filters (used for the channel selectbox)
-        matched_channels = _fetch_channels_for_filters(
-            campaign_id, current_eq, current_param, current_vtype
+        campaign_opts, location_opts, parameter_opts, equipment_opts = (
+            _build_picker_opts(deployment_traces, series_list)
         )
 
-        # Available equipment: fix param + vtype, query without eq filter
-        channels_for_eq = _fetch_channels_for_filters(
-            campaign_id, None, current_param, current_vtype
-        )
-        # Available parameters: fix eq + vtype, query without param filter
-        channels_for_param = _fetch_channels_for_filters(
-            campaign_id, current_eq, None, current_vtype
-        )
-        # Available value types: fix eq + param, query without vtype filter
-        channels_for_vtype = _fetch_channels_for_filters(
-            campaign_id, current_eq, current_param, None
-        )
+        # --- Five filter dropdowns in one row ---
+        c1, c2, c3, c4, c5 = st.columns(5)
 
-        eq_opts, _, _ = _derive_available_options(
-            channels_for_eq, equipment_lookup, parameters_lookup
+        def _selectbox_id(
+            col,
+            label: str,
+            opts: dict[str, int | None],
+            current: int | None,
+            key: str,
+        ) -> int | None:
+            labels = list(opts.keys())
+            cur_label = next((l for l, v in opts.items() if v == current), labels[0])
+            sel = col.selectbox(label, labels, index=labels.index(cur_label), key=key)
+            return opts[sel]
+
+        new_campaign = _selectbox_id(c1, "Campaign", campaign_opts, campaign_id, "upicker_campaign")
+        new_location = _selectbox_id(c2, "Location", location_opts, location_id, "upicker_location")
+        new_parameter = _selectbox_id(c3, "Parameter", parameter_opts, parameter_id, "upicker_parameter")
+        new_equipment = _selectbox_id(c4, "Equipment", equipment_opts, equipment_id, "upicker_equipment")
+
+        vtype_labels = list(_VALUE_TYPE_OPTIONS.keys())
+        cur_vtype_label = next(
+            (l for l, v in _VALUE_TYPE_OPTIONS.items() if v == vtype_id), vtype_labels[0]
         )
-        _, param_opts, _ = _derive_available_options(
-            channels_for_param, equipment_lookup, parameters_lookup
+        new_vtype = _VALUE_TYPE_OPTIONS[
+            c5.selectbox("Type", vtype_labels, index=vtype_labels.index(cur_vtype_label), key="upicker_vtype")
+        ]
+
+        # Persist filter changes
+        changed = (
+            new_campaign != campaign_id
+            or new_location != location_id
+            or new_parameter != parameter_id
+            or new_equipment != equipment_id
+            or new_vtype != vtype_id
         )
-        _, _, vtype_opts = _derive_available_options(
-            channels_for_vtype, equipment_lookup, parameters_lookup
+        if changed:
+            st.session_state.picker_campaign_id = new_campaign
+            st.session_state.picker_location_id = new_location
+            st.session_state.picker_parameter_id = new_parameter
+            st.session_state.picker_equipment_id = new_equipment
+            st.session_state.picker_vtype_id = new_vtype
+            st.rerun()
+
+        # --- Text search ---
+        new_search = st.text_input(
+            "Search",
+            value=search_text,
+            placeholder="type location, parameter, equipment, or campaign…",
+            key="upicker_search",
+            label_visibility="collapsed",
         )
-
-        # --- Three filter dropdowns in a row ---
-        eq_col, param_col, vtype_col = st.columns(3)
-
-        with eq_col:
-            eq_labels = list(eq_opts.keys())
-            current_eq_label = next(
-                (lbl for lbl, v in eq_opts.items() if v == current_eq),
-                eq_labels[0],
-            )
-            sel_eq_label = st.selectbox(
-                "Equipment",
-                eq_labels,
-                index=eq_labels.index(current_eq_label),
-                key="picker_eq_select",
-            )
-            new_eq_id = eq_opts[sel_eq_label]
-            if new_eq_id != current_eq:
-                st.session_state.picker_eq_id = new_eq_id
-                st.rerun()
-
-        with param_col:
-            param_labels = list(param_opts.keys())
-            current_param_label = next(
-                (lbl for lbl, v in param_opts.items() if v == current_param),
-                param_labels[0],
-            )
-            sel_param_label = st.selectbox(
-                "Parameter",
-                param_labels,
-                index=param_labels.index(current_param_label),
-                key="picker_param_select",
-            )
-            new_param_id = param_opts[sel_param_label]
-            if new_param_id != current_param:
-                st.session_state.picker_param_id = new_param_id
-                st.rerun()
-
-        with vtype_col:
-            vtype_labels = list(vtype_opts.keys())
-            current_vtype_label = next(
-                (lbl for lbl, v in vtype_opts.items() if v == current_vtype),
-                vtype_labels[0],
-            )
-            sel_vtype_label = st.selectbox(
-                "Value Type",
-                vtype_labels,
-                index=vtype_labels.index(current_vtype_label),
-                key="picker_vtype_select",
-            )
-            new_vtype_id = vtype_opts[sel_vtype_label]
-            if new_vtype_id != current_vtype:
-                st.session_state.picker_vtype_id = new_vtype_id
-                st.rerun()
+        if new_search != search_text:
+            st.session_state.picker_search_text = new_search
+            st.rerun()
 
         st.divider()
 
-        # --- Channel selectbox + Add button ---
-        if not matched_channels:
-            st.warning("No channels match the current filters.")
-            sel_ch_id = None
-        else:
-            ch_label_map = {_channel_label(c): c["channel_id"] for c in matched_channels}
-            ch_labels = list(ch_label_map.keys())
-            sel_ch_label = st.selectbox(
-                "Matching channels",
-                ch_labels,
-                key="picker_chan_select",
-            )
-            sel_ch_id = ch_label_map[sel_ch_label]
+        # --- Filter both lists ---
+        filtered_traces, filtered_series = _apply_picker_filters(
+            deployment_traces, series_list,
+            new_campaign, new_location, new_parameter, new_equipment, new_vtype, new_search,
+        )
 
-        add_disabled = sel_ch_id is None
+        # Build merged option dict: label -> ("channel"|"series", item)
+        options: dict[str, tuple[str, dict]] = {}
+        for dt in filtered_traces:
+            lbl = _deployment_trace_label(dt)
+            # Deduplicate: same channel in same deployment shows once
+            key = f"dt_{dt['equipment_location_history_id']}_{dt['channel_id']}"
+            if lbl not in options:
+                options[lbl] = ("channel", dt)
+        for s in filtered_series:
+            lbl = _series_label(s)
+            if lbl not in options:
+                options[lbl] = ("series", s)
+
+        active_channels: list[int] = st.session_state.explore_active_channels
+        active_series: list[int] = st.session_state.explore_active_series
+
+        sel_kind: str | None = None
+        sel_item: dict | None = None
+
+        if not options:
+            st.caption("No traces match the current filters.")
+        else:
+            sel_label = st.selectbox(
+                "Matching traces",
+                list(options.keys()),
+                key="upicker_trace_select",
+                label_visibility="collapsed",
+            )
+            sel_kind, sel_item = options[sel_label]
+
         if st.button(
             "+ Add to plot",
             type="primary",
-            disabled=add_disabled,
-            key="picker_add_btn",
+            disabled=sel_item is None,
+            key="upicker_add_btn",
         ):
-            active = st.session_state.explore_active_channels
-            if sel_ch_id not in active:
-                active.append(sel_ch_id)
-                # Cache the channel meta immediately from the matched list
-                ch_record = next(
-                    (c for c in matched_channels if c["channel_id"] == sel_ch_id), None
-                )
-                if ch_record:
-                    st.session_state.explore_channel_meta[sel_ch_id] = ch_record
-                _invalidate_data_cache()
-                st.rerun()
-            else:
-                st.info("Channel already in plot.")
-
-
-# ---------------------------------------------------------------------------
-# Lab AnalysisSeries picker (cross-filtering, in-memory from the lookup)
-# ---------------------------------------------------------------------------
-
-
-def _series_cross_filter(
-    series_list: list[dict],
-    campaign_id: int | None,
-    cur_param: int | None,
-    cur_sp: int | None,
-) -> tuple[dict[str, int | None], dict[str, int | None], list[dict]]:
-    """Pure cross-filter for the lab picker.
-
-    Returns (param_opts, sp_opts, matches): available parameter options (fixing
-    the chosen sampling point), available sampling-point options (fixing the
-    chosen parameter), and the series matching all active filters. Campaign is
-    the shared top-level scope."""
-    scoped = [
-        s for s in series_list
-        if campaign_id is None or s.get("campaign_id") == campaign_id
-    ]
-
-    param_opts: dict[str, int | None] = {"(all parameters)": None}
-    seen: set = set()
-    for s in scoped:
-        if cur_sp is not None and s["sampling_point_id"] != cur_sp:
-            continue
-        if s["parameter_id"] not in seen:
-            seen.add(s["parameter_id"])
-            param_opts[s["parameter_name"]] = s["parameter_id"]
-
-    sp_opts: dict[str, int | None] = {"(all locations)": None}
-    seen = set()
-    for s in scoped:
-        if cur_param is not None and s["parameter_id"] != cur_param:
-            continue
-        if s["sampling_point_id"] not in seen:
-            seen.add(s["sampling_point_id"])
-            sp_opts[s["sampling_point_label"]] = s["sampling_point_id"]
-
-    matches = [
-        s for s in scoped
-        if (cur_param is None or s["parameter_id"] == cur_param)
-        and (cur_sp is None or s["sampling_point_id"] == cur_sp)
-    ]
-    return param_opts, sp_opts, matches
-
-
-def _render_series_picker(series_list: list[dict]) -> None:
-    """Lab AnalysisSeries picker with parameter/sampling-point cross-filtering.
-
-    Scoped by the shared top-level campaign. All filtering is in-memory from the
-    series lookup, mirroring the sensor picker's bidirectional behavior."""
-    with st.expander("🧪 Lab / analysis series", expanded=False):
-        campaign_id = st.session_state.picker_campaign_id
-        active = st.session_state.explore_active_series
-
-        cur_param = st.session_state.picker_series_param_id
-        cur_sp = st.session_state.picker_series_sp_id
-
-        param_opts, sp_opts, matches = _series_cross_filter(
-            series_list, campaign_id, cur_param, cur_sp
-        )
-
-        param_col, sp_col = st.columns(2)
-        with param_col:
-            labels = list(param_opts.keys())
-            cur_label = next(
-                (l for l, v in param_opts.items() if v == cur_param), labels[0]
-            )
-            sel = st.selectbox(
-                "Parameter", labels, index=labels.index(cur_label),
-                key="picker_series_param_select",
-            )
-            new_param = param_opts[sel]
-            if new_param != cur_param:
-                st.session_state.picker_series_param_id = new_param
-                st.rerun()
-
-        with sp_col:
-            labels = list(sp_opts.keys())
-            cur_label = next(
-                (l for l, v in sp_opts.items() if v == cur_sp), labels[0]
-            )
-            sel = st.selectbox(
-                "Sampling point", labels, index=labels.index(cur_label),
-                key="picker_series_sp_select",
-            )
-            new_sp = sp_opts[sel]
-            if new_sp != cur_sp:
-                st.session_state.picker_series_sp_id = new_sp
-                st.rerun()
-
-        st.divider()
-
-        if not matches:
-            st.warning("No analysis series match the current filters.")
-            sel_s_id = None
-        else:
-            label_map = {
-                f"LAB-{s['analysis_series_id']}: {s['name']} "
-                f"({s['parameter_name']} @ {s['sampling_point_label']}, "
-                f"{s['unit_name']}, {VALUE_TYPE_NAMES.get(s['value_kind_id'], '?')})":
-                s["analysis_series_id"]
-                for s in matches
-            }
-            sel_label = st.selectbox(
-                "Matching series", list(label_map.keys()), key="picker_series_select"
-            )
-            sel_s_id = label_map[sel_label]
-
-        if st.button(
-            "+ Add to plot", type="primary",
-            disabled=sel_s_id is None, key="picker_series_add_btn",
-        ):
-            if sel_s_id not in active:
-                active.append(sel_s_id)
-                record = next(
-                    (s for s in matches if s["analysis_series_id"] == sel_s_id), None
-                )
-                if record:
-                    st.session_state.explore_series_meta[sel_s_id] = record
-                _invalidate_data_cache()
-                st.rerun()
-            else:
-                st.info("Series already in plot.")
+            if sel_kind == "channel" and sel_item is not None:
+                ch_id = sel_item["channel_id"]
+                if ch_id not in active_channels:
+                    active_channels.append(ch_id)
+                    st.session_state.explore_channel_meta[ch_id] = sel_item
+                    _fetch_channel_stats(ch_id, sel_item)
+                    _invalidate_data_cache()
+                    st.rerun()
+                else:
+                    st.info("Channel already in plot.")
+            elif sel_kind == "series" and sel_item is not None:
+                s_id = sel_item["analysis_series_id"]
+                if s_id not in active_series:
+                    active_series.append(s_id)
+                    st.session_state.explore_series_meta[s_id] = sel_item
+                    _fetch_series_stats(s_id)
+                    _invalidate_data_cache()
+                    st.rerun()
+                else:
+                    st.info("Series already in plot.")
 
 
 # ---------------------------------------------------------------------------
@@ -1562,56 +1559,36 @@ def _fetch_channel_stats(ch_id: int, meta: dict) -> dict | None:
 
 
 def _render_active_chips(channel_meta: dict[int, dict]) -> None:
-    """Render active channels as a vertically growing list with range info and quick-select buttons."""
+    """Render active Deployment Traces as a list with data range and remove button."""
     active = st.session_state.explore_active_channels
 
     if not active:
-        st.caption("No series added yet — use the picker above.")
+        st.caption("No traces added yet — use the picker above.")
         return
 
     to_remove: list[int] = []
-    range_update: tuple[date, date] | None = None
 
-    # Header row
-    cols = st.columns([4, 2, 2, 1, 1, 1])
-    cols[0].caption("**Channel**")
+    cols = st.columns([5, 2, 2, 1])
+    cols[0].caption("**Trace**")
     cols[1].caption("**First value**")
     cols[2].caption("**Last value**")
 
     for ch_id in active:
         meta = channel_meta.get(ch_id, {})
-        eq = meta.get("equipment_identifier") or "EQ-?"
-        param = meta.get("parameter_name") or "P-?"
-        vtype_id = meta.get("value_kind_id")
-        vtype = VALUE_TYPE_NAMES.get(vtype_id, "?") if vtype_id else "?"
-        label = f"CH-{ch_id}: {eq} / {param} [{vtype}]"
+        label = _deployment_trace_label(meta) if meta else f"CH-{ch_id}"
 
         stats = _fetch_channel_stats(ch_id, meta)
         min_ts = stats["min_timestamp"] if stats else None
         max_ts = stats["max_timestamp"] if stats else None
-
         min_str = str(min_ts)[:10] if min_ts else "—"
         max_str = str(max_ts)[:10] if max_ts else "—"
 
         with st.container(border=True):
-            name_col, min_col, max_col, all_col, last7_col, rm_col = st.columns(
-                [4, 2, 2, 1, 1, 1]
-            )
+            name_col, min_col, max_col, rm_col = st.columns([5, 2, 2, 1])
             name_col.markdown(label)
             min_col.markdown(min_str)
             max_col.markdown(max_str)
-
-            if all_col.button("Plot all", key=f"all_{ch_id}", disabled=not min_ts):
-                range_update = (
-                    min_ts.date() if hasattr(min_ts, "date") else date.fromisoformat(str(min_ts)[:10]),
-                    max_ts.date() if hasattr(max_ts, "date") else date.fromisoformat(str(max_ts)[:10]),
-                )
-
-            if last7_col.button("Last 7d", key=f"last7_{ch_id}", disabled=not max_ts):
-                end = max_ts.date() if hasattr(max_ts, "date") else date.fromisoformat(str(max_ts)[:10])
-                range_update = (end - timedelta(days=7), end)
-
-            if rm_col.button("✕", key=f"rm_{ch_id}", help="Remove channel"):
+            if rm_col.button("✕", key=f"rm_{ch_id}", help="Remove trace"):
                 to_remove.append(ch_id)
 
     for ch_id in to_remove:
@@ -1621,29 +1598,18 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
         _invalidate_data_cache()
         st.rerun()
 
-    if range_update is not None:
-        start, end = range_update
-        st.session_state.explore_start = start
-        st.session_state.explore_end = end
-        _invalidate_data_cache()
-        st.rerun()
-
 
 def _render_series_chips(series_meta: dict[int, dict]) -> None:
-    """Render active lab AnalysisSeries (Traces) as chips with sample-time range."""
+    """Render active lab AnalysisSeries as a list with data range and remove button."""
     active = st.session_state.explore_active_series
     if not active:
         return
 
     to_remove: list[int] = []
-    range_update: tuple[date, date] | None = None
 
     for s_id in active:
         meta = series_meta.get(s_id, {})
-        param = meta.get("parameter_name") or "P-?"
-        sp = meta.get("sampling_point_label") or "?"
-        vtype = VALUE_TYPE_NAMES.get(meta.get("value_kind_id"), "?")
-        label = f"🧪 LAB-{s_id}: {param} @ {sp} [{vtype}]"
+        label = _series_label(meta) if meta else f"LAB-{s_id}"
 
         stats = _fetch_series_stats(s_id)
         min_ts = stats["min_timestamp"] if stats else None
@@ -1652,21 +1618,10 @@ def _render_series_chips(series_meta: dict[int, dict]) -> None:
         max_str = str(max_ts)[:10] if max_ts else "—"
 
         with st.container(border=True):
-            name_col, min_col, max_col, all_col, last7_col, rm_col = st.columns(
-                [4, 2, 2, 1, 1, 1]
-            )
+            name_col, min_col, max_col, rm_col = st.columns([5, 2, 2, 1])
             name_col.markdown(label)
             min_col.markdown(min_str)
             max_col.markdown(max_str)
-
-            if all_col.button("Plot all", key=f"s_all_{s_id}", disabled=not min_ts):
-                range_update = (
-                    min_ts.date() if hasattr(min_ts, "date") else date.fromisoformat(str(min_ts)[:10]),
-                    max_ts.date() if hasattr(max_ts, "date") else date.fromisoformat(str(max_ts)[:10]),
-                )
-            if last7_col.button("Last 7d", key=f"s_last7_{s_id}", disabled=not max_ts):
-                end = max_ts.date() if hasattr(max_ts, "date") else date.fromisoformat(str(max_ts)[:10])
-                range_update = (end - timedelta(days=7), end)
             if rm_col.button("✕", key=f"s_rm_{s_id}", help="Remove series"):
                 to_remove.append(s_id)
 
@@ -1674,13 +1629,6 @@ def _render_series_chips(series_meta: dict[int, dict]) -> None:
         st.session_state.explore_active_series.remove(s_id)
         st.session_state.explore_series_meta.pop(s_id, None)
         st.session_state.explore_series_stats.pop(s_id, None)
-        _invalidate_data_cache()
-        st.rerun()
-
-    if range_update is not None:
-        start, end = range_update
-        st.session_state.explore_start = start
-        st.session_state.explore_end = end
         _invalidate_data_cache()
         st.rerun()
 
@@ -1736,50 +1684,100 @@ def _render_scalar_view(
     )
     st.session_state.explore_selected_points = selection
 
-    # Point-selection actions (quality flag / equipment event) are sensor-only.
-    # Lab AnalysisSeries traces get their own range-annotation affordance below.
+    # Split selected points into sensor vs lab using the customdata type tag.
+    # customdata format: ["sensor", ch_id, obs_id] or ["lab", s_id, obs_id]
     selected = selection.get("selection", {}) if selection else {}
     selected_pts = selected.get("points", [])
 
-    if selected_pts and scalar_channels:
+    def _cd(pt: dict) -> list:
+        return pt.get("customdata") or []
+
+    sensor_pts = [p for p in selected_pts if _cd(p) and _cd(p)[0] == "sensor"]
+    lab_pts = [p for p in selected_pts if _cd(p) and _cd(p)[0] == "lab"]
+
+    if sensor_pts or lab_pts:
         st.markdown(
             f"**{len(selected_pts)} points selected** across "
             f"{len({p.get('curve_number') for p in selected_pts})} traces."
         )
 
-        sel_times = [p.get("x") for p in selected_pts if p.get("x")]
+    if sensor_pts:
+        sel_times = [p.get("x") for p in sensor_pts if p.get("x")]
         t_start_sel = min(sel_times) if sel_times else None
         t_end_sel = max(sel_times) if sel_times else None
 
+        # Single sensor point → pin to its exact observation
+        single_sensor_obs_id: int | None = None
+        single_sensor_val: float | None = None
+        if len(sensor_pts) == 1:
+            cd = _cd(sensor_pts[0])
+            single_sensor_obs_id = cd[2] if len(cd) > 2 else None
+            single_sensor_val = sensor_pts[0].get("y")
+
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("Create Annotation", type="primary"):
+            btn_label = "Create Annotation (point)" if single_sensor_obs_id else "Create Annotation"
+            if st.button(btn_label, type="primary", key="btn_sensor_ann"):
                 _annotation_dialog(
                     channel_ids=scalar_channels,
                     start_time=str(t_start_sel) if t_start_sel else None,
                     end_time=str(t_end_sel) if t_end_sel else None,
                     annotation_types=annotation_types,
+                    observation_id=single_sensor_obs_id,
+                    point_value=single_sensor_val,
                 )
         with col2:
-            if st.button("Tag Equipment Event"):
+            if st.button("Tag Equipment Event", key="btn_eq_event"):
                 st.session_state._show_event_dialog = True
                 st.session_state._ann_start = str(t_start_sel)
                 st.session_state._ann_end = str(t_end_sel)
-    elif selected_pts and not scalar_channels:
-        st.caption("Point selection actions are available for sensor channels only.")
-    else:
+
+    if lab_pts:
+        lab_times = [p.get("x") for p in lab_pts if p.get("x")]
+        t_lab_start = min(lab_times) if lab_times else None
+        t_lab_end = max(lab_times) if lab_times else None
+
+        # Group by series to support multi-series box selections
+        lab_series_ids: list[int] = list(dict.fromkeys(
+            _cd(p)[1] for p in lab_pts if len(_cd(p)) > 1
+        ))
+
+        # Single lab point → pin to exact replicate observation
+        single_lab_obs_id: int | None = None
+        single_lab_val: float | None = None
+        if len(lab_pts) == 1:
+            cd = _cd(lab_pts[0])
+            single_lab_obs_id = cd[2] if len(cd) > 2 else None
+            single_lab_val = lab_pts[0].get("y")
+
+        lab_btn_label = (
+            "Create Lab Annotation (point)" if single_lab_obs_id
+            else "Create Lab Annotation (range)"
+        )
+        if st.button(lab_btn_label, type="primary", key="btn_lab_ann_pt"):
+            _annotation_dialog(
+                channel_ids=[],
+                series_ids=lab_series_ids,
+                start_time=str(t_lab_start) if t_lab_start else None,
+                end_time=str(t_lab_end) if (t_lab_end and not single_lab_obs_id) else None,
+                annotation_types=annotation_types,
+                observation_id=single_lab_obs_id,
+                point_value=single_lab_val,
+            )
+
+    if not selected_pts:
         st.caption("Use box or lasso selection on the chart to select points.")
 
     # Lab AnalysisSeries annotation — range over the current view window.
     if scalar_series and annotation_types:
         sel_lab = st.selectbox(
-            "Annotate lab series",
+            "Annotate lab series (range)",
             options=scalar_series,
             format_func=lambda s: f"LAB-{s}: "
             f"{series_meta.get(s, {}).get('name') or series_meta.get(s, {}).get('parameter_name', '?')}",
             key="lab_ann_series_sel",
         )
-        if st.button("Create Lab Annotation", key="btn_lab_ann"):
+        if st.button("Create Lab Annotation (view range)", key="btn_lab_ann"):
             start = st.session_state.explore_start
             end = st.session_state.explore_end
             _annotation_dialog(
@@ -2195,9 +2193,7 @@ def main() -> None:
 
     # Load lookup data once
     try:
-        campaigns = list_campaigns_lookup()
         equipment = list_equipment_lookup()
-        parameters = list_parameters_lookup()
     except APIError as e:
         st.error(f"Cannot load lookup data: {e.message}")
         st.stop()
@@ -2217,44 +2213,43 @@ def main() -> None:
     except APIError:
         series_list = []
 
+    # Deployment traces filtered by the active time window
+    from_dt = datetime.combine(st.session_state.explore_start, datetime.min.time()).isoformat()
+    to_dt = datetime.combine(st.session_state.explore_end, datetime.max.time()).isoformat()
+    try:
+        deployment_traces = list_deployment_traces_lookup(from_dt=from_dt, to_dt=to_dt)
+    except APIError:
+        deployment_traces = []
+
     _render_sidebar_minimal()
 
-    # --- Top bar ---
+    # --- Top bar: title + Viz/Extract toggle ---
     _render_top_bar()
 
     st.divider()
 
-    # --- Shared top-level campaign filter ---
-    _render_campaign_selector(campaigns)
-
-    # --- Pickers: sensor channels + lab analysis series ---
-    _render_channel_picker(campaigns, equipment, parameters)
-    _render_series_picker(series_list)
+    # --- Unified picker: sensor Deployment Traces + lab AnalysisSeries ---
+    _render_unified_picker(deployment_traces, series_list)
 
     st.divider()
 
-    # --- Build channel_meta for all active channels ---
+    # --- Active channels / series meta ---
     active_channels: list[int] = st.session_state.explore_active_channels
-    # Start from cached meta accumulated during add operations
     channel_meta: dict[int, dict] = dict(st.session_state.explore_channel_meta)
 
-    # Fill any gaps (e.g. after page reload) by fetching from API
-    missing = [ch for ch in active_channels if ch not in channel_meta]
-    if missing:
-        try:
-            all_ch_data = list_channels(page_size=2000)
-            for ch in all_ch_data.get("items", []):
-                ch_id = ch["channel_id"]
-                if ch_id in active_channels:
-                    channel_meta[ch_id] = ch
-                    # Persist back to session cache
-                    st.session_state.explore_channel_meta[ch_id] = ch
-        except APIError:
-            pass
-
-    # --- Build series_meta for all active lab series ---
     active_series: list[int] = st.session_state.explore_active_series
     series_meta: dict[int, dict] = dict(st.session_state.explore_series_meta)
+
+    # Fill meta gaps after page reload from deployment traces list
+    missing = [ch for ch in active_channels if ch not in channel_meta]
+    if missing:
+        dt_by_channel = {dt["channel_id"]: dt for dt in deployment_traces}
+        for ch_id in missing:
+            rec = dt_by_channel.get(ch_id)
+            if rec:
+                channel_meta[ch_id] = rec
+                st.session_state.explore_channel_meta[ch_id] = rec
+
     missing_s = [s for s in active_series if s not in series_meta]
     if missing_s:
         by_id = {s["analysis_series_id"]: s for s in series_list}
@@ -2264,11 +2259,16 @@ def main() -> None:
                 series_meta[s_id] = rec
                 st.session_state.explore_series_meta[s_id] = rec
 
-    # --- Active trace chips (sensor channels + lab series) ---
+    # --- Active trace chips ---
     _render_active_chips(channel_meta)
     _render_series_chips(series_meta)
 
-    st.divider()
+    # --- Global time range strip ---
+    _render_time_strip(
+        channel_meta,
+        st.session_state.explore_channel_stats,
+        st.session_state.explore_series_stats,
+    )
 
     # --- Equipment event dialog (triggered from scalar view) ---
     if st.session_state._show_event_dialog:

@@ -104,7 +104,7 @@ def _scalar_values_by_source(
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT o.[Timestamp], v.[Value], v.[QualityCode]
+        SELECT o.[Timestamp], v.[Value], v.[QualityCode], o.[Observation_ID]
         FROM [dbo].[Value] v
         JOIN [dbo].[Observation] o ON o.[Observation_ID] = v.[Observation_ID]
         {source_join}
@@ -114,7 +114,7 @@ def _scalar_values_by_source(
         *params,
     )
     return [
-        {"timestamp": row[0], "value": row[1], "quality_code": row[2]}
+        {"timestamp": row[0], "value": row[1], "quality_code": row[2], "observation_id": row[3]}
         for row in cursor.fetchall()
     ]
 

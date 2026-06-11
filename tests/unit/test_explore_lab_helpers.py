@@ -35,28 +35,40 @@ _SERIES = [
 ]
 
 
-class TestSeriesCrossFilter:
+class TestApplyPickerFilters:
+    """Tests for _apply_picker_filters (replaced the old _series_cross_filter)."""
+
+    def _filter(self, campaign_id=None, location_id=None, parameter_id=None,
+                equipment_id=None, vtype_id=None, search_text="") -> list[dict]:
+        """Helper: call _apply_picker_filters with only the series side and return matches."""
+        _, matches = explore._apply_picker_filters(
+            [], _SERIES,
+            campaign_id=campaign_id, location_id=location_id,
+            parameter_id=parameter_id, equipment_id=equipment_id,
+            vtype_id=vtype_id, search_text=search_text,
+        )
+        return matches
+
     def test_campaign_scope(self):
-        _, _, matches = explore._series_cross_filter(_SERIES, 1, None, None)
+        matches = self._filter(campaign_id=1)
         assert {m["analysis_series_id"] for m in matches} == {1, 2, 3}
 
     def test_no_campaign_shows_all(self):
-        _, _, matches = explore._series_cross_filter(_SERIES, None, None, None)
+        matches = self._filter()
         assert len(matches) == 4
 
-    def test_param_narrows_sampling_points(self):
-        # Choosing TSS (param 10) within campaign 1 → SP options Effluent+Influent
-        _, sp_opts, _ = explore._series_cross_filter(_SERIES, 1, 10, None)
-        assert set(sp_opts.values()) == {None, 100, 200}
+    def test_param_filter(self):
+        # TSS (param 10) within campaign 1 → Effluent + Influent entries
+        matches = self._filter(campaign_id=1, parameter_id=10)
+        assert {m["analysis_series_id"] for m in matches} == {1, 3}
 
-    def test_sp_narrows_parameters(self):
-        # Choosing Effluent (sp 100) within campaign 1 → params TSS + COD only
-        param_opts, _, _ = explore._series_cross_filter(_SERIES, 1, None, 100)
-        assert set(param_opts.values()) == {None, 10, 11}
-        assert "COD" in param_opts
+    def test_location_filter(self):
+        # Effluent (sp 100) within campaign 1 → TSS + COD entries
+        matches = self._filter(campaign_id=1, location_id=100)
+        assert {m["analysis_series_id"] for m in matches} == {1, 2}
 
-    def test_param_plus_sp_matches_single(self):
-        _, _, matches = explore._series_cross_filter(_SERIES, 1, 10, 200)
+    def test_param_plus_location_matches_single(self):
+        matches = self._filter(campaign_id=1, parameter_id=10, location_id=200)
         assert [m["analysis_series_id"] for m in matches] == [3]
 
 

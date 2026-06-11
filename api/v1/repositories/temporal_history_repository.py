@@ -496,6 +496,107 @@ def deploy_das(
     return new_id, closed_id
 
 
+def list_deployment_traces(
+    conn: pyodbc.Connection,
+    *,
+    sampling_point_id: int | None = None,
+    campaign_id: int | None = None,
+    parameter_id: int | None = None,
+    value_kind_id: int | None = None,
+    from_dt: datetime | None = None,
+    to_dt: datetime | None = None,
+) -> list[dict]:
+    """Return Deployment Trace lookup rows for the Data Explorer picker.
+
+    Each row is one EquipmentLocationHistory record joined with the channels
+    that were wired to that equipment during the deployment period, plus
+    SamplingPoint and Campaign metadata.
+
+    Time-range filter: returns deployments that overlapped [from_dt, to_dt].
+    """
+    where_parts = ["1=1"]
+    params: list = []
+
+    if sampling_point_id is not None:
+        where_parts.append("elh.[SamplingPoint_ID] = ?")
+        params.append(sampling_point_id)
+    if campaign_id is not None:
+        where_parts.append("elh.[Campaign_ID] = ?")
+        params.append(campaign_id)
+    if parameter_id is not None:
+        where_parts.append("ch.[Parameter_ID] = ?")
+        params.append(parameter_id)
+    if value_kind_id is not None:
+        where_parts.append("ch.[ValueKind_ID] = ?")
+        params.append(value_kind_id)
+    if to_dt is not None:
+        where_parts.append("elh.[ValidFrom] <= ?")
+        params.append(to_dt)
+    if from_dt is not None:
+        where_parts.append("(elh.[ValidTo] IS NULL OR elh.[ValidTo] >= ?)")
+        params.append(from_dt)
+
+    where_clause = " AND ".join(where_parts)
+
+    cursor = conn.cursor()
+    cursor.execute(
+        f"""
+        SELECT DISTINCT
+            elh.[EquipmentLocationHistory_ID],
+            ch.[Channel_ID],
+            e.[Equipment_ID],
+            e.[Identifier]          AS equipment_identifier,
+            sp.[SamplingPoint_ID],
+            sp.[SamplingPoint]      AS sampling_point_label,
+            p.[Parameter_ID],
+            p.[Parameter]           AS parameter_name,
+            ch.[ValueKind_ID],
+            c.[Campaign_ID],
+            c.[Name]                AS campaign_name,
+            elh.[ValidFrom],
+            elh.[ValidTo]
+        FROM [dbo].[EquipmentLocationHistory] elh
+        JOIN [dbo].[Equipment]       e   ON e.[Equipment_ID]      = elh.[Equipment_ID]
+        JOIN [dbo].[SamplingPoint]   sp  ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+        JOIN [dbo].[Campaign]        c   ON c.[Campaign_ID]       = elh.[Campaign_ID]
+        JOIN [dbo].[EquipmentWiringHistory] ewh
+            ON ewh.[Equipment_ID] = elh.[Equipment_ID]
+            AND ewh.[ValidFrom]  <= ISNULL(elh.[ValidTo], GETUTCDATE())
+            AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] >= elh.[ValidFrom])
+        JOIN [dbo].[Channel] ch
+            ON ch.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+            AND (
+                ewh.[SignalInterfacePort_ID] = ch.[SignalInterfacePort_ID]
+                OR (ewh.[SignalInterfacePort_ID] IS NULL AND ch.[SignalInterfacePort_ID] IS NULL)
+                OR ch.[SignalInterfacePort_ID] IS NULL
+            )
+        JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = ch.[Parameter_ID]
+        WHERE {where_clause}
+        ORDER BY c.[Name], sp.[SamplingPoint], p.[Parameter]
+        """,
+        *params,
+    )
+    rows = cursor.fetchall()
+    return [
+        {
+            "equipment_location_history_id": r[0],
+            "channel_id": r[1],
+            "equipment_id": r[2],
+            "equipment_identifier": r[3],
+            "sampling_point_id": r[4],
+            "sampling_point_label": r[5],
+            "parameter_id": r[6],
+            "parameter_name": r[7],
+            "value_kind_id": r[8],
+            "campaign_id": r[9],
+            "campaign_name": r[10],
+            "valid_from": r[11],
+            "valid_to": r[12],
+        }
+        for r in rows
+    ]
+
+
 def get_das_conflict(
     conn: pyodbc.Connection, das_id: int, site_id: int
 ) -> dict | None:

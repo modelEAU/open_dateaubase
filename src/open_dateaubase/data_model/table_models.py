@@ -103,9 +103,9 @@ class EquipmentLocationHistoryBase(BaseModel):
         alias="ValidTo",
         description="UTC datetime when the equipment stopped measuring here. NULL = currently active.",
     )
-    campaignID: Optional[int] = Field(
+    campaignID: int = Field(
         alias="Campaign_ID",
-        description="Campaign during which this deployment occurred (if applicable)",
+        description="Campaign under which this deployment occurred. Every deployment must belong to a campaign.",
     )
     notes: Optional[str] = Field(
         alias="Notes", description="Free-text notes (e.g. reason for relocation)"

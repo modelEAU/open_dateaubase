@@ -33,7 +33,7 @@ TO = datetime(2026, 2, 1, tzinfo=timezone.utc)
 
 class TestScalarLabRead:
     def test_joins_labanalysis_and_filters_on_series(self):
-        conn, cursor = _conn_returning([(FROM, 12.5, 1)])
+        conn, cursor = _conn_returning([(FROM, 12.5, 1, 101)])
         out = vr.get_analysis_series_scalar_values(conn, 7, FROM, TO)
 
         sql = _sql(cursor)
@@ -42,16 +42,38 @@ class TestScalarLabRead:
         assert "o.[Channel_ID]" not in sql
         # AnalysisSeries_ID is the first bound param
         assert cursor.execute.call_args_list[0].args[1] == 7
-        # Same return shape as the sensor scalar read
-        assert out == [{"timestamp": FROM, "value": 12.5, "quality_code": 1}]
+        # Same return shape as the sensor scalar read, plus observation_id
+        assert out == [{"timestamp": FROM, "value": 12.5, "quality_code": 1, "observation_id": 101}]
+
+    def test_lab_scalar_returns_observation_id(self):
+        """Each row carries observation_id — required for point-pin annotation.
+
+        The SELECT must project o.[Observation_ID] (not just JOIN on it), and the
+        returned dict must expose the value. Stash the production changes and this
+        test will fail because 'observation_id' won't be in the row dict.
+        """
+        conn, cursor = _conn_returning([(FROM, 5.0, 1, 42)])
+        out = vr.get_analysis_series_scalar_values(conn, 3, None, None)
+        assert len(out) == 1
+        assert out[0].get("observation_id") == 42, (
+            f"observation_id missing or wrong in row: {out[0]}"
+        )
+        # SELECT projection check: o.[Observation_ID] must appear after [QualityCode]
+        # (i.e. as a selected column, not only in the JOIN ON clause)
+        sql = _sql(cursor)
+        assert "v.[QualityCode], o.[Observation_ID]" in sql or \
+               "[QualityCode], o.[Observation_ID]" in sql, (
+            "SELECT must project o.[Observation_ID]; it only appears in the JOIN ON clause"
+        )
 
     def test_replicates_returned_as_individual_rows(self):
-        # Two replicates at the same collection time → two points
-        rows = [(FROM, 10.0, 1), (FROM, 10.4, 1)]
+        # Two replicates at the same collection time → two points, distinct obs ids
+        rows = [(FROM, 10.0, 1, 4), (FROM, 10.4, 1, 5)]
         conn, cursor = _conn_returning(rows)
         out = vr.get_analysis_series_scalar_values(conn, 7, None, None)
         assert len(out) == 2
         assert {r["value"] for r in out} == {10.0, 10.4}
+        assert {r["observation_id"] for r in out} == {4, 5}  # distinct obs_ids distinguish replicates
 
 
 class TestSensorReadUnchanged:
@@ -62,6 +84,20 @@ class TestSensorReadUnchanged:
         assert "o.[Channel_ID] = ?" in sql
         assert "[dbo].[LabAnalysis]" not in sql
         assert cursor.execute.call_args_list[0].args[1] == 99
+
+    def test_sensor_scalar_returns_observation_id(self):
+        """Sensor scalar read now includes observation_id for point-pin annotation parity."""
+        conn, cursor = _conn_returning([(FROM, 7.5, 1, 99)])
+        out = vr.get_scalar_values(conn, 5, FROM, TO)
+        assert len(out) == 1
+        assert out[0].get("observation_id") == 99, (
+            f"observation_id missing or wrong in row: {out[0]}"
+        )
+        sql = _sql(cursor)
+        assert "v.[QualityCode], o.[Observation_ID]" in sql or \
+               "[QualityCode], o.[Observation_ID]" in sql, (
+            "SELECT must project o.[Observation_ID]"
+        )
 
 
 class TestVectorMatrixImageLabRead:

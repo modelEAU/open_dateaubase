@@ -232,3 +232,136 @@ def test_page_renders_with_active_traces_of_both_sources():
 
     assert not at.exception
     assert list(at.get("plotly_chart")), "no scalar chart rendered"
+
+
+# ---------------------------------------------------------------------------
+# Point-pin lab annotation tests (new behavior)
+# ---------------------------------------------------------------------------
+
+# Lab timeseries fixture that carries observation_id in each row (required for
+# point-pin annotations; the real API now returns this field for every scalar row).
+_SERIES_TS_WITH_OBS = {
+    **_SERIES_TS,
+    "data": [
+        {"timestamp": "2026-05-01T00:00:00", "value": 11.0, "quality_code": 1, "observation_id": 42},
+        {"timestamp": "2026-05-08T00:00:00", "value": 13.0, "quality_code": 1, "observation_id": 43},
+    ],
+}
+
+# Simulated Plotly chart selection event for a single lab marker click.
+# customdata format: ["lab", series_id, observation_id]
+_LAB_PT_SELECTION = {
+    "selection": {
+        "points": [{
+            "curve_number": 0,
+            "x": "2026-05-01T00:00:00",
+            "y": 11.0,
+            "customdata": ["lab", 1, 42],
+        }]
+    }
+}
+
+
+def test_lab_point_selection_shows_pin_button():
+    """Pre-seeding the plotly chart selection with a lab point makes the page
+    render a 'Create Lab Annotation (point)' button instead of the generic caption.
+
+    Guards: the button only appears because lab_pts is non-empty (customdata[0]=="lab");
+    reverting the customdata-discriminator logic or the selection split would make
+    lab_pts empty → only the caption renders → this test fails.
+    """
+    with ExitStack() as stack:
+        _patches(stack)
+        stack.enter_context(
+            patch(f"{MOD}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
+        )
+        stack.enter_context(
+            patch(f"{MOD}.list_annotation_kinds",
+                  return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
+        )
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_series"] = [1]
+        at.session_state["explore_series_meta"] = {1: _SERIES[0]}
+        at.session_state["scalar_chart"] = _LAB_PT_SELECTION
+        at.run()
+
+    assert not at.exception
+    btn_keys = [b.key for b in at.button]
+    assert "btn_lab_ann_pt" in btn_keys, (
+        f"'Create Lab Annotation (point)' button (key=btn_lab_ann_pt) not found; "
+        f"got buttons: {btn_keys}"
+    )
+
+
+def test_lab_point_pin_dialog_shows_observation_info():
+    """After clicking 'Create Lab Annotation (point)', the dialog shows a pin
+    info message that identifies the Observation_ID and value being pinned.
+
+    Guards: if observation_id is not passed to _annotation_dialog or the info
+    block is removed, the st.info call doesn't fire → no matching info text → fail.
+    """
+    with ExitStack() as stack:
+        _patches(stack)
+        stack.enter_context(
+            patch(f"{MOD}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
+        )
+        stack.enter_context(
+            patch(f"{MOD}.list_annotation_kinds",
+                  return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
+        )
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_series"] = [1]
+        at.session_state["explore_series_meta"] = {1: _SERIES[0]}
+        at.session_state["scalar_chart"] = _LAB_PT_SELECTION
+        at.run()
+        # Click the point-pin button to open the dialog
+        at.button(key="btn_lab_ann_pt").click().run()
+
+    assert not at.exception
+    info_texts = [i.value for i in at.info]
+    assert any("42" in t for t in info_texts), (
+        f"expected an info box mentioning Observation #42; got info texts: {info_texts}"
+    )
+
+
+def test_lab_point_pin_dialog_called_with_observation_id():
+    """Clicking 'Create Lab Annotation (point)' calls _annotation_dialog with
+    observation_id=42 (the id from the pre-seeded chart selection).
+
+    Guards: if the selection block doesn't extract observation_id from customdata[2]
+    and pass it through, the mock won't see observation_id=42 → test fails.
+    This is the teeth-test: reverting the `single_lab_obs_id = cd[2]` assignment
+    makes _annotation_dialog receive observation_id=None → assertion fails.
+    """
+    captured: dict = {}
+
+    def _capture_dialog(**kwargs):
+        captured.update(kwargs)
+
+    with ExitStack() as stack:
+        _patches(stack)
+        stack.enter_context(
+            patch(f"{MOD}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
+        )
+        stack.enter_context(
+            patch(f"{MOD}.list_annotation_kinds",
+                  return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
+        )
+        stack.enter_context(
+            patch(f"{MOD}._annotation_dialog", side_effect=_capture_dialog)
+        )
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_series"] = [1]
+        at.session_state["explore_series_meta"] = {1: _SERIES[0]}
+        at.session_state["scalar_chart"] = _LAB_PT_SELECTION
+        at.run()
+        at.button(key="btn_lab_ann_pt").click().run()
+
+    assert not at.exception
+    assert captured, "expected _annotation_dialog to have been called"
+    assert captured.get("observation_id") == 42, (
+        f"expected observation_id=42 passed to dialog; got kwargs: {captured}"
+    )
+    assert captured.get("series_ids") == [1], (
+        f"expected series_ids=[1]; got: {captured}"
+    )

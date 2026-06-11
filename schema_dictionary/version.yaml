@@ -1,9 +1,6 @@
-schema_version: "4.2.0"
+schema_version: "4.3.0"
 description: >
-  Annotation lab parity. Annotation gains an exclusive-arc anchor: Channel_ID
-  becomes nullable, a new nullable AnalysisSeries_ID FK is added, and a
-  CK_Annotation_Source XOR CHECK enforces exactly one of the two is set, so a
-  lab AnalysisSeries can be annotated with the same range/point semantics as a
-  sensor Channel (mirrors the Observation hub; see ADR 0003). Adds
-  IX_Annotation_Series_Time. Builds on the 4.1.0 SignalInterface redesign.
+  Campaign_ID made mandatory on EquipmentLocationHistory. Every equipment
+  deployment must belong to a campaign; permanent baseline sensors use a
+  standing operational campaign. Builds on 4.2.0 annotation lab parity.
 date: "2026-06-10"

@@ -17,7 +17,17 @@ Plotly trace). "Trace" is a UI/exploration concept, not a stored table.
 
 The stable identity of a **sensor** measurement stream. Excludes sampling
 location from its identity (location is inferred at query time via equipment
-location history). The sensor half of a Trace.
+location history). The sensor half of a Trace. One Channel may produce multiple
+**Deployment Traces** if the equipment was relocated across different SamplingPoints.
+
+### Deployment Trace
+
+The selectable atom for sensor data in the Data Explorer. A Deployment Trace is
+a **Channel** scoped to one row of `EquipmentLocationHistory` — meaning a specific
+piece of equipment was at a specific **SamplingPoint** for a specific time period
+(optionally under a **Campaign**). If equipment was relocated during a campaign,
+each stint at a different SamplingPoint produces a distinct Deployment Trace.
+A Deployment Trace is the sensor half of a Trace at picker resolution.
 
 ### AnalysisSeries
 
@@ -66,6 +76,12 @@ time and stack at the same instant). Every Annotation carries an
 Note, …).
 
 ## Resolved conventions (Data Explorer)
+
+- **Trace label format** follows a URI-style hierarchy, broadest to narrowest, with
+  source type in parentheses at the end:
+  - Deployment Trace (sensor): `Campaign › Location / Parameter (Equipment)`
+  - AnalysisSeries (lab): `Campaign › Location / Parameter (Lab)`
+  - When no Campaign: `— › Location / Parameter (Equipment or Lab)`
 
 - **Lab x-axis = Sample collection time** (`Sample.SampleDateTimeStart`), *not*
   analysis time. This lets a lab AnalysisSeries align on the time axis with a

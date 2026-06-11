@@ -185,6 +185,7 @@ class AnalysisSeriesLookupItem(BaseModel):
     processing_kind_id: int
     processing_kind_name: str
     campaign_id: int | None = None
+    campaign_name: str | None = None
 
 
 class AnalysisSeriesCreateRequest(BaseModel):

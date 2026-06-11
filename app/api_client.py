@@ -2579,6 +2579,37 @@ def get_lab_experiment_series(experiment_id: int) -> list[dict]:
     return r.json()
 
 
+def list_deployment_traces_lookup(
+    sampling_point_id: int | None = None,
+    campaign_id: int | None = None,
+    parameter_id: int | None = None,
+    value_kind_id: int | None = None,
+    from_dt: str | None = None,
+    to_dt: str | None = None,
+) -> list[dict]:
+    """Return Deployment Trace lookup rows for the Data Explorer sensor picker."""
+    params: dict = {}
+    if sampling_point_id is not None:
+        params["sampling_point_id"] = sampling_point_id
+    if campaign_id is not None:
+        params["campaign_id"] = campaign_id
+    if parameter_id is not None:
+        params["parameter_id"] = parameter_id
+    if value_kind_id is not None:
+        params["value_kind_id"] = value_kind_id
+    if from_dt is not None:
+        params["from_dt"] = from_dt
+    if to_dt is not None:
+        params["to_dt"] = to_dt
+    try:
+        with _get_client() as client:
+            r = client.get("/deployment-traces/lookup", params=params)
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 def list_analysis_series_lookup() -> list[dict]:
     """Return all AnalysisSeries for dropdown."""
     try:
