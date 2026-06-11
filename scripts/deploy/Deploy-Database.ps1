@@ -6,8 +6,8 @@
 
 .DESCRIPTION
     Creates a new SQL Server 2025 database with the name you choose, applies the
-    v1.0.0 baseline schema, runs the consolidated v1.0.0 → v2.1.0 migration,
-    and optionally loads seed data and installs SQL Agent backup jobs.
+    v2.0.0 full baseline schema and vocabulary seed, and optionally loads demo
+    seed data and installs SQL Agent backup jobs.
 
     Re-running is safe: the script exits early if the database already exists
     unless -Force is specified.
@@ -47,10 +47,10 @@
     Default: C:\Backups
 
 .PARAMETER WithSeedData
-    Load seed data after schema creation:
-    - sql/seed_v2.1.0.sql  (reference equipment, parameters, units, sites)
-    - sql/seed_importer_fixtures.sql  (importer-compatible lookup entries)
-    Intended for dev and staging environments.
+    Load dev/demo seed data after schema creation:
+    - sql/seed_fixtures.sql  (sample procedures, TEST_ watershed + lab)
+    - sql/seed_demo.sql      (TEST_ site, process units, campaigns, lab panels)
+    Intended for local dev environments only. Omit for staging and production.
 
 .PARAMETER WithBackupJobs
     Install SQL Agent backup jobs (weekly full, daily diff, 4-hour log, daily cleanup).
@@ -72,13 +72,12 @@
         -InstallDir     "C:\open_dateaubase"
 
 .EXAMPLE
-    # Staging deploy with seed data and backup jobs
+    # Staging deploy with backup jobs (no dev seed data)
     .\Deploy-Database.ps1 `
         -ServerInstance "DBSERVER2025" `
         -DatabaseName   "open_dateaubase_staging" `
         -DbPassword     "StagingPwd123!" `
         -InstallDir     "C:\open_dateaubase" `
-        -WithSeedData `
         -WithBackupJobs `
         -BackupDir      "D:\Backups"
 
@@ -214,34 +213,34 @@ $invokeParams = @{
 }
 
 # ---------------------------------------------------------------------------
-# Apply baseline schema (v1.0.0)
+# Apply full baseline schema (v2.0.0)
 # ---------------------------------------------------------------------------
 
 Invoke-SqlScript @invokeParams `
-    -ScriptPath  (Join-Path $InstallDir 'migrations\v1.0.0_create_mssql.sql') `
-    -Description 'Baseline schema v1.0.0'
+    -ScriptPath  (Join-Path $InstallDir 'sql_generation_scripts\v2.0.0_create_mssql.sql') `
+    -Description 'Full schema v2.0.0'
 
 # ---------------------------------------------------------------------------
-# Apply consolidated migration (v1.0.0 → v2.1.0)
+# Apply vocabulary seed (generated from YAML seed_data fields)
 # ---------------------------------------------------------------------------
 
 Invoke-SqlScript @invokeParams `
-    -ScriptPath  (Join-Path $InstallDir 'migrations\v1.0.0_to_v2.1.0_mssql.sql') `
-    -Description 'Migration v1.0.0 → v2.1.0'
+    -ScriptPath  (Join-Path $InstallDir 'sql_generation_scripts\v2.0.0_seed_mssql.sql') `
+    -Description 'Vocabulary seed v2.0.0'
 
 # ---------------------------------------------------------------------------
-# Optional: seed data
+# Optional: dev/demo seed data (local dev only; omit for staging + production)
 # ---------------------------------------------------------------------------
 
 if ($WithSeedData) {
-    Write-DbStep 'Loading seed data...'
+    Write-DbStep 'Loading dev seed data...'
     Invoke-SqlScript @invokeParams `
-        -ScriptPath  (Join-Path $InstallDir 'sql\seed_v2.1.0.sql') `
-        -Description 'Seed data (reference equipment, parameters, sites)'
+        -ScriptPath  (Join-Path $InstallDir 'sql\seed_fixtures.sql') `
+        -Description 'Fixture seed (procedures, TEST_ watershed + lab)'
 
     Invoke-SqlScript @invokeParams `
-        -ScriptPath  (Join-Path $InstallDir 'sql\seed_importer_fixtures.sql') `
-        -Description 'Seed data (importer fixtures)'
+        -ScriptPath  (Join-Path $InstallDir 'sql\seed_demo.sql') `
+        -Description 'Demo seed (TEST_ site, process units, campaigns, lab panels)'
 }
 
 # ---------------------------------------------------------------------------

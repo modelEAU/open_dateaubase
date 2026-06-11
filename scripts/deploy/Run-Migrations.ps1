@@ -70,8 +70,9 @@
 .NOTES
     Adding a new migration:
     Append an entry to $MigrationCatalogue in the format:
-        @{ From = 'v2.1.0'; To = 'v2.2.0'; Script = 'migrations\v2.1.0_to_v2.2.0_mssql.sql' }
+        @{ From = 'v2.0.0'; To = 'v2.1.0'; Script = 'migrations\v2.0.0_to_v2.1.0_mssql.sql' }
     The script paths are relative to $InstallDir.
+    Fresh installations always start at v2.0.0 via Deploy-Database.ps1.
 
     Rollback scripts are NOT applied automatically. To roll back, run the
     corresponding *_rollback.sql script manually in SSMS after taking a backup.
@@ -113,24 +114,19 @@ Import-Module (Join-Path $scriptDir 'DbHelpers.psm1') -Force
 # ---------------------------------------------------------------------------
 
 $MigrationCatalogue = @(
-    @{
-        From           = 'v1.0.0'
-        To             = 'v2.1.0'
-        Script         = 'migrations\v1.0.0_to_v2.1.0_mssql.sql'
-        Description    = 'Consolidated migration: v1.0.0 → v2.1.0 (Channel model, LabAnalysis, Status system)'
-        RollbackScript = 'migrations\v1.0.0_to_v2.1.0_mssql_rollback.sql'
-    }
-    # Future migrations go here, e.g.:
+    # Fresh installs start at v2.0.0 via Deploy-Database.ps1 (full create script).
+    # This catalogue covers incremental upgrades from that baseline.
+    # Add new entries here as each future release ships a migration script.
     # @{
-    #     From           = 'v2.1.0'
-    #     To             = 'v2.2.0'
-    #     Script         = 'migrations\v2.1.0_to_v2.2.0_mssql.sql'
-    #     Description    = 'Phase D: ControlLoop tables'
-    #     RollbackScript = 'migrations\v2.1.0_to_v2.2.0_mssql_rollback.sql'
+    #     From           = 'v2.0.0'
+    #     To             = 'v2.1.0'
+    #     Script         = 'migrations\v2.0.0_to_v2.1.0_mssql.sql'
+    #     Description    = 'Migration v2.0.0 → v2.1.0'
+    #     RollbackScript = 'migrations\v2.0.0_to_v2.1.0_mssql_rollback.sql'
     # }
 )
 
-$LatestVersion = $MigrationCatalogue[-1].To
+$LatestVersion = if ($MigrationCatalogue.Count -gt 0) { $MigrationCatalogue[-1].To } else { 'v2.0.0' }
 
 # ---------------------------------------------------------------------------
 # Validate credentials
@@ -142,8 +138,8 @@ $authPwd  = $cred.Password
 
 $target = if ($TargetVersion) { $TargetVersion } else { $LatestVersion }
 
-# Validate target version is in the catalogue
-$knownVersions = @($MigrationCatalogue[0].From) + ($MigrationCatalogue | ForEach-Object { $_.To })
+# Validate target version is in the catalogue (always accept the baseline even with an empty catalogue)
+$knownVersions = @('v2.0.0') + ($MigrationCatalogue | ForEach-Object { $_.From; $_.To } | Select-Object -Unique)
 if ($target -notin $knownVersions) {
     throw "Unknown target version '$target'. Known versions: $($knownVersions -join ', ')"
 }
