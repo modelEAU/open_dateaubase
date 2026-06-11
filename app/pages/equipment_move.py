@@ -33,6 +33,7 @@ from app.api_client import (
     create_equipment_event,
     get_location_at_time,
     get_wiring_at_time,
+    list_campaigns_lookup,
     list_equipment_event_kinds,
     list_equipment_lookup,
     list_sampling_points_lookup,
@@ -72,6 +73,8 @@ _DEFAULTS_MV: dict = {
     "mv_equipment_label": None,
     "mv_dest_sp_id": None,
     "mv_dest_sp_label": None,
+    "mv_campaign_id": None,
+    "mv_campaign_label": None,
     "mv_date": None,
     "mv_time": None,
     "mv_notes": "",
@@ -276,7 +279,7 @@ def _render_equipment_wiring_info(wiring: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _step_move_details(sp_opts: list[dict]) -> None:
+def _step_move_details(sp_opts: list[dict], campaign_opts: list[dict]) -> None:
     eq_label = st.session_state.mv_equipment_label
     st.info(f"Moving **{eq_label}**.")
 
@@ -309,6 +312,27 @@ def _step_move_details(sp_opts: list[dict]) -> None:
         help="Sampling location where this equipment will be installed",
     )
 
+    # Campaign picker — required (Campaign_ID NOT NULL in schema)
+    camp_map = {c["name"]: c["campaign_id"] for c in campaign_opts}
+    camp_labels = list(camp_map.keys())
+    if camp_labels:
+        prev_camp_label = st.session_state.mv_campaign_label
+        default_camp_idx = (
+            camp_labels.index(prev_camp_label)
+            if prev_camp_label and prev_camp_label in camp_labels
+            else 0
+        )
+        selected_camp_label = st.selectbox(
+            "Campaign *",
+            camp_labels,
+            index=default_camp_idx,
+            key="mv_campaign_widget",
+            help="Campaign under which this deployment is recorded. Every deployment must belong to a campaign.",
+        )
+    else:
+        st.warning("No campaigns found. Create a campaign first.")
+        selected_camp_label = None
+
     col_date, col_time = st.columns(2)
     with col_date:
         move_date = st.date_input(
@@ -338,6 +362,9 @@ def _step_move_details(sp_opts: list[dict]) -> None:
         if dest_sp_id is None:
             return ["Select a destination sampling point."]
 
+        if selected_camp_label is None or selected_camp_label not in camp_map:
+            return ["Select a campaign."]
+
         # Guard: destination must differ from current location
         now_str = _now_utc().isoformat()
         try:
@@ -355,6 +382,8 @@ def _step_move_details(sp_opts: list[dict]) -> None:
 
         st.session_state.mv_dest_sp_id = dest_sp_id
         st.session_state.mv_dest_sp_label = dest_label
+        st.session_state.mv_campaign_id = camp_map[selected_camp_label]
+        st.session_state.mv_campaign_label = selected_camp_label
         st.session_state.mv_date = move_date
         st.session_state.mv_time = move_time
         st.session_state.mv_notes = notes
@@ -622,6 +651,7 @@ def _step_review() -> None:
     with st.container(border=True):
         st.markdown(f"**Equipment:** {eq_label}")
         st.markdown(f"**To:** {st.session_state.mv_dest_sp_label}")
+        st.markdown(f"**Campaign:** {st.session_state.mv_campaign_label or '—'}")
         st.markdown(f"**Move timestamp (UTC):** {move_dt.strftime('%Y-%m-%d %H:%M')}")
         if st.session_state.mv_notes:
             st.markdown(f"**Notes:** {st.session_state.mv_notes}")
@@ -640,6 +670,7 @@ def _step_review() -> None:
         payload: dict = {
             "sampling_point_id": st.session_state.mv_dest_sp_id,
             "valid_from": move_ts,
+            "campaign_id": st.session_state.mv_campaign_id,
         }
         if st.session_state.mv_notes:
             payload["notes"] = st.session_state.mv_notes
@@ -854,8 +885,9 @@ with tab_relocate:
     try:
         with st.spinner("Loading…"):
             _sp_opts = list_sampling_points_lookup()
+            _campaign_opts = list_campaigns_lookup()
     except APIError as e:
-        st.error(f"Cannot load sampling points: {e.message}")
+        st.error(f"Cannot load lookup data: {e.message}")
         st.stop()
 
     step = st.session_state.mv_step
@@ -869,7 +901,7 @@ with tab_relocate:
             total_steps=len(RELOCATE_STEPS),
         )
     elif step == 2:
-        _step_move_details(_sp_opts)
+        _step_move_details(_sp_opts, _campaign_opts)
     elif step == 3:
         _step_equipment_event(
             _event_types,

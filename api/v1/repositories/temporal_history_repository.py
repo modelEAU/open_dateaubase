@@ -261,6 +261,7 @@ def relocate_equipment(
     equipment_id: int,
     new_sampling_point_id: int,
     start_time: datetime,
+    campaign_id: int | None = None,
     notes: str | None = None,
 ) -> tuple[int, int | None]:
     """Close the current active location history row and open a new one.
@@ -269,6 +270,7 @@ def relocate_equipment(
     ``None`` when there was no active row to close.
 
     ``start_time`` is required and must equal the physical move time.
+    ``campaign_id`` is required by the schema (Campaign_ID NOT NULL).
     """
     cursor = conn.cursor()
     closed_id: int | None = None
@@ -292,13 +294,14 @@ def relocate_equipment(
     cursor.execute(
         """
         INSERT INTO [dbo].[EquipmentLocationHistory]
-            ([Equipment_ID], [SamplingPoint_ID], [ValidFrom], [Notes])
+            ([Equipment_ID], [SamplingPoint_ID], [ValidFrom], [Campaign_ID], [Notes])
         OUTPUT INSERTED.[EquipmentLocationHistory_ID]
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         """,
         equipment_id,
         new_sampling_point_id,
         start_time,
+        campaign_id,
         notes,
     )
     new_id: int = cursor.fetchone()[0]

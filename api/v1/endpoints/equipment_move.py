@@ -214,6 +214,7 @@ def relocate_equipment_endpoint(
             equipment_id=equipment_id,
             new_sampling_point_id=body.sampling_point_id,
             start_time=body.valid_from,
+            campaign_id=body.campaign_id,
             notes=body.notes,
         )
     except pyodbc.Error as exc:
