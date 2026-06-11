@@ -365,4 +365,128 @@ INSERT INTO [dbo].[ValueVector] ([Observation_ID], [ValueBin_ID], [Value], [Qual
 SELECT @ObsID, vb.[ValueBin_ID], ROUND(EXP(-POWER(CAST(vb.[BinIndex] AS FLOAT) - 4.0, 2) / 2.0), 4), 1
 FROM [dbo].[ValueBin] vb WHERE vb.[ValueBinningAxis_ID] = @LabUVAxis;
 
-PRINT 'Demo seed loaded: 3 persons, 1 site (TEST_pilEAUte WWTP), 6 process units, 6 sampling points, 2 campaigns, 15 analysis series (14 scalar/image + 1 vector absorbance), 1 lab panel (TEST_ WWTP Weekly Panel), plus lab measurements (5 scalar COD @ Feb 2024 incl. a replicate, 3 UV-Vis spectra @ Feb 2026).';
+-- ============================================================
+-- Sensor deployment chain
+-- One Turbidity sensor (SOLITAX sc) wired to a monEAU basestation,
+-- deployed at the Aerobic zone outlet under the Ops campaign.
+-- ============================================================
+DECLARE @DAS_ID INT, @SI_ID INT, @EM_Turb INT, @EQ_Turb INT, @CH_Turb INT;
+
+INSERT INTO [dbo].[DataAcquisitionSystem] ([Name])
+VALUES (N'TEST_ pilEAUte basestation');
+SET @DAS_ID = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[SignalInterface] ([DataAcquisitionSystem_ID], [Name], [Manufacturer])
+VALUES (@DAS_ID, N'TEST_ basestation-SI-01', N'monEAU');
+SET @SI_ID = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Manufacturer], [Method])
+VALUES (N'SOLITAX sc', N'Hach', N'Scattered light 90° + back-scatter');
+SET @EM_Turb = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[Equipment] ([EquipmentModel_ID], [Identifier], [SerialNumber], [Owner])
+VALUES (@EM_Turb, N'TEST_Turb-001', N'T001-2026', N'modelEAU Lab');
+SET @EQ_Turb = SCOPE_IDENTITY();
+
+-- Channel: Turbidity, Scalar (ValueKind=1), NTU (Unit=2), Sensor (DataProvenanceKind=1)
+INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID], [ValueKind_ID], [Unit_ID])
+VALUES (@SI_ID, N'TEST_Turb-001/Turbidity', 9, 1, 1, 2);
+SET @CH_Turb = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[EquipmentWiringHistory] ([Equipment_ID], [SignalInterface_ID], [ValidFrom])
+VALUES (@EQ_Turb, @SI_ID, '2026-01-01T00:00:00');
+
+INSERT INTO [dbo].[EquipmentLocationHistory] ([Equipment_ID], [SamplingPoint_ID], [ValidFrom], [Campaign_ID])
+VALUES (@EQ_Turb, @SP_AerobicOut, '2026-01-01T00:00:00', @CampOpsID);
+
+-- ============================================================
+-- Turbidity observations: hourly, 2026-04-01 → 2026-06-10
+-- Value: 5 + 3·sin(h·0.15) + 1.5·sin(h·0.05) + 0.5·sin(h·0.5)  NTU
+-- 1 680 rows (70 days × 24 h)
+-- ============================================================
+CREATE TABLE #turb_ts (i INT, ts DATETIME2(7));
+
+WITH n AS (SELECT 0 AS i UNION ALL SELECT i+1 FROM n WHERE i < 1679)
+INSERT INTO #turb_ts (i, ts)
+SELECT i, DATEADD(HOUR, i, '2026-04-01T00:00:00') FROM n OPTION (MAXRECURSION 0);
+
+DECLARE @TurbObs TABLE (obs_id INT, ts DATETIME2(7));
+
+INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID])
+OUTPUT INSERTED.[Observation_ID], INSERTED.[Timestamp] INTO @TurbObs (obs_id, ts)
+SELECT @CH_Turb, NULL, ts, 1 FROM #turb_ts ORDER BY i;
+
+INSERT INTO [dbo].[Value] ([Observation_ID], [Value], [QualityCode])
+SELECT
+    obs_id,
+    5.0
+        + 3.0 * SIN(CAST(DATEDIFF(HOUR, '2026-04-01T00:00:00', ts) AS FLOAT) * 0.15)
+        + 1.5 * SIN(CAST(DATEDIFF(HOUR, '2026-04-01T00:00:00', ts) AS FLOAT) * 0.05)
+        + 0.5 * SIN(CAST(DATEDIFF(HOUR, '2026-04-01T00:00:00', ts) AS FLOAT) * 0.50),
+    1
+FROM @TurbObs;
+
+DROP TABLE #turb_ts;
+
+-- ============================================================
+-- Lab COD at Influent: 10 weekly grab samples, 2026-04-07 → 2026-06-09
+-- Weeks 7-10 (2026-05-19 → 2026-06-09) fall within the default
+-- "last 30 days" explore window alongside the Turbidity data.
+-- ============================================================
+DECLARE @ExpCOD_Inf INT;
+
+INSERT INTO [dbo].[LabExperiment] ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID])
+VALUES (N'TEST_ COD influent weekly series', @CampOpsID, '2026-06-09T09:00:00', N'Weekly influent COD grab samples', @PersonProfID);
+SET @ExpCOD_Inf = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-04-07T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-04-08T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-04-07T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,312.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-04-14T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-04-15T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-04-14T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,285.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-04-21T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-04-22T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-04-21T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,340.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-04-28T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-04-29T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-04-28T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,298.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-05-05T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-05-06T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-05-05T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,325.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-05-12T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-05-13T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-05-12T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,278.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-05-19T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-05-20T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-05-19T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,350.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-05-26T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-05-27T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-05-26T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,301.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-06-02T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-06-03T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-06-02T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,315.0,1);
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_Influent,@PersonTechID,@CampOpsID,'2026-06-09T08:00:00'); SET @SmpID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpCOD_Inf,@AS_COD_Inf,@SmpID,1,1,1,@PersonTechID,'2026-06-10T09:00:00'); SET @LaID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-06-09T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,289.0,1);
+
+PRINT 'Demo seed loaded: 3 persons, 1 site, 6 process units, 6 sampling points, 2 campaigns, 15 analysis series, 1 lab panel, scalar COD (final eff + influent) + vector UV-Vis lab data + 1 Turbidity sensor chain (1 680 hourly obs, Apr-Jun 2026) + 10 COD influent grab samples.';

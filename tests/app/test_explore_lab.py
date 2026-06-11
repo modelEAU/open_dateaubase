@@ -371,3 +371,5 @@ def test_lab_point_pin_dialog_called_with_observation_id():
     assert captured.get("series_ids") == [1], (
         f"expected series_ids=[1]; got: {captured}"
     )
+
+

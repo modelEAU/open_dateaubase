@@ -1209,6 +1209,8 @@ def _render_time_strip(
     global_min = min(all_min) if all_min else None
     global_max = max(all_max) if all_max else None
 
+    has_traces = bool(channel_stats or series_stats)
+
     with st.container(border=True):
         btn_col1, btn_col2, btn_col3, spacer, from_col, to_col = st.columns(
             [1, 1, 1, 1, 2, 2]
@@ -1216,11 +1218,11 @@ def _render_time_strip(
 
         range_update: tuple[date, date] | None = None
 
-        if btn_col1.button("Last 7d", disabled=global_max is None, key="tstrip_7d"):
+        if btn_col1.button("Last 7d", disabled=not has_traces, key="tstrip_7d"):
             end = global_max or date.today()
             range_update = (end - timedelta(days=7), end)
 
-        if btn_col2.button("Last 30d", disabled=global_max is None, key="tstrip_30d"):
+        if btn_col2.button("Last 30d", disabled=not has_traces, key="tstrip_30d"):
             end = global_max or date.today()
             range_update = (end - timedelta(days=30), end)
 
@@ -1562,7 +1564,7 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
     """Render active Deployment Traces as a list with data range and remove button."""
     active = st.session_state.explore_active_channels
 
-    if not active:
+    if not active and not st.session_state.explore_active_series:
         st.caption("No traces added yet — use the picker above.")
         return
 
@@ -1767,6 +1769,26 @@ def _render_scalar_view(
 
     if not selected_pts:
         st.caption("Use box or lasso selection on the chart to select points.")
+
+    # Sensor channel annotation — range over the current view window.
+    if scalar_channels and annotation_types:
+        sel_ch = st.selectbox(
+            "Annotate sensor channel (range)",
+            options=scalar_channels,
+            format_func=lambda ch: f"CH-{ch}: "
+            f"{channel_meta.get(ch, {}).get('parameter_name', '?')} "
+            f"({channel_meta.get(ch, {}).get('equipment_identifier', '?')})",
+            key="sensor_ann_chan_sel",
+        )
+        if st.button("Create Annotation (view range)", key="btn_sensor_ann_range"):
+            start = st.session_state.explore_start
+            end = st.session_state.explore_end
+            _annotation_dialog(
+                channel_ids=[sel_ch],
+                start_time=datetime.combine(start, datetime.min.time()).isoformat(),
+                end_time=datetime.combine(end, datetime.max.time()).isoformat(),
+                annotation_types=annotation_types,
+            )
 
     # Lab AnalysisSeries annotation — range over the current view window.
     if scalar_series and annotation_types:
