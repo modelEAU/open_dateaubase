@@ -1733,6 +1733,7 @@ def _render_scalar_view(
                 st.session_state._show_event_dialog = True
                 st.session_state._ann_start = str(t_start_sel)
                 st.session_state._ann_end = str(t_end_sel)
+                st.rerun()  # dialog check runs before visualization area in script order
 
     if lab_pts:
         lab_times = [p.get("x") for p in lab_pts if p.get("x")]
