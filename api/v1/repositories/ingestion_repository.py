@@ -72,6 +72,28 @@ def _get_channel_trait_set(cursor: pyodbc.Cursor, stream_id: int) -> set[int]:
     return {int(r[0]) for r in cursor.fetchall()}
 
 
+def _get_step_input_trait_union(cursor: pyodbc.Cursor, step_id: int) -> set[int]:
+    """Union the ChannelTrait sets of every input stream of a ProcessingStep.
+
+    The producing step's input edges live in ProcessingLineage (one row per
+    consumed Stream_ID, written by ``record_processing``). Reading the union
+    straight from the DAG keeps ChannelTrait a deterministic projection of the
+    lineage and makes the trait computation correct for multi-input transforms
+    (PCA, sensor fusion, lab-series-fed gap-filling) — not just the primary
+    source (ADR 0005). Returns an empty set if no input edges are recorded yet.
+    """
+    cursor.execute(
+        """
+        SELECT DISTINCT ct.[OperationKind_ID]
+        FROM [dbo].[ProcessingLineage] pl
+        JOIN [dbo].[ChannelTrait] ct ON ct.[Stream_ID] = pl.[Stream_ID]
+        WHERE pl.[ProcessingStep_ID] = ?
+        """,
+        step_id,
+    )
+    return {int(r[0]) for r in cursor.fetchall()}
+
+
 def find_or_create_sensor_metadata(
     conn: pyodbc.Connection,
     *,
@@ -236,9 +258,15 @@ def find_or_create_derived_metadata(
         source_channel_id,
     )
 
-    # Trait set = union(source channel traits) ∪ {producing step's OperationKind}.
+    # Trait set = union(all input channels' traits) ∪ {producing step's OperationKind}.
+    # The full input set comes from the step's ProcessingLineage edges (multi-input
+    # transforms inherit every input's traits, not just the primary source — ADR 0005).
+    # The primary source is always included explicitly so the trait set is still
+    # correct if lineage edges were not recorded for this step (e.g. the direct
+    # provision endpoint), preserving the single-input behaviour as a floor.
     trait_ids = _get_channel_trait_set(cursor, source_channel_id)
     if produced_by_step_id is not None:
+        trait_ids |= _get_step_input_trait_union(cursor, produced_by_step_id)
         cursor.execute(
             """
             SELECT [OperationKind_ID] FROM [dbo].[ProcessingStep]

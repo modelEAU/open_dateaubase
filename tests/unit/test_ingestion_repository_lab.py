@@ -378,6 +378,56 @@ class TestFindOrCreateDerivedMetadata:
         assert all(900 in c.args[1:] for c in trait_calls)
         conn.commit.assert_called_once()
 
+    def test_multi_input_trait_union_includes_non_primary_inputs(self):
+        """A derived channel inherits traits from EVERY input of its step, not
+        just the primary source — the union is read from ProcessingLineage.
+
+        Primary source (source_channel_id) carries only {2} (OutlierRemoval).
+        A second input contributes {5} (Smoothing) via the step's lineage edges.
+        The producing step is {6} (Interpolation). The output channel must
+        therefore carry {2, 5, 6}. The single-input implementation would have
+        written {2, 6} — missing the Smoothing trait from the non-primary input
+        — so this test is red on that implementation and green on the union one.
+        """
+        conn = MagicMock()
+        cursor = MagicMock()
+        cursor.fetchone.side_effect = [
+            ("pca-out", 7, 1, 5),  # source channel metadata
+            None,  # derived channel does not yet exist
+            (900,),  # minted Stream_ID
+            (6,),  # producing step OperationKind_ID = Interpolation
+        ]
+        # fetchall #1: _get_channel_trait_set(primary source) -> {2}
+        # fetchall #2: _get_step_input_trait_union(step) -> {2, 5} across all inputs
+        cursor.fetchall.side_effect = [[(2,)], [(2,), (5,)]]
+        conn.cursor.return_value = cursor
+
+        stream_id = ingestion_repository.find_or_create_derived_metadata(
+            conn,
+            source_channel_id=42,
+            produced_by_step_id=88,
+        )
+
+        assert stream_id == 900
+
+        sql_calls = [c.args[0] for c in cursor.execute.call_args_list]
+        # The union is computed from the lineage DAG, not just the source channel.
+        assert any(
+            "[dbo].[ProcessingLineage]" in s and "JOIN [dbo].[ChannelTrait]" in s
+            for s in sql_calls
+        )
+
+        trait_calls = [
+            c
+            for c in cursor.execute.call_args_list
+            if "INSERT INTO [dbo].[ChannelTrait]" in c.args[0]
+        ]
+        written_ops = {c.args[-1] for c in trait_calls}
+        # Smoothing(5) from the non-primary input MUST be present.
+        assert written_ops == {2, 5, 6}
+        assert all(900 in c.args[1:] for c in trait_calls)
+        conn.commit.assert_called_once()
+
 
 class TestLabExperimentExists:
     def test_returns_true_when_row_found(self):

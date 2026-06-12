@@ -114,18 +114,18 @@ surface without an extra join.
 - Filtering "show me only approved lab data" moves from a series-picker filter to
   an observation-level `WHERE ReviewStatus = 'Approved'` clause.
 
-## Known limitation / future work
+## ChannelTrait population — multi-input union
 
-The initial implementation of the ChannelTrait population rule computes the trait
-set from a **single** primary input (`find_or_create_derived_metadata(source_channel_id=…)`).
-The rule as specified is the union over *all* inputs of a producing step. For
-multi-input transforms (PCA, sensor fusion, lab-series-fed gap-filling), the
-derived Channel's denormalized trait set is therefore under-populated — though the
-`ProcessingLineage` DAG still records every input edge authoritatively, so no
-provenance is lost (only the fast-filter cache is incomplete).
+`find_or_create_derived_metadata` computes the derived Channel's trait set as the
+union over **all** inputs of the producing step, read from the `ProcessingLineage`
+DAG (`JOIN ChannelTrait` over every input `Stream_ID` of the step) plus the step's
+own `OperationKind`. This is correct for multi-input transforms (PCA, sensor
+fusion, lab-series-fed gap-filling), which inherit the traits of every input — not
+just the primary source.
 
-Closing this requires computing the trait union from `ProcessingLineage`
-(`JOIN ChannelTrait` over all input `Stream_ID`s of the step) rather than from one
-source channel. No schema change is needed — `ChannelTrait` already supports it.
-This was deferred from the v2.0 stabilization because it touches the ingest API
-contract and lineage-write ordering, not the schema.
+The `/ingest/processed` flow writes the `ProcessingStep` and all `ProcessingLineage`
+input edges (via `record_processing`) before the output Channel's traits are
+computed, so the union is available from the DAG. As a floor, the primary
+`source_channel_id`'s own traits are always included explicitly, preserving correct
+single-input behaviour for callers that create a derived Channel without first
+recording lineage edges (e.g. the direct `channels` provision endpoint).
