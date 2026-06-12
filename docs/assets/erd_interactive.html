@@ -385,16 +385,16 @@
     {
       "id": "AnalysisSeries",
       "label": "AnalysisSeries",
-      "description": "Stable stream identity for lab measurements \u2014 the lab analogue of Channel. One AnalysisSeries row represents the conceptual stream of \"Parameter X measured at SamplingPoint Y by ProcessingKind Z producing ValueKind W in Unit U\" (e.g. \"TSS Gravimetric at Effluent in mg/L\"). All LabAnalyses measuring the same parameter at the same location with the same processing and value kind share one AnalysisSeries_ID, giving lab data a queryable time-series identity.\nUnlike Channel \u2014 which intentionally excludes sampling location from its identity because location is inferred at query time via EquipmentLocationHistory \u2014 AnalysisSeries includes SamplingPoint_ID as explicit identity, because lab samples always have a known origin and \"TSS at Influent\" must be a different series from \"TSS at Effluent\".\n",
+      "description": "Stable stream identity for lab measurements \u2014 the lab subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each AnalysisSeries owns exactly one Stream row carrying this same identifier. One AnalysisSeries row represents the conceptual stream of \"Parameter X measured at SamplingPoint Y producing ValueKind W in Unit U\" (e.g. \"TSS at Effluent in mg/L\"). All LabAnalyses measuring the same parameter at the same location with the same value kind share one Stream_ID, giving lab data a queryable time-series identity.\nUnlike Channel \u2014 which intentionally excludes sampling location from its identity because location is inferred at query time via EquipmentLocationHistory \u2014 AnalysisSeries includes SamplingPoint_ID as explicit identity, because lab samples always have a known origin and \"TSS at Influent\" must be a different series from \"TSS at Effluent\".\nReview status is a point-level attribute on LabAnalysis (added in a later slice), not part of series identity: all measurements of the same parameter at the same location share one AnalysisSeries regardless of review state.\n",
       "fields": [
         {
-          "name": "AnalysisSeries_ID",
+          "name": "Stream_ID",
           "sql_type": "INT",
           "is_pk": true,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
+          "fk_target": "Stream.Stream_ID",
+          "description": "Shared primary key (table-per-type inheritance): both the primary key of AnalysisSeries and a foreign key to Stream.Stream_ID. Every AnalysisSeries owns exactly one Stream row carrying this same identifier.\n"
         },
         {
           "name": "Name",
@@ -439,16 +439,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "Unit.Unit_ID",
-          "description": "Unit of measurement for values in this series (e.g. mg/L). Treated as immutable for the lifetime of the series \u2014 a unit change requires a new AnalysisSeries row. Excluded from the uniqueness constraint because unit choice is a property of the series rather than part of its identity; two series with the same parameter / location / processing / value kind cannot legitimately differ only by unit.\n"
-        },
-        {
-          "name": "ProcessingKind_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "ProcessingKind.ProcessingKind_ID",
-          "description": "How values in this series were produced (1=Raw, ...). Supports raw vs. corrected lab series for the same parameter at the same location.\n"
+          "description": "Unit of measurement for values in this series (e.g. mg/L). Treated as immutable for the lifetime of the series \u2014 a unit change requires a new AnalysisSeries row. Excluded from the uniqueness constraint because unit choice is a property of the series rather than part of its identity; two series with the same parameter / location / value kind cannot legitimately differ only by unit.\n"
         },
         {
           "name": "Campaign_ID",
@@ -483,7 +474,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "AnalysisSeries.AnalysisSeries_ID",
+          "fk_target": "AnalysisSeries.Stream_ID",
           "description": "References the lab analysis series"
         },
         {
@@ -511,7 +502,7 @@
     {
       "id": "Annotation",
       "label": "Annotation",
-      "description": "Human-authored annotations on time series data. Each annotation anchors to a single measurement stream \u2014 either a sensor Channel (Channel_ID NOT NULL, AnalysisSeries_ID NULL) or a lab AnalysisSeries (AnalysisSeries_ID NOT NULL, Channel_ID NULL) \u2014 over a time range; an XOR CHECK constraint (CK_Annotation_Source) enforces that exactly one is set per row. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.\n",
+      "description": "Human-authored annotations on time series data. Each annotation anchors to a single measurement Stream via a non-NULL Stream_ID FK \u2014 uniformly covering a sensor Channel or a lab AnalysisSeries (both are Stream subtypes) \u2014 over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.\n",
       "fields": [
         {
           "name": "Annotation_ID",
@@ -523,22 +514,13 @@
           "description": "Primary key, auto-incremented"
         },
         {
-          "name": "Channel_ID",
+          "name": "Stream_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": false,
-          "fk_target": "Channel.Channel_ID",
-          "description": "The sensor channel this annotation applies to. NULL for lab annotations (which set AnalysisSeries_ID instead). Exactly one of Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).\n"
-        },
-        {
-          "name": "AnalysisSeries_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "AnalysisSeries.AnalysisSeries_ID",
-          "description": "The lab analysis series this annotation applies to. NULL for sensor annotations (which set Channel_ID instead). Exactly one of Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).\n"
+          "is_required": true,
+          "fk_target": "Stream.Stream_ID",
+          "description": "The measurement stream this annotation attaches to. A single anchor for both sensor and lab data: it references any Stream (a sensor Channel or a lab AnalysisSeries) with full parity, replacing the former Channel_ID / AnalysisSeries_ID XOR arc.\n"
         },
         {
           "name": "AnnotationKind_ID",
@@ -988,16 +970,16 @@
     {
       "id": "Channel",
       "label": "Channel",
-      "description": "Invariant descriptor for a measurement stream (sensor channel). Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\nRaw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Processing kind is not stored on Channel \u2014 query via ProducedByStep_ID \u2192 ProcessingStep.ProcessingKind_ID.\n",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Channel is the sensor subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Stream_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\nRaw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Accumulated processing operations applied to a Channel live in the ChannelTrait junction (to be added in a later slice).\n",
       "fields": [
         {
-          "name": "Channel_ID",
+          "name": "Stream_ID",
           "sql_type": "INT",
           "is_pk": true,
-          "is_fk": false,
+          "is_fk": true,
           "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
+          "fk_target": "Stream.Stream_ID",
+          "description": "Shared primary key (table-per-type inheritance): both the primary key of Channel and a foreign key to Stream.Stream_ID. Every Channel owns exactly one Stream row carrying this same identifier.\n"
         },
         {
           "name": "SignalInterface_ID",
@@ -1032,8 +1014,8 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "Channel.Channel_ID",
-          "description": "For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent Value Channel. NULL for primary value channels and unlinked channels. Self-FK.\n"
+          "fk_target": "Channel.Stream_ID",
+          "description": "For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent value Channel's Stream_ID. NULL for primary value channels and unlinked channels. Self-FK.\n"
         },
         {
           "name": "ChannelKind_ID",
@@ -1104,7 +1086,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Channel_ID",
+          "fk_target": "Channel.Stream_ID",
           "description": "References the measurement channel"
         },
         {
@@ -1185,7 +1167,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Channel_ID",
+          "fk_target": "Channel.Stream_ID",
           "description": "The Channel whose port gating is recorded here"
         },
         {
@@ -1227,6 +1209,33 @@
       ],
       "group_name": "Signal / Channel",
       "group_color": "#7c3aed"
+    },
+    {
+      "id": "ChannelTrait",
+      "label": "ChannelTrait",
+      "description": "Junction recording the accumulated set of operations applied to a Channel across its full lineage (ADR 0005). Each row asserts one OperationKind is part of a Channel's trait set; multiple traits can be simultaneously true (AND semantics), unlike the former scalar processing-kind FK.\nPopulation rule: computed once at Channel creation as the union of all input channels' trait sets plus the producing step's OperationKind. Raw sensor channels receive a single Unprocessed trait. The set is immutable \u2014 Channels are immutable, so their trait set never changes.\nThis is a denormalized fast-filter cache. The lineage DAG is authoritative; the trait set is a deterministic projection of it.\n",
+      "fields": [
+        {
+          "name": "Stream_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Stream.Stream_ID",
+          "description": "The Channel this trait belongs to (a Channel is identified by its Stream_ID; the trait set belongs to the channel).\n"
+        },
+        {
+          "name": "OperationKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "OperationKind.OperationKind_ID",
+          "description": "An operation that is part of this Channel's accumulated trait set"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "ControlLoop",
@@ -1392,7 +1401,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Channel_ID",
+          "fk_target": "Channel.Stream_ID",
           "description": "The Channel participating in this control loop"
         },
         {
@@ -1779,7 +1788,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Channel_ID",
+          "fk_target": "Channel.Stream_ID",
           "description": "The channel (signal in metEAUdata terms) included in this dataset"
         }
       ],
@@ -2329,7 +2338,7 @@
     {
       "id": "LabAnalysis",
       "label": "LabAnalysis",
-      "description": "One analytical run on a discrete physical sample \u2014 the event-record sitting at the intersection of two orthogonal grouping axes: LabExperiment (the session: who/when) and AnalysisSeries (the stream identity: parameter / location / kind / processing / unit). The measurement itself lives in Observation (via LabAnalysis_ID) and is routed to a payload table (Value / ValueVector / ValueMatrix / ValueImage) so lab data is no longer scalar-only.\n",
+      "description": "One analytical run on a discrete physical sample \u2014 the event-record sitting at the intersection of two orthogonal grouping axes: LabExperiment (the session: who/when) and AnalysisSeries (the stream identity: parameter / location / kind / processing / unit). The measurement itself lives in Observation (via LabAnalysis_ID) and is routed to a payload table (Value / ValueVector / ValueMatrix / ValueImage) so lab data is no longer scalar-only. Point-level review state (ReviewStatus_ID, ReviewedByPerson_ID, ReviewDateTime) records the institutional approval of each individual measurement, parallel to QualityCode_ID; AuditLog covers amendment history.\n",
       "fields": [
         {
           "name": "LabAnalysis_ID",
@@ -2355,8 +2364,8 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "AnalysisSeries.AnalysisSeries_ID",
-          "description": "The measurement stream (parameter / location / kind / processing) this analysis belongs to"
+          "fk_target": "AnalysisSeries.Stream_ID",
+          "description": "The measurement stream (parameter / location / value kind) this analysis belongs to"
         },
         {
           "name": "Sample_ID",
@@ -2384,6 +2393,33 @@
           "is_required": false,
           "fk_target": "QualityCode.QualityCode_ID",
           "description": "Optional quality flag. NULL means no quality assessment has been recorded."
+        },
+        {
+          "name": "ReviewStatus_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "ReviewStatus.ReviewStatus_ID",
+          "description": "Institutional approval state of this measurement. Defaults to Pending (1) at ingest. Review is point-level (per LabAnalysis row), not series-level.\n"
+        },
+        {
+          "name": "ReviewedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who approved/rejected this measurement. NULL = not yet reviewed."
+        },
+        {
+          "name": "ReviewDateTime",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "When the review decision was recorded. NULL = not yet reviewed."
         },
         {
           "name": "Laboratory_ID",
@@ -2598,7 +2634,7 @@
           "is_pk": true,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "AnalysisSeries.AnalysisSeries_ID",
+          "fk_target": "AnalysisSeries.Stream_ID",
           "description": "References an analysis series to include in the panel"
         }
       ],
@@ -2751,7 +2787,7 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "Channel.Channel_ID",
+          "fk_target": "Channel.Stream_ID",
           "description": "The sensor channel this observation belongs to. NULL for lab observations (which set LabAnalysis_ID instead).\n"
         },
         {
@@ -2784,6 +2820,42 @@
       ],
       "group_name": "Observations & Values",
       "group_color": "#dc2626"
+    },
+    {
+      "id": "OperationKind",
+      "label": "OperationKind",
+      "description": "Controlled vocabulary of data-transformation operations. It serves two roles: (1) it classifies a ProcessingStep \u2014 each step performs exactly one OperationKind; and (2) the accumulated set of OperationKinds applied across a Channel's full lineage forms that Channel's ChannelTrait set. Replaces the retired processing-kind lookup (ADR 0005). IDs are stable and referenced by application code.\n",
+      "fields": [
+        {
+          "name": "OperationKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned (non-identity)"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Operation name (e.g. 'OutlierRemoval', 'Smoothing')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this operation does"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "Parameter",
@@ -3173,45 +3245,9 @@
       "group_color": "#6b7280"
     },
     {
-      "id": "ProcessingKind",
-      "label": "ProcessingKind",
-      "description": "Controlled vocabulary describing the level of processing applied to a Channel's time series. A new Channel row is created each time the processing kind changes \u2014 this field is set once at row creation. The DataLineage graph is the authoritative record of how each Channel was derived; this field exists for fast filtering.\n",
-      "fields": [
-        {
-          "name": "ProcessingKind_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key, manually assigned"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(50)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Processing level name (e.g. 'Raw', 'Cleaned')"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(200)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Explanation of what this processing level means"
-        }
-      ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
-    },
-    {
       "id": "ProcessingLineage",
       "label": "ProcessingLineage",
-      "description": "Junction table that records the input relationships between ProcessingStep rows and Channel rows. Every row is an input edge \u2014 it asserts that a given Channel was consumed by a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.\nOutput channels are identified by Channel.ProducedByStep_ID (not stored here).\nExample: an outlier-removal step consumes Channel 10 (raw TSS) as an input; Channel 11 (cleaned TSS) carries ProducedByStep_ID pointing to that step.\n",
+      "description": "Junction table that records the input relationships between ProcessingStep rows and Stream rows. Every row is an input edge \u2014 it asserts that a given Stream (a sensor Channel or a lab AnalysisSeries) was consumed as an input by a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations. Generalizing inputs to Stream is what lets a lab AnalysisSeries feed a derived Channel (ADR 0004).\nOutput channels are still identified by Channel.ProducedByStep_ID (not stored here). The output of a step is always a Channel (a sensor stream); only the inputs generalize to any Stream.\nExample: an outlier-removal step consumes Stream 10 (raw TSS) as an input; Channel 11 (cleaned TSS) carries ProducedByStep_ID pointing to that step.\n",
       "fields": [
         {
           "name": "ProcessingLineage_ID",
@@ -3232,13 +3268,13 @@
           "description": "The processing step that consumed or produced the Channel entry"
         },
         {
-          "name": "Channel_ID",
+          "name": "Stream_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Channel_ID",
-          "description": "The Channel entry (time series) that participates in this lineage edge"
+          "fk_target": "Stream.Stream_ID",
+          "description": "The Stream (a sensor Channel or a lab AnalysisSeries) consumed as an input by this ProcessingStep. References any measurement stream, which is what allows a lab AnalysisSeries to be an input to a derived Channel (ADR 0004).\n"
         },
         {
           "name": "StartTime",
@@ -3313,13 +3349,13 @@
           "description": "Version of the method or library used (e.g. 'meteaudata 0.5.1')"
         },
         {
-          "name": "ProcessingKind_ID",
+          "name": "OperationKind_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "ProcessingKind.ProcessingKind_ID",
-          "description": "Category of processing applied (FK to ProcessingKind lookup). Replaces the former free-text ProcessingType column.\n"
+          "fk_target": "OperationKind.OperationKind_ID",
+          "description": "Category of operation this step performs (FK to OperationKind lookup). One step = one OperationKind.\n"
         },
         {
           "name": "MethodParameters",
@@ -3405,6 +3441,42 @@
       ],
       "group_name": "Lookup / Reference",
       "group_color": "#475569"
+    },
+    {
+      "id": "ReviewStatus",
+      "label": "ReviewStatus",
+      "description": "Controlled dictionary of the institutional review/approval state of a single lab measurement. Point-level, parallel to QualityCode: it records whether a designated reviewer has approved or rejected an individual LabAnalysis point, not a series-level property. The lab workflow is single-round, single-reviewer; corrections are recorded as a new replicate, and AuditLog captures amendment history.\n",
+      "fields": [
+        {
+          "name": "ReviewStatus_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Short status name (e.g. 'Pending', 'Approved', 'Rejected')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this review status means"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "Sample",
@@ -4046,6 +4118,69 @@
       "group_color": "#6b7280"
     },
     {
+      "id": "Stream",
+      "label": "Stream",
+      "description": "The stored supertype for any time-series identity \u2014 either a sensor Channel or a lab AnalysisSeries. Every Channel and every AnalysisSeries owns exactly one Stream row (via Stream_ID), and the subtypes share Stream_ID as their own primary key (table-per-type inheritance, shared PK). Tables that attach to \"any stream\" (Annotation, ProcessingLineage input edges) carry a single Stream_ID FK rather than a Channel/AnalysisSeries XOR pair. The StreamKind_ID discriminator enables fast \"sensor vs lab\" filtering without joining the subtype tables. Subtype-specific columns stay on the subtype tables; this supertype is deliberately minimal.\n",
+      "fields": [
+        {
+          "name": "Stream_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key \u2014 the universal identifier of any measurement stream. Shared down to the Channel and AnalysisSeries subtypes as their own primary key.\n"
+        },
+        {
+          "name": "StreamKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "StreamKind.StreamKind_ID",
+          "description": "Discriminator identifying the stream subtype (Sensor=Channel, Lab=AnalysisSeries). Enables fast \"sensor vs lab\" filtering without joining to the subtype tables.\n"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "StreamKind",
+      "label": "StreamKind",
+      "description": "Controlled vocabulary discriminating the subtype of a Stream: a sensor measurement stream (Channel) or a laboratory measurement stream (AnalysisSeries). Used as the StreamKind_ID discriminator on Stream to enable fast \"sensor vs lab\" filtering without joining the subtype tables.\n",
+      "fields": [
+        {
+          "name": "StreamKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key, manually assigned"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Short code name (e.g. 'Sensor', 'Lab')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this stream kind means"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
       "id": "Unit",
       "label": "Unit",
       "description": "Stores the SI units of measurement (or other relevant units) corresponding to the parameters (e.g., mg/L, g/L, s)",
@@ -4672,7 +4807,7 @@
       "id": "vw_ChannelEquipmentAtTime",
       "label": "vw_ChannelEquipmentAtTime",
       "description": "Resolves, for every Observation, which physical Equipment was wired to the Channel at the time of the observation. Walks EquipmentWiringHistory by matching SignalInterface_ID (and, when the Channel's port is known, SignalInterfacePort_ID) and bracketing (ValidFrom, ValidTo]. When a Channel has no port recorded and multiple Equipment share the interface at the same time, EquipmentID is NULL and Resolution = 'ambiguous'.\n",
-      "view_definition": "WITH channel_wiring AS (\n    SELECT\n        o.[Observation_ID] AS ObservationID,\n        c.[Channel_ID]     AS ChannelID,\n        o.[Timestamp]      AS Timestamp,\n        c.[SignalInterface_ID],\n        c.[SignalInterfacePort_ID],\n        ewh.[Equipment_ID] AS EquipmentID,\n        ROW_NUMBER() OVER (\n            PARTITION BY o.[Observation_ID]\n            ORDER BY\n                CASE WHEN ewh.[SignalInterfacePort_ID] IS NOT NULL THEN 0 ELSE 1 END,\n                ewh.[ValidFrom] DESC\n        ) AS rn,\n        COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count\n    FROM [dbo].[Observation] o\n    JOIN [dbo].[Channel] c                      ON c.[Channel_ID]           = o.[Channel_ID]\n    LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]\n                                                AND (\n                                                     ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]\n                                                     OR (ewh.[SignalInterfacePort_ID] IS NULL AND c.[SignalInterfacePort_ID] IS NULL)\n                                                     OR c.[SignalInterfacePort_ID] IS NULL\n                                                    )\n                                                AND ewh.[ValidFrom] <= o.[Timestamp]\n                                                AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] > o.[Timestamp])\n)\nSELECT\n    cw.ObservationID,\n    cw.ChannelID,\n    cw.Timestamp,\n    CASE WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN NULL ELSE cw.EquipmentID END AS EquipmentID,\n    e.[Identifier]     AS EquipmentName,\n    CASE\n        WHEN cw.EquipmentID IS NULL AND cw.match_count = 0 THEN N'unlinked'\n        WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN N'ambiguous'\n        ELSE N'resolved'\n    END AS Resolution\nFROM channel_wiring cw\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = cw.EquipmentID\nWHERE cw.rn = 1\n",
+      "view_definition": "WITH channel_wiring AS (\n    SELECT\n        o.[Observation_ID] AS ObservationID,\n        c.[Stream_ID]      AS ChannelID,\n        o.[Timestamp]      AS Timestamp,\n        c.[SignalInterface_ID],\n        c.[SignalInterfacePort_ID],\n        ewh.[Equipment_ID] AS EquipmentID,\n        ROW_NUMBER() OVER (\n            PARTITION BY o.[Observation_ID]\n            ORDER BY\n                CASE WHEN ewh.[SignalInterfacePort_ID] IS NOT NULL THEN 0 ELSE 1 END,\n                ewh.[ValidFrom] DESC\n        ) AS rn,\n        COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count\n    FROM [dbo].[Observation] o\n    JOIN [dbo].[Channel] c                      ON c.[Stream_ID]            = o.[Channel_ID]\n    LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]\n                                                AND (\n                                                     ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]\n                                                     OR (ewh.[SignalInterfacePort_ID] IS NULL AND c.[SignalInterfacePort_ID] IS NULL)\n                                                     OR c.[SignalInterfacePort_ID] IS NULL\n                                                    )\n                                                AND ewh.[ValidFrom] <= o.[Timestamp]\n                                                AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] > o.[Timestamp])\n)\nSELECT\n    cw.ObservationID,\n    cw.ChannelID,\n    cw.Timestamp,\n    CASE WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN NULL ELSE cw.EquipmentID END AS EquipmentID,\n    e.[Identifier]     AS EquipmentName,\n    CASE\n        WHEN cw.EquipmentID IS NULL AND cw.match_count = 0 THEN N'unlinked'\n        WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN N'ambiguous'\n        ELSE N'resolved'\n    END AS Resolution\nFROM channel_wiring cw\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = cw.EquipmentID\nWHERE cw.rn = 1\n",
       "columns": [
         {
           "name": "ObservationID",
@@ -4800,7 +4935,7 @@
       "id": "vw_ChannelStatus",
       "label": "vw_ChannelStatus",
       "description": "Per-channel sensor status view. A status channel is a Channel whose ChannelRole = Status and whose ParentChannel_ID points at the measured value Channel. The equipment behind the value channel is resolved via the new EquipmentWiringHistory table (v4.0.0).\n",
-      "view_definition": "SELECT\n    statusC.[Channel_ID]      AS StatusChannelID,\n    valueC.[Channel_ID]       AS MeasurementChannelID,\n    e.[Equipment_ID]          AS EquipmentID,\n    e.[Identifier]            AS EquipmentName,\n    p.[Parameter]             AS MeasurementParameter,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)    AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]       statusC ON statusC.[Channel_ID] = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[Channel]       valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]\nJOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]\nLEFT JOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n  AND statusC.[ParentChannel_ID] IS NOT NULL\n",
+      "view_definition": "SELECT\n    statusC.[Stream_ID]       AS StatusChannelID,\n    valueC.[Stream_ID]        AS MeasurementChannelID,\n    e.[Equipment_ID]          AS EquipmentID,\n    e.[Identifier]            AS EquipmentName,\n    p.[Parameter]             AS MeasurementParameter,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)    AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]       statusC ON statusC.[Stream_ID]  = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[Channel]       valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]\nJOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]\nLEFT JOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n  AND statusC.[ParentChannel_ID] IS NOT NULL\n",
       "columns": [
         {
           "name": "StatusChannelID",
@@ -4809,7 +4944,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Channel_ID of the status time series"
+          "description": "Stream_ID of the status time series (Channel PK is now Stream_ID)"
         },
         {
           "name": "MeasurementChannelID",
@@ -4818,7 +4953,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Channel_ID of the measurement channel this status describes"
+          "description": "Stream_ID of the measurement channel this status describes"
         },
         {
           "name": "EquipmentID",
@@ -4873,7 +5008,7 @@
       "id": "vw_DeviceStatus",
       "label": "vw_DeviceStatus",
       "description": "Device-level status view. Finds status channels through the v4.0.0 SignalInterface + EquipmentWiringHistory chain: a status Channel (ChannelRole = Status) inherits its equipment from the parent value Channel's current wiring. Replaces the port-centric v3.0.0 join.\n",
-      "view_definition": "SELECT\n    statusC.[Channel_ID]       AS StatusChannelID,\n    e.[Equipment_ID]           AS EquipmentID,\n    e.[Identifier]             AS EquipmentName,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)     AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]      statusC ON statusC.[Channel_ID] = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]  role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[Channel]      valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]\nJOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nJOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n",
+      "view_definition": "SELECT\n    statusC.[Stream_ID]        AS StatusChannelID,\n    e.[Equipment_ID]           AS EquipmentID,\n    e.[Identifier]             AS EquipmentName,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)     AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]      statusC ON statusC.[Stream_ID]  = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]  role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[Channel]      valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]\nJOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nJOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n",
       "columns": [
         {
           "name": "StatusChannelID",
@@ -4882,7 +5017,7 @@
           "is_fk": false,
           "is_required": false,
           "fk_target": null,
-          "description": "Channel_ID of the status time series"
+          "description": "Stream_ID of the status time series (Channel PK is now Stream_ID)"
         },
         {
           "name": "EquipmentID",
@@ -4928,6 +5063,13 @@
   "relationships": [
     {
       "from_table": "AnalysisSeries",
+      "to_table": "Stream",
+      "from_field": "Stream_ID",
+      "to_field": "Stream_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "AnalysisSeries",
       "to_table": "Parameter",
       "from_field": "Parameter_ID",
       "to_field": "Parameter_ID",
@@ -4956,13 +5098,6 @@
     },
     {
       "from_table": "AnalysisSeries",
-      "to_table": "ProcessingKind",
-      "from_field": "ProcessingKind_ID",
-      "to_field": "ProcessingKind_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "AnalysisSeries",
       "to_table": "Campaign",
       "from_field": "Campaign_ID",
       "to_field": "Campaign_ID",
@@ -4972,7 +5107,7 @@
       "from_table": "AnalysisSeriesAxis",
       "to_table": "AnalysisSeries",
       "from_field": "AnalysisSeries_ID",
-      "to_field": "AnalysisSeries_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -4984,16 +5119,9 @@
     },
     {
       "from_table": "Annotation",
-      "to_table": "Channel",
-      "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "Annotation",
-      "to_table": "AnalysisSeries",
-      "from_field": "AnalysisSeries_ID",
-      "to_field": "AnalysisSeries_ID",
+      "to_table": "Stream",
+      "from_field": "Stream_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5089,6 +5217,13 @@
     },
     {
       "from_table": "Channel",
+      "to_table": "Stream",
+      "from_field": "Stream_ID",
+      "to_field": "Stream_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Channel",
       "to_table": "SignalInterface",
       "from_field": "SignalInterface_ID",
       "to_field": "SignalInterface_ID",
@@ -5105,7 +5240,7 @@
       "from_table": "Channel",
       "to_table": "Channel",
       "from_field": "ParentChannel_ID",
-      "to_field": "Channel_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5154,7 +5289,7 @@
       "from_table": "ChannelAxis",
       "to_table": "Channel",
       "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5168,7 +5303,7 @@
       "from_table": "ChannelPortHistory",
       "to_table": "Channel",
       "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5176,6 +5311,20 @@
       "to_table": "SignalInterfacePort",
       "from_field": "SignalInterfacePort_ID",
       "to_field": "SignalInterfacePort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ChannelTrait",
+      "to_table": "Stream",
+      "from_field": "Stream_ID",
+      "to_field": "Stream_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ChannelTrait",
+      "to_table": "OperationKind",
+      "from_field": "OperationKind_ID",
+      "to_field": "OperationKind_ID",
       "relationship_type": null
     },
     {
@@ -5217,7 +5366,7 @@
       "from_table": "ControlLoopPort",
       "to_table": "Channel",
       "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5280,7 +5429,7 @@
       "from_table": "DatasetChannel",
       "to_table": "Channel",
       "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5406,7 +5555,7 @@
       "from_table": "LabAnalysis",
       "to_table": "AnalysisSeries",
       "from_field": "AnalysisSeries_ID",
-      "to_field": "AnalysisSeries_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5421,6 +5570,20 @@
       "to_table": "QualityCode",
       "from_field": "QualityCode_ID",
       "to_field": "QualityCode_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabAnalysis",
+      "to_table": "ReviewStatus",
+      "from_field": "ReviewStatus_ID",
+      "to_field": "ReviewStatus_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabAnalysis",
+      "to_table": "Person",
+      "from_field": "ReviewedByPerson_ID",
+      "to_field": "Person_ID",
       "relationship_type": null
     },
     {
@@ -5497,7 +5660,7 @@
       "from_table": "LabPanelSeries",
       "to_table": "AnalysisSeries",
       "from_field": "AnalysisSeries_ID",
-      "to_field": "AnalysisSeries_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5518,7 +5681,7 @@
       "from_table": "Observation",
       "to_table": "Channel",
       "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
@@ -5593,16 +5756,16 @@
     },
     {
       "from_table": "ProcessingLineage",
-      "to_table": "Channel",
-      "from_field": "Channel_ID",
-      "to_field": "Channel_ID",
+      "to_table": "Stream",
+      "from_field": "Stream_ID",
+      "to_field": "Stream_ID",
       "relationship_type": null
     },
     {
       "from_table": "ProcessingStep",
-      "to_table": "ProcessingKind",
-      "from_field": "ProcessingKind_ID",
-      "to_field": "ProcessingKind_ID",
+      "to_table": "OperationKind",
+      "from_field": "OperationKind_ID",
+      "to_field": "OperationKind_ID",
       "relationship_type": null
     },
     {
@@ -5715,6 +5878,13 @@
       "to_table": "SiteKind",
       "from_field": "SiteKind_ID",
       "to_field": "SiteKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Stream",
+      "to_table": "StreamKind",
+      "from_field": "StreamKind_ID",
+      "to_field": "StreamKind_ID",
       "relationship_type": null
     },
     {

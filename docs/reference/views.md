@@ -17,7 +17,7 @@ Resolves, for every Observation, which physical Equipment was wired to the Chann
 WITH channel_wiring AS (
     SELECT
         o.[Observation_ID] AS ObservationID,
-        c.[Channel_ID]     AS ChannelID,
+        c.[Stream_ID]      AS ChannelID,
         o.[Timestamp]      AS Timestamp,
         c.[SignalInterface_ID],
         c.[SignalInterfacePort_ID],
@@ -30,7 +30,7 @@ WITH channel_wiring AS (
         ) AS rn,
         COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count
     FROM [dbo].[Observation] o
-    JOIN [dbo].[Channel] c                      ON c.[Channel_ID]           = o.[Channel_ID]
+    JOIN [dbo].[Channel] c                      ON c.[Stream_ID]            = o.[Channel_ID]
     LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
                                                 AND (
                                                      ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]
@@ -119,8 +119,8 @@ Per-channel sensor status view. A status channel is a Channel whose ChannelRole 
 
 ```sql
 SELECT
-    statusC.[Channel_ID]      AS StatusChannelID,
-    valueC.[Channel_ID]       AS MeasurementChannelID,
+    statusC.[Stream_ID]       AS StatusChannelID,
+    valueC.[Stream_ID]        AS MeasurementChannelID,
     e.[Equipment_ID]          AS EquipmentID,
     e.[Identifier]            AS EquipmentName,
     p.[Parameter]             AS MeasurementParameter,
@@ -128,9 +128,9 @@ SELECT
     CAST(v.[Value] AS INT)    AS StatusCodeID
 FROM [dbo].[Value] v
 JOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]
-JOIN [dbo].[Channel]       statusC ON statusC.[Channel_ID] = o.[Channel_ID]
+JOIN [dbo].[Channel]       statusC ON statusC.[Stream_ID]  = o.[Channel_ID]
 JOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]
-JOIN [dbo].[Channel]       valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]
+JOIN [dbo].[Channel]       valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]
 JOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]
 LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
        ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]
@@ -150,8 +150,8 @@ WHERE role.[Name] = N'Status'
 
 | Column | SQL Type | Source Field | Description |
 |--------|----------|--------------|-------------|
-| StatusChannelID | INT | `StatusChannelID` | Channel_ID of the status time series |
-| MeasurementChannelID | INT | `MeasurementChannelID` | Channel_ID of the measurement channel this status describes |
+| StatusChannelID | INT | `StatusChannelID` | Stream_ID of the status time series (Channel PK is now Stream_ID) |
+| MeasurementChannelID | INT | `MeasurementChannelID` | Stream_ID of the measurement channel this status describes |
 | EquipmentID | INT | `EquipmentID` | Equipment ID currently wired to the measurement channel (NULL if unresolved) |
 | EquipmentName | NVARCHAR(200) | `EquipmentName` | Identifier of the currently-linked equipment |
 | MeasurementParameter | NVARCHAR(100) | `MeasurementParameter` | Name of the measured parameter (TSS, pH, etc.) |
@@ -170,16 +170,16 @@ Device-level status view. Finds status channels through the v4.0.0 SignalInterfa
 
 ```sql
 SELECT
-    statusC.[Channel_ID]       AS StatusChannelID,
+    statusC.[Stream_ID]        AS StatusChannelID,
     e.[Equipment_ID]           AS EquipmentID,
     e.[Identifier]             AS EquipmentName,
     o.[Timestamp],
     CAST(v.[Value] AS INT)     AS StatusCodeID
 FROM [dbo].[Value] v
 JOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]
-JOIN [dbo].[Channel]      statusC ON statusC.[Channel_ID] = o.[Channel_ID]
+JOIN [dbo].[Channel]      statusC ON statusC.[Stream_ID]  = o.[Channel_ID]
 JOIN [dbo].[ChannelKind]  role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]
-JOIN [dbo].[Channel]      valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]
+JOIN [dbo].[Channel]      valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]
 JOIN [dbo].[EquipmentWiringHistory] ewh
        ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]
       AND (
@@ -197,7 +197,7 @@ WHERE role.[Name] = N'Status'
 
 | Column | SQL Type | Source Field | Description |
 |--------|----------|--------------|-------------|
-| StatusChannelID | INT | `StatusChannelID` | Channel_ID of the status time series |
+| StatusChannelID | INT | `StatusChannelID` | Stream_ID of the status time series (Channel PK is now Stream_ID) |
 | EquipmentID | INT | `EquipmentID` | Equipment ID this status describes |
 | EquipmentName | NVARCHAR(200) | `EquipmentName` | Identifier of the equipment |
 | Timestamp | DATETIME2(7) | `Timestamp` | Timestamp of the status observation |

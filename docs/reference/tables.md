@@ -10,8 +10,9 @@ This documentation is auto-generated from dictionary.json.
 
 ### AnalysisSeries
 
-Stable stream identity for lab measurements — the lab analogue of Channel. One AnalysisSeries row represents the conceptual stream of "Parameter X measured at SamplingPoint Y by ProcessingKind Z producing ValueKind W in Unit U" (e.g. "TSS Gravimetric at Effluent in mg/L"). All LabAnalyses measuring the same parameter at the same location with the same processing and value kind share one AnalysisSeries_ID, giving lab data a queryable time-series identity.
+Stable stream identity for lab measurements — the lab subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each AnalysisSeries owns exactly one Stream row carrying this same identifier. One AnalysisSeries row represents the conceptual stream of "Parameter X measured at SamplingPoint Y producing ValueKind W in Unit U" (e.g. "TSS at Effluent in mg/L"). All LabAnalyses measuring the same parameter at the same location with the same value kind share one Stream_ID, giving lab data a queryable time-series identity.
 Unlike Channel — which intentionally excludes sampling location from its identity because location is inferred at query time via EquipmentLocationHistory — AnalysisSeries includes SamplingPoint_ID as explicit identity, because lab samples always have a known origin and "TSS at Influent" must be a different series from "TSS at Effluent".
+Review status is a point-level attribute on LabAnalysis (added in a later slice), not part of series identity: all measurements of the same parameter at the same location share one AnalysisSeries regardless of review state.
 
 
 
@@ -19,15 +20,14 @@ Unlike Channel — which intentionally excludes sampling location from its ident
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>Surrogate primary key | - |
+| Stream_ID | INT **(PK)** | - | ✓ | <span id="Stream_ID"></span>Shared primary key (table-per-type inheritance): both the primary key of AnalysisSeries and a foreign key to Stream.Stream_ID. Every AnalysisSeries owns exactly one Stream row carrying this same identifier.
+ | FK → [Stream.Stream_ID](#Stream) |
 | Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable label (e.g. 'TSS Gravimetric at Effluent') | - |
 | Parameter_ID | INT | - | ✓ | <span id="Parameter_ID"></span>Measured analyte (e.g. TSS concentration, COD concentration) | FK → [Parameter.Parameter_ID](#Parameter) |
 | SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling point where the samples for this series originate | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
 | ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueKind.ValueKind_ID](#ValueKind)<br>Default: `1` |
-| Unit_ID | INT | - | ✓ | <span id="Unit_ID"></span>Unit of measurement for values in this series (e.g. mg/L). Treated as immutable for the lifetime of the series — a unit change requires a new AnalysisSeries row. Excluded from the uniqueness constraint because unit choice is a property of the series rather than part of its identity; two series with the same parameter / location / processing / value kind cannot legitimately differ only by unit.
+| Unit_ID | INT | - | ✓ | <span id="Unit_ID"></span>Unit of measurement for values in this series (e.g. mg/L). Treated as immutable for the lifetime of the series — a unit change requires a new AnalysisSeries row. Excluded from the uniqueness constraint because unit choice is a property of the series rather than part of its identity; two series with the same parameter / location / value kind cannot legitimately differ only by unit.
  | FK → [Unit.Unit_ID](#Unit) |
-| ProcessingKind_ID | INT | - | ✓ | <span id="ProcessingKind_ID"></span>How values in this series were produced (1=Raw, ...). Supports raw vs. corrected lab series for the same parameter at the same location.
- | FK → [ProcessingKind.ProcessingKind_ID](#ProcessingKind)<br>Default: `1` |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this series belongs to; scopes the series to a specific monitoring campaign | FK → [Campaign.Campaign_ID](#Campaign) |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this analysis series | - |
 
@@ -43,7 +43,7 @@ Junction table linking an AnalysisSeries to its binning axis or axes (analogous 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>References the lab analysis series | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
+| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>References the lab analysis series | FK → [AnalysisSeries.Stream_ID](#AnalysisSeries) |
 | AxisRole | INT **(PK)** | - | ✓ | <span id="AxisRole"></span>Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only) | - |
 | ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the binning axis for this role | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
 
@@ -51,7 +51,7 @@ Junction table linking an AnalysisSeries to its binning axis or axes (analogous 
 
 ### Annotation
 
-Human-authored annotations on time series data. Each annotation anchors to a single measurement stream — either a sensor Channel (Channel_ID NOT NULL, AnalysisSeries_ID NULL) or a lab AnalysisSeries (AnalysisSeries_ID NOT NULL, Channel_ID NULL) — over a time range; an XOR CHECK constraint (CK_Annotation_Source) enforces that exactly one is set per row. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.
+Human-authored annotations on time series data. Each annotation anchors to a single measurement Stream via a non-NULL Stream_ID FK — uniformly covering a sensor Channel or a lab AnalysisSeries (both are Stream subtypes) — over a time range. Multiple annotations can overlap on the same range. EndTime=NULL means either a point annotation or an ongoing situation.
 
 
 
@@ -60,10 +60,8 @@ Human-authored annotations on time series data. Each annotation anchors to a sin
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Annotation_ID | INT **(PK)** | - | ✓ | <span id="Annotation_ID"></span>Primary key, auto-incremented | - |
-| Channel_ID | INT | - |  | <span id="Channel_ID"></span>The sensor channel this annotation applies to. NULL for lab annotations (which set AnalysisSeries_ID instead). Exactly one of Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).
- | FK → [Channel.Channel_ID](#Channel) |
-| AnalysisSeries_ID | INT | - |  | <span id="AnalysisSeries_ID"></span>The lab analysis series this annotation applies to. NULL for sensor annotations (which set Channel_ID instead). Exactly one of Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).
- | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
+| Stream_ID | INT | - | ✓ | <span id="Stream_ID"></span>The measurement stream this annotation attaches to. A single anchor for both sensor and lab data: it references any Stream (a sensor Channel or a lab AnalysisSeries) with full parity, replacing the former Channel_ID / AnalysisSeries_ID XOR arc.
+ | FK → [Stream.Stream_ID](#Stream) |
 | AnnotationKind_ID | INT | - | ✓ | <span id="AnnotationKind_ID"></span>What kind of annotation this is | FK → [AnnotationKind.AnnotationKind_ID](#AnnotationKind) |
 | StartTime | DATETIME2(7) | - | ✓ | <span id="StartTime"></span>Start of the annotated time range | - |
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the annotated range. NULL = point annotation or ongoing | - |
@@ -198,8 +196,8 @@ Junction table: sampling locations actively monitored during a campaign.
 
 ### Channel
 
-Invariant descriptor for a measurement stream (sensor channel). Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
-Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Processing kind is not stored on Channel — query via ProducedByStep_ID → ProcessingStep.ProcessingKind_ID.
+Invariant descriptor for a measurement stream (sensor channel). Channel is the sensor subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Stream_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
+Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Accumulated processing operations applied to a Channel live in the ChannelTrait junction (to be added in a later slice).
 
 
 
@@ -207,15 +205,16 @@ Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NUL
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>Surrogate primary key | - |
+| Stream_ID | INT **(PK)** | - | ✓ | <span id="Stream_ID"></span>Shared primary key (table-per-type inheritance): both the primary key of Channel and a foreign key to Stream.Stream_ID. Every Channel owns exactly one Stream row carrying this same identifier.
+ | FK → [Stream.Stream_ID](#Stream) |
 | SignalInterface_ID | INT | - |  | <span id="SignalInterface_ID"></span>The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag. The anchor for ingest: observations are routed by (SignalInterface_ID, TagName). NULL for derived/processed channels that have no physical source interface.
  | FK → [SignalInterface.SignalInterface_ID](#SignalInterface) |
 | TagName | NVARCHAR(200) | - | ✓ | <span id="TagName"></span>Tag string as published by the SignalInterface (case-preserved; lookups are case-insensitive trimmed). For direct-connect interfaces a synthetic tag such as "{equipment_identifier}/{parameter_name}" is auto-generated.
  | - |
 | SignalInterfacePort_ID | INT | - |  | <span id="SignalInterfacePort_ID"></span>Current physical port (if known) this Channel is gated through. Denormalised from the active ChannelPortHistory row for query convenience. NULL when the wiring has not yet been traced.
  | FK → [SignalInterfacePort.SignalInterfacePort_ID](#SignalInterfacePort) |
-| ParentChannel_ID | INT | - |  | <span id="ParentChannel_ID"></span>For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent Value Channel. NULL for primary value channels and unlinked channels. Self-FK.
- | FK → [Channel.Channel_ID](#Channel) |
+| ParentChannel_ID | INT | - |  | <span id="ParentChannel_ID"></span>For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent value Channel's Stream_ID. NULL for primary value channels and unlinked channels. Self-FK.
+ | FK → [Channel.Stream_ID](#Channel) |
 | ChannelKind_ID | INT | - | ✓ | <span id="ChannelKind_ID"></span>Kind of information this Channel carries (1=Value, 2=Status, 3=Alarm, 4=Uncertainty).
  | FK → [ChannelKind.ChannelKind_ID](#ChannelKind)<br>Default: `1` |
 | Parameter_ID | INT | - |  | <span id="Parameter_ID"></span>Measured analyte or parameter (e.g. TSS concetration, pH) | FK → [Parameter.Parameter_ID](#Parameter) |
@@ -238,7 +237,7 @@ Junction table linking a Channel measurement series to its binning axis or axes.
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the measurement channel | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>References the measurement channel | FK → [Channel.Stream_ID](#Channel) |
 | AxisRole | INT **(PK)** | - | ✓ | <span id="AxisRole"></span>Dimension role: 0 = primary/row axis, 1 = secondary/column axis (Matrix only) | - |
 | ValueBinningAxis_ID | INT | - | ✓ | <span id="ValueBinningAxis_ID"></span>References the binning axis for this role | FK → [ValueBinningAxis.ValueBinningAxis_ID](#ValueBinningAxis) |
 
@@ -271,12 +270,30 @@ Temporal record of which SignalInterfacePort (if any) a given Channel is gated t
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | ChannelPortHistory_ID | INT **(PK)** | - | ✓ | <span id="ChannelPortHistory_ID"></span>Surrogate primary key | - |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel whose port gating is recorded here | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel whose port gating is recorded here | FK → [Channel.Stream_ID](#Channel) |
 | SignalInterfacePort_ID | INT | - |  | <span id="SignalInterfacePort_ID"></span>Port the Channel is gated through (NULL when untraced) | FK → [SignalInterfacePort.SignalInterfacePort_ID](#SignalInterfacePort) |
 | ValidFrom | DATETIME2(7) | - | ✓ | <span id="ValidFrom"></span>UTC datetime when this port gating started | - |
 | ValidTo | DATETIME2(7) | - |  | <span id="ValidTo"></span>UTC datetime when this port gating ended. NULL = currently gated. | - |
 | GatingNote | NVARCHAR(MAX) | - |  | <span id="GatingNote"></span>Free-text description of the gating discipline (e.g. 'TresCON round-robin slot 2', 'selected when DigitalIn3 high').
  | - |
+
+<span id="ChannelTrait"></span>
+
+### ChannelTrait
+
+Junction recording the accumulated set of operations applied to a Channel across its full lineage (ADR 0005). Each row asserts one OperationKind is part of a Channel's trait set; multiple traits can be simultaneously true (AND semantics), unlike the former scalar processing-kind FK.
+Population rule: computed once at Channel creation as the union of all input channels' trait sets plus the producing step's OperationKind. Raw sensor channels receive a single Unprocessed trait. The set is immutable — Channels are immutable, so their trait set never changes.
+This is a denormalized fast-filter cache. The lineage DAG is authoritative; the trait set is a deterministic projection of it.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Stream_ID | INT **(PK)** | - | ✓ | <span id="Stream_ID"></span>The Channel this trait belongs to (a Channel is identified by its Stream_ID; the trait set belongs to the channel).
+ | FK → [Stream.Stream_ID](#Stream) |
+| OperationKind_ID | INT **(PK)** | - | ✓ | <span id="OperationKind_ID"></span>An operation that is part of this Channel's accumulated trait set | FK → [OperationKind.OperationKind_ID](#OperationKind) |
 
 <span id="ControlLoop"></span>
 
@@ -332,7 +349,7 @@ Association between a ControlLoop and its participating Channels, with an explic
 |-------|----------|-----------|----------|-------------|-------------|
 | ControlLoopPort_ID | INT **(PK)** | - | ✓ | <span id="ControlLoopPort_ID"></span>Surrogate primary key | - |
 | ControlLoop_ID | INT | - | ✓ | <span id="ControlLoop_ID"></span>The control loop this association belongs to | FK → [ControlLoop.ControlLoop_ID](#ControlLoop) |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel participating in this control loop | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel participating in this control loop | FK → [Channel.Stream_ID](#Channel) |
 | ControlLoopPortKind_ID | INT | - | ✓ | <span id="ControlLoopPortKind_ID"></span>The functional kind of this channel within the loop | FK → [ControlLoopPortKind.ControlLoopPortKind_ID](#ControlLoopPortKind) |
 
 <span id="ControlLoopPortKind"></span>
@@ -469,7 +486,7 @@ Junction table linking Datasets to the Channels they contain. A Dataset groups o
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | Dataset_ID | INT **(PK)** | - | ✓ | <span id="Dataset_ID"></span>The dataset this channel belongs to | FK → [Dataset.Dataset_ID](#Dataset) |
-| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>The channel (signal in metEAUdata terms) included in this dataset | FK → [Channel.Channel_ID](#Channel) |
+| Channel_ID | INT **(PK)** | - | ✓ | <span id="Channel_ID"></span>The channel (signal in metEAUdata terms) included in this dataset | FK → [Channel.Stream_ID](#Channel) |
 
 <span id="Equipment"></span>
 
@@ -638,7 +655,7 @@ Stores the hydrological land use percentages (e.g., forest, wetlands, cropland, 
 
 ### LabAnalysis
 
-One analytical run on a discrete physical sample — the event-record sitting at the intersection of two orthogonal grouping axes: LabExperiment (the session: who/when) and AnalysisSeries (the stream identity: parameter / location / kind / processing / unit). The measurement itself lives in Observation (via LabAnalysis_ID) and is routed to a payload table (Value / ValueVector / ValueMatrix / ValueImage) so lab data is no longer scalar-only.
+One analytical run on a discrete physical sample — the event-record sitting at the intersection of two orthogonal grouping axes: LabExperiment (the session: who/when) and AnalysisSeries (the stream identity: parameter / location / kind / processing / unit). The measurement itself lives in Observation (via LabAnalysis_ID) and is routed to a payload table (Value / ValueVector / ValueMatrix / ValueImage) so lab data is no longer scalar-only. Point-level review state (ReviewStatus_ID, ReviewedByPerson_ID, ReviewDateTime) records the institutional approval of each individual measurement, parallel to QualityCode_ID; AuditLog covers amendment history.
 
 
 
@@ -648,10 +665,14 @@ One analytical run on a discrete physical sample — the event-record sitting at
 |-------|----------|-----------|----------|-------------|-------------|
 | LabAnalysis_ID | INT **(PK)** | - | ✓ | <span id="LabAnalysis_ID"></span>Surrogate primary key | - |
 | LabExperiment_ID | INT | - | ✓ | <span id="LabExperiment_ID"></span>The lab session this analysis was part of | FK → [LabExperiment.LabExperiment_ID](#LabExperiment) |
-| AnalysisSeries_ID | INT | - | ✓ | <span id="AnalysisSeries_ID"></span>The measurement stream (parameter / location / kind / processing) this analysis belongs to | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
+| AnalysisSeries_ID | INT | - | ✓ | <span id="AnalysisSeries_ID"></span>The measurement stream (parameter / location / value kind) this analysis belongs to | FK → [AnalysisSeries.Stream_ID](#AnalysisSeries) |
 | Sample_ID | INT | - | ✓ | <span id="Sample_ID"></span>The physical sample that was analysed | FK → [Sample.Sample_ID](#Sample) |
 | Replicate | INT | - | ✓ | <span id="Replicate"></span>Replicate number (1 = primary measurement, 2+ = duplicates) | Default: `1` |
 | QualityCode_ID | INT | - |  | <span id="QualityCode_ID"></span>Optional quality flag. NULL means no quality assessment has been recorded. | FK → [QualityCode.QualityCode_ID](#QualityCode) |
+| ReviewStatus_ID | INT | - | ✓ | <span id="ReviewStatus_ID"></span>Institutional approval state of this measurement. Defaults to Pending (1) at ingest. Review is point-level (per LabAnalysis row), not series-level.
+ | FK → [ReviewStatus.ReviewStatus_ID](#ReviewStatus)<br>Default: `1` |
+| ReviewedByPerson_ID | INT | - |  | <span id="ReviewedByPerson_ID"></span>Person who approved/rejected this measurement. NULL = not yet reviewed. | FK → [Person.Person_ID](#Person) |
+| ReviewDateTime | DATETIME2(7) | - |  | <span id="ReviewDateTime"></span>When the review decision was recorded. NULL = not yet reviewed. | - |
 | Laboratory_ID | INT | - |  | <span id="Laboratory_ID"></span>Laboratory where the analysis was performed | FK → [Laboratory.Laboratory_ID](#Laboratory) |
 | AnalystPerson_ID | INT | - |  | <span id="AnalystPerson_ID"></span>Person who performed the analysis | FK → [Person.Person_ID](#Person) |
 | Procedure_ID | INT | - |  | <span id="Procedure_ID"></span>Standard operating procedure used for this analysis | FK → [Procedures.Procedure_ID](#Procedures) |
@@ -711,7 +732,7 @@ Junction table linking a LabPanel to the AnalysisSeries it prescribes. When a us
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | LabPanel_ID | INT **(PK)** | - | ✓ | <span id="LabPanel_ID"></span>References the panel (FK) | FK → [LabPanel.LabPanel_ID](#LabPanel) |
-| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>References an analysis series to include in the panel | FK → [AnalysisSeries.AnalysisSeries_ID](#AnalysisSeries) |
+| AnalysisSeries_ID | INT **(PK)** | - | ✓ | <span id="AnalysisSeries_ID"></span>References an analysis series to include in the panel | FK → [AnalysisSeries.Stream_ID](#AnalysisSeries) |
 
 <span id="Laboratory"></span>
 
@@ -763,13 +784,29 @@ Shared hub table representing a single measurement event at a timestamp. The sou
 |-------|----------|-----------|----------|-------------|-------------|
 | Observation_ID | INT **(PK)** | - | ✓ | <span id="Observation_ID"></span>Surrogate key; auto-assigned by the database | - |
 | Channel_ID | INT | - |  | <span id="Channel_ID"></span>The sensor channel this observation belongs to. NULL for lab observations (which set LabAnalysis_ID instead).
- | FK → [Channel.Channel_ID](#Channel) |
+ | FK → [Channel.Stream_ID](#Channel) |
 | LabAnalysis_ID | INT | - |  | <span id="LabAnalysis_ID"></span>The lab analysis this observation belongs to. NULL for sensor observations (which set Channel_ID instead). Exactly one of Channel_ID / LabAnalysis_ID is non-NULL per row (XOR CHECK).
  | FK → [LabAnalysis.LabAnalysis_ID](#LabAnalysis) |
 | Timestamp | DATETIME2(7) | - | ✓ | <span id="Timestamp"></span>UTC timestamp of the observation — the real-world moment it was measured. For sensor observations this is the channel read time; for lab observations it is set from Sample.SampleDateTimeStart (the sample collection time) at insert time. LabAnalysis.AnalysisDateTime is kept separately as analytical-provenance metadata.
  | - |
 | ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Payload kind (1=Scalar, 2=Vector, 3=Matrix, 4=Image). For sensor observations must match the Channel's ValueKind; for lab observations must match the AnalysisSeries's ValueKind.
  | FK → [ValueKind.ValueKind_ID](#ValueKind) |
+
+<span id="OperationKind"></span>
+
+### OperationKind
+
+Controlled vocabulary of data-transformation operations. It serves two roles: (1) it classifies a ProcessingStep — each step performs exactly one OperationKind; and (2) the accumulated set of OperationKinds applied across a Channel's full lineage forms that Channel's ChannelTrait set. Replaces the retired processing-kind lookup (ADR 0005). IDs are stable and referenced by application code.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| OperationKind_ID | INT **(PK)** | - | ✓ | <span id="OperationKind_ID"></span>Surrogate primary key, manually assigned (non-identity) | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Operation name (e.g. 'OutlierRemoval', 'Smoothing') | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this operation does | - |
 
 <span id="Parameter"></span>
 
@@ -893,29 +930,13 @@ Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)
 | Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the process unit kind (e.g. Reactor, Pipe, Clarifier) | - |
 | Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of this process unit kind | - |
 
-<span id="ProcessingKind"></span>
-
-### ProcessingKind
-
-Controlled vocabulary describing the level of processing applied to a Channel's time series. A new Channel row is created each time the processing kind changes — this field is set once at row creation. The DataLineage graph is the authoritative record of how each Channel was derived; this field exists for fast filtering.
-
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| ProcessingKind_ID | INT **(PK)** | - | ✓ | <span id="ProcessingKind_ID"></span>Surrogate primary key, manually assigned | - |
-| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Processing level name (e.g. 'Raw', 'Cleaned') | - |
-| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this processing level means | - |
-
 <span id="ProcessingLineage"></span>
 
 ### ProcessingLineage
 
-Junction table that records the input relationships between ProcessingStep rows and Channel rows. Every row is an input edge — it asserts that a given Channel was consumed by a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations.
-Output channels are identified by Channel.ProducedByStep_ID (not stored here).
-Example: an outlier-removal step consumes Channel 10 (raw TSS) as an input; Channel 11 (cleaned TSS) carries ProducedByStep_ID pointing to that step.
+Junction table that records the input relationships between ProcessingStep rows and Stream rows. Every row is an input edge — it asserts that a given Stream (a sensor Channel or a lab AnalysisSeries) was consumed as an input by a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations. Generalizing inputs to Stream is what lets a lab AnalysisSeries feed a derived Channel (ADR 0004).
+Output channels are still identified by Channel.ProducedByStep_ID (not stored here). The output of a step is always a Channel (a sensor stream); only the inputs generalize to any Stream.
+Example: an outlier-removal step consumes Stream 10 (raw TSS) as an input; Channel 11 (cleaned TSS) carries ProducedByStep_ID pointing to that step.
 
 
 
@@ -925,7 +946,8 @@ Example: an outlier-removal step consumes Channel 10 (raw TSS) as an input; Chan
 |-------|----------|-----------|----------|-------------|-------------|
 | ProcessingLineage_ID | INT **(PK)** | - | ✓ | <span id="ProcessingLineage_ID"></span>Surrogate primary key | - |
 | ProcessingStep_ID | INT | - | ✓ | <span id="ProcessingStep_ID"></span>The processing step that consumed or produced the Channel entry | FK → [ProcessingStep.ProcessingStep_ID](#ProcessingStep) |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel entry (time series) that participates in this lineage edge | FK → [Channel.Channel_ID](#Channel) |
+| Stream_ID | INT | - | ✓ | <span id="Stream_ID"></span>The Stream (a sensor Channel or a lab AnalysisSeries) consumed as an input by this ProcessingStep. References any measurement stream, which is what allows a lab AnalysisSeries to be an input to a derived Channel (ADR 0004).
+ | FK → [Stream.Stream_ID](#Stream) |
 | StartTime | DATETIME2(7) | - |  | <span id="StartTime"></span>Start of the data slice that was consumed or produced by this step (UTC). NULL means the edge applies to the entire channel from the beginning.
  | - |
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the data slice that was consumed or produced by this step (UTC). NULL means the slice is open-ended (ongoing online processing).
@@ -948,8 +970,8 @@ Records a single data-transformation step (outlier removal, interpolation, smoot
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text description of what this step does and why it was applied | - |
 | MethodName | NVARCHAR(200) | - |  | <span id="MethodName"></span>Machine-readable method identifier (e.g. 'outlier_removal', 'linear_interpolation'). Maps to a metEAUdata processing function name. | - |
 | MethodVersion | NVARCHAR(100) | - |  | <span id="MethodVersion"></span>Version of the method or library used (e.g. 'meteaudata 0.5.1') | - |
-| ProcessingKind_ID | INT | - |  | <span id="ProcessingKind_ID"></span>Category of processing applied (FK to ProcessingKind lookup). Replaces the former free-text ProcessingType column.
- | FK → [ProcessingKind.ProcessingKind_ID](#ProcessingKind) |
+| OperationKind_ID | INT | - |  | <span id="OperationKind_ID"></span>Category of operation this step performs (FK to OperationKind lookup). One step = one OperationKind.
+ | FK → [OperationKind.OperationKind_ID](#OperationKind) |
 | MethodParameters | NVARCHAR(MAX) | - |  | <span id="MethodParameters"></span>JSON blob of method parameters (e.g. '{"window": 5, "threshold": 3.0}') | - |
 | ExecutedDateTime | DATETIME2(7) | - |  | <span id="ExecutedDateTime"></span>UTC timestamp when this processing step was executed | - |
 | ExecutedByPerson_ID | INT | - |  | <span id="ExecutedByPerson_ID"></span>Person who ran or triggered this processing step. NULL for automated/unattended runs. | FK → [Person.Person_ID](#Person) |
@@ -973,6 +995,22 @@ Controlled dictionary of quality flags for measurements. IsUsable indicates whet
 | Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this quality code means | - |
 | IsUsable | BIT | - | ✓ | <span id="IsUsable"></span>Whether a value carrying this code should be included in analysis. true = value is fit for use; false = value must be excluded or treated specially.
  | Default: `True` |
+
+<span id="ReviewStatus"></span>
+
+### ReviewStatus
+
+Controlled dictionary of the institutional review/approval state of a single lab measurement. Point-level, parallel to QualityCode: it records whether a designated reviewer has approved or rejected an individual LabAnalysis point, not a series-level property. The lab workflow is single-round, single-reviewer; corrections are recorded as a new replicate, and AuditLog captures amendment history.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| ReviewStatus_ID | INT **(PK)** | - | ✓ | <span id="ReviewStatus_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short status name (e.g. 'Pending', 'Approved', 'Rejected') | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this review status means | - |
 
 <span id="Sample"></span>
 
@@ -1147,6 +1185,39 @@ Controlled vocabulary of site kinds (e.g. Wastewater Treatment Plant, River, Pil
 | SiteKind_ID | INT **(PK)** | - | ✓ | <span id="SiteKind_ID"></span>Primary key for the SiteKind lookup | - |
 | Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the site kind (e.g. Wastewater Treatment Plant) | - |
 | Description | NVARCHAR(300) | - |  | <span id="Description"></span>Detailed description of the site kind | - |
+
+<span id="Stream"></span>
+
+### Stream
+
+The stored supertype for any time-series identity — either a sensor Channel or a lab AnalysisSeries. Every Channel and every AnalysisSeries owns exactly one Stream row (via Stream_ID), and the subtypes share Stream_ID as their own primary key (table-per-type inheritance, shared PK). Tables that attach to "any stream" (Annotation, ProcessingLineage input edges) carry a single Stream_ID FK rather than a Channel/AnalysisSeries XOR pair. The StreamKind_ID discriminator enables fast "sensor vs lab" filtering without joining the subtype tables. Subtype-specific columns stay on the subtype tables; this supertype is deliberately minimal.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Stream_ID | INT **(PK)** | - | ✓ | <span id="Stream_ID"></span>Surrogate primary key — the universal identifier of any measurement stream. Shared down to the Channel and AnalysisSeries subtypes as their own primary key.
+ | - |
+| StreamKind_ID | INT | - | ✓ | <span id="StreamKind_ID"></span>Discriminator identifying the stream subtype (Sensor=Channel, Lab=AnalysisSeries). Enables fast "sensor vs lab" filtering without joining to the subtype tables.
+ | FK → [StreamKind.StreamKind_ID](#StreamKind) |
+
+<span id="StreamKind"></span>
+
+### StreamKind
+
+Controlled vocabulary discriminating the subtype of a Stream: a sensor measurement stream (Channel) or a laboratory measurement stream (AnalysisSeries). Used as the StreamKind_ID discriminator on Stream to enable fast "sensor vs lab" filtering without joining the subtype tables.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| StreamKind_ID | INT **(PK)** | - | ✓ | <span id="StreamKind_ID"></span>Surrogate primary key, manually assigned | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short code name (e.g. 'Sensor', 'Lab') | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this stream kind means | - |
 
 <span id="Unit"></span>
 
