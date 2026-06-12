@@ -139,7 +139,7 @@ pg = st.navigation(
             st.Page(str(_pages / "quality_codes.py"), title="Quality Codes"),
             st.Page(str(_pages / "units.py"), title="Units"),
             st.Page(str(_pages / "bin_kinds.py"), title="Bin Kinds"),
-            st.Page(str(_pages / "processing_kinds.py"), title="Processing Kinds"),
+            st.Page(str(_pages / "operation_kinds.py"), title="Operation Kinds"),
         ],
     }
 )

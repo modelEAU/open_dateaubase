@@ -16,8 +16,8 @@ from app.api_client import (
     list_das_kinds,
     list_equipment_lookup,
     list_equipment_models_lookup,
+    list_operation_kinds_lookup,
     list_parameters_lookup,
-    list_processing_kinds_lookup,
     register_equipment_at_interface,
 )
 from app.components.wizard_helpers import (
@@ -78,7 +78,7 @@ def _load_lookups() -> dict | None:
             "equipment": list_equipment_lookup(),
             "equipment_models": list_equipment_models_lookup(),
             "parameters": list_parameters_lookup(),
-            "processing_kinds": list_processing_kinds_lookup(),
+            "operation_kinds": list_operation_kinds_lookup(),
             "das_kinds": list_das_kinds(),
         }
     except APIError as e:
@@ -294,8 +294,8 @@ def _step_channels(lookups: dict) -> None:
     ]
     param_labels = ["(none)"] + [o["label"] for o in param_opts]
     proc_opts = [
-        {"id": p["processing_kind_id"], "label": p["name"]}
-        for p in lookups["processing_kinds"]
+        {"id": p["operation_kind_id"], "label": p["name"]}
+        for p in lookups["operation_kinds"]
     ]
     proc_labels = ["(none)"] + [o["label"] for o in proc_opts]
     vt_labels = ["(none)"] + [o["label"] for o in _VALUE_TYPES]
@@ -445,11 +445,6 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
         {"id": p["parameter_id"], "label": p["parameter_name"]}
         for p in lookups["parameters"]
     ]
-    proc_opts = [
-        {"id": p["processing_kind_id"], "label": p["name"]}
-        for p in lookups["processing_kinds"]
-    ]
-
     # 1. Create DAS
     try:
         das = create_das(
@@ -546,7 +541,6 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                 continue
             param_label = st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_{ch_wiz_id}_parameter")
             vt_label = st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_{ch_wiz_id}_value_type")
-            proc_label = st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_{ch_wiz_id}_processing")
             param_id = (
                 resolve_id(param_label, param_opts)
                 if param_label and param_label != "(none)"
@@ -557,11 +551,8 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                 if vt_label and vt_label != "(none)"
                 else None
             )
-            proc_id = (
-                resolve_id(proc_label, proc_opts)
-                if proc_label and proc_label != "(none)"
-                else None
-            )
+            # Channel identity does not carry an operation kind (set later via
+            # the lineage/processing step); the selector here is informational.
             try:
                 ch = create_channel(
                     {
@@ -569,7 +560,6 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                         "tag_name": tag,
                         "parameter_id": param_id,
                         "value_kind_id": vt_id,
-                        "processing_kind_id": proc_id,
                     }
                 )
                 ch_id = ch.get("channel_id") if isinstance(ch, dict) else None

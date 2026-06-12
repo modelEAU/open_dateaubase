@@ -75,8 +75,12 @@ except APIError as e:
 
 # Handler functions
 def handle_create_annotation(data: dict) -> bool:
+    # The page anchors annotations to a sensor Channel: its channel_id is the
+    # Stream_ID, and the anchor arm is "channel". Lab series are not selectable
+    # here, so anchor_kind is always "channel".
+    stream_id = data.pop("channel_id", None)
     try:
-        create_annotation(data)
+        create_annotation(stream_id=stream_id, data=data, anchor_kind="channel")
         st.success("Annotation created successfully!")
         return True
     except APIError as e:

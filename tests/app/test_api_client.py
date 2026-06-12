@@ -6,7 +6,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.api_client import APIError, get_health, login, signup, get_me, get_audit_logs
+from app.api_client import (
+    APIError,
+    create_annotation,
+    get_audit_logs,
+    get_health,
+    get_me,
+    ingest_lab_image,
+    list_annotations,
+    list_operation_kinds,
+    list_operation_kinds_lookup,
+    login,
+    signup,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -205,3 +217,94 @@ class TestGetAuditLogs:
         with patch("app.api_client._get_client", return_value=client):
             get_audit_logs(user_id=1, action="login", limit=10)
         assert client.last_kwargs.get("params", {}).get("user_id") == 1
+
+
+# ---------------------------------------------------------------------------
+# OperationKind vocabulary (renamed from ProcessingKind — ADR 0005)
+# ---------------------------------------------------------------------------
+
+class TestOperationKinds:
+    def test_list_operation_kinds_hits_new_endpoint(self):
+        response = _mock_response(200, [{"operation_kind_id": 1, "name": "Unprocessed"}])
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            result = list_operation_kinds()
+        assert client.last_method == "GET"
+        assert client.last_url == "/vocab/operation-kinds"
+        assert result[0]["operation_kind_id"] == 1
+
+    def test_list_operation_kinds_lookup_hits_new_endpoint(self):
+        response = _mock_response(200, [{"operation_kind_id": 2, "name": "OutlierRemoval"}])
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            list_operation_kinds_lookup()
+        assert client.last_url == "/vocab/operation-kinds"
+
+# ---------------------------------------------------------------------------
+# Lab image ingest no longer carries processing_kind_id
+# ---------------------------------------------------------------------------
+
+class TestIngestLabImage:
+    def test_payload_has_no_processing_kind_id(self):
+        response = _mock_response(200, {"lab_experiment_id": 1, "rows_written": 1, "storage_paths": []})
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            ingest_lab_image(
+                name="exp",
+                experiment_datetime="2026-01-01T00:00:00",
+                sample_id=1,
+                parameter_id=1,
+                sampling_point_id=1,
+                unit_id=1,
+                series_name="s",
+                image_files=[("a.png", b"x")],
+            )
+        form_data = client.last_kwargs.get("data", {})
+        assert "processing_kind_id" not in form_data
+        assert client.last_url == "/ingest/lab-image"
+
+    def test_signature_rejects_processing_kind_id(self):
+        with pytest.raises(TypeError):
+            ingest_lab_image(
+                name="exp",
+                experiment_datetime="2026-01-01T00:00:00",
+                sample_id=1,
+                parameter_id=1,
+                sampling_point_id=1,
+                unit_id=1,
+                series_name="s",
+                image_files=[("a.png", b"x")],
+                processing_kind_id=1,
+            )
+
+
+# ---------------------------------------------------------------------------
+# Annotations: URL-anchored write path (path id is a Stream_ID)
+# ---------------------------------------------------------------------------
+
+class TestAnnotations:
+    def test_create_annotation_channel_anchor(self):
+        response = _mock_response(201, {"annotation_id": 1})
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            create_annotation(42, {"annotation_type": "note", "start_time": "t"})
+        assert client.last_method == "POST"
+        assert client.last_url == "/timeseries/42/annotations"
+
+    def test_create_annotation_series_anchor(self):
+        response = _mock_response(201, {"annotation_id": 2})
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            create_annotation(
+                7, {"annotation_type": "note", "start_time": "t"}, anchor_kind="series"
+            )
+        assert client.last_url == "/analysis-series/7/annotations"
+
+    def test_list_annotations_filter_uses_channel_id_wire_param(self):
+        """stream_id arg maps to the backend's channel_id query echo."""
+        response = _mock_response(200, {"annotations": [], "count": 0})
+        client = _FakeClient(response)
+        with patch("app.api_client._get_client", return_value=client):
+            list_annotations(stream_id=99)
+        assert client.last_url == "/annotations"
+        assert client.last_kwargs.get("params", {}).get("channel_id") == 99

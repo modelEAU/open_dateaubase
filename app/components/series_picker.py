@@ -18,7 +18,6 @@ def render_series_picker(
     parameters: list[dict],
     sampling_points: list[dict],
     units: list[dict],
-    processing_kinds: list[dict],
 ) -> list[int]:
     """Cascading filter picker for AnalysisSeries.
 
@@ -29,7 +28,6 @@ def render_series_picker(
         parameters: [{parameter_id, parameter_name}]
         sampling_points: [{sampling_point_id, label}]
         units: [{unit_id, unit}]
-        processing_kinds: [{processing_kind_id, name}]
 
     Returns:
         list[int] of selected analysis_series_ids.
@@ -215,18 +213,6 @@ def render_series_picker(
                 )
                 nc_vk_id = next(k for k, v in _VALUE_KINDS.items() if v == nc_vk_label)
 
-                pk_opts = [{"id": None, "label": "— select —"}] + [
-                    {"id": pk["processing_kind_id"], "label": pk["name"]}
-                    for pk in processing_kinds
-                ]
-                nc_pk_label = st.selectbox(
-                    "Processing kind *", [o["label"] for o in pk_opts],
-                    key=f"spkr_{field}_nc_pk",
-                )
-                nc_pk_id = next(
-                    (o["id"] for o in pk_opts if o["label"] == nc_pk_label), None
-                )
-
             # Auto-generate name
             auto_name = ""
             if nc_param_id and nc_sp_id:
@@ -244,8 +230,8 @@ def render_series_picker(
             )
 
             if st.button("Create & Add", type="primary", key=f"spkr_{field}_create_btn"):
-                if not all([nc_param_id, nc_sp_id, nc_unit_id, nc_pk_id, nc_name.strip()]):
-                    st.error("Parameter, Sampling Point, Unit, Processing Kind, and Name are required.")
+                if not all([nc_param_id, nc_sp_id, nc_unit_id, nc_name.strip()]):
+                    st.error("Parameter, Sampling Point, Unit, and Name are required.")
                 else:
                     try:
                         result = create_analysis_series({
@@ -254,7 +240,6 @@ def render_series_picker(
                             "sampling_point_id": nc_sp_id,
                             "unit_id": nc_unit_id,
                             "value_kind_id": nc_vk_id,
-                            "processing_kind_id": nc_pk_id,
                             "campaign_id": nc_campaign_id,
                         })
                         new_id = result["analysis_series_id"]

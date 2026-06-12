@@ -72,7 +72,7 @@ def scalar_ingest_block(
     equipment_lookup = lookups["equipment"]
     parameters_lookup = lookups["parameters"]
     units_lookup = lookups["units"]
-    processing_degrees_lookup = lookups["processing_kinds"]
+    processing_degrees_lookup = lookups["operation_kinds"]
     sensor_provenance_name = _sensor_provenance_name(lookups)
 
     with st.container(border=True):
@@ -216,7 +216,7 @@ def scalar_ingest_block(
             scalar_data_provenance_id = 1
         with col5:
             processing_options = [
-                {"id": d["processing_kind_id"], "label": d["name"]}
+                {"id": d["operation_kind_id"], "label": d["name"]}
                 for d in processing_degrees_lookup
             ]
             processing_labels = [opt["label"] for opt in processing_options]
@@ -227,7 +227,7 @@ def scalar_ingest_block(
                 help="Auto-created if new channel",
                 key=f"{key_prefix}_processing",
             )
-            scalar_processing_kind_id = next(
+            scalar_operation_kind_id = next(
                 (opt["id"] for opt in processing_options if opt["label"] == selected_processing_label),
                 None,
             )
@@ -423,7 +423,7 @@ def vector_ingest_block(
     parameters_lookup = lookups["parameters"]
     units_lookup = lookups["units"]
     axes_lookup = lookups["binning_axes"]
-    processing_degrees_lookup = lookups["processing_kinds"]
+    processing_degrees_lookup = lookups["operation_kinds"]
     sensor_provenance_name = _sensor_provenance_name(lookups)
 
     with st.container(border=True):
@@ -556,13 +556,13 @@ def vector_ingest_block(
             vector_data_provenance_id = 1
         with col5:
             processing_options = [
-                {"id": d["processing_kind_id"], "label": d["name"]} for d in processing_degrees_lookup
+                {"id": d["operation_kind_id"], "label": d["name"]} for d in processing_degrees_lookup
             ]
             processing_labels = [opt["label"] for opt in processing_options]
             selected_processing_label = st.selectbox(
                 "Processing Degree", options=processing_labels, index=0, key=f"{key_prefix}_processing"
             )
-            vector_processing_kind_id = next(
+            vector_operation_kind_id = next(
                 (opt["id"] for opt in processing_options if opt["label"] == selected_processing_label),
                 None,
             )
@@ -797,7 +797,7 @@ def matrix_ingest_block(
     parameters_lookup = lookups["parameters"]
     units_lookup = lookups["units"]
     axes_lookup = lookups["binning_axes"]
-    processing_degrees_lookup = lookups["processing_kinds"]
+    processing_degrees_lookup = lookups["operation_kinds"]
     sensor_provenance_name = _sensor_provenance_name(lookups)
 
     with st.container(border=True):
@@ -929,13 +929,13 @@ def matrix_ingest_block(
             matrix_data_provenance_id = 1
         with col5:
             processing_options = [
-                {"id": d["processing_kind_id"], "label": d["name"]} for d in processing_degrees_lookup
+                {"id": d["operation_kind_id"], "label": d["name"]} for d in processing_degrees_lookup
             ]
             processing_labels = [opt["label"] for opt in processing_options]
             selected_processing_label = st.selectbox(
                 "Processing Degree", options=processing_labels, index=0, key=f"{key_prefix}_processing"
             )
-            matrix_processing_kind_id = next(
+            matrix_operation_kind_id = next(
                 (opt["id"] for opt in processing_options if opt["label"] == selected_processing_label),
                 None,
             )

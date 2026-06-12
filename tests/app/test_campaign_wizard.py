@@ -39,7 +39,7 @@ _SITE_TYPES = [{"id": 1, "name": "WWTP"}]
 _EQUIPMENT = [{"equipment_id": 1, "identifier": "Sensor-001"}]
 _EQUIPMENT_MODELS = [{"model_id": 1, "manufacturer": "Acme", "model_name": "X100"}]
 _PARAMETERS = [{"parameter_id": 1, "parameter_name": "pH"}]
-_PROCESSING_DEGREES = [{"processing_kind_id": 1, "name": "Raw"}]
+_PROCESSING_DEGREES = [{"operation_kind_id": 1, "name": "Unprocessed"}]
 _DAS = [{"das_id": 1, "name": "DAS-001"}]
 # Vocab rename: SignalInterface replaces the old SignalPort concept.
 _SIGNAL_INTERFACES = [
@@ -60,7 +60,7 @@ _LOOKUP_SPECS = [
     (f"{MOD}.list_equipment_lookup", _EQUIPMENT),
     (f"{MOD}.list_equipment_models_lookup", _EQUIPMENT_MODELS),
     (f"{MOD}.list_parameters_lookup", _PARAMETERS),
-    (f"{MOD}.list_processing_kinds_lookup", _PROCESSING_DEGREES),
+    (f"{MOD}.list_operation_kinds_lookup", _PROCESSING_DEGREES),
     (f"{MOD}.list_das_lookup", _DAS),
     (f"{MOD}.list_signal_interfaces_lookup", _SIGNAL_INTERFACES),
     (f"{MOD}.list_persons_lookup", _PERSONS),

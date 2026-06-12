@@ -33,6 +33,7 @@ import streamlit as st
 from app.api_client import (
     APIError,
     bulk_set_quality_code,
+    create_annotation,
     get_channel_stats,
     get_channel_timeseries,
     get_channel_thumbnail,
@@ -919,18 +920,20 @@ def _annotation_dialog(
                 payload["observation_id"] = observation_id
 
             errors = []
-            from app.api_client import _get_client, _raise_for_status
 
+            # Stream-anchored writes: the path id is a Stream_ID. Sensor
+            # channels post via anchor_kind="channel", lab series via
+            # anchor_kind="series" (api_client routes to the right URL arm).
             if is_lab:
-                targets = [(f"/analysis-series/{s_id}/annotations", f"LAB-{s_id}") for s_id in series_ids]
+                targets = [(s_id, "series", f"LAB-{s_id}") for s_id in series_ids]
             else:
-                targets = [(f"/timeseries/{ch_id}/annotations", f"CH-{ch_id}") for ch_id in channel_ids]
+                targets = [(ch_id, "channel", f"CH-{ch_id}") for ch_id in channel_ids]
 
-            for url, label in targets:
+            for stream_id, anchor_kind, label in targets:
                 try:
-                    with _get_client() as client:
-                        r = client.post(url, json=payload)
-                    _raise_for_status(r)
+                    create_annotation(
+                        stream_id=stream_id, data=payload, anchor_kind=anchor_kind
+                    )
                 except APIError as e:
                     if e.status_code == 422:
                         errors.append(
@@ -946,7 +949,7 @@ def _annotation_dialog(
             if errors:
                 st.error("Some annotations failed:\n" + "\n".join(errors))
             else:
-                st.success(f"Annotation saved for {len(targets)} trace(s).")
+                st.success(f"Annotation saved for {len(targets)} stream(s).")
                 _invalidate_data_cache()
                 st.rerun()
 
@@ -1410,7 +1413,7 @@ def _render_unified_picker(
     Lab side: AnalysisSeries, filtered in-memory.
     Both appear in one merged results list, distinguished by (Equipment) vs (Lab)."""
 
-    with st.expander("🔍 Add traces", expanded=True):
+    with st.expander("🔍 Add streams", expanded=True):
         campaign_id = st.session_state.picker_campaign_id
         location_id = st.session_state.picker_location_id
         parameter_id = st.session_state.picker_parameter_id
@@ -1506,10 +1509,10 @@ def _render_unified_picker(
         sel_item: dict | None = None
 
         if not options:
-            st.caption("No traces match the current filters.")
+            st.caption("No streams match the current filters.")
         else:
             sel_label = st.selectbox(
-                "Matching traces",
+                "Matching streams",
                 list(options.keys()),
                 key="upicker_trace_select",
                 label_visibility="collapsed",
@@ -1565,13 +1568,13 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
     active = st.session_state.explore_active_channels
 
     if not active and not st.session_state.explore_active_series:
-        st.caption("No traces added yet — use the picker above.")
+        st.caption("No streams added yet — use the picker above.")
         return
 
     to_remove: list[int] = []
 
     cols = st.columns([5, 2, 2, 1])
-    cols[0].caption("**Trace**")
+    cols[0].caption("**Stream**")
     cols[1].caption("**First value**")
     cols[2].caption("**Last value**")
 
@@ -1590,7 +1593,7 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
             name_col.markdown(label)
             min_col.markdown(min_str)
             max_col.markdown(max_str)
-            if rm_col.button("✕", key=f"rm_{ch_id}", help="Remove trace"):
+            if rm_col.button("✕", key=f"rm_{ch_id}", help="Remove stream"):
                 to_remove.append(ch_id)
 
     for ch_id in to_remove:
@@ -1662,7 +1665,7 @@ def _render_scalar_view(
         if series_meta.get(s, {}).get("value_kind_id") in (None, VALUE_TYPE_SCALAR)
     ]
     if not scalar_channels and not scalar_series:
-        st.info("No scalar traces in the active selection.")
+        st.info("No scalar streams in the active selection.")
         return
 
     mode = st.session_state.explore_mode
@@ -1700,7 +1703,7 @@ def _render_scalar_view(
     if sensor_pts or lab_pts:
         st.markdown(
             f"**{len(selected_pts)} points selected** across "
-            f"{len({p.get('curve_number') for p in selected_pts})} traces."
+            f"{len({p.get('curve_number') for p in selected_pts})} streams."
         )
 
     if sensor_pts:
@@ -1856,11 +1859,11 @@ def _render_vector_view(
         active_series or [], series_meta or {},
     )
     if not options:
-        st.info("No vector traces in the active selection.")
+        st.info("No vector streams in the active selection.")
         return
 
     sel_label = st.selectbox(
-        "Select trace to display", list(options.keys()), key="vec_chan_sel"
+        "Select stream to display", list(options.keys()), key="vec_chan_sel"
     )
     trace = options[sel_label]
 
@@ -1936,11 +1939,11 @@ def _render_matrix_view(
         active_series or [], series_meta or {},
     )
     if not options:
-        st.info("No matrix traces in the active selection.")
+        st.info("No matrix streams in the active selection.")
         return
 
     sel_label = st.selectbox(
-        "Select trace", list(options.keys()), key="mat_chan_sel"
+        "Select stream", list(options.keys()), key="mat_chan_sel"
     )
     trace = options[sel_label]
 
@@ -2011,11 +2014,11 @@ def _render_image_view(
         active_series or [], series_meta or {},
     )
     if not options:
-        st.info("No image traces in the active selection.")
+        st.info("No image streams in the active selection.")
         return
 
     sel_label = st.selectbox(
-        "Select image trace", list(options.keys()), key="img_chan_sel"
+        "Select image stream", list(options.keys()), key="img_chan_sel"
     )
     trace = options[sel_label]
     is_channel = trace[0] == "channel"
@@ -2138,7 +2141,7 @@ def _render_visualization_area(
 
     if not active_channels and not active_series:
         st.info(
-            "No traces added yet. Use the Sensor and Lab pickers above to add "
+            "No streams added yet. Use the Sensor and Lab pickers above to add "
             "channels and analysis series to your plot."
         )
         return

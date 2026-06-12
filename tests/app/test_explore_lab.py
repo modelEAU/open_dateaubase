@@ -90,7 +90,7 @@ def test_page_renders_with_unified_picker():
         at = AppTest.from_file(HARNESS).run()
     assert not at.exception
     labels = [e.label for e in at.expander]
-    assert any("Add traces" in (l or "") for l in labels), (
+    assert any("Add streams" in (l or "") for l in labels), (
         f"Unified picker expander not found; saw: {labels}"
     )
 
@@ -370,6 +370,59 @@ def test_lab_point_pin_dialog_called_with_observation_id():
     )
     assert captured.get("series_ids") == [1], (
         f"expected series_ids=[1]; got: {captured}"
+    )
+
+
+def test_lab_annotation_dialog_save_uses_stream_anchored_create_annotation():
+    """The lab annotation dialog Save path calls the new stream-anchored
+    create_annotation(stream_id=…, data=…, anchor_kind="series") signature —
+    NOT a raw httpx POST against /analysis-series/{id}/annotations.
+
+    Drives _annotation_dialog directly inside a minimal AppTest script so the
+    dialog's Save button is reachable in a single run. Guards the Slice 15
+    migration: reverting the Save path to the old raw POST makes create_annotation
+    go uncalled and this fails.
+    """
+    captured: dict = {}
+
+    def _capture_create(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return {"annotation_id": 99}
+
+    def _script() -> None:
+        import sys
+        from pathlib import Path
+
+        _root = str(Path(__file__).parent.parent.parent)
+        if _root not in sys.path:
+            sys.path.insert(0, _root)
+        from app.pages import explore as ex
+
+        ex._annotation_dialog(
+            channel_ids=[],
+            series_ids=[1],
+            start_time="2026-05-01T00:00:00",
+            end_time="2026-05-08T00:00:00",
+            annotation_types=[{"id": 3, "name": "Fault", "color": "#FF0000"}],
+        )
+
+    with patch(f"{MOD}.create_annotation", side_effect=_capture_create):
+        at = AppTest.from_function(_script).run()
+        # The dialog renders inline; click its Save button.
+        at.button(key="btn_save_ann").click().run()
+
+    assert not at.exception
+    assert captured, "create_annotation was not called from the dialog Save path"
+    kwargs = captured["kwargs"]
+    assert kwargs.get("stream_id") == 1, (
+        f"expected stream_id=1 (the series Stream_ID); got {captured}"
+    )
+    assert kwargs.get("anchor_kind") == "series", (
+        f"expected anchor_kind='series' for a lab stream; got {captured}"
+    )
+    assert "data" in kwargs and isinstance(kwargs["data"], dict), (
+        f"expected the annotation payload passed as data=…; got {captured}"
     )
 
 

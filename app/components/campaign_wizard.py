@@ -26,8 +26,8 @@ from app.api_client import (
     list_equipment_lookup,
     list_equipment_models_lookup,
     list_parameters_lookup,
+    list_operation_kinds_lookup,
     list_persons_lookup,
-    list_processing_kinds_lookup,
     list_signal_interfaces_lookup,
     list_site_sampling_locations,
     list_site_kinds,
@@ -146,7 +146,7 @@ def _load_lookups() -> dict | None:
             "equipment": list_equipment_lookup(),
             "equipment_models": list_equipment_models_lookup(),
             "parameters": list_parameters_lookup(),
-            "processing_kinds": list_processing_kinds_lookup(),
+            "operation_kinds": list_operation_kinds_lookup(),
             "das": list_das_lookup(),
             "signal_interfaces_flat": signal_interfaces_flat,
             "persons": list_persons_lookup(),
@@ -824,8 +824,8 @@ def _step_equipment_and_tags(lookups: dict) -> None:
         for p in lookups["parameters"]
     ]
     pd_opts = [
-        {"id": p["processing_kind_id"], "label": p["name"]}
-        for p in lookups["processing_kinds"]
+        {"id": p["operation_kind_id"], "label": p["name"]}
+        for p in lookups["operation_kinds"]
     ]
     param_labels = [o["label"] for o in param_opts]
     pd_labels = [o["label"] for o in pd_opts]
@@ -1033,17 +1033,21 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                     )
                     if pd_labels:
                         _pd_all = ["(none)"] + pd_labels
-                        _pd_key = f"wiz_tag_{tid}_processing_degree"
+                        _pd_key = f"wiz_tag_{tid}_operation_kind"
                         if _pd_key not in st.session_state:
-                            # Pre-seed "Raw" as default without using index=
-                            # (index= conflicts with session-state restoration)
+                            # Pre-seed "Unprocessed" as default without using
+                            # index= (index= conflicts with session-state restore)
                             _raw = next(
-                                (l for l in _pd_all if l.lower() == "raw"),
+                                (
+                                    l
+                                    for l in _pd_all
+                                    if l.lower() in ("unprocessed", "raw")
+                                ),
                                 _pd_all[0],
                             )
                             st.session_state[_pd_key] = _raw
                         st.selectbox(
-                            "Processing degree",
+                            "Operation kind",
                             _pd_all,
                             key=_pd_key,
                         )
@@ -1374,10 +1378,6 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
     param_opts = [
         {"id": p["parameter_id"], "label": p["parameter_name"]}
         for p in lookups["parameters"]
-    ]
-    pd_opts = [
-        {"id": p["processing_kind_id"], "label": p["name"]}
-        for p in lookups["processing_kinds"]
     ]
     das_opts = [{"id": d["das_id"], "label": d["name"]} for d in lookups["das"]]
     existing_si_opts: list[dict] = lookups.get("signal_interfaces_flat", [])
@@ -1781,15 +1781,11 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                 )
                 errors.append(f"Equipment wiring to interface '{tag_str}': {e.message}")
 
-        # Create channel
+        # Create channel. The channel's operation kind is not part of the
+        # Channel identity (set later via the lineage/processing step), so the
+        # operation-kind selection here is informational only.
         param_label = st.session_state.get(f"wiz_tag_{tid}_parameter")
         vt_label = st.session_state.get(f"wiz_tag_{tid}_value_type")
-        pd_label = st.session_state.get(f"wiz_tag_{tid}_processing_degree")
-        pd_id = (
-            _resolve_id(pd_label, pd_opts)
-            if pd_label and pd_label != "(none)"
-            else None
-        )
         try:
             create_channel(
                 {
@@ -1797,7 +1793,6 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                     "tag_name": st.session_state.get(f"wiz_tag_{tid}_tag") or "",
                     "parameter_id": _resolve_id(param_label, param_opts),
                     "value_kind_id": _resolve_id(vt_label, _VALUE_TYPES),
-                    "processing_kind_id": pd_id,
                 }
             )
             tag_str = st.session_state.get(f"wiz_tag_{tid}_tag", f"channel {tid + 1}")

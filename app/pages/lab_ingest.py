@@ -33,7 +33,6 @@ from app.api_client import (
     list_lab_panels,
     list_parameters_lookup,
     list_persons,
-    list_processing_kinds_lookup,
     list_quality_codes,
     list_sample_collection_kinds,
     list_samples_lookup,
@@ -52,7 +51,6 @@ try:
         _campaigns = list_campaigns_lookup()
         _parameters = list_parameters_lookup()
         _units = list_units_lookup()
-        _processing_kinds = list_processing_kinds_lookup()
         _persons_full = list_persons()
         _persons = [
             {
@@ -359,13 +357,13 @@ def _render_experiment_step() -> None:
             sel_sp = st.selectbox(
                 "Sampling point *", options=sp_labels, index=None, key="lab_quick_sp"
             )
-        col_u, col_pk = st.columns(2)
+        col_u, col_vk = st.columns(2)
         with col_u:
             unit_names = [u["unit"] for u in _units]
             sel_unit = st.selectbox(
                 "Unit *", options=unit_names, index=None, key="lab_quick_unit"
             )
-        with col_pk:
+        with col_vk:
             vk_opts = {"Scalar": 1, "Vector": 2, "Matrix": 3, "Image": 4}
             sel_vk = st.selectbox(
                 "Value kind *",
@@ -373,17 +371,6 @@ def _render_experiment_step() -> None:
                 index=0,
                 key="lab_quick_vk",
             )
-        pk_opts = {
-            pk["processing_kind_id"]: pk.get("name", str(pk["processing_kind_id"]))
-            for pk in _processing_kinds
-        }
-        sel_pk_id = st.selectbox(
-            "Processing kind",
-            options=list(pk_opts.values()),
-            index=0,
-            key="lab_quick_pk",
-        )
-        _pk_id_map = {v: k for k, v in pk_opts.items()}
         auto_name = _auto_series_name(sel_param, sel_sp)
         if auto_name:
             st.session_state["lab_quick_series_name"] = auto_name
@@ -394,7 +381,6 @@ def _render_experiment_step() -> None:
             sp_id = _sp_label_to_id.get(sel_sp or "")
             unit_id = _unit_name_to_id.get(sel_unit or "")
             vk_id = vk_opts.get(sel_vk, 1)
-            pk_id = _pk_id_map.get(sel_pk_id, 1)
             if not (param_id and sp_id and unit_id and series_name):
                 st.error("Parameter, sampling point, unit, and name are required.")
             else:
@@ -406,7 +392,6 @@ def _render_experiment_step() -> None:
                             "sampling_point_id": sp_id,
                             "unit_id": unit_id,
                             "value_kind_id": vk_id,
-                            "processing_kind_id": pk_id,
                         }
                     )
                     new_id = result["analysis_series_id"]
@@ -418,7 +403,6 @@ def _render_experiment_step() -> None:
                             "sampling_point_id": sp_id,
                             "unit_id": unit_id,
                             "value_kind_id": vk_id,
-                            "processing_kind_id": pk_id,
                         }
                     )
                     st.success(f"Series {new_id} added.")
@@ -870,7 +854,6 @@ def _do_submit(sess: dict) -> None:
                     "sampling_point_id": sp_id,
                     "unit_id": series_item["unit_id"],
                     "value_kind_id": vk,
-                    "processing_kind_id": series_item.get("processing_kind_id", 1),
                     "series_name": series_item.get("name", ""),
                     "sample_id": sample_id,
                     "value": value,
@@ -959,7 +942,6 @@ def _do_submit(sess: dict) -> None:
                     unit_id=series_item["unit_id"],
                     series_name=series_item.get("name", ""),
                     image_files=image_files,
-                    processing_kind_id=series_item.get("processing_kind_id", 1),
                     campaign_id=sess.get("campaign_id"),
                     description=sess.get("description") or None,
                     created_by_person_id=sess.get("created_by_person_id"),

@@ -22,7 +22,6 @@ from app.api_client import (
     list_equipment_lookup,
     list_lab_panels,
     list_parameters_lookup,
-    list_processing_kinds_lookup,
     list_sample_collection_kinds,
     list_sampling_points_lookup,
     list_units_lookup,
@@ -41,7 +40,6 @@ try:
         _parameters = list_parameters_lookup()
         _sp = list_sampling_points_lookup()
         _units = list_units_lookup()
-        _processing_kinds = list_processing_kinds_lookup()
         _collection_kinds = list_sample_collection_kinds()
         _equipment = list_equipment_lookup()
 except APIError as e:
@@ -71,7 +69,6 @@ _series_render_fn = lambda ctx: render_series_picker(
     parameters=_parameters,
     sampling_points=_sp,
     units=_units,
-    processing_kinds=_processing_kinds,
 )
 
 _fields = [

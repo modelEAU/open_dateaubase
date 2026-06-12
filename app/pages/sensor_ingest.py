@@ -27,8 +27,8 @@ from app.api_client import (
     list_das_lookup,
     list_data_provenance_lookup,
     list_equipment_lookup,
+    list_operation_kinds_lookup,
     list_parameters_lookup,
-    list_processing_kinds_lookup,
     list_tags_lookup,
     list_units_lookup,
 )
@@ -53,7 +53,7 @@ try:
             "parameters": list_parameters_lookup(),
             "units": list_units_lookup(),
             "provenance": list_data_provenance_lookup(),
-            "processing_kinds": list_processing_kinds_lookup(),
+            "operation_kinds": list_operation_kinds_lookup(),
             "binning_axes": list_binning_axes_lookup(),
             "das": list_das_lookup(),
             "tags_fn": list_tags_lookup,

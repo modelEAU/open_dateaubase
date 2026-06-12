@@ -563,11 +563,14 @@ def list_parameters_lookup() -> list[dict]:
     return r.json()
 
 
-def list_processing_kinds_lookup() -> list[dict]:
-    """Return processing kinds for dropdowns (from ProcessingStep vocabulary)."""
+def list_operation_kinds_lookup() -> list[dict]:
+    """Return operation kinds for dropdowns (OperationKind vocabulary).
+
+    Returns rows shaped ``{operation_kind_id, name, ...}``.
+    """
     try:
         with _get_client() as client:
-            r = client.get("/vocab/processing-kinds")
+            r = client.get("/vocab/operation-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -976,10 +979,16 @@ def delete_annotation_kind(annotation_kind_id: int) -> None:
 # ---------------------------------------------------------------------------
 
 
-def list_annotations(channel_id: int | None = None) -> dict:
+def list_annotations(stream_id: int | None = None) -> dict:
+    """List annotations, optionally filtered to one anchored stream.
+
+    The backend list endpoint (``GET /annotations``) still echoes the filter as
+    a ``channel_id`` query param, so the wire param name is kept; ``stream_id``
+    is the anchored Stream_ID identifying the channel/series.
+    """
     params: dict = {}
-    if channel_id is not None:
-        params["channel_id"] = channel_id
+    if stream_id is not None:
+        params["channel_id"] = stream_id
     try:
         with _get_client() as client:
             r = client.get("/annotations", params=params)
@@ -989,10 +998,23 @@ def list_annotations(channel_id: int | None = None) -> dict:
     return r.json()
 
 
-def create_annotation(data: dict) -> dict:
+def create_annotation(
+    stream_id: int, data: dict, *, anchor_kind: str = "channel"
+) -> dict:
+    """Create an annotation anchored to a stream.
+
+    The write path is URL-anchored: the path id is a Stream_ID. ``anchor_kind``
+    selects the arm — ``"channel"`` posts to ``/timeseries/{stream_id}/annotations``
+    (sensor), ``"series"`` posts to ``/analysis-series/{stream_id}/annotations``
+    (lab).
+    """
+    if anchor_kind == "series":
+        path = f"/analysis-series/{stream_id}/annotations"
+    else:
+        path = f"/timeseries/{stream_id}/annotations"
     try:
         with _get_client() as client:
-            r = client.post("/annotations", json=data)
+            r = client.post(path, json=data)
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -1302,7 +1324,6 @@ def ingest_lab_image(
     series_name: str,
     image_files: list[tuple[str, bytes]],
     *,
-    processing_kind_id: int = 1,
     campaign_id: int | None = None,
     description: str | None = None,
     created_by_person_id: int | None = None,
@@ -1321,7 +1342,6 @@ def ingest_lab_image(
         "sampling_point_id": sampling_point_id,
         "unit_id": unit_id,
         "series_name": series_name,
-        "processing_kind_id": processing_kind_id,
     }
     for key, val in {
         "campaign_id": campaign_id,
@@ -2078,14 +2098,14 @@ def list_bin_kinds() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# ProcessingKind (read-only)
+# OperationKind (read-only, ADR 0005 — replaces ProcessingKind)
 # ---------------------------------------------------------------------------
 
 
-def list_processing_kinds() -> list[dict]:
+def list_operation_kinds() -> list[dict]:
     try:
         with _get_client() as client:
-            r = client.get("/vocab/processing-kinds")
+            r = client.get("/vocab/operation-kinds")
     except httpx.ConnectError:
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
@@ -2326,8 +2346,8 @@ def list_bin_kind_lookup() -> list[dict]:
     return list_bin_kinds()
 
 
-def list_processing_kind_lookup() -> list[dict]:
-    return list_processing_kinds()
+def list_operation_kind_lookup() -> list[dict]:
+    return list_operation_kinds()
 
 
 def list_procedure_kind_lookup() -> list[dict]:

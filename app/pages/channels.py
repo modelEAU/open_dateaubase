@@ -19,7 +19,6 @@ from app.api_client import (
     list_channels,
     list_channel_roles,
     list_parameters_lookup,
-    list_processing_kinds_lookup,
     list_signal_interfaces_lookup,
     update_channel,
 )
@@ -33,7 +32,6 @@ try:
     with st.spinner("Loading..."):
         signal_interfaces_lookup = list_signal_interfaces_lookup()
         parameters_lookup = list_parameters_lookup()
-        processing_degrees_lookup = list_processing_kinds_lookup()
         channel_roles_lookup = list_channel_roles()
 except APIError as e:
     st.error(f"Cannot load lookup data: {e.message}")
@@ -50,17 +48,13 @@ signal_interface_options = [
 parameter_options = [
     {"id": p["parameter_id"], "label": p["parameter_name"]} for p in parameters_lookup
 ]
-degree_options = [
-    {"id": d["processing_kind_id"], "label": d["name"]}
-    for d in processing_degrees_lookup
-]
 channel_role_options = [
     {"id": cr["channel_kind_id"], "label": cr["name"]} for cr in channel_roles_lookup
 ]
 
 # Filter section
 st.markdown("### Filters")
-filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+filter_col1, filter_col2, filter_col3 = st.columns(3)
 
 with filter_col1:
     signal_interface_filter_options = [
@@ -101,24 +95,6 @@ with filter_col2:
     )
 
 with filter_col3:
-    degree_filter_options = [{"id": None, "label": "All"}] + degree_options
-    selected_degree_label = st.selectbox(
-        "Processing Degree",
-        options=[opt["label"] for opt in degree_filter_options],
-        index=0,
-        key="filter_degree",
-        help="Filter channels by level of processing applied to the time series",
-    )
-    degree_id_filter = next(
-        (
-            opt["id"]
-            for opt in degree_filter_options
-            if opt["label"] == selected_degree_label
-        ),
-        None,
-    )
-
-with filter_col4:
     st.markdown("<br>", unsafe_allow_html=True)
     apply_filters = st.button("Apply Filters", type="primary")
 
@@ -254,6 +230,13 @@ if "selected_channel_id" not in st.session_state:
 # Display table
 if channels:
     df = pd.DataFrame(channels)
+    # A channel's processing state is the accumulated OperationKind trait set
+    # (ChannelTrait), not a single processing degree (ADR 0005). Render the
+    # trait list as a readable comma-joined "Operations" column when present.
+    if "traits" in df.columns:
+        df["traits"] = df["traits"].apply(
+            lambda t: ", ".join(t) if isinstance(t, (list, tuple)) else t
+        )
     selected_indices = st.dataframe(
         df,
         use_container_width=True,
