@@ -1,0 +1,35 @@
+_format_version: "1.0"
+table:
+  name: ReviewStatus
+  schema: dbo
+  description: >
+    Controlled dictionary of the institutional review/approval state of a single
+    lab measurement. Point-level, parallel to QualityCode: it records whether a
+    designated reviewer has approved or rejected an individual LabAnalysis point,
+    not a series-level property. The lab workflow is single-round, single-reviewer;
+    corrections are recorded as a new replicate, and AuditLog captures amendment history.
+
+  columns:
+    - name: ReviewStatus_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Short status name (e.g. 'Pending', 'Approved', 'Rejected')"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this review status means"
+
+  primary_key: [ReviewStatus_ID]
+
+  seed_data:
+    - { ReviewStatus_ID: 1, Name: "Pending",  Description: "Measurement recorded but not yet reviewed/approved" }
+    - { ReviewStatus_ID: 2, Name: "Approved", Description: "Measurement reviewed and approved by a designated reviewer" }
+    - { ReviewStatus_ID: 3, Name: "Rejected", Description: "Measurement reviewed and rejected" }

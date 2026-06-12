@@ -23,6 +23,6 @@ table:
       description: "The channel (signal in metEAUdata terms) included in this dataset"
       foreign_key:
         table: Channel
-        column: Channel_ID
+        column: Stream_ID
 
   primary_key: [Dataset_ID, Channel_ID]

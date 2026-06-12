@@ -1,0 +1,38 @@
+_format_version: "1.0"
+table:
+  name: Stream
+  schema: dbo
+  description: >
+    The stored supertype for any time-series identity — either a sensor
+    Channel or a lab AnalysisSeries. Every Channel and every AnalysisSeries
+    owns exactly one Stream row (via Stream_ID), and the subtypes share
+    Stream_ID as their own primary key (table-per-type inheritance,
+    shared PK). Tables that attach to "any stream" (Annotation,
+    ProcessingLineage input edges) carry a single Stream_ID FK rather than a
+    Channel/AnalysisSeries XOR pair. The StreamKind_ID discriminator enables
+    fast "sensor vs lab" filtering without joining the subtype tables.
+    Subtype-specific columns stay on the subtype tables; this supertype is
+    deliberately minimal.
+
+  columns:
+    - name: Stream_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: >
+        Surrogate primary key — the universal identifier of any measurement
+        stream. Shared down to the Channel and AnalysisSeries subtypes as
+        their own primary key.
+
+    - name: StreamKind_ID
+      logical_type: integer
+      nullable: false
+      description: >
+        Discriminator identifying the stream subtype (Sensor=Channel,
+        Lab=AnalysisSeries). Enables fast "sensor vs lab" filtering without
+        joining to the subtype tables.
+      foreign_key:
+        table: StreamKind
+        column: StreamKind_ID
+
+  primary_key: [Stream_ID]

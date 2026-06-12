@@ -3,13 +3,15 @@ table:
   name: AnalysisSeries
   schema: dbo
   description: >
-    Stable stream identity for lab measurements — the lab analogue of Channel.
+    Stable stream identity for lab measurements — the lab subtype of Stream
+    (table-per-type inheritance): it shares Stream_ID as its own primary key,
+    which is simultaneously a foreign key to Stream.Stream_ID. Each
+    AnalysisSeries owns exactly one Stream row carrying this same identifier.
     One AnalysisSeries row represents the conceptual stream of "Parameter X
-    measured at SamplingPoint Y by ProcessingKind Z producing ValueKind W in
-    Unit U" (e.g. "TSS Gravimetric at Effluent in mg/L"). All LabAnalyses
-    measuring the same parameter at the same location with the same processing
-    and value kind share one AnalysisSeries_ID, giving lab data a queryable
-    time-series identity.
+    measured at SamplingPoint Y producing ValueKind W in Unit U"
+    (e.g. "TSS at Effluent in mg/L"). All LabAnalyses measuring the same
+    parameter at the same location with the same value kind share one
+    Stream_ID, giving lab data a queryable time-series identity.
 
     Unlike Channel — which intentionally excludes sampling location from its
     identity because location is inferred at query time via
@@ -17,12 +19,22 @@ table:
     explicit identity, because lab samples always have a known origin and
     "TSS at Influent" must be a different series from "TSS at Effluent".
 
+    Review status is a point-level attribute on LabAnalysis (added in a later
+    slice), not part of series identity: all measurements of the same parameter
+    at the same location share one AnalysisSeries regardless of review state.
+
   columns:
-    - name: AnalysisSeries_ID
+    - name: Stream_ID
       logical_type: integer
       nullable: false
-      identity: true
-      description: "Surrogate primary key"
+      identity: false
+      description: >
+        Shared primary key (table-per-type inheritance): both the primary
+        key of AnalysisSeries and a foreign key to Stream.Stream_ID. Every
+        AnalysisSeries owns exactly one Stream row carrying this same identifier.
+      foreign_key:
+        table: Stream
+        column: Stream_ID
 
     - name: Name
       logical_type: string
@@ -63,22 +75,11 @@ table:
         immutable for the lifetime of the series — a unit change requires a new
         AnalysisSeries row. Excluded from the uniqueness constraint because
         unit choice is a property of the series rather than part of its identity;
-        two series with the same parameter / location / processing / value kind
-        cannot legitimately differ only by unit.
+        two series with the same parameter / location / value kind cannot
+        legitimately differ only by unit.
       foreign_key:
         table: Unit
         column: Unit_ID
-
-    - name: ProcessingKind_ID
-      logical_type: integer
-      nullable: false
-      default: 1
-      description: >
-        How values in this series were produced (1=Raw, ...). Supports raw vs.
-        corrected lab series for the same parameter at the same location.
-      foreign_key:
-        table: ProcessingKind
-        column: ProcessingKind_ID
 
     - name: Campaign_ID
       logical_type: integer
@@ -94,7 +95,7 @@ table:
       nullable: true
       description: "Free-text notes about this analysis series"
 
-  primary_key: [AnalysisSeries_ID]
+  primary_key: [Stream_ID]
   unique_constraints:
     - name: UQ_AnalysisSeries_Identity
-      columns: [Parameter_ID, SamplingPoint_ID, ValueKind_ID, ProcessingKind_ID]
+      columns: [Parameter_ID, SamplingPoint_ID, ValueKind_ID]

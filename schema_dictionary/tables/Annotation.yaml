@@ -4,38 +4,28 @@ table:
   schema: dbo
   description: >
     Human-authored annotations on time series data. Each annotation
-    anchors to a single measurement stream — either a sensor Channel
-    (Channel_ID NOT NULL, AnalysisSeries_ID NULL) or a lab AnalysisSeries
-    (AnalysisSeries_ID NOT NULL, Channel_ID NULL) — over a time range; an
-    XOR CHECK constraint (CK_Annotation_Source) enforces that exactly one
-    is set per row. Multiple annotations can overlap on the same range.
-    EndTime=NULL means either a point annotation or an ongoing situation.
+    anchors to a single measurement Stream via a non-NULL Stream_ID FK —
+    uniformly covering a sensor Channel or a lab AnalysisSeries (both are
+    Stream subtypes) — over a time range. Multiple annotations can overlap
+    on the same range. EndTime=NULL means either a point annotation or an
+    ongoing situation.
   columns:
     - name: Annotation_ID
       logical_type: integer
       nullable: false
       identity: true
       description: "Primary key, auto-incremented"
-    - name: Channel_ID
+    - name: Stream_ID
       logical_type: integer
-      nullable: true
+      nullable: false
       description: >
-        The sensor channel this annotation applies to. NULL for lab
-        annotations (which set AnalysisSeries_ID instead). Exactly one of
-        Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).
+        The measurement stream this annotation attaches to. A single anchor
+        for both sensor and lab data: it references any Stream (a sensor
+        Channel or a lab AnalysisSeries) with full parity, replacing the
+        former Channel_ID / AnalysisSeries_ID XOR arc.
       foreign_key:
-        table: Channel
-        column: Channel_ID
-    - name: AnalysisSeries_ID
-      logical_type: integer
-      nullable: true
-      description: >
-        The lab analysis series this annotation applies to. NULL for sensor
-        annotations (which set Channel_ID instead). Exactly one of
-        Channel_ID / AnalysisSeries_ID is non-NULL per row (XOR CHECK).
-      foreign_key:
-        table: AnalysisSeries
-        column: AnalysisSeries_ID
+        table: Stream
+        column: Stream_ID
     - name: AnnotationKind_ID
       logical_type: integer
       nullable: false
@@ -110,18 +100,11 @@ table:
         table: Observation
         column: Observation_ID
   primary_key: [Annotation_ID]
-  check_constraints:
-    - name: CK_Annotation_Source
-      expression: "(Channel_ID IS NOT NULL AND AnalysisSeries_ID IS NULL) OR (Channel_ID IS NULL AND AnalysisSeries_ID IS NOT NULL)"
   indexes:
-    - name: IX_Annotation_Channel_Time
-      columns: [Channel_ID, StartTime, EndTime]
+    - name: IX_Annotation_Stream_Time
+      columns: [Stream_ID, StartTime, EndTime]
       unique: false
-      description: "Optimizes interval overlap queries for sensor-anchored annotations"
-    - name: IX_Annotation_Series_Time
-      columns: [AnalysisSeries_ID, StartTime, EndTime]
-      unique: false
-      description: "Optimizes interval overlap queries for lab-anchored annotations"
+      description: "Optimizes interval overlap queries for stream-anchored annotations"
     - name: IX_Annotation_Author
       columns: [AuthorPerson_ID, CreatedDateTime]
       unique: false

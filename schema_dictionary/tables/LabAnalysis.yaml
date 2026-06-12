@@ -9,7 +9,9 @@ table:
     location / kind / processing / unit). The measurement itself lives in
     Observation (via LabAnalysis_ID) and is routed to a payload table
     (Value / ValueVector / ValueMatrix / ValueImage) so lab data is no longer
-    scalar-only.
+    scalar-only. Point-level review state (ReviewStatus_ID, ReviewedByPerson_ID,
+    ReviewDateTime) records the institutional approval of each individual
+    measurement, parallel to QualityCode_ID; AuditLog covers amendment history.
 
   columns:
     - name: LabAnalysis_ID
@@ -29,10 +31,10 @@ table:
     - name: AnalysisSeries_ID
       logical_type: integer
       nullable: false
-      description: "The measurement stream (parameter / location / kind / processing) this analysis belongs to"
+      description: "The measurement stream (parameter / location / value kind) this analysis belongs to"
       foreign_key:
         table: AnalysisSeries
-        column: AnalysisSeries_ID
+        column: Stream_ID
 
     - name: Sample_ID
       logical_type: integer
@@ -55,6 +57,31 @@ table:
       foreign_key:
         table: QualityCode
         column: QualityCode_ID
+
+    - name: ReviewStatus_ID
+      logical_type: integer
+      nullable: false
+      default: 1
+      description: >
+        Institutional approval state of this measurement. Defaults to Pending (1)
+        at ingest. Review is point-level (per LabAnalysis row), not series-level.
+      foreign_key:
+        table: ReviewStatus
+        column: ReviewStatus_ID
+
+    - name: ReviewedByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who approved/rejected this measurement. NULL = not yet reviewed."
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+    - name: ReviewDateTime
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: "When the review decision was recorded. NULL = not yet reviewed."
 
     - name: Laboratory_ID
       logical_type: integer

@@ -25,7 +25,7 @@ table:
       description: "The Channel whose port gating is recorded here"
       foreign_key:
         table: Channel
-        column: Channel_ID
+        column: Stream_ID
 
     - name: SignalInterfacePort_ID
       logical_type: integer

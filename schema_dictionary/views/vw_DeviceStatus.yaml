@@ -10,7 +10,7 @@ view:
   columns:
     - name: StatusChannelID
       sql_data_type: INT
-      description: "Channel_ID of the status time series"
+      description: "Stream_ID of the status time series (Channel PK is now Stream_ID)"
     - name: EquipmentID
       sql_data_type: INT
       description: "Equipment ID this status describes"
@@ -25,16 +25,16 @@ view:
       description: "Raw integer status code stored in the status Channel's Value rows"
   view_definition: |
     SELECT
-        statusC.[Channel_ID]       AS StatusChannelID,
+        statusC.[Stream_ID]        AS StatusChannelID,
         e.[Equipment_ID]           AS EquipmentID,
         e.[Identifier]             AS EquipmentName,
         o.[Timestamp],
         CAST(v.[Value] AS INT)     AS StatusCodeID
     FROM [dbo].[Value] v
     JOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]
-    JOIN [dbo].[Channel]      statusC ON statusC.[Channel_ID] = o.[Channel_ID]
+    JOIN [dbo].[Channel]      statusC ON statusC.[Stream_ID]  = o.[Channel_ID]
     JOIN [dbo].[ChannelKind]  role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]
-    JOIN [dbo].[Channel]      valueC  ON valueC.[Channel_ID]   = statusC.[ParentChannel_ID]
+    JOIN [dbo].[Channel]      valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]
     JOIN [dbo].[EquipmentWiringHistory] ewh
            ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]
           AND (

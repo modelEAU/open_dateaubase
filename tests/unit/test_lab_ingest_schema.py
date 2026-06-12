@@ -20,7 +20,6 @@ _MEASUREMENT = {
     "sampling_point_id": 1,
     "unit_id": 1,
     "value_kind_id": 1,
-    "processing_kind_id": 1,
     "series_name": "TSS@Effluent",
     "sample_id": 1,
     "value": 12.4,

@@ -33,7 +33,7 @@ view:
     WITH channel_wiring AS (
         SELECT
             o.[Observation_ID] AS ObservationID,
-            c.[Channel_ID]     AS ChannelID,
+            c.[Stream_ID]      AS ChannelID,
             o.[Timestamp]      AS Timestamp,
             c.[SignalInterface_ID],
             c.[SignalInterfacePort_ID],
@@ -46,7 +46,7 @@ view:
             ) AS rn,
             COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count
         FROM [dbo].[Observation] o
-        JOIN [dbo].[Channel] c                      ON c.[Channel_ID]           = o.[Channel_ID]
+        JOIN [dbo].[Channel] c                      ON c.[Stream_ID]            = o.[Channel_ID]
         LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
                                                     AND (
                                                          ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]

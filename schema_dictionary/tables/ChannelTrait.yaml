@@ -1,0 +1,43 @@
+_format_version: "1.0"
+table:
+  name: ChannelTrait
+  schema: dbo
+  description: >
+    Junction recording the accumulated set of operations applied to a Channel
+    across its full lineage (ADR 0005). Each row asserts one OperationKind is
+    part of a Channel's trait set; multiple traits can be simultaneously true
+    (AND semantics), unlike the former scalar processing-kind FK.
+
+    Population rule: computed once at Channel creation as the union of all input
+    channels' trait sets plus the producing step's OperationKind. Raw sensor
+    channels receive a single Unprocessed trait. The set is immutable —
+    Channels are immutable, so their trait set never changes.
+
+    This is a denormalized fast-filter cache. The lineage DAG is authoritative;
+    the trait set is a deterministic projection of it.
+
+  columns:
+    - name: Stream_ID
+      logical_type: integer
+      nullable: false
+      description: >
+        The Channel this trait belongs to (a Channel is identified by its
+        Stream_ID; the trait set belongs to the channel).
+      foreign_key:
+        table: Stream
+        column: Stream_ID
+
+    - name: OperationKind_ID
+      logical_type: integer
+      nullable: false
+      description: "An operation that is part of this Channel's accumulated trait set"
+      foreign_key:
+        table: OperationKind
+        column: OperationKind_ID
+
+  primary_key: [Stream_ID, OperationKind_ID]
+
+  indexes:
+    - name: IX_ChannelTrait_Stream
+      columns: [Stream_ID]
+      description: "Supports the 'traits of this channel' lookup: given a Stream_ID, find all its traits"

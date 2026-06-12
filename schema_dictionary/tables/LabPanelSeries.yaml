@@ -22,6 +22,6 @@ table:
       description: "References an analysis series to include in the panel"
       foreign_key:
         table: AnalysisSeries
-        column: AnalysisSeries_ID
+        column: Stream_ID
 
   primary_key: [LabPanel_ID, AnalysisSeries_ID]

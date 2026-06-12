@@ -14,7 +14,7 @@ table:
       description: "References the lab analysis series"
       foreign_key:
         table: AnalysisSeries
-        column: AnalysisSeries_ID
+        column: Stream_ID
     - name: AxisRole
       logical_type: integer
       nullable: false

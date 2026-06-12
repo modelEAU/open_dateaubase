@@ -25,7 +25,7 @@ table:
         observations (which set LabAnalysis_ID instead).
       foreign_key:
         table: Channel
-        column: Channel_ID
+        column: Stream_ID
     - name: LabAnalysis_ID
       logical_type: integer
       nullable: true

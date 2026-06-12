@@ -10,7 +10,7 @@ table:
       description: "References the measurement channel"
       foreign_key:
         table: Channel
-        column: Channel_ID
+        column: Stream_ID
     - name: AxisRole
       logical_type: integer
       nullable: false

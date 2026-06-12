@@ -1,0 +1,39 @@
+_format_version: "1.0"
+table:
+  name: OperationKind
+  schema: dbo
+  description: >
+    Controlled vocabulary of data-transformation operations. It serves two
+    roles: (1) it classifies a ProcessingStep — each step performs exactly one
+    OperationKind; and (2) the accumulated set of OperationKinds applied across
+    a Channel's full lineage forms that Channel's ChannelTrait set. Replaces the
+    retired processing-kind lookup (ADR 0005). IDs are stable and referenced by
+    application code.
+
+  columns:
+    - name: OperationKind_ID
+      logical_type: integer
+      nullable: false
+      description: "Surrogate primary key, manually assigned (non-identity)"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Operation name (e.g. 'OutlierRemoval', 'Smoothing')"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this operation does"
+
+  primary_key: [OperationKind_ID]
+
+  seed_data:
+    - { OperationKind_ID: 1, Name: "Unprocessed",     Description: "No operations applied — used for the raw channel trait only" }
+    - { OperationKind_ID: 2, Name: "OutlierRemoval",  Description: "Spikes and statistical outliers removed or flagged" }
+    - { OperationKind_ID: 3, Name: "DriftCorrection", Description: "Sensor drift or baseline shift corrected" }
+    - { OperationKind_ID: 4, Name: "FaultRemoval",    Description: "Instrument faults and implausible values removed" }
+    - { OperationKind_ID: 5, Name: "Smoothing",       Description: "Noise reduced by a smoothing or averaging algorithm" }
+    - { OperationKind_ID: 6, Name: "Interpolation",   Description: "Missing values filled by interpolation or reconstruction" }

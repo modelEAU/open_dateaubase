@@ -40,15 +40,15 @@ table:
       nullable: true
       description: "Version of the method or library used (e.g. 'meteaudata 0.5.1')"
 
-    - name: ProcessingKind_ID
+    - name: OperationKind_ID
       logical_type: integer
       nullable: true
       description: >
-        Category of processing applied (FK to ProcessingKind lookup).
-        Replaces the former free-text ProcessingType column.
+        Category of operation this step performs (FK to OperationKind lookup).
+        One step = one OperationKind.
       foreign_key:
-        table: ProcessingKind
-        column: ProcessingKind_ID
+        table: OperationKind
+        column: OperationKind_ID
 
     - name: MethodParameters
       logical_type: text

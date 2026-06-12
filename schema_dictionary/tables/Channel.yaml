@@ -4,11 +4,13 @@ table:
   schema: dbo
   description: >
     Invariant descriptor for a measurement stream (sensor channel).
-    Each row is identified by a unique
+    Channel is the sensor subtype of Stream (table-per-type inheritance):
+    it shares Stream_ID as its own primary key, which is simultaneously a
+    foreign key to Stream.Stream_ID. Each row is identified by a unique
     (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep)
     combination. A Channel is created once and never changes — equipment
     swaps and sensor relocations are tracked on the physical Equipment via
-    EquipmentWiringHistory and EquipmentLocationHistory, leaving Channel_ID
+    EquipmentWiringHistory and EquipmentLocationHistory, leaving Stream_ID
     stable. The specific SignalInterfacePort carrying the stream is
     optional at ingest time and can be backfilled later via
     ChannelPortHistory (and the denormalised SignalInterfacePort_ID below).
@@ -16,15 +18,21 @@ table:
 
     Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL.
     Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing
-    to the ProcessingStep that produced them. Processing kind is not stored on Channel —
-    query via ProducedByStep_ID → ProcessingStep.ProcessingKind_ID.
+    to the ProcessingStep that produced them. Accumulated processing operations applied to
+    a Channel live in the ChannelTrait junction (to be added in a later slice).
 
   columns:
-    - name: Channel_ID
+    - name: Stream_ID
       logical_type: integer
       nullable: false
-      identity: true
-      description: "Surrogate primary key"
+      identity: false
+      description: >
+        Shared primary key (table-per-type inheritance): both the primary
+        key of Channel and a foreign key to Stream.Stream_ID. Every Channel
+        owns exactly one Stream row carrying this same identifier.
+      foreign_key:
+        table: Stream
+        column: Stream_ID
 
     - name: SignalInterface_ID
       logical_type: integer
@@ -64,11 +72,11 @@ table:
       nullable: true
       description: >
         For sub-signal Channels (Status, Alarm, Uncertainty), points to the
-        parent Value Channel. NULL for primary value channels and unlinked
-        channels. Self-FK.
+        parent value Channel's Stream_ID. NULL for primary value channels and
+        unlinked channels. Self-FK.
       foreign_key:
         table: Channel
-        column: Channel_ID
+        column: Stream_ID
 
     - name: ChannelKind_ID
       logical_type: integer
@@ -148,4 +156,4 @@ table:
       unique: false
       description: "Supports sub-signal lookups (Status/Alarm/Uncertainty for a given value channel)"
 
-  primary_key: [Channel_ID]
+  primary_key: [Stream_ID]
