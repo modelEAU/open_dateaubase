@@ -700,7 +700,6 @@ def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
             parameter_id=item.parameter_id,
             sampling_point_id=item.sampling_point_id,
             value_kind_id=item.value_kind_id,
-            processing_kind_id=item.processing_kind_id,
             unit_id=item.unit_id,
             name=item.series_name,
         )
@@ -755,7 +754,6 @@ def ingest_lab_image(
     sampling_point_id: int = Form(...),
     unit_id: int = Form(...),
     series_name: str = Form(...),
-    processing_kind_id: int = Form(1),
     campaign_id: int | None = Form(None),
     description: str | None = Form(None),
     created_by_person_id: int | None = Form(None),
@@ -794,7 +792,6 @@ def ingest_lab_image(
         parameter_id=parameter_id,
         sampling_point_id=sampling_point_id,
         value_kind_id=4,
-        processing_kind_id=processing_kind_id,
         unit_id=unit_id,
         name=series_name,
     )
@@ -890,7 +887,7 @@ def ingest_processed(data: ProcessedIngestRequest, conn=Depends(get_db)):
         source_metadata_ids=data.source_channel_ids,
         method_name=data.processing.method_name,
         method_version=data.processing.method_version,
-        processing_kind_id=data.processing.processing_kind_id,
+        operation_kind_id=data.processing.operation_kind_id,
         method_parameters=data.processing.method_parameters,
         executed_at=data.processing.executed_at,
         executed_by_person_id=data.processing.executed_by_person_id,

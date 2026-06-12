@@ -71,7 +71,7 @@ def create_analysis_series(
 ):
     """Create a new AnalysisSeries. Raises 409 if duplicate identity exists.
 
-    The identity constraint is (Parameter_ID, SamplingPoint_ID, ValueKind_ID, ProcessingKind_ID).
+    The identity constraint is (Parameter_ID, SamplingPoint_ID, ValueKind_ID).
     """
     try:
         series_id = ingestion_repository.create_analysis_series(
@@ -80,7 +80,6 @@ def create_analysis_series(
             sampling_point_id=body.sampling_point_id,
             unit_id=body.unit_id,
             value_kind_id=body.value_kind_id,
-            processing_kind_id=body.processing_kind_id,
             name=body.name,
             campaign_id=body.campaign_id,
         )

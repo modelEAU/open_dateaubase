@@ -83,7 +83,7 @@ def get_annotation_kind_by_name(conn: pyodbc.Connection, name: str) -> dict | No
 def _row_to_annotation(row) -> dict:
     return {
         "annotation_id": row[0],
-        "channel_id": row[1],
+        "stream_id": row[1],
         "annotation_kind_id": row[2],
         "annotation_type_name": row[3],
         "color": row[4],
@@ -98,15 +98,18 @@ def _row_to_annotation(row) -> dict:
         "equipment_event_id": row[13],
         "created_datetime": row[14],
         "modified_datetime": row[15],
-        "analysis_series_id": row[16],
+        "stream_kind_id": row[16],
         "observation_id": row[17],
     }
 
 
+# The annotation anchors to a single Stream_ID. We join Stream so the read path
+# can surface StreamKind_ID — the discriminator (Sensor=Channel, Lab=Series) the
+# service uses to label the anchor. Column index 16 is the StreamKind_ID.
 _ANNOTATION_SELECT = """
     SELECT
         a.[Annotation_ID],
-        a.[Channel_ID],
+        a.[Stream_ID],
         at.[AnnotationKind_ID],
         at.[Name],
         at.[Color],
@@ -121,11 +124,13 @@ _ANNOTATION_SELECT = """
         a.[EquipmentEvent_ID],
         a.[CreatedDateTime],
         a.[ModifiedDateTime],
-        a.[AnalysisSeries_ID],
+        s.[StreamKind_ID],
         a.[Observation_ID]
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationKind] at
         ON at.[AnnotationKind_ID] = a.[AnnotationKind_ID]
+    JOIN [dbo].[Stream] s
+        ON s.[Stream_ID] = a.[Stream_ID]
     LEFT JOIN [dbo].[Person] p
         ON p.[Person_ID] = a.[AuthorPerson_ID]
     LEFT JOIN [dbo].[Campaign] c
@@ -134,55 +139,27 @@ _ANNOTATION_SELECT = """
 
 
 # ---------------------------------------------------------------------------
-# Query 1: Annotations overlapping a time range for a single Channel entry
+# Query 1: Annotations overlapping a time range for a single Stream
+#
+# A Stream is either a sensor Channel or a lab AnalysisSeries (both share
+# Stream_ID as their PK), so the former channel/series split collapses to one
+# query filtering on the single Stream_ID anchor.
 # ---------------------------------------------------------------------------
 
 
-def get_annotations_for_timeseries(
+def get_annotations_for_stream(
     conn: pyodbc.Connection,
-    channel_id: int,
+    stream_id: int,
     from_dt: datetime,
     to_dt: datetime,
     annotation_kind_id: int | None = None,
 ) -> list[dict]:
     where = (
-        "WHERE a.[Channel_ID] = ?"
+        "WHERE a.[Stream_ID] = ?"
         "  AND a.[StartTime] <= ?"
         "  AND (a.[EndTime] IS NULL OR a.[EndTime] >= ?)"
     )
-    params: list = [channel_id, to_dt, from_dt]
-
-    if annotation_kind_id is not None:
-        where += "  AND a.[AnnotationKind_ID] = ?"
-        params.append(annotation_kind_id)
-
-    cursor = conn.cursor()
-    cursor.execute(
-        _ANNOTATION_SELECT + where + " ORDER BY a.[StartTime], a.[AnnotationKind_ID]",
-        *params,
-    )
-    return [_row_to_annotation(row) for row in cursor.fetchall()]
-
-
-# ---------------------------------------------------------------------------
-# Query 1b: Annotations overlapping a time range for a single AnalysisSeries
-# (lab arm — mirrors get_annotations_for_timeseries)
-# ---------------------------------------------------------------------------
-
-
-def get_annotations_for_series(
-    conn: pyodbc.Connection,
-    series_id: int,
-    from_dt: datetime,
-    to_dt: datetime,
-    annotation_kind_id: int | None = None,
-) -> list[dict]:
-    where = (
-        "WHERE a.[AnalysisSeries_ID] = ?"
-        "  AND a.[StartTime] <= ?"
-        "  AND (a.[EndTime] IS NULL OR a.[EndTime] >= ?)"
-    )
-    params: list = [series_id, to_dt, from_dt]
+    params: list = [stream_id, to_dt, from_dt]
 
     if annotation_kind_id is not None:
         where += "  AND a.[AnnotationKind_ID] = ?"
@@ -204,10 +181,15 @@ def get_annotations_for_series(
 # Column list shared by both halves of the cross-stream feeds. The first 18
 # columns match the _row_to_annotation index contract (0..17); columns 18/19 are
 # the enrichment context (LocationName, ParameterName) the service bolts on.
+# Both halves now anchor on the single Stream_ID. The sensor half inner-joins
+# Channel on Stream_ID (which restricts it to sensor streams) to enrich with the
+# channel Parameter; the lab half inner-joins AnalysisSeries on Stream_ID (which
+# restricts it to lab streams) for SamplingPoint + Parameter. Column 16 carries
+# StreamKind_ID so the read path can label the anchor without re-deriving it.
 _FEED_SENSOR_HALF = """
     SELECT
         a.[Annotation_ID],
-        a.[Channel_ID],
+        a.[Stream_ID],
         at.[AnnotationKind_ID],
         at.[Name],
         at.[Color],
@@ -222,28 +204,30 @@ _FEED_SENSOR_HALF = """
         a.[EquipmentEvent_ID],
         a.[CreatedDateTime],
         a.[ModifiedDateTime],
-        a.[AnalysisSeries_ID],
+        s.[StreamKind_ID],
         a.[Observation_ID],
         CAST(NULL AS NVARCHAR(100)) AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationKind] at
         ON at.[AnnotationKind_ID] = a.[AnnotationKind_ID]
+    JOIN [dbo].[Stream] s
+        ON s.[Stream_ID] = a.[Stream_ID]
     JOIN [dbo].[Channel] ch
-        ON ch.[Channel_ID] = a.[Channel_ID]
+        ON ch.[Stream_ID] = a.[Stream_ID]
     LEFT JOIN [dbo].[Parameter] par
         ON par.[Parameter_ID] = ch.[Parameter_ID]
     LEFT JOIN [dbo].[Person] p
         ON p.[Person_ID] = a.[AuthorPerson_ID]
     LEFT JOIN [dbo].[Campaign] c
         ON c.[Campaign_ID] = a.[Campaign_ID]
-    WHERE a.[Channel_ID] IS NOT NULL
+    WHERE 1 = 1
 """
 
 _FEED_LAB_HALF = """
     SELECT
         a.[Annotation_ID],
-        a.[Channel_ID],
+        a.[Stream_ID],
         at.[AnnotationKind_ID],
         at.[Name],
         at.[Color],
@@ -258,15 +242,17 @@ _FEED_LAB_HALF = """
         a.[EquipmentEvent_ID],
         a.[CreatedDateTime],
         a.[ModifiedDateTime],
-        a.[AnalysisSeries_ID],
+        s.[StreamKind_ID],
         a.[Observation_ID],
         sp.[SamplingPoint]        AS LocationName,
         par.[Parameter]           AS ParameterName
     FROM [dbo].[Annotation] a
     JOIN [dbo].[AnnotationKind] at
         ON at.[AnnotationKind_ID] = a.[AnnotationKind_ID]
+    JOIN [dbo].[Stream] s
+        ON s.[Stream_ID] = a.[Stream_ID]
     JOIN [dbo].[AnalysisSeries] ser
-        ON ser.[AnalysisSeries_ID] = a.[AnalysisSeries_ID]
+        ON ser.[Stream_ID] = a.[Stream_ID]
     LEFT JOIN [dbo].[SamplingPoint] sp
         ON sp.[SamplingPoint_ID] = ser.[SamplingPoint_ID]
     LEFT JOIN [dbo].[Parameter] par
@@ -275,7 +261,7 @@ _FEED_LAB_HALF = """
         ON p.[Person_ID] = a.[AuthorPerson_ID]
     LEFT JOIN [dbo].[Campaign] c
         ON c.[Campaign_ID] = a.[Campaign_ID]
-    WHERE a.[AnalysisSeries_ID] IS NOT NULL
+    WHERE 1 = 1
 """
 
 
@@ -356,10 +342,10 @@ def get_recent_annotations(
 
 def list_annotations(
     conn: pyodbc.Connection,
-    channel_id: int | None = None,
+    stream_id: int | None = None,
 ) -> list[dict]:
-    where = " WHERE a.[Channel_ID] = ?" if channel_id is not None else ""
-    params: list = [channel_id] if channel_id is not None else []
+    where = " WHERE a.[Stream_ID] = ?" if stream_id is not None else ""
+    params: list = [stream_id] if stream_id is not None else []
     cursor = conn.cursor()
     cursor.execute(
         _ANNOTATION_SELECT + where + " ORDER BY a.[StartTime] DESC, a.[Annotation_ID]",
@@ -390,18 +376,18 @@ def get_annotation_by_id(conn: pyodbc.Connection, annotation_id: int) -> dict | 
 
 def get_observation_anchor(
     conn: pyodbc.Connection, observation_id: int
-) -> dict | None:
-    """Resolve an Observation to the stream it belongs to.
+) -> int | None:
+    """Resolve an Observation to the Stream_ID it belongs to.
 
-    Returns ``{"channel_id": int | None, "analysis_series_id": int | None}`` —
-    a sensor observation carries Channel_ID; a lab observation reaches its
-    AnalysisSeries via Observation → LabAnalysis. Returns None if the
-    Observation does not exist.
+    A sensor observation carries Channel_ID (= the channel's Stream_ID); a lab
+    observation reaches its AnalysisSeries via Observation → LabAnalysis (whose
+    AnalysisSeries_ID is the series' Stream_ID). Either way the result is a
+    single Stream_ID. Returns ``None`` if the Observation does not exist.
     """
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT o.[Channel_ID], la.[AnalysisSeries_ID]
+        SELECT COALESCE(o.[Channel_ID], la.[AnalysisSeries_ID]) AS Stream_ID
         FROM [dbo].[Observation] o
         LEFT JOIN [dbo].[LabAnalysis] la
             ON la.[LabAnalysis_ID] = o.[LabAnalysis_ID]
@@ -412,7 +398,7 @@ def get_observation_anchor(
     row = cursor.fetchone()
     if row is None:
         return None
-    return {"channel_id": row[0], "analysis_series_id": row[1]}
+    return row[0]
 
 
 # ---------------------------------------------------------------------------
@@ -423,8 +409,7 @@ def get_observation_anchor(
 def create_annotation(
     conn: pyodbc.Connection,
     *,
-    channel_id: int | None = None,
-    analysis_series_id: int | None = None,
+    stream_id: int,
     annotation_kind_id: int,
     start_time: datetime,
     end_time: datetime | None,
@@ -435,31 +420,26 @@ def create_annotation(
     comment: str | None,
     observation_id: int | None = None,
 ) -> dict:
-    """Insert an annotation anchored to exactly one of Channel / AnalysisSeries.
+    """Insert an annotation anchored to a single Stream.
 
-    Exactly one of ``channel_id`` / ``analysis_series_id`` must be set (the DB
-    CK_Annotation_Source XOR check enforces this; we guard it here too).
-    ``observation_id`` is the optional point pin (one exact Observation).
+    ``stream_id`` is the non-NULL Stream FK — a sensor Channel or a lab
+    AnalysisSeries (both share Stream_ID as their PK), replacing the former
+    Channel_ID / AnalysisSeries_ID XOR. ``observation_id`` is the optional
+    point pin (one exact Observation).
     """
-    if (channel_id is None) == (analysis_series_id is None):
-        raise ValueError(
-            "Exactly one of channel_id / analysis_series_id must be provided."
-        )
-
     cursor = conn.cursor()
     cursor.execute(
         """
         INSERT INTO [dbo].[Annotation] (
-            [Channel_ID], [AnalysisSeries_ID], [AnnotationKind_ID],
+            [Stream_ID], [AnnotationKind_ID],
             [StartTime], [EndTime],
             [AuthorPerson_ID], [Campaign_ID], [EquipmentEvent_ID],
             [Title], [Comment], [Observation_ID]
         )
         OUTPUT INSERTED.[Annotation_ID], INSERTED.[CreatedDateTime]
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        channel_id,
-        analysis_series_id,
+        stream_id,
         annotation_kind_id,
         start_time,
         end_time,
@@ -625,21 +605,21 @@ def delete_annotation_kind(conn: pyodbc.Connection, annotation_kind_id: int) -> 
 def create_equipment_move_annotations(
     conn: pyodbc.Connection,
     *,
-    channel_ids: list[int],
+    stream_ids: list[int],
     annotation_kind_id: int,
     title: str,
     comment: str,
     start_time: datetime,
 ) -> list[int]:
-    """Create annotations on multiple channels for an equipment move.
+    """Create annotations on multiple streams (channels) for an equipment move.
 
     Returns the list of created Annotation_IDs.
     """
     annotation_ids: list[int] = []
-    for channel_id in channel_ids:
+    for stream_id in stream_ids:
         result = create_annotation(
             conn,
-            channel_id=channel_id,
+            stream_id=stream_id,
             annotation_kind_id=annotation_kind_id,
             start_time=start_time,
             end_time=None,

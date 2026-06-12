@@ -49,7 +49,6 @@ def get_analysis_series_timeseries(
         "unit": series.get("unit_name"),
         "sampling_point": series.get("sampling_point_label"),
         "data_shape": _VALUE_KIND_NAMES.get(series.get("value_kind_id") or 1, "Scalar"),
-        "processing_degree": series.get("processing_kind_name"),
         "from_timestamp": min(timestamps) if timestamps else None,
         "to_timestamp": max(timestamps) if timestamps else None,
         "row_count": len(data),
@@ -87,7 +86,9 @@ def get_timeseries(
         "unit": channel.get("unit_name"),
         "data_shape": channel.get("value_kind_name") or "Scalar",
         "provenance": channel.get("data_provenance_kind_name"),
-        "processing_degree": channel.get("processing_kind_name"),
+        # ADR 0005: the retired ProcessingKind scalar is replaced by the
+        # accumulated ChannelTrait set (OperationKind names), keyed on Stream_ID.
+        "traits": value_repository.get_channel_trait_names(conn, channel_id),
         "campaign": None,
         "from_timestamp": min(timestamps) if timestamps else None,
         "to_timestamp": max(timestamps) if timestamps else None,
@@ -133,17 +134,17 @@ def get_full_context(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT c.[Channel_ID], c.[ProducedByStep_ID],
+        SELECT c.[Stream_ID], c.[ProducedByStep_ID],
                COUNT(v.[Timestamp]) AS ValueCount
         FROM [dbo].[Channel] c
         LEFT JOIN [dbo].[Value] v
-            ON v.[Channel_ID] = c.[Channel_ID]
+            ON v.[Channel_ID] = c.[Stream_ID]
            AND (? IS NULL OR v.[Timestamp] >= ?)
            AND (? IS NULL OR v.[Timestamp] <= ?)
         WHERE c.[Equipment_ID] = ?
           AND c.[Parameter_ID] = ?
-        GROUP BY c.[Channel_ID], c.[ProducedByStep_ID]
-        ORDER BY c.[ProducedByStep_ID], c.[Channel_ID]
+        GROUP BY c.[Stream_ID], c.[ProducedByStep_ID]
+        ORDER BY c.[ProducedByStep_ID], c.[Stream_ID]
         """,
         from_dt,
         from_dt,

@@ -14,6 +14,10 @@ from ..repositories import (
 )
 from ..schemas.annotations import AnnotationCreate, AnnotationUpdate
 
+# StreamKind discriminator seed id for Lab (AnalysisSeries). Anything else is a
+# sensor Channel — the read path only needs to single out the lab subtype.
+_STREAM_KIND_LAB = 2
+
 
 def _resolve_annotation_type(conn: pyodbc.Connection, annotation_type: str | int) -> dict:
     """Resolve annotation_type (name or ID) to a full AnnotationKind dict. Raises 404 if not found."""
@@ -33,40 +37,29 @@ def _resolve_annotation_type(conn: pyodbc.Connection, annotation_type: str | int
 def _assert_pin_in_anchor(
     conn: pyodbc.Connection,
     observation_id: int,
-    anchor: dict,
+    stream_id: int,
 ) -> None:
-    """Verify a pinned Observation belongs to the anchored stream.
+    """Verify a pinned Observation belongs to the anchored Stream.
 
-    ``anchor`` is ``{"kind": "channel" | "series", "id": int}``. For a series
-    anchor the pin must resolve via Observation → LabAnalysis → AnalysisSeries;
-    for a channel anchor Observation.Channel_ID must equal the anchor. Raises
-    HTTPException 422 on a missing Observation or a cross-stream mismatch.
+    The Observation resolves to a single Stream_ID (sensor via Channel, lab via
+    LabAnalysis → AnalysisSeries); it must equal the annotation's ``stream_id``.
+    Raises HTTPException 422 on a missing Observation or a cross-stream mismatch.
     """
-    obs = annotation_repository.get_observation_anchor(conn, observation_id)
-    if obs is None:
+    obs_stream_id = annotation_repository.get_observation_anchor(conn, observation_id)
+    if obs_stream_id is None:
         raise HTTPException(
             status_code=422,
             detail=f"Observation {observation_id} not found.",
         )
 
-    if anchor["kind"] == "series":
-        if obs["analysis_series_id"] != anchor["id"]:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    f"Observation {observation_id} does not belong to "
-                    f"AnalysisSeries {anchor['id']}."
-                ),
-            )
-    else:  # channel
-        if obs["channel_id"] != anchor["id"]:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    f"Observation {observation_id} does not belong to "
-                    f"Channel {anchor['id']}."
-                ),
-            )
+    if obs_stream_id != stream_id:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Observation {observation_id} does not belong to "
+                f"Stream {stream_id}."
+            ),
+        )
 
 
 def _build_annotation_response(row: dict) -> dict:
@@ -77,10 +70,11 @@ def _build_annotation_response(row: dict) -> dict:
             "person_id": row["author_person_id"],
             "name": row.get("author_name") or "",
         }
-    if row.get("analysis_series_id") is not None:
-        anchor = {"kind": "series", "id": row["analysis_series_id"]}
-    else:
-        anchor = {"kind": "channel", "id": row["channel_id"]}
+    # The annotation anchors to a single Stream_ID; StreamKind_ID labels the
+    # subtype (Sensor=Channel→"channel", Lab=AnalysisSeries→"series"). The anchor
+    # id is the Stream_ID, which is also the channel/series id (shared PK).
+    kind = "series" if row.get("stream_kind_id") == _STREAM_KIND_LAB else "channel"
+    anchor = {"kind": kind, "id": row["stream_id"]}
     return {
         "annotation_id": row["annotation_id"],
         "anchor": anchor,
@@ -134,7 +128,7 @@ def get_annotations_for_timeseries(
         at = _resolve_annotation_type(conn, type_filter)
         annotation_kind_id = at["annotation_kind_id"]
 
-    rows = annotation_repository.get_annotations_for_timeseries(
+    rows = annotation_repository.get_annotations_for_stream(
         conn, channel_id, from_dt, to_dt, annotation_kind_id
     )
     return {
@@ -156,13 +150,14 @@ def create_annotation(
 
     at = _resolve_annotation_type(conn, data.annotation_type)
 
+    # A channel's identity is its Stream_ID, so channel_id is the stream_id.
     anchor = {"kind": "channel", "id": channel_id}
     if data.observation_id is not None:
-        _assert_pin_in_anchor(conn, data.observation_id, anchor)
+        _assert_pin_in_anchor(conn, data.observation_id, channel_id)
 
     created = annotation_repository.create_annotation(
         conn,
-        channel_id=channel_id,
+        stream_id=channel_id,
         annotation_kind_id=at["annotation_kind_id"],
         start_time=data.start_time,
         end_time=data.end_time,
@@ -214,7 +209,7 @@ def get_annotations_for_series(
         at = _resolve_annotation_type(conn, type_filter)
         annotation_kind_id = at["annotation_kind_id"]
 
-    rows = annotation_repository.get_annotations_for_series(
+    rows = annotation_repository.get_annotations_for_stream(
         conn, series_id, from_dt, to_dt, annotation_kind_id
     )
     return {
@@ -234,13 +229,14 @@ def create_annotation_for_series(
 
     at = _resolve_annotation_type(conn, data.annotation_type)
 
+    # An AnalysisSeries' identity is its Stream_ID, so series_id is the stream_id.
     anchor = {"kind": "series", "id": series_id}
     if data.observation_id is not None:
-        _assert_pin_in_anchor(conn, data.observation_id, anchor)
+        _assert_pin_in_anchor(conn, data.observation_id, series_id)
 
     created = annotation_repository.create_annotation(
         conn,
-        analysis_series_id=series_id,
+        stream_id=series_id,
         annotation_kind_id=at["annotation_kind_id"],
         start_time=data.start_time,
         end_time=data.end_time,

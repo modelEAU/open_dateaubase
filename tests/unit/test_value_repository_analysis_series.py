@@ -100,6 +100,46 @@ class TestSensorReadUnchanged:
         )
 
 
+class TestOperationalStatusJoinUsesStreamId:
+    """ADR 0004: Channel's PK is now Stream_ID; the Channel_ID column is gone
+    from the Channel table. The operational_only status-channel subquery must
+    join the status Channel on statusC.[Stream_ID], not the nonexistent
+    statusC.[Channel_ID]. Observation child columns (o.[Channel_ID],
+    so.[Channel_ID], statusC.[ParentChannel_ID]) keep their names."""
+
+    def test_status_subquery_joins_channel_on_stream_id(self):
+        conn, cursor = _conn_returning([])
+        vr.get_scalar_values(conn, 5, None, None, operational_only=True)
+        sql = _sql(cursor)
+        # Status Channel is reached via its PK, now Stream_ID.
+        assert "statusC.[Stream_ID]" in sql
+        # The retired Channel.Channel_ID parent PK must not be referenced.
+        assert "statusC.[Channel_ID]" not in sql
+        # Observation/child columns are unchanged.
+        assert "o.[Channel_ID] = ?" in sql
+        assert "statusC.[ParentChannel_ID] = o.[Channel_ID]" in sql
+
+
+class TestChannelTraitNames:
+    """ADR 0005: the retired processing-kind scalar is replaced by the
+    accumulated ChannelTrait set, read as OperationKind names keyed on
+    Stream_ID (a Channel's PK is now Stream_ID)."""
+
+    def test_returns_operation_kind_names_joined_on_stream_id(self):
+        conn, cursor = _conn_returning([("OutlierRemoval",), ("Smoothing",)])
+        out = vr.get_channel_trait_names(conn, 12)
+        sql = _sql(cursor)
+        assert "[dbo].[ChannelTrait]" in sql
+        assert "[dbo].[OperationKind]" in sql
+        assert "ct.[Stream_ID] = ?" in sql
+        assert cursor.execute.call_args_list[0].args[1] == 12
+        assert out == ["OutlierRemoval", "Smoothing"]
+
+    def test_empty_trait_set_returns_empty_list(self):
+        conn, cursor = _conn_returning([])
+        assert vr.get_channel_trait_names(conn, 99) == []
+
+
 class TestVectorMatrixImageLabRead:
     def test_vector_joins_labanalysis(self):
         conn, cursor = _conn_returning([])

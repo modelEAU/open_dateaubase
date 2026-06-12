@@ -43,6 +43,29 @@ def _utc_naive(dt: datetime) -> datetime:
 # ---------------------------------------------------------------------------
 
 
+def get_channel_trait_names(conn: pyodbc.Connection, channel_id: int) -> list[str]:
+    """Return a channel's accumulated ChannelTrait set as OperationKind names.
+
+    ADR 0005 retired the single ProcessingKind string in favour of the
+    ChannelTrait set (the union of operations applied across a channel's
+    lineage). Keyed on Stream_ID — a Channel's PK is now Stream_ID — so the
+    channel_id passed here is the channel's Stream_ID value. Returns [] for a
+    channel with no traits (e.g. a lab AnalysisSeries, which carries none).
+    Mirrors meteaudata_bridge.load_signal_context's trait_names query.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT ok.[Name]
+        FROM [dbo].[ChannelTrait] ct
+        JOIN [dbo].[OperationKind] ok ON ok.[OperationKind_ID] = ct.[OperationKind_ID]
+        WHERE ct.[Stream_ID] = ?
+        """,
+        channel_id,
+    )
+    return [row[0] for row in cursor.fetchall()]
+
+
 def _channel_source(channel_id: int) -> tuple[str, str, list]:
     return "", "o.[Channel_ID] = ?", [channel_id]
 
@@ -81,7 +104,7 @@ def _scalar_values_by_source(
             SELECT 1
             FROM   dbo.Channel       statusC
             JOIN   dbo.ChannelKind   cr  ON cr.[ChannelKind_ID]  = statusC.[ChannelKind_ID]
-            JOIN   dbo.Observation   so  ON so.[Channel_ID]     = statusC.[Channel_ID]
+            JOIN   dbo.Observation   so  ON so.[Channel_ID]     = statusC.[Stream_ID]
             JOIN   dbo.Value         sv  ON sv.[Observation_ID] = so.[Observation_ID]
             WHERE  statusC.[ParentChannel_ID] = o.[Channel_ID]
               AND  cr.[Name] = N'Status'
@@ -91,7 +114,7 @@ def _scalar_values_by_source(
             SELECT 1
             FROM   dbo.Channel       statusC
             JOIN   dbo.ChannelKind   cr  ON cr.[ChannelKind_ID]  = statusC.[ChannelKind_ID]
-            JOIN   dbo.Observation   so  ON so.[Channel_ID]     = statusC.[Channel_ID]
+            JOIN   dbo.Observation   so  ON so.[Channel_ID]     = statusC.[Stream_ID]
             JOIN   dbo.Value         sv  ON sv.[Observation_ID] = so.[Observation_ID]
             JOIN   dbo.QualityCode   qc  ON qc.[QualityCode_ID] = CAST(sv.[Value] AS INT)
             WHERE  statusC.[ParentChannel_ID] = o.[Channel_ID]

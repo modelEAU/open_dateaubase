@@ -24,7 +24,6 @@ def _measurement(sample_id: int = 7) -> LabMeasurementItem:
         sampling_point_id=1,
         unit_id=1,
         value_kind_id=1,
-        processing_kind_id=1,
         series_name="TSS@Effluent",
         sample_id=sample_id,
         value=12.4,

@@ -9,6 +9,68 @@ import pyodbc
 
 logger = logging.getLogger(__name__)
 
+# Stream subtype discriminators (StreamKind lookup seed rows).
+_STREAM_KIND_SENSOR = 1  # "Sensor" → Channel
+_STREAM_KIND_LAB = 2  # "Lab" → AnalysisSeries
+# OperationKind seed rows.
+_OPERATION_KIND_UNPROCESSED = 1  # "Unprocessed" — raw channel trait
+
+
+def _insert_stream(cursor: pyodbc.Cursor, stream_kind_id: int) -> int:
+    """Insert a Stream supertype row and return its new Stream_ID.
+
+    Every Channel (and AnalysisSeries) is identified by a shared Stream_ID:
+    a Stream row is inserted first to mint the ID, then the subtype row is
+    inserted with that Stream_ID as its primary key (ADR 0004).
+    """
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[Stream] ([StreamKind_ID])
+        OUTPUT INSERTED.[Stream_ID]
+        VALUES (?)
+        """,
+        stream_kind_id,
+    )
+    return int(cursor.fetchone()[0])
+
+
+def _write_channel_traits(
+    cursor: pyodbc.Cursor, stream_id: int, operation_kind_ids: set[int]
+) -> None:
+    """Insert one ChannelTrait(Stream_ID, OperationKind_ID) row per distinct id.
+
+    The trait set is the denormalized, immutable cache of operations applied to
+    a Channel across its lineage (ADR 0005). Idempotent per (Stream_ID,
+    OperationKind_ID) via the NOT EXISTS guard.
+    """
+    for operation_kind_id in sorted(operation_kind_ids):
+        cursor.execute(
+            """
+            IF NOT EXISTS (
+                SELECT 1 FROM [dbo].[ChannelTrait]
+                WHERE [Stream_ID] = ? AND [OperationKind_ID] = ?
+            )
+            INSERT INTO [dbo].[ChannelTrait] ([Stream_ID], [OperationKind_ID])
+            VALUES (?, ?)
+            """,
+            stream_id,
+            operation_kind_id,
+            stream_id,
+            operation_kind_id,
+        )
+
+
+def _get_channel_trait_set(cursor: pyodbc.Cursor, stream_id: int) -> set[int]:
+    """Return the set of OperationKind_IDs in a Channel's ChannelTrait set."""
+    cursor.execute(
+        """
+        SELECT [OperationKind_ID] FROM [dbo].[ChannelTrait]
+        WHERE [Stream_ID] = ?
+        """,
+        stream_id,
+    )
+    return {int(r[0]) for r in cursor.fetchall()}
+
 
 def find_or_create_sensor_metadata(
     conn: pyodbc.Connection,
@@ -22,49 +84,22 @@ def find_or_create_sensor_metadata(
     parent_channel_id: int | None = None,
     channel_kind_id: int = 1,
 ) -> int:
-    """Find or create a Channel row for a raw sensor stream. Returns Channel_ID.
+    """Find or create a Channel row for a raw sensor stream. Returns Stream_ID.
 
     Uses the UNIQUE sensor stream constraint:
     (SignalInterface_ID, TagName, Parameter_ID, DataProvenanceKind_ID, ProducedByStep_ID IS NULL).
 
-    On first ingest, a new row is created with Unit_ID stored on the Channel.
-    On subsequent calls for the same stream, the existing Channel_ID is returned.
+    On first ingest, a Stream row (StreamKind=Sensor) is inserted to mint the
+    Stream_ID, then a Channel row is created with that Stream_ID as its primary
+    key and Unit_ID stored, followed by a single Unprocessed ChannelTrait.
+    On subsequent calls for the same stream, the existing Stream_ID is returned.
     A warning is logged if the caller provides a unit_id that differs from the
     stored Channel.Unit_ID — the stored value is authoritative.
     """
     cursor = conn.cursor()
     cursor.execute(
         """
-        IF NOT EXISTS (
-            SELECT 1 FROM [dbo].[Channel]
-            WHERE [SignalInterface_ID] = ?
-              AND [TagName] = ?
-              AND [Parameter_ID] = ?
-              AND [DataProvenanceKind_ID] = ?
-              AND [ProducedByStep_ID] IS NULL
-        )
-        INSERT INTO [dbo].[Channel]
-            ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID],
-             [ValueKind_ID], [Unit_ID], [ParentChannel_ID], [ChannelKind_ID])
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        signal_interface_id,
-        tag_name,
-        parameter_id,
-        data_provenance_id,
-        signal_interface_id,
-        tag_name,
-        parameter_id,
-        data_provenance_id,
-        value_kind_id,
-        unit_id,
-        parent_channel_id,
-        channel_kind_id,
-    )
-    conn.commit()
-    cursor.execute(
-        """
-        SELECT [Channel_ID], [Unit_ID] FROM [dbo].[Channel]
+        SELECT [Stream_ID], [Unit_ID] FROM [dbo].[Channel]
         WHERE [SignalInterface_ID] = ?
           AND [TagName] = ?
           AND [Parameter_ID] = ?
@@ -77,16 +112,44 @@ def find_or_create_sensor_metadata(
         data_provenance_id,
     )
     row = cursor.fetchone()
-    channel_id, stored_unit_id = row[0], row[1]
-    if unit_id is not None and stored_unit_id is not None and unit_id != stored_unit_id:
-        logger.warning(
-            "Unit mismatch for Channel %d: stored Unit_ID=%d but caller provided Unit_ID=%d. "
-            "The stored value is authoritative — check your import config.",
-            channel_id,
-            stored_unit_id,
-            unit_id,
-        )
-    return channel_id
+    if row is not None:
+        stream_id, stored_unit_id = int(row[0]), row[1]
+        if (
+            unit_id is not None
+            and stored_unit_id is not None
+            and unit_id != stored_unit_id
+        ):
+            logger.warning(
+                "Unit mismatch for Channel %d: stored Unit_ID=%d but caller provided Unit_ID=%d. "
+                "The stored value is authoritative — check your import config.",
+                stream_id,
+                stored_unit_id,
+                unit_id,
+            )
+        return stream_id
+
+    stream_id = _insert_stream(cursor, _STREAM_KIND_SENSOR)
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[Channel]
+            ([Stream_ID], [SignalInterface_ID], [TagName], [Parameter_ID],
+             [DataProvenanceKind_ID], [ValueKind_ID], [Unit_ID],
+             [ParentChannel_ID], [ChannelKind_ID])
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        stream_id,
+        signal_interface_id,
+        tag_name,
+        parameter_id,
+        data_provenance_id,
+        value_kind_id,
+        unit_id,
+        parent_channel_id,
+        channel_kind_id,
+    )
+    _write_channel_traits(cursor, stream_id, {_OPERATION_KIND_UNPROCESSED})
+    conn.commit()
+    return stream_id
 
 
 def find_or_create_derived_metadata(
@@ -95,11 +158,18 @@ def find_or_create_derived_metadata(
     source_channel_id: int,
     produced_by_step_id: int | None,
 ) -> int:
-    """Find or create a Channel row for a processed output stream. Returns Channel_ID.
+    """Find or create a Channel row for a processed output stream. Returns Stream_ID.
 
-    Inherits TagName and Parameter_ID from the source channel. SignalInterface_ID is
-    set to NULL (derived channels have no physical source). DataProvenanceKind_ID is
-    set to 7 (Derived). ProducedByStep_ID distinguishes independently-processed variants.
+    ``source_channel_id`` is a Stream_ID identifying the input Channel. Inherits
+    TagName and Parameter_ID from the source channel. SignalInterface_ID is set to
+    NULL (derived channels have no physical source). DataProvenanceKind_ID is set
+    to 7 (Derived). ProducedByStep_ID distinguishes independently-processed
+    variants.
+
+    On creation, a Stream row (StreamKind=Sensor) is inserted to mint the
+    Stream_ID, then the Channel row is inserted with that Stream_ID as its PK, and
+    the ChannelTrait set is written as the union of the source channel's existing
+    traits and the producing ProcessingStep's OperationKind (ADR 0005).
     """
     from fastapi import HTTPException
 
@@ -108,7 +178,7 @@ def find_or_create_derived_metadata(
         """
         SELECT [TagName], [Parameter_ID], [ValueKind_ID], [Unit_ID]
         FROM [dbo].[Channel]
-        WHERE [Channel_ID] = ?
+        WHERE [Stream_ID] = ?
         """,
         source_channel_id,
     )
@@ -131,35 +201,7 @@ def find_or_create_derived_metadata(
 
     cursor.execute(
         f"""
-        IF NOT EXISTS (
-            SELECT 1 FROM [dbo].[Channel]
-            WHERE [SignalInterface_ID] IS NULL
-              AND [TagName] = ?
-              AND [Parameter_ID] = ?
-              AND [DataProvenanceKind_ID] = ?
-              AND {step_filter}
-        )
-        INSERT INTO [dbo].[Channel]
-            ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID],
-             [ProducedByStep_ID], [ValueKind_ID], [Unit_ID], [ParentChannel_ID])
-        VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        tag_name,
-        parameter_id,
-        _DERIVED_PROVENANCE_KIND_ID,
-        *step_params,
-        tag_name,
-        parameter_id,
-        _DERIVED_PROVENANCE_KIND_ID,
-        produced_by_step_id,
-        value_kind_id or 1,
-        unit_id,
-        source_channel_id,
-    )
-    conn.commit()
-    cursor.execute(
-        f"""
-        SELECT [Channel_ID] FROM [dbo].[Channel]
+        SELECT [Stream_ID] FROM [dbo].[Channel]
         WHERE [SignalInterface_ID] IS NULL
           AND [TagName] = ?
           AND [Parameter_ID] = ?
@@ -171,9 +213,46 @@ def find_or_create_derived_metadata(
         _DERIVED_PROVENANCE_KIND_ID,
         *step_params,
     )
-    result = cursor.fetchone()
-    assert result is not None
-    return result[0]
+    existing = cursor.fetchone()
+    if existing is not None:
+        return int(existing[0])
+
+    stream_id = _insert_stream(cursor, _STREAM_KIND_SENSOR)
+    cursor.execute(
+        """
+        INSERT INTO [dbo].[Channel]
+            ([Stream_ID], [SignalInterface_ID], [TagName], [Parameter_ID],
+             [DataProvenanceKind_ID], [ProducedByStep_ID], [ValueKind_ID],
+             [Unit_ID], [ParentChannel_ID])
+        VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        stream_id,
+        tag_name,
+        parameter_id,
+        _DERIVED_PROVENANCE_KIND_ID,
+        produced_by_step_id,
+        value_kind_id or 1,
+        unit_id,
+        source_channel_id,
+    )
+
+    # Trait set = union(source channel traits) ∪ {producing step's OperationKind}.
+    trait_ids = _get_channel_trait_set(cursor, source_channel_id)
+    if produced_by_step_id is not None:
+        cursor.execute(
+            """
+            SELECT [OperationKind_ID] FROM [dbo].[ProcessingStep]
+            WHERE [ProcessingStep_ID] = ?
+            """,
+            produced_by_step_id,
+        )
+        step_row = cursor.fetchone()
+        if step_row is not None and step_row[0] is not None:
+            trait_ids.add(int(step_row[0]))
+    _write_channel_traits(cursor, stream_id, trait_ids)
+
+    conn.commit()
+    return stream_id
 
 
 def find_or_create_analysis_series(
@@ -182,58 +261,57 @@ def find_or_create_analysis_series(
     parameter_id: int,
     sampling_point_id: int,
     value_kind_id: int,
-    processing_kind_id: int,
     unit_id: int,
     name: str,
     campaign_id: int | None = None,
 ) -> int:
-    """Find or create an AnalysisSeries row. Returns AnalysisSeries_ID.
+    """Find or create an AnalysisSeries row. Returns Stream_ID.
 
     Uses the UNIQUE identity constraint:
-    UQ_AnalysisSeries_Identity (Parameter_ID, SamplingPoint_ID, ValueKind_ID, ProcessingKind_ID).
+    UQ_AnalysisSeries_Identity (Parameter_ID, SamplingPoint_ID, ValueKind_ID).
 
-    On first measurement, a new row is created with Unit_ID and Name stored.
-    On subsequent calls for the same series identity, the existing row is returned
-    and Unit_ID / Name are NOT updated (immutable for the lifetime of the series).
+    AnalysisSeries is the Lab subtype of Stream (table-per-type inheritance): its
+    primary key is a shared Stream_ID. On first measurement, a Stream row
+    (StreamKind=Lab) is inserted to mint the Stream_ID, then an AnalysisSeries row
+    is created with that Stream_ID as its PK and Unit_ID / Name stored. On
+    subsequent calls for the same series identity, the existing Stream_ID is
+    returned and Unit_ID / Name are NOT updated (immutable for the series).
     """
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [AnalysisSeries_ID]
+        SELECT [Stream_ID]
         FROM [dbo].[AnalysisSeries]
         WHERE [Parameter_ID] = ?
           AND [SamplingPoint_ID] = ?
           AND [ValueKind_ID] = ?
-          AND [ProcessingKind_ID] = ?
         """,
         parameter_id,
         sampling_point_id,
         value_kind_id,
-        processing_kind_id,
     )
     row = cursor.fetchone()
     if row is not None:
         return int(row[0])
 
+    stream_id = _insert_stream(cursor, _STREAM_KIND_LAB)
     cursor.execute(
         """
         INSERT INTO [dbo].[AnalysisSeries]
-            ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID],
-             [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-        OUTPUT INSERTED.[AnalysisSeries_ID]
+            ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID],
+             [ValueKind_ID], [Unit_ID], [Campaign_ID])
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
+        stream_id,
         name,
         parameter_id,
         sampling_point_id,
         value_kind_id,
         unit_id,
-        processing_kind_id,
         campaign_id,
     )
-    new_id: int = cursor.fetchone()[0]
     conn.commit()
-    return new_id
+    return stream_id
 
 
 def lab_experiment_exists(conn: pyodbc.Connection, experiment_id: int) -> bool:
@@ -656,7 +734,7 @@ def get_lab_experiment_series(
     cursor.execute(
         """
         SELECT DISTINCT
-            as_.[AnalysisSeries_ID],
+            as_.[Stream_ID],
             as_.[Name],
             as_.[Parameter_ID],
             p.[Parameter] AS [ParameterName],
@@ -664,15 +742,12 @@ def get_lab_experiment_series(
             COALESCE(sp.[SamplingPoint], 'Point ' + CAST(sp.[SamplingPoint_ID] AS NVARCHAR)) AS [SamplingPointLabel],
             as_.[Unit_ID],
             u.[Unit],
-            as_.[ValueKind_ID],
-            as_.[ProcessingKind_ID],
-            pk.[Name] AS [ProcessingKindName]
+            as_.[ValueKind_ID]
         FROM [dbo].[LabAnalysis] la
-        JOIN [dbo].[AnalysisSeries] as_ ON la.[AnalysisSeries_ID] = as_.[AnalysisSeries_ID]
+        JOIN [dbo].[AnalysisSeries] as_ ON la.[AnalysisSeries_ID] = as_.[Stream_ID]
         JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
         JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
         JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
-        JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
         WHERE la.[LabExperiment_ID] = ?
         """,
         lab_experiment_id,
@@ -688,8 +763,6 @@ def get_lab_experiment_series(
             "unit_id": r[6],
             "unit_name": r[7],
             "value_kind_id": r[8],
-            "processing_kind_id": r[9],
-            "processing_kind_name": r[10],
         }
         for r in cursor.fetchall()
     ]
@@ -701,7 +774,7 @@ def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor.execute(
         """
         SELECT
-            as_.[AnalysisSeries_ID],
+            as_.[Stream_ID],
             as_.[Name],
             as_.[Parameter_ID],
             p.[Parameter] AS [ParameterName],
@@ -710,15 +783,12 @@ def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
             as_.[Unit_ID],
             u.[Unit],
             as_.[ValueKind_ID],
-            as_.[ProcessingKind_ID],
-            pk.[Name] AS [ProcessingKindName],
             as_.[Campaign_ID],
             c.[Name] AS [CampaignName]
         FROM [dbo].[AnalysisSeries] as_
         JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
         JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
         JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
-        JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
         LEFT JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = as_.[Campaign_ID]
         ORDER BY as_.[Name]
         """
@@ -734,10 +804,8 @@ def list_analysis_series_lookup(conn: pyodbc.Connection) -> list[dict]:
             "unit_id": r[6],
             "unit_name": r[7],
             "value_kind_id": r[8],
-            "processing_kind_id": r[9],
-            "processing_kind_name": r[10],
-            "campaign_id": r[11],
-            "campaign_name": r[12],
+            "campaign_id": r[9],
+            "campaign_name": r[10],
         }
         for r in cursor.fetchall()
     ]
@@ -751,7 +819,7 @@ def get_analysis_series_by_id(
     cursor.execute(
         """
         SELECT
-            as_.[AnalysisSeries_ID],
+            as_.[Stream_ID],
             as_.[Name],
             as_.[Parameter_ID],
             p.[Parameter] AS [ParameterName],
@@ -760,15 +828,12 @@ def get_analysis_series_by_id(
             as_.[Unit_ID],
             u.[Unit],
             as_.[ValueKind_ID],
-            as_.[ProcessingKind_ID],
-            pk.[Name] AS [ProcessingKindName],
             as_.[Campaign_ID]
         FROM [dbo].[AnalysisSeries] as_
         JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
         JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
         JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
-        JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
-        WHERE as_.[AnalysisSeries_ID] = ?
+        WHERE as_.[Stream_ID] = ?
         """,
         analysis_series_id,
     )
@@ -785,9 +850,7 @@ def get_analysis_series_by_id(
         "unit_id": r[6],
         "unit_name": r[7],
         "value_kind_id": r[8],
-        "processing_kind_id": r[9],
-        "processing_kind_name": r[10],
-        "campaign_id": r[11],
+        "campaign_id": r[9],
     }
 
 
@@ -798,56 +861,54 @@ def create_analysis_series(
     sampling_point_id: int,
     unit_id: int,
     value_kind_id: int = 1,
-    processing_kind_id: int = 1,
     name: str,
     campaign_id: int | None = None,
 ) -> int:
-    """Insert an AnalysisSeries row. Returns AnalysisSeries_ID.
+    """Insert an AnalysisSeries row. Returns Stream_ID.
 
-    Raises ValueError if a series with the same identity constraint
-    (Parameter_ID, SamplingPoint_ID, ValueKind_ID, ProcessingKind_ID) already exists.
+    AnalysisSeries is the Lab subtype of Stream: a Stream row (StreamKind=Lab) is
+    inserted to mint the Stream_ID, then the AnalysisSeries row is created with
+    that Stream_ID as its PK. Raises ValueError if a series with the same identity
+    constraint (Parameter_ID, SamplingPoint_ID, ValueKind_ID) already exists.
     """
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [AnalysisSeries_ID]
+        SELECT [Stream_ID]
         FROM [dbo].[AnalysisSeries]
         WHERE [Parameter_ID] = ?
           AND [SamplingPoint_ID] = ?
           AND [ValueKind_ID] = ?
-          AND [ProcessingKind_ID] = ?
         """,
         parameter_id,
         sampling_point_id,
         value_kind_id,
-        processing_kind_id,
     )
     row = cursor.fetchone()
     if row is not None:
         raise ValueError(
             f"AnalysisSeries already exists (ID={row[0]}) for "
             f"Parameter={parameter_id}, SamplingPoint={sampling_point_id}, "
-            f"ValueKind={value_kind_id}, ProcessingKind={processing_kind_id}"
+            f"ValueKind={value_kind_id}"
         )
+    stream_id = _insert_stream(cursor, _STREAM_KIND_LAB)
     cursor.execute(
         """
         INSERT INTO [dbo].[AnalysisSeries]
-            ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID],
-             [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-        OUTPUT INSERTED.[AnalysisSeries_ID]
+            ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID],
+             [ValueKind_ID], [Unit_ID], [Campaign_ID])
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
+        stream_id,
         name,
         parameter_id,
         sampling_point_id,
         value_kind_id,
         unit_id,
-        processing_kind_id,
         campaign_id,
     )
-    new_id: int = cursor.fetchone()[0]
     conn.commit()
-    return new_id
+    return stream_id
 
 
 def list_lab_panels(conn: pyodbc.Connection) -> list[dict]:
@@ -890,7 +951,7 @@ def get_template_series(
     cursor.execute(
         """
         SELECT
-            as_.[AnalysisSeries_ID],
+            as_.[Stream_ID],
             as_.[Name],
             as_.[Parameter_ID],
             p.[Parameter] AS [ParameterName],
@@ -898,15 +959,12 @@ def get_template_series(
             COALESCE(sp.[SamplingPoint], 'Point ' + CAST(sp.[SamplingPoint_ID] AS NVARCHAR)) AS [SamplingPointLabel],
             as_.[Unit_ID],
             u.[Unit],
-            as_.[ValueKind_ID],
-            as_.[ProcessingKind_ID],
-            pk.[Name] AS [ProcessingKindName]
+            as_.[ValueKind_ID]
         FROM [dbo].[LabPanelSeries] ts
-        JOIN [dbo].[AnalysisSeries] as_ ON ts.[AnalysisSeries_ID] = as_.[AnalysisSeries_ID]
+        JOIN [dbo].[AnalysisSeries] as_ ON ts.[AnalysisSeries_ID] = as_.[Stream_ID]
         JOIN [dbo].[Parameter] p ON as_.[Parameter_ID] = p.[Parameter_ID]
         JOIN [dbo].[SamplingPoint] sp ON as_.[SamplingPoint_ID] = sp.[SamplingPoint_ID]
         JOIN [dbo].[Unit] u ON as_.[Unit_ID] = u.[Unit_ID]
-        JOIN [dbo].[ProcessingKind] pk ON as_.[ProcessingKind_ID] = pk.[ProcessingKind_ID]
         WHERE ts.[LabPanel_ID] = ?
         ORDER BY as_.[Name]
         """,
@@ -923,8 +981,6 @@ def get_template_series(
             "unit_id": r[6],
             "unit_name": r[7],
             "value_kind_id": r[8],
-            "processing_kind_id": r[9],
-            "processing_kind_name": r[10],
         }
         for r in cursor.fetchall()
     ]

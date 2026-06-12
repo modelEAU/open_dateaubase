@@ -1,7 +1,15 @@
 """Lineage query functions for the open_dateaubase processing provenance graph.
 
 All functions accept a pyodbc connection to an open_dateaubase MSSQL instance.
-The ProcessingLineage and ProcessingStep tables are available from schema v2.1.0 onward.
+
+Graph model (ADR 0004 / ADR 0005):
+  * ``ProcessingLineage`` holds only INPUT edges: each row asserts that a
+    ``Stream_ID`` (a sensor Channel or a lab AnalysisSeries) was consumed as an
+    input by a ``ProcessingStep``. There is no role column.
+  * The OUTPUT of a step is a Channel identified by
+    ``Channel.ProducedByStep_ID`` pointing back at the step.
+  * Each ``ProcessingStep`` carries one ``OperationKind_ID`` (FK → OperationKind),
+    replacing the retired ``ProcessingKind`` lookup.
 """
 
 from __future__ import annotations
@@ -9,18 +17,18 @@ from __future__ import annotations
 from datetime import datetime
 
 
-def get_lineage_forward(channel_id: int, conn) -> list[dict]:
-    """Return all processing steps that consumed this Channel as an Input,
+def get_lineage_forward(stream_id: int, conn) -> list[dict]:
+    """Return all processing steps that consumed this Stream as an Input,
     along with the output Channel IDs they produced.
 
     Args:
-        channel_id: The source Channel row to trace forward.
+        stream_id: The source Stream (Channel or AnalysisSeries) to trace forward.
         conn: A pyodbc connection to open_dateaubase.
 
     Returns:
         List of dicts, each with keys:
           - processing_step: dict of ProcessingStep columns
-          - output_channel_ids: list[int] of Channel_IDs produced by that step
+          - output_channel_ids: list[int] of Stream_IDs produced by that step
     """
     sql = """
         SELECT
@@ -29,23 +37,21 @@ def get_lineage_forward(channel_id: int, conn) -> list[dict]:
             ps.[Description],
             ps.[MethodName],
             ps.[MethodVersion],
-            ps.[ProcessingKind_ID],
+            ps.[OperationKind_ID],
             ps.[MethodParameters],
             ps.[ExecutedDateTime],
             ps.[ExecutedByPerson_ID],
-            out_dl.[Channel_ID]  AS [OutputChannel_ID]
+            out_c.[Stream_ID]  AS [OutputChannel_ID]
         FROM [dbo].[ProcessingLineage]   AS in_dl
         JOIN [dbo].[ProcessingStep] AS ps
             ON ps.[ProcessingStep_ID] = in_dl.[ProcessingStep_ID]
-        JOIN [dbo].[ProcessingLineage]   AS out_dl
-            ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-           AND out_dl.[RoleInProcessingStep] = 'Output'
-        WHERE in_dl.[Channel_ID] = ?
-          AND in_dl.[RoleInProcessingStep] = 'Input'
-        ORDER BY ps.[ProcessingStep_ID], out_dl.[Channel_ID]
+        JOIN [dbo].[Channel] AS out_c
+            ON out_c.[ProducedByStep_ID] = ps.[ProcessingStep_ID]
+        WHERE in_dl.[Stream_ID] = ?
+        ORDER BY ps.[ProcessingStep_ID], out_c.[Stream_ID]
     """
     cursor = conn.cursor()
-    cursor.execute(sql, channel_id)
+    cursor.execute(sql, stream_id)
     rows = cursor.fetchall()
 
     # Group output channel IDs by processing step
@@ -60,7 +66,7 @@ def get_lineage_forward(channel_id: int, conn) -> list[dict]:
                     "Description": row[2],
                     "MethodName": row[3],
                     "MethodVersion": row[4],
-                    "ProcessingKind_ID": row[5],
+                    "OperationKind_ID": row[5],
                     "MethodParameters": row[6],
                     "ExecutedDateTime": row[7],
                     "ExecutedByPerson_ID": row[8],
@@ -72,18 +78,18 @@ def get_lineage_forward(channel_id: int, conn) -> list[dict]:
     return list(steps.values())
 
 
-def get_lineage_backward(channel_id: int, conn) -> list[dict]:
+def get_lineage_backward(stream_id: int, conn) -> list[dict]:
     """Return all processing steps that produced this Channel as an Output,
-    along with the input Channel IDs they consumed.
+    along with the input Stream IDs they consumed.
 
     Args:
-        channel_id: The target Channel row to trace backward.
+        stream_id: The target Channel (Stream_ID) to trace backward.
         conn: A pyodbc connection to open_dateaubase.
 
     Returns:
         List of dicts, each with keys:
           - processing_step: dict of ProcessingStep columns
-          - input_channel_ids: list[int] of Channel_IDs consumed by that step
+          - input_channel_ids: list[int] of Stream_IDs consumed by that step
     """
     sql = """
         SELECT
@@ -92,23 +98,21 @@ def get_lineage_backward(channel_id: int, conn) -> list[dict]:
             ps.[Description],
             ps.[MethodName],
             ps.[MethodVersion],
-            ps.[ProcessingKind_ID],
+            ps.[OperationKind_ID],
             ps.[MethodParameters],
             ps.[ExecutedDateTime],
             ps.[ExecutedByPerson_ID],
-            in_dl.[Channel_ID]  AS [InputChannel_ID]
-        FROM [dbo].[ProcessingLineage]   AS out_dl
+            in_dl.[Stream_ID]  AS [InputChannel_ID]
+        FROM [dbo].[Channel] AS out_c
         JOIN [dbo].[ProcessingStep] AS ps
-            ON ps.[ProcessingStep_ID] = out_dl.[ProcessingStep_ID]
+            ON ps.[ProcessingStep_ID] = out_c.[ProducedByStep_ID]
         JOIN [dbo].[ProcessingLineage]   AS in_dl
             ON in_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-           AND in_dl.[RoleInProcessingStep] = 'Input'
-        WHERE out_dl.[Channel_ID] = ?
-          AND out_dl.[RoleInProcessingStep] = 'Output'
-        ORDER BY ps.[ProcessingStep_ID], in_dl.[Channel_ID]
+        WHERE out_c.[Stream_ID] = ?
+        ORDER BY ps.[ProcessingStep_ID], in_dl.[Stream_ID]
     """
     cursor = conn.cursor()
-    cursor.execute(sql, channel_id)
+    cursor.execute(sql, stream_id)
     rows = cursor.fetchall()
 
     steps: dict[int, dict] = {}
@@ -122,7 +126,7 @@ def get_lineage_backward(channel_id: int, conn) -> list[dict]:
                     "Description": row[2],
                     "MethodName": row[3],
                     "MethodVersion": row[4],
-                    "ProcessingKind_ID": row[5],
+                    "OperationKind_ID": row[5],
                     "MethodParameters": row[6],
                     "ExecutedDateTime": row[7],
                     "ExecutedByPerson_ID": row[8],
@@ -134,130 +138,123 @@ def get_lineage_backward(channel_id: int, conn) -> list[dict]:
     return list(steps.values())
 
 
-def get_full_lineage_tree(channel_id: int, conn) -> dict:
+def get_full_lineage_tree(stream_id: int, conn) -> dict:
     """Return the complete processing chain from raw ancestors to final descendants.
 
-    Uses a recursive CTE to traverse the DataLineage DAG in both directions,
-    then assembles a tree rooted at the given channel_id.
+    Uses recursive CTEs to traverse the processing DAG in both directions.
+    Edges are reconstructed from ProcessingLineage (input Stream_ID) and
+    Channel.ProducedByStep_ID (output channel).
 
     Args:
-        channel_id: The Channel row at the root of the tree.
+        stream_id: The Channel row (Stream_ID) at the root of the tree.
         conn: A pyodbc connection to open_dateaubase.
 
     Returns:
         A tree dict:
           {
             'channel_id': int,
-            'processing_step': dict | None,  # step that produced this node (None for raw roots)
-            'parents': list[dict],           # backward lineage (inputs)
-            'children': list[dict],          # forward lineage (outputs)
+            'parents': list[dict],   # backward lineage (inputs)
+            'children': list[dict],  # forward lineage (outputs)
           }
     """
-    # Collect all ancestors (backward) using a recursive CTE
+    # Collect all ancestors (backward) using a recursive CTE.
+    # A parent edge: out_c was produced by ps; in_dl is an input Stream of ps.
     ancestor_sql = """
         WITH Ancestors AS (
             -- Anchor: direct parents of the seed node
             SELECT
-                in_dl.[Channel_ID]        AS [AncestorChannel_ID],
+                in_dl.[Stream_ID]         AS [AncestorChannel_ID],
                 ps.[ProcessingStep_ID],
                 ps.[Name],
-                ps.[ProcessingKind_ID],
-                out_dl.[Channel_ID]       AS [ChildChannel_ID],
+                ps.[OperationKind_ID],
+                out_c.[Stream_ID]         AS [ChildChannel_ID],
                 1                          AS [Depth]
-            FROM [dbo].[ProcessingLineage]    AS out_dl
+            FROM [dbo].[Channel] AS out_c
             JOIN [dbo].[ProcessingStep] AS ps
-                ON ps.[ProcessingStep_ID] = out_dl.[ProcessingStep_ID]
-            JOIN [dbo].[ProcessingLineage]    AS in_dl
+                ON ps.[ProcessingStep_ID] = out_c.[ProducedByStep_ID]
+            JOIN [dbo].[ProcessingLineage] AS in_dl
                 ON in_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-               AND in_dl.[RoleInProcessingStep] = 'Input'
-            WHERE out_dl.[Channel_ID] = ?
-              AND out_dl.[RoleInProcessingStep] = 'Output'
+            WHERE out_c.[Stream_ID] = ?
 
             UNION ALL
 
             -- Recursive: walk further up the graph
             SELECT
-                in_dl.[Channel_ID],
+                in_dl.[Stream_ID],
                 ps.[ProcessingStep_ID],
                 ps.[Name],
-                ps.[ProcessingKind_ID],
+                ps.[OperationKind_ID],
                 a.[AncestorChannel_ID],
                 a.[Depth] + 1
             FROM Ancestors a
-            JOIN [dbo].[ProcessingLineage]    AS out_dl
-                ON out_dl.[Channel_ID] = a.[AncestorChannel_ID]
-               AND out_dl.[RoleInProcessingStep] = 'Output'
+            JOIN [dbo].[Channel] AS out_c
+                ON out_c.[Stream_ID] = a.[AncestorChannel_ID]
             JOIN [dbo].[ProcessingStep] AS ps
-                ON ps.[ProcessingStep_ID] = out_dl.[ProcessingStep_ID]
-            JOIN [dbo].[ProcessingLineage]    AS in_dl
+                ON ps.[ProcessingStep_ID] = out_c.[ProducedByStep_ID]
+            JOIN [dbo].[ProcessingLineage] AS in_dl
                 ON in_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-               AND in_dl.[RoleInProcessingStep] = 'Input'
         )
         SELECT DISTINCT [AncestorChannel_ID], [ProcessingStep_ID], [Name],
-                        [ProcessingKind_ID], [ChildChannel_ID], [Depth]
+                        [OperationKind_ID], [ChildChannel_ID], [Depth]
         FROM Ancestors
         ORDER BY [Depth], [AncestorChannel_ID]
     """
 
-    # Collect all descendants (forward)
+    # Collect all descendants (forward).
+    # A child edge: in_dl is an input Stream of ps; out_c was produced by ps.
     descendant_sql = """
         WITH Descendants AS (
             SELECT
-                out_dl.[Channel_ID]       AS [DescendantChannel_ID],
+                out_c.[Stream_ID]         AS [DescendantChannel_ID],
                 ps.[ProcessingStep_ID],
                 ps.[Name],
-                ps.[ProcessingKind_ID],
-                in_dl.[Channel_ID]        AS [ParentChannel_ID],
+                ps.[OperationKind_ID],
+                in_dl.[Stream_ID]         AS [ParentChannel_ID],
                 1                          AS [Depth]
-            FROM [dbo].[ProcessingLineage]    AS in_dl
+            FROM [dbo].[ProcessingLineage] AS in_dl
             JOIN [dbo].[ProcessingStep] AS ps
                 ON ps.[ProcessingStep_ID] = in_dl.[ProcessingStep_ID]
-            JOIN [dbo].[ProcessingLineage]    AS out_dl
-                ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-               AND out_dl.[RoleInProcessingStep] = 'Output'
-            WHERE in_dl.[Channel_ID] = ?
-              AND in_dl.[RoleInProcessingStep] = 'Input'
+            JOIN [dbo].[Channel] AS out_c
+                ON out_c.[ProducedByStep_ID] = ps.[ProcessingStep_ID]
+            WHERE in_dl.[Stream_ID] = ?
 
             UNION ALL
 
             SELECT
-                out_dl.[Channel_ID],
+                out_c.[Stream_ID],
                 ps.[ProcessingStep_ID],
                 ps.[Name],
-                ps.[ProcessingKind_ID],
+                ps.[OperationKind_ID],
                 d.[DescendantChannel_ID],
                 d.[Depth] + 1
             FROM Descendants d
-            JOIN [dbo].[ProcessingLineage]    AS in_dl
-                ON in_dl.[Channel_ID] = d.[DescendantChannel_ID]
-               AND in_dl.[RoleInProcessingStep] = 'Input'
+            JOIN [dbo].[ProcessingLineage] AS in_dl
+                ON in_dl.[Stream_ID] = d.[DescendantChannel_ID]
             JOIN [dbo].[ProcessingStep] AS ps
                 ON ps.[ProcessingStep_ID] = in_dl.[ProcessingStep_ID]
-            JOIN [dbo].[ProcessingLineage]    AS out_dl
-                ON out_dl.[ProcessingStep_ID] = ps.[ProcessingStep_ID]
-               AND out_dl.[RoleInProcessingStep] = 'Output'
+            JOIN [dbo].[Channel] AS out_c
+                ON out_c.[ProducedByStep_ID] = ps.[ProcessingStep_ID]
         )
         SELECT DISTINCT [DescendantChannel_ID], [ProcessingStep_ID], [Name],
-                        [ProcessingKind_ID], [ParentChannel_ID], [Depth]
+                        [OperationKind_ID], [ParentChannel_ID], [Depth]
         FROM Descendants
         ORDER BY [Depth], [DescendantChannel_ID]
     """
 
     cursor = conn.cursor()
 
-    cursor.execute(ancestor_sql, channel_id)
+    cursor.execute(ancestor_sql, stream_id)
     ancestor_rows = cursor.fetchall()
 
-    cursor.execute(descendant_sql, channel_id)
+    cursor.execute(descendant_sql, stream_id)
     descendant_rows = cursor.fetchall()
 
-    # Build simple node structure
     parents = [
         {
             "channel_id": row[0],
             "processing_step_id": row[1],
             "processing_step_name": row[2],
-            "processing_kind_id": row[3],
+            "operation_kind_id": row[3],
             "child_channel_id": row[4],
             "depth": row[5],
         }
@@ -269,7 +266,7 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
             "channel_id": row[0],
             "processing_step_id": row[1],
             "processing_step_name": row[2],
-            "processing_kind_id": row[3],
+            "operation_kind_id": row[3],
             "parent_channel_id": row[4],
             "depth": row[5],
         }
@@ -277,23 +274,30 @@ def get_full_lineage_tree(channel_id: int, conn) -> dict:
     ]
 
     return {
-        "channel_id": channel_id,
+        "channel_id": stream_id,
         "parents": parents,
         "children": children,
     }
 
 
-def get_all_processing_kinds(
+def get_channel_traits(
     equipment_id: int,
     parameter_id: int,
     from_dt: datetime,
     to_dt: datetime,
     conn,
 ) -> list[dict]:
-    """Return all versions (Raw, Cleaned, Validated, …) of a time series.
+    """Return all Channel variants of a sensor time series with their trait set.
 
     Finds all Channel rows matching the given equipment+parameter combination
-    that have values in the requested time window, grouped by ProcessingKind.
+    that have observations in the requested time window, and for each reports the
+    set of OperationKind names accumulated on it (its ChannelTrait set). Replaces
+    the retired ProcessingKind grouping (ADR 0005): a Channel no longer has a
+    single processing kind, it has a many-to-many ChannelTrait set.
+
+    Equipment is resolved through the active EquipmentWiringHistory row
+    (Channel has no Equipment_ID — equipment is tracked on the physical
+    Equipment via wiring/location history).
 
     Args:
         equipment_id: The equipment (sensor) ID.
@@ -304,36 +308,51 @@ def get_all_processing_kinds(
 
     Returns:
         List of dicts, each with keys:
-          - channel_id: int
-          - processing_kind_name: str | None
-          - value_count: int (number of Value rows in the time window)
+          - channel_id: int (Stream_ID)
+          - operation_kind_names: list[str] (the ChannelTrait set, possibly empty)
+          - value_count: int (number of observations in the time window)
     """
     sql = """
         SELECT
-            c.[Channel_ID],
-            pd.[Name]             AS [ProcessingKindName],
-            COUNT(v.[Timestamp])  AS [ValueCount]
+            c.[Stream_ID],
+            COUNT(o.[Observation_ID])  AS [ValueCount]
         FROM [dbo].[Channel] c
-        LEFT JOIN [dbo].[ProcessingKind] pd
-            ON pd.[ProcessingKind_ID] = c.[ProcessingKind_ID]
-        JOIN [dbo].[Value]   v
-            ON v.[Channel_ID] = c.[Channel_ID]
-           AND v.[Timestamp] >= ?
-           AND v.[Timestamp] <= ?
-        WHERE c.[Equipment_ID] = ?
+        JOIN [dbo].[EquipmentWiringHistory] ewh
+            ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+           AND ewh.[ValidTo] IS NULL
+        JOIN [dbo].[Observation] o
+            ON o.[Channel_ID] = c.[Stream_ID]
+           AND o.[Timestamp] >= ?
+           AND o.[Timestamp] <= ?
+        WHERE ewh.[Equipment_ID] = ?
           AND c.[Parameter_ID] = ?
-        GROUP BY c.[Channel_ID], pd.[Name]
-        ORDER BY pd.[Name], c.[Channel_ID]
+        GROUP BY c.[Stream_ID]
+        ORDER BY c.[Stream_ID]
     """
     cursor = conn.cursor()
     cursor.execute(sql, from_dt, to_dt, equipment_id, parameter_id)
     rows = cursor.fetchall()
 
-    return [
-        {
-            "channel_id": row[0],
-            "processing_kind_name": row[1],
-            "value_count": row[2],
-        }
-        for row in rows
-    ]
+    results: list[dict] = []
+    for channel_id, value_count in rows:
+        cursor.execute(
+            """
+            SELECT ok.[Name]
+            FROM [dbo].[ChannelTrait] ct
+            JOIN [dbo].[OperationKind] ok
+                ON ok.[OperationKind_ID] = ct.[OperationKind_ID]
+            WHERE ct.[Stream_ID] = ?
+            ORDER BY ok.[OperationKind_ID]
+            """,
+            channel_id,
+        )
+        operation_kind_names = [r[0] for r in cursor.fetchall()]
+        results.append(
+            {
+                "channel_id": channel_id,
+                "operation_kind_names": operation_kind_names,
+                "value_count": value_count,
+            }
+        )
+
+    return results

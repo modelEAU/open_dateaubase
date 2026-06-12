@@ -1,7 +1,7 @@
 """Vocabulary and entity CRUD endpoints.
 
 Covers:
-  GET  /vocab/processing-kinds                 — list (read-only)
+  GET  /vocab/operation-kinds                   — list (read-only)
 
   GET  /vocab/procedure-kinds                  — list all
   POST /vocab/procedure-kinds                  — create
@@ -33,7 +33,7 @@ from ..schemas.metadata import (
     DasKindOut,
     LandUseIn,
     LandUseOut,
-    ProcessingKindOut,
+    OperationKindOut,
     ProcedureKindIn,
     ProcedureKindOut,
     ProcedureIn,
@@ -46,13 +46,13 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# ProcessingKind (read-only)
+# OperationKind (read-only, ADR 0005 — replaces ProcessingKind)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/processing-kinds", response_model=list[ProcessingKindOut])
-def list_processing_kinds(conn=Depends(get_db)):
-    return lookup_repository.get_processing_kinds(conn)
+@router.get("/operation-kinds", response_model=list[OperationKindOut])
+def list_operation_kinds(conn=Depends(get_db)):
+    return lookup_repository.get_operation_kinds(conn)
 
 
 @router.get("/das-kinds", response_model=list[DasKindOut])

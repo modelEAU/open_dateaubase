@@ -48,7 +48,6 @@ class LabMeasurementItem(BaseModel):
     sampling_point_id: int
     unit_id: int
     value_kind_id: int = 1
-    processing_kind_id: int = 1
     series_name: str
 
     # Measurement
@@ -108,7 +107,7 @@ class LabIngestRequest(BaseModel):
 class ProcessingInfo(BaseModel):
     method_name: str
     method_version: str | None = None
-    processing_kind_id: int
+    operation_kind_id: int
     method_parameters: dict = {}
     executed_at: datetime | None = None
     executed_by_person_id: int | None = None
@@ -182,8 +181,6 @@ class AnalysisSeriesLookupItem(BaseModel):
     unit_id: int
     unit_name: str
     value_kind_id: int
-    processing_kind_id: int
-    processing_kind_name: str
     campaign_id: int | None = None
     campaign_name: str | None = None
 
@@ -196,7 +193,6 @@ class AnalysisSeriesCreateRequest(BaseModel):
     sampling_point_id: int
     unit_id: int
     value_kind_id: int = 1
-    processing_kind_id: int = 1
     campaign_id: int | None = None
 
 

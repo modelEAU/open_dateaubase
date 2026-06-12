@@ -161,8 +161,8 @@ class BinKindOut(BaseModel):
     description: str | None
 
 
-class ProcessingKindOut(BaseModel):
-    processing_kind_id: int
+class OperationKindOut(BaseModel):
+    operation_kind_id: int
     name: str
     description: str | None
 

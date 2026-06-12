@@ -33,7 +33,8 @@ def _executed_sql(cursor: MagicMock) -> str:
 
 
 class TestFindOrCreateAnalysisSeries:
-    def test_returns_existing_id_when_series_found(self):
+    def test_returns_existing_stream_id_when_series_found(self):
+        # find SELECT returns the existing Stream_ID (AnalysisSeries PK).
         conn, cursor = _conn_with_fetchone([(42,)])
 
         series_id = ingestion_repository.find_or_create_analysis_series(
@@ -41,7 +42,6 @@ class TestFindOrCreateAnalysisSeries:
             parameter_id=7,
             sampling_point_id=3,
             value_kind_id=1,
-            processing_kind_id=1,
             unit_id=5,
             name="TSS at Effluent",
         )
@@ -51,12 +51,17 @@ class TestFindOrCreateAnalysisSeries:
         assert cursor.execute.call_count == 1
         sql = _executed_sql(cursor)
         assert "SELECT" in sql and "AnalysisSeries" in sql
+        # Identity find keys on Stream_ID now, and ProcessingKind is gone.
+        assert "[Stream_ID]" in sql
+        assert "ProcessingKind" not in sql
         assert "INSERT" not in sql
         # No commit when row already exists
         conn.commit.assert_not_called()
 
-    def test_inserts_when_series_not_found_and_returns_new_id(self):
-        # First fetchone is the SELECT (no row); second is the INSERT OUTPUT
+    def test_inserts_stream_then_analysis_series_and_returns_stream_id(self):
+        # fetchone sequence:
+        #   (1) find SELECT -> None (does not exist)
+        #   (2) _insert_stream OUTPUT -> Stream_ID = 99
         conn, cursor = _conn_with_fetchone([None, (99,)])
 
         series_id = ingestion_repository.find_or_create_analysis_series(
@@ -64,17 +69,39 @@ class TestFindOrCreateAnalysisSeries:
             parameter_id=7,
             sampling_point_id=3,
             value_kind_id=2,
-            processing_kind_id=1,
             unit_id=5,
             name="PSVD at Effluent",
         )
 
+        # Returns the minted Stream_ID, not a separate AnalysisSeries_ID identity.
         assert series_id == 99
-        sql = _executed_sql(cursor)
-        assert "INSERT INTO [dbo].[AnalysisSeries]" in sql
-        # Identity columns appear in INSERT
-        for col in ("[Name]", "[Parameter_ID]", "[SamplingPoint_ID]", "[ValueKind_ID]", "[Unit_ID]", "[ProcessingKind_ID]"):
-            assert col in sql
+
+        sql_calls = [c.args[0] for c in cursor.execute.call_args_list]
+        # Ordering: find SELECT -> Stream INSERT -> AnalysisSeries INSERT.
+        stream_idx = next(
+            i for i, s in enumerate(sql_calls) if "INSERT INTO [dbo].[Stream]" in s
+        )
+        series_idx = next(
+            i for i, s in enumerate(sql_calls)
+            if "INSERT INTO [dbo].[AnalysisSeries]" in s
+        )
+        assert stream_idx < series_idx
+
+        # Stream insert carries the Lab StreamKind discriminator (=2).
+        stream_params = cursor.execute.call_args_list[stream_idx].args[1:]
+        assert stream_params == (2,)
+
+        # AnalysisSeries insert uses Stream_ID as PK (no AnalysisSeries_ID identity,
+        # no ProcessingKind_ID).
+        series_sql = sql_calls[series_idx]
+        assert "[Stream_ID]" in series_sql
+        assert "OUTPUT INSERTED.[AnalysisSeries_ID]" not in series_sql
+        assert "ProcessingKind" not in series_sql
+        for col in ("[Name]", "[Parameter_ID]", "[SamplingPoint_ID]", "[ValueKind_ID]", "[Unit_ID]"):
+            assert col in series_sql
+        # Stream_ID leads the AnalysisSeries insert as its PK.
+        series_params = cursor.execute.call_args_list[series_idx].args[1:]
+        assert series_params[0] == 99
         conn.commit.assert_called_once()
 
 
@@ -227,6 +254,129 @@ class TestGetSampleCollectionTime:
 
         assert exc_info.value.status_code == 404
         assert "999" in str(exc_info.value.detail)
+
+
+class TestFindOrCreateSensorMetadata:
+    def test_raw_channel_inserts_stream_then_channel_then_unprocessed_trait(self):
+        # fetchone sequence:
+        #   (1) find SELECT -> None (does not exist)
+        #   (2) _insert_stream OUTPUT -> Stream_ID = 500
+        conn, cursor = _conn_with_fetchone([None, (500,)])
+
+        stream_id = ingestion_repository.find_or_create_sensor_metadata(
+            conn,
+            signal_interface_id=3,
+            tag_name="DO-effluent",
+            parameter_id=7,
+            unit_id=5,
+            data_provenance_id=1,
+        )
+
+        # Returns the minted Stream_ID, not a separate Channel_ID.
+        assert stream_id == 500
+
+        sql_calls = [c.args[0] for c in cursor.execute.call_args_list]
+        # Ordering: find SELECT -> Stream INSERT -> Channel INSERT -> ChannelTrait
+        stream_idx = next(
+            i for i, s in enumerate(sql_calls) if "INSERT INTO [dbo].[Stream]" in s
+        )
+        channel_idx = next(
+            i for i, s in enumerate(sql_calls) if "INSERT INTO [dbo].[Channel]" in s
+        )
+        trait_idx = next(
+            i for i, s in enumerate(sql_calls) if "INSERT INTO [dbo].[ChannelTrait]" in s
+        )
+        assert stream_idx < channel_idx < trait_idx
+
+        # Stream insert carries the Sensor StreamKind discriminator (=1).
+        stream_params = cursor.execute.call_args_list[stream_idx].args[1:]
+        assert stream_params == (1,)
+
+        # Channel insert uses Stream_ID as PK (no Channel_ID identity column).
+        channel_sql = sql_calls[channel_idx]
+        assert "[Stream_ID]" in channel_sql
+        assert "OUTPUT INSERTED.[Channel_ID]" not in channel_sql
+        channel_params = cursor.execute.call_args_list[channel_idx].args[1:]
+        assert channel_params[0] == 500  # Stream_ID as PK leads the insert
+
+        # ChannelTrait row is (Stream_ID=500, OperationKind_ID=1 Unprocessed).
+        trait_params = cursor.execute.call_args_list[trait_idx].args[1:]
+        assert 500 in trait_params
+        assert 1 in trait_params  # Unprocessed
+        conn.commit.assert_called_once()
+
+    def test_returns_existing_stream_id_without_inserting(self):
+        # find SELECT returns an existing (Stream_ID, Unit_ID) row.
+        conn, cursor = _conn_with_fetchone([(777, 5)])
+
+        stream_id = ingestion_repository.find_or_create_sensor_metadata(
+            conn,
+            signal_interface_id=3,
+            tag_name="DO-effluent",
+            parameter_id=7,
+            unit_id=5,
+            data_provenance_id=1,
+        )
+
+        assert stream_id == 777
+        sql = _executed_sql(cursor)
+        assert "INSERT INTO [dbo].[Stream]" not in sql
+        assert "INSERT INTO [dbo].[Channel]" not in sql
+        assert "INSERT INTO [dbo].[ChannelTrait]" not in sql
+        conn.commit.assert_not_called()
+
+
+class TestFindOrCreateDerivedMetadata:
+    def test_derived_channel_writes_unioned_trait_set(self):
+        # fetchone sequence:
+        #   (1) source-channel SELECT -> (TagName, Parameter_ID, ValueKind_ID, Unit_ID)
+        #   (2) find-existing SELECT -> None
+        #   (3) _insert_stream OUTPUT -> Stream_ID = 900
+        #   (4) source ChannelTrait set -> rows {2, 3}
+        #   (5) ProcessingStep OperationKind lookup -> (5,)  (Smoothing)
+        conn = MagicMock()
+        cursor = MagicMock()
+        cursor.fetchone.side_effect = [
+            ("DO-effluent", 7, 1, 5),  # source channel metadata
+            None,  # derived channel does not yet exist
+            (900,),  # minted Stream_ID
+            (5,),  # producing step OperationKind_ID = Smoothing
+        ]
+        # The source channel already carries OutlierRemoval(2) + DriftCorrection(3).
+        cursor.fetchall.return_value = [(2,), (3,)]
+        conn.cursor.return_value = cursor
+
+        stream_id = ingestion_repository.find_or_create_derived_metadata(
+            conn,
+            source_channel_id=42,
+            produced_by_step_id=88,
+        )
+
+        assert stream_id == 900
+
+        sql_calls = [c.args[0] for c in cursor.execute.call_args_list]
+        # Source lookup keys on Stream_ID, not Channel_ID.
+        source_sql = sql_calls[0]
+        assert "[Stream_ID] = ?" in source_sql
+
+        stream_idx = next(
+            i for i, s in enumerate(sql_calls) if "INSERT INTO [dbo].[Stream]" in s
+        )
+        channel_idx = next(
+            i for i, s in enumerate(sql_calls) if "INSERT INTO [dbo].[Channel]" in s
+        )
+        trait_calls = [
+            c
+            for c in cursor.execute.call_args_list
+            if "INSERT INTO [dbo].[ChannelTrait]" in c.args[0]
+        ]
+        assert stream_idx < channel_idx
+        # Trait set = {2, 3} (source) ∪ {5} (producing step) = three distinct rows.
+        written_ops = {c.args[-1] for c in trait_calls}
+        assert written_ops == {2, 3, 5}
+        # All traits attach to the new Stream_ID.
+        assert all(900 in c.args[1:] for c in trait_calls)
+        conn.commit.assert_called_once()
 
 
 class TestLabExperimentExists:

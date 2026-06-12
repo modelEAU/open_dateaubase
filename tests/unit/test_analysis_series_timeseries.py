@@ -23,7 +23,6 @@ _SERIES = {
     "unit_name": "mg/L",
     "sampling_point_label": "Effluent",
     "value_kind_id": 1,
-    "processing_kind_name": "Raw",
 }
 
 
@@ -49,6 +48,9 @@ def test_builds_response_from_series_and_data(monkeypatch):
     assert out["to_timestamp"] == T2
     assert out["row_count"] == 2
     assert len(out["data"]) == 2
+    # ADR 0005: lab AnalysisSeries has no processing kind — the retired
+    # processing_degree field must not be surfaced for the lab read path.
+    assert "processing_degree" not in out
 
 
 def test_404_when_series_missing(monkeypatch):
@@ -73,3 +75,36 @@ def test_empty_data_yields_null_range(monkeypatch):
     assert out["row_count"] == 0
     assert out["from_timestamp"] is None
     assert out["to_timestamp"] is None
+
+
+_CHANNEL = {
+    "parameter_name": "TSS",
+    "unit_name": "mg/L",
+    "value_kind_name": "Scalar",
+    "value_kind_id": 1,
+    "data_provenance_kind_name": "Measured",
+}
+
+
+def test_sensor_timeseries_surfaces_trait_list_not_processing_degree(monkeypatch):
+    """ADR 0005: the sensor read path replaces the retired processing_degree
+    scalar with the accumulated ChannelTrait set (OperationKind names)."""
+    chan = MagicMock()
+    chan.get_channel_by_id.return_value = _CHANNEL
+    val = MagicMock()
+    val.get_values_for_metadata.return_value = [
+        {"timestamp": T1, "value": 11.0, "quality_code": 1, "observation_id": 1},
+    ]
+    val.get_channel_trait_names.return_value = ["OutlierRemoval", "Smoothing"]
+    monkeypatch.setattr(timeseries_service, "channel_repository", chan)
+    monkeypatch.setattr(timeseries_service, "value_repository", val)
+
+    out = timeseries_service.get_timeseries(MagicMock(), 7, None, None)
+
+    # New traits field is populated from ChannelTrait -> OperationKind.
+    assert out["traits"] == ["OutlierRemoval", "Smoothing"]
+    # Retired scalar is gone.
+    assert "processing_degree" not in out
+    # Trait names are fetched keyed on the channel's Stream_ID value (channel_id=7).
+    val.get_channel_trait_names.assert_called_once()
+    assert val.get_channel_trait_names.call_args.args[1] == 7

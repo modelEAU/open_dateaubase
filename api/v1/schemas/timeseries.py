@@ -75,7 +75,9 @@ class TimeseriesOut(BaseModel):
     unit: str | None
     data_shape: str
     provenance: str | None
-    processing_degree: str | None
+    # ADR 0005: accumulated ChannelTrait set (OperationKind names) replaces the
+    # retired single processing-kind string. Empty list when a channel has no traits.
+    traits: list[str]
     campaign: str | None
     from_timestamp: datetime | None
     to_timestamp: datetime | None
@@ -96,7 +98,6 @@ class AnalysisSeriesTimeseriesOut(BaseModel):
     unit: str | None
     sampling_point: str | None
     data_shape: str
-    processing_degree: str | None
     from_timestamp: datetime | None
     to_timestamp: datetime | None
     row_count: int

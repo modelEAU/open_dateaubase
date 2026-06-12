@@ -24,23 +24,27 @@ def load_signal_context(channel_id: int, conn) -> dict:
     """Load the full resolved context for a Channel row.
 
     Queries Channel and JOIN-resolves foreign keys (Equipment, Parameter,
-    Unit, DataProvenance).
+    Unit, DataProvenance), then loads the channel's accumulated ChannelTrait
+    set (the list of OperationKind names that have been applied to it).
+
+    A Channel is identified by its ``Stream_ID`` (shared-PK table-per-type
+    inheritance with Stream). The ``channel_id`` argument is that Stream_ID.
 
     Args:
-        channel_id: Primary key of the Channel row.
+        channel_id: Stream_ID of the Channel row.
         conn: A pyodbc connection to open_dateaubase.
 
     Returns:
         A dict with the following keys (all nullable values may be None):
           channel_id, parameter, unit, equipment, data_provenance,
-          processing_degree
+          trait_names (a list[str] of OperationKind names, possibly empty)
 
     Raises:
         KeyError: If the channel_id does not exist.
     """
     sql = """
         SELECT
-            c.[Channel_ID],
+            c.[Stream_ID],
             -- Parameter
             p.[Parameter_ID],
             p.[Parameter]          AS [ParameterName],
@@ -51,9 +55,7 @@ def load_signal_context(channel_id: int, conn) -> dict:
             e.[Equipment_ID],
             e.[Identifier]         AS [EquipmentName],
             -- DataProvenanceKind
-            dp.[Name]              AS [DataProvenanceName],
-            -- ProcessingKind (via ProducedByStep_ID → ProcessingStep)
-            pk.[Name]              AS [ProcessingKindName]
+            dp.[Name]              AS [DataProvenanceName]
         FROM [dbo].[Channel] c
         LEFT JOIN [dbo].[Parameter]           p   ON p.[Parameter_ID]          = c.[Parameter_ID]
         LEFT JOIN [dbo].[Unit]                u   ON u.[Unit_ID]               = c.[Unit_ID]
@@ -62,9 +64,7 @@ def load_signal_context(channel_id: int, conn) -> dict:
             AND ewh.[ValidTo] IS NULL
         LEFT JOIN [dbo].[Equipment]           e   ON e.[Equipment_ID]          = ewh.[Equipment_ID]
         LEFT JOIN [dbo].[DataProvenanceKind]  dp  ON dp.[DataProvenanceKind_ID] = c.[DataProvenanceKind_ID]
-        LEFT JOIN [dbo].[ProcessingStep]      ps  ON ps.[ProcessingStep_ID]    = c.[ProducedByStep_ID]
-        LEFT JOIN [dbo].[ProcessingKind]      pk  ON pk.[ProcessingKind_ID]    = ps.[ProcessingKind_ID]
-        WHERE c.[Channel_ID] = ?
+        WHERE c.[Stream_ID] = ?
     """
     cursor = conn.cursor()
     cursor.execute(sql, channel_id)
@@ -79,8 +79,21 @@ def load_signal_context(channel_id: int, conn) -> dict:
         unit_id, unit_name,
         equip_id, equip_name,
         data_provenance_name,
-        processing_kind_name,
     ) = row
+
+    # ----------------------------------------------------------------
+    # Accumulated ChannelTrait set: the list of OperationKind names that
+    # have been applied to this Channel (keyed on Stream_ID).
+    # ----------------------------------------------------------------
+    trait_sql = """
+        SELECT ok.[Name]
+        FROM [dbo].[ChannelTrait] ct
+        JOIN [dbo].[OperationKind] ok
+            ON ok.[OperationKind_ID] = ct.[OperationKind_ID]
+        WHERE ct.[Stream_ID] = ?
+    """
+    cursor.execute(trait_sql, channel_id)
+    trait_names = [trait_row[0] for trait_row in cursor.fetchall()]
 
     return {
         "channel_id": ch_id,
@@ -88,7 +101,7 @@ def load_signal_context(channel_id: int, conn) -> dict:
         "unit": unit_name,
         "equipment": {"id": equip_id, "name": equip_name} if equip_id else None,
         "data_provenance": data_provenance_name,
-        "processing_kind_name": processing_kind_name,
+        "trait_names": trait_names,
     }
 
 
@@ -96,7 +109,7 @@ def record_processing(
     source_metadata_ids: list[int],
     method_name: str,
     method_version: str | None,
-    processing_kind_id: int,
+    operation_kind_id: int,
     method_parameters: dict,
     executed_at: datetime,
     executed_by_person_id: int | None,
@@ -116,7 +129,7 @@ def record_processing(
         source_metadata_ids: Channel IDs that were consumed as inputs.
         method_name: Machine-readable method identifier (e.g. 'outlier_removal').
         method_version: Library/method version string, or None.
-        processing_kind_id: FK to ProcessingKind.
+        operation_kind_id: FK to OperationKind (stored in ProcessingStep.OperationKind_ID).
         method_parameters: Dict of method parameters; serialised to JSON for storage.
         executed_at: UTC datetime when the processing ran.
         executed_by_person_id: Person_ID of the operator, or None.
@@ -134,13 +147,13 @@ def record_processing(
         SELECT [ProcessingStep_ID]
         FROM [dbo].[ProcessingStep]
         WHERE [MethodName]           = ?
-          AND ISNULL([ProcessingKind_ID], 0) = ISNULL(?, 0)
+          AND ISNULL([OperationKind_ID], 0) = ISNULL(?, 0)
           AND ISNULL([MethodParameters], '')  = ISNULL(?, '')
           AND ISNULL(CONVERT(NVARCHAR(30), [ExecutedDateTime], 126), '')
             = ISNULL(CONVERT(NVARCHAR(30), CAST(? AS DATETIME2(7)), 126), '')
     """
     cursor = conn.cursor()
-    cursor.execute(check_sql, method_name, processing_kind_id, params_json, executed_at)
+    cursor.execute(check_sql, method_name, operation_kind_id, params_json, executed_at)
     existing = cursor.fetchone()
     if existing is not None:
         return existing[0]
@@ -150,7 +163,7 @@ def record_processing(
     # ----------------------------------------------------------------
     insert_step_sql = """
         INSERT INTO [dbo].[ProcessingStep]
-            ([Name], [MethodName], [MethodVersion], [ProcessingKind_ID],
+            ([Name], [MethodName], [MethodVersion], [OperationKind_ID],
              [MethodParameters], [ExecutedDateTime], [ExecutedByPerson_ID])
         OUTPUT INSERTED.[ProcessingStep_ID]
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -161,7 +174,7 @@ def record_processing(
         name,
         method_name,
         method_version,
-        processing_kind_id,
+        operation_kind_id,
         params_json,
         executed_at,
         executed_by_person_id,
@@ -173,7 +186,7 @@ def record_processing(
     # ----------------------------------------------------------------
     for src_id in source_metadata_ids:
         cursor.execute(
-            "INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID], [Channel_ID]) "
+            "INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID], [Stream_ID]) "
             "VALUES (?, ?)",
             step_id,
             src_id,

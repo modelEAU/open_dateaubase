@@ -630,17 +630,17 @@ def get_channel_kinds(conn: pyodbc.Connection) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# ProcessingKind (read-only — tightly coupled to Channel)
+# OperationKind (read-only — classifies a ProcessingStep / ChannelTrait, ADR 0005)
 # ---------------------------------------------------------------------------
 
 
-def get_processing_kinds(conn: pyodbc.Connection) -> list[dict]:
+def get_operation_kinds(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ProcessingKind_ID], [Name], [Description] FROM [dbo].[ProcessingKind] ORDER BY [ProcessingKind_ID]"
+        "SELECT [OperationKind_ID], [Name], [Description] FROM [dbo].[OperationKind] ORDER BY [OperationKind_ID]"
     )
     return [
-        {"processing_kind_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()
+        {"operation_kind_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()
     ]
 
 

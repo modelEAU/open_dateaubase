@@ -57,9 +57,10 @@ def _annotate_move(
     channel_ids = _get_channel_ids(conn, equipment_id)
     if not channel_ids:
         return []
+    # A channel's identity is its Stream_ID, so the channel ids are the stream ids.
     return annotation_repository.create_equipment_move_annotations(
         conn,
-        channel_ids=channel_ids,
+        stream_ids=channel_ids,
         annotation_kind_id=_EQUIPMENT_MOVE_ANNOTATION_TYPE_ID,
         title=title,
         comment=comment,

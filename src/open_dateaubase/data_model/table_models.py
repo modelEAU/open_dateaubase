@@ -446,8 +446,9 @@ class Campaign(CampaignBase):
 class AnnotationBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    channelID: int = Field(
-        alias="Channel_ID", description="The time series this annotation applies to"
+    streamID: int = Field(
+        alias="Stream_ID",
+        description="The stream (sensor Channel or lab AnalysisSeries) this annotation applies to",
     )
     annotationtypeID: int = Field(
         alias="AnnotationType_ID", description="What kind of annotation this is"
@@ -776,9 +777,9 @@ class ProcessingLineageBase(BaseModel):
         alias="ProcessingStep_ID",
         description="The processing step that consumed or produced the Channel entry",
     )
-    channelID: int = Field(
-        alias="Channel_ID",
-        description="The Channel entry (time series) that participates in this lineage edge",
+    streamID: int = Field(
+        alias="Stream_ID",
+        description="The Stream (a sensor Channel or a lab AnalysisSeries) that participates in this lineage edge",
     )
     roleinprocessingstep: str = Field(
         alias="RoleInProcessingStep",
@@ -951,7 +952,10 @@ class ChannelCreate(ChannelBase):
 class Channel(ChannelBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    channelID: int = Field(alias="Channel_ID", description="Surrogate primary key")
+    streamID: int = Field(
+        alias="Stream_ID",
+        description="Shared primary key (table-per-type inheritance): both the primary key of Channel and a foreign key to Stream.Stream_ID.",
+    )
 
 
 class SamplingPointBase(BaseModel):
@@ -1354,11 +1358,6 @@ class AnalysisSeriesBase(BaseModel):
         alias="Unit_ID",
         description="Unit of measurement for values in this series (e.g. mg/L)",
     )
-    processingkindID: int = Field(
-        alias="ProcessingKind_ID",
-        description="How values in this series were produced (1=Raw, ...)",
-        default=1,
-    )
     description: Optional[str] = Field(
         default=None,
         alias="Description",
@@ -1374,8 +1373,9 @@ class AnalysisSeriesCreate(AnalysisSeriesBase):
 class AnalysisSeries(AnalysisSeriesBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    analysisseriesID: int = Field(
-        alias="AnalysisSeries_ID", description="Surrogate primary key"
+    streamID: int = Field(
+        alias="Stream_ID",
+        description="Shared primary key (table-per-type inheritance): both the primary key of AnalysisSeries and a foreign key to Stream.Stream_ID.",
     )
 
 
@@ -1727,6 +1727,21 @@ class LabAnalysisBase(BaseModel):
         description="Free-text notes about this analysis run",
         max_length=None,
     )
+    reviewstatusID: int = Field(
+        default=1,
+        alias="ReviewStatus_ID",
+        description="Institutional review/approval state of this measurement (FK to ReviewStatus lookup). 1=Pending (default), 2=Approved, 3=Rejected.",
+    )
+    reviewedbypersonID: Optional[int] = Field(
+        default=None,
+        alias="ReviewedByPerson_ID",
+        description="Person who approved/rejected this measurement. NULL = not yet reviewed.",
+    )
+    reviewdatetime: Optional[datetime] = Field(
+        default=None,
+        alias="ReviewDateTime",
+        description="When the review decision was recorded. NULL = not yet reviewed.",
+    )
 
 
 class LabAnalysisCreate(LabAnalysisBase):
@@ -1808,9 +1823,9 @@ class ProcessingStepBase(BaseModel):
         description="Version of the method or library used (e.g. 'meteaudata 0.5.1')",
         max_length=100,
     )
-    processingkindid: Optional[int] = Field(
-        alias="ProcessingKind_ID",
-        description="Category of processing applied (FK to ProcessingKind lookup). Replaces former free-text ProcessingType column.\n",
+    operationkindID: Optional[int] = Field(
+        alias="OperationKind_ID",
+        description="Category of operation this step performs (FK to OperationKind lookup). One step = one OperationKind.\n",
     )
     parameters: Optional[str] = Field(
         alias="Parameters",
@@ -2267,6 +2282,128 @@ class ControlLoopApplication(ControlLoopApplicationBase):
     controlloopapplicationID: int = Field(
         alias="ControlLoopApplication_ID", description="Surrogate primary key"
     )
+
+
+class StreamKindBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    streamkindID: int = Field(
+        alias="StreamKind_ID", description="Surrogate primary key, manually assigned"
+    )
+    name: str = Field(
+        alias="Name",
+        description="Short code name (e.g. 'Sensor', 'Lab')",
+        max_length=50,
+    )
+    description: Optional[str] = Field(
+        alias="Description",
+        description="Explanation of what this stream kind means",
+        max_length=200,
+    )
+
+
+class StreamKindCreate(StreamKindBase):
+    pass
+
+
+class StreamKind(StreamKindBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class StreamBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    streamkindID: int = Field(
+        alias="StreamKind_ID",
+        description="Discriminator identifying the stream subtype (Sensor=Channel, Lab=AnalysisSeries).",
+    )
+
+
+class StreamCreate(StreamBase):
+    pass
+
+
+class Stream(StreamBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    streamID: int = Field(
+        alias="Stream_ID",
+        description="Surrogate primary key — the universal identifier of any measurement stream.",
+    )
+
+
+class OperationKindBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    operationkindID: int = Field(
+        alias="OperationKind_ID",
+        description="Surrogate primary key, manually assigned (non-identity)",
+    )
+    name: str = Field(
+        alias="Name",
+        description="Operation name (e.g. 'OutlierRemoval', 'Smoothing')",
+        max_length=50,
+    )
+    description: Optional[str] = Field(
+        alias="Description",
+        description="Explanation of what this operation does",
+        max_length=200,
+    )
+
+
+class OperationKindCreate(OperationKindBase):
+    pass
+
+
+class OperationKind(OperationKindBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ChannelTraitBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    streamID: int = Field(
+        alias="Stream_ID",
+        description="The Channel this trait belongs to (a Channel is identified by its Stream_ID).",
+    )
+    operationkindID: int = Field(
+        alias="OperationKind_ID",
+        description="An operation that is part of this Channel's accumulated trait set",
+    )
+
+
+class ChannelTraitCreate(ChannelTraitBase):
+    pass
+
+
+class ChannelTrait(ChannelTraitBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ReviewStatusBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    reviewstatusID: int = Field(
+        alias="ReviewStatus_ID", description="Surrogate primary key, manually assigned"
+    )
+    name: str = Field(
+        alias="Name",
+        description="Short status name (e.g. 'Pending', 'Approved', 'Rejected')",
+        max_length=50,
+    )
+    description: Optional[str] = Field(
+        alias="Description",
+        description="Explanation of what this review status means",
+        max_length=200,
+    )
+
+
+class ReviewStatusCreate(ReviewStatusBase):
+    pass
+
+
+class ReviewStatus(ReviewStatusBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class vw_ChannelStatus(BaseModel):
