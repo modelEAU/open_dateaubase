@@ -302,19 +302,25 @@ function Stop-ManagedService {
 # ---------------------------------------------------------------------------
 
 function Find-Nginx {
-    param([string]$NginxPath = '', [string]$InstallDir = '')
+    <#
+    .SYNOPSIS
+        Locates nginx.exe inside a per-environment prefix directory.
+    .DESCRIPTION
+        Only an explicit -NginxPath or the env-specific -NginxRoot is consulted;
+        a globally installed nginx on PATH is deliberately ignored so that two
+        environments on one host never share a single nginx.conf / runtime dir.
+    #>
+    param([string]$NginxPath = '', [string]$NginxRoot = '')
     $candidates = @(
         $NginxPath,
-        (Get-Command nginx -ErrorAction SilentlyContinue)?.Source,
-        "$InstallDir\tools\nginx\nginx.exe",
-        'C:\nginx\nginx.exe'
+        $(if ($NginxRoot) { Join-Path $NginxRoot 'nginx.exe' })
     ) | Where-Object { $_ -and (Test-Path $_) }
     if ($candidates) { return $candidates[0] }
     return $null
 }
 
 function Install-Nginx {
-    param([string]$InstallDir)
+    param([string]$DestDir)
     Write-Step 'Downloading nginx for Windows...'
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     # Fetch the stable download page to discover the latest Windows zip filename
@@ -330,16 +336,15 @@ function Install-Nginx {
         $zipUrl  = "https://nginx.org/download/$zipName"
     }
     $zipPath  = Join-Path $env:TEMP $zipName
-    $destDir  = Join-Path $InstallDir 'tools\nginx'
     Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
     $extractBase = Join-Path $env:TEMP 'nginx-extract'
     Expand-Archive -Path $zipPath -DestinationPath $extractBase -Force
     # The zip contains a single top-level directory (e.g. nginx-1.26.2)
     $extracted = Get-ChildItem $extractBase -Directory | Select-Object -First 1
-    New-Item -ItemType Directory -Path $destDir -Force | Out-Null
-    Copy-Item "$($extracted.FullName)\*" -Destination $destDir -Recurse -Force
+    New-Item -ItemType Directory -Path $DestDir -Force | Out-Null
+    Copy-Item "$($extracted.FullName)\*" -Destination $DestDir -Recurse -Force
     Remove-Item $zipPath, $extractBase -Recurse -Force -ErrorAction SilentlyContinue
-    $nginx = Join-Path $destDir 'nginx.exe'
+    $nginx = Join-Path $DestDir 'nginx.exe'
     if (-not (Test-Path $nginx)) { throw 'nginx installation failed.' }
     return $nginx
 }
@@ -552,8 +557,13 @@ function Register-LogRotateTask {
     .SYNOPSIS
         Registers a daily 02:00 task that archives importer logs larger than 10 MB.
     #>
-    param([string]$LogDir, [string]$ServiceUser = 'LocalSystem', [string]$ServicePassword = '')
-    $taskName = 'OpenDateaubase-LogRotate'
+    param(
+        [string]$LogDir,
+        [string]$TaskName        = 'OpenDateaubase-LogRotate',
+        [string]$ServiceUser     = 'LocalSystem',
+        [string]$ServicePassword = ''
+    )
+    $taskName = $TaskName
 
     if (Test-ImporterTaskExists -TaskName $taskName) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false

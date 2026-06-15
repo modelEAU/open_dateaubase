@@ -23,8 +23,13 @@
     or 'hostname,port' for a non-default port.
     Examples: "localhost", "DBSERVER2025", "DBSERVER2025\SQLEXPRESS", "192.168.1.10,1433"
 
+.PARAMETER Environment
+    Target environment: 'staging' or 'production'. Drives the default database
+    name and gates dev/demo seed data (which is blocked for both tiers).
+
 .PARAMETER DatabaseName
-    Name for the new database (e.g., "open_dateaubase_prod", "waterquality_2025").
+    Name for the new database. Defaults to the environment profile's name
+    (e.g. open_dateaubase_production). Pass a value to override.
     The name is substituted throughout the schema scripts automatically.
 
 .PARAMETER DbUser
@@ -50,7 +55,8 @@
     Load dev/demo seed data after schema creation:
     - sql/seed_fixtures.sql  (sample procedures, TEST_ watershed + lab)
     - sql/seed_demo.sql      (TEST_ site, process units, campaigns, lab panels)
-    Intended for local dev environments only. Omit for staging and production.
+    Intended for local Docker dev only. BLOCKED for both -Environment staging
+    and production (the script throws if this flag is combined with them).
 
 .PARAMETER WithBackupJobs
     Install SQL Agent backup jobs (weekly full, daily diff, 4-hour log, daily cleanup).
@@ -64,31 +70,31 @@
     WARNING: ALL DATA IN THE EXISTING DATABASE WILL BE LOST.
 
 .EXAMPLE
-    # Minimal production deploy
+    # Minimal production deploy (database name derived: open_dateaubase_production)
     .\Deploy-Database.ps1 `
         -ServerInstance "DBSERVER2025" `
-        -DatabaseName   "open_dateaubase_prod" `
+        -Environment    production `
         -DbPassword     "Str0ngPr0ductionPwd!" `
         -InstallDir     "C:\open_dateaubase"
 
 .EXAMPLE
-    # Staging deploy with backup jobs (no dev seed data)
+    # Staging deploy with backup jobs (database name derived: open_dateaubase_staging)
     .\Deploy-Database.ps1 `
         -ServerInstance "DBSERVER2025" `
-        -DatabaseName   "open_dateaubase_staging" `
+        -Environment    staging `
         -DbPassword     "StagingPwd123!" `
         -InstallDir     "C:\open_dateaubase" `
         -WithBackupJobs `
         -BackupDir      "D:\Backups"
 
 .EXAMPLE
-    # Dev deploy using Windows Authentication
+    # Override the derived database name (e.g. a second staging slot)
     .\Deploy-Database.ps1 `
-        -ServerInstance "localhost\SQLEXPRESS" `
-        -DatabaseName   "open_dateaubase_dev" `
-        -WindowsAuth `
-        -InstallDir     "C:\open_dateaubase" `
-        -WithSeedData
+        -ServerInstance "DBSERVER2025" `
+        -Environment    staging `
+        -DatabaseName   "open_dateaubase_staging_qa" `
+        -DbPassword     "StagingPwd123!" `
+        -InstallDir     "C:\open_dateaubase"
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -97,7 +103,11 @@ param(
     [string]$ServerInstance,
 
     [Parameter(Mandatory)]
-    [string]$DatabaseName,
+    [ValidateSet('staging', 'production')]
+    [string]$Environment,
+
+    # Defaults to the environment profile's database name (e.g. open_dateaubase_production).
+    [string]$DatabaseName = '',
 
     [string]$DbUser     = 'SA',
     [string]$DbPassword = '',
@@ -120,6 +130,28 @@ $ErrorActionPreference = 'Stop'
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Import-Module (Join-Path $scriptDir 'DbHelpers.psm1') -Force
+Import-Module (Join-Path $scriptDir 'EnvironmentProfiles.psm1') -Force
+
+# ---------------------------------------------------------------------------
+# Resolve environment profile and derive defaults
+# ---------------------------------------------------------------------------
+
+$envProfile = Get-EnvironmentProfile -Environment $Environment
+if ([string]::IsNullOrWhiteSpace($DatabaseName)) {
+    $DatabaseName = $envProfile.DatabaseName
+}
+
+# Guard: dev/demo seed data is never loaded into a staging or production tier.
+# The TEST_ watershed, demo site, sample procedures and lab panels are for the
+# local Docker dev environment only.
+if ($WithSeedData -and -not $envProfile.AllowSeedData) {
+    throw @"
+Refusing to load dev/demo seed data into the '$Environment' environment.
+Seed data (sql\seed_fixtures.sql, sql\seed_demo.sql — TEST_ watershed, demo
+site, sample panels) is for local Docker dev only.
+Re-run without -WithSeedData.
+"@
+}
 
 # ---------------------------------------------------------------------------
 # Validate / resolve credentials

@@ -14,13 +14,20 @@
 .PARAMETER InstallDir
     Root directory of the cloned repository (e.g. C:\open_dateaubase).
 
+.PARAMETER Environment
+    Target environment: 'staging' or 'production'. Drives the defaults for
+    LogDir, EnvFile and the listening ports, and namespaces every Windows
+    service / scheduled task / nginx prefix so the two tiers can coexist on
+    one host (production: 80/8000/8501, staging: 8080/8010/8511).
+
 .PARAMETER LogDir
-    Centralised log directory (e.g. C:\Logs\open_dateaubase).
+    Centralised log directory. Defaults to C:\Logs\open_dateaubase\<environment>.
     Created automatically if it does not exist.
 
 .PARAMETER EnvFile
-    Absolute path to the .env file containing DB_HOST, DB_PORT, DB_NAME,
-    DB_USER, DB_PASSWORD, DB_DRIVER (and optionally API_BASE_URL).
+    Path to the .env file containing DB_HOST, DB_PORT, DB_NAME, DB_USER,
+    DB_PASSWORD, DB_DRIVER (and optionally API_BASE_URL).
+    Defaults to <InstallDir>\.env.<environment>.
 
 .PARAMETER ImporterConfig
     Absolute path to the importer YAML config file.
@@ -68,22 +75,22 @@
     Stop and remove all services and scheduled tasks.
 
 .EXAMPLE
+    # Production deploy (LogDir, EnvFile and ports all derived from -Environment):
     .\Deploy-OpenDateaubase.ps1 `
-        -InstallDir   C:\open_dateaubase `
-        -LogDir       C:\Logs\open_dateaubase `
-        -EnvFile      C:\open_dateaubase\.env.production `
-        -ImporterConfig C:\open_dateaubase\config\import.yaml
+        -InstallDir     C:\open_dateaubase `
+        -Environment    production `
+        -ImporterConfig C:\open_dateaubase\importer\configs\wwtp_plc_scada.yaml
 
 .EXAMPLE
     # Redeploy only the API after a code update:
-    .\Deploy-OpenDateaubase.ps1 -InstallDir C:\open_dateaubase -LogDir C:\Logs\open_dateaubase `
-        -EnvFile C:\open_dateaubase\.env.production -ImporterConfig C:\open_dateaubase\config\import.yaml `
+    .\Deploy-OpenDateaubase.ps1 -InstallDir C:\open_dateaubase -Environment production `
+        -ImporterConfig C:\open_dateaubase\importer\configs\wwtp_plc_scada.yaml `
         -SkipApp -SkipImporter -SkipProxy
 
 .EXAMPLE
-    # Tear everything down:
-    .\Deploy-OpenDateaubase.ps1 -InstallDir C:\open_dateaubase -LogDir C:\Logs\open_dateaubase `
-        -EnvFile C:\open_dateaubase\.env.production -ImporterConfig C:\open_dateaubase\config\import.yaml `
+    # Tear down a single environment (only that tier's services/tasks):
+    .\Deploy-OpenDateaubase.ps1 -InstallDir C:\open_dateaubase -Environment staging `
+        -ImporterConfig C:\open_dateaubase\importer\configs\wwtp_plc_scada.yaml `
         -Uninstall
 #>
 
@@ -94,11 +101,14 @@ param(
     [string]$InstallDir,
 
     [Parameter(Mandatory)]
-    [string]$LogDir,
+    [ValidateSet('staging', 'production')]
+    [string]$Environment,
 
-    [Parameter(Mandatory)]
-    [ValidateScript({ Test-Path $_ -PathType Leaf })]
-    [string]$EnvFile,
+    # Defaults to C:\Logs\open_dateaubase\<environment> when omitted.
+    [string]$LogDir          = '',
+
+    # Defaults to <InstallDir>\.env.<environment> when omitted.
+    [string]$EnvFile         = '',
 
     [Parameter(Mandatory)]
     [ValidateScript({ Test-Path $_ -PathType Leaf })]
@@ -111,9 +121,11 @@ param(
     [string]$NssmPath        = '',
     [string]$NginxPath       = '',
 
-    [string]$ApiPort         = '8000',
-    [string]$AppPort         = '8501',
-    [string]$ProxyPort       = '80',
+    # Ports default to the environment profile when omitted
+    # (production: 80/8000/8501, staging: 8080/8010/8511).
+    [string]$ApiPort         = '',
+    [string]$AppPort         = '',
+    [string]$ProxyPort       = '',
 
     [string]$ServiceUser     = 'LocalSystem',
     [string]$ServicePassword = '',
@@ -132,28 +144,52 @@ $ErrorActionPreference = 'Stop'
 # Bootstrap
 # ---------------------------------------------------------------------------
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Import-Module (Join-Path $scriptDir 'DeployHelpers.psm1') -Force
+Import-Module (Join-Path $scriptDir 'EnvironmentProfiles.psm1') -Force
+
+# Resolve the environment profile and derive any defaults the caller omitted.
+$envProfile = Get-EnvironmentProfile -Environment $Environment
+$tag        = $envProfile.ServiceTag
+
+if ([string]::IsNullOrWhiteSpace($LogDir))    { $LogDir    = "C:\Logs\open_dateaubase\$Environment" }
+if ([string]::IsNullOrWhiteSpace($EnvFile))   { $EnvFile   = Join-Path $InstallDir ".env.$Environment" }
+if ([string]::IsNullOrWhiteSpace($ApiPort))   { $ApiPort   = $envProfile.ApiPort }
+if ([string]::IsNullOrWhiteSpace($AppPort))   { $AppPort   = $envProfile.AppPort }
+if ([string]::IsNullOrWhiteSpace($ProxyPort)) { $ProxyPort = $envProfile.ProxyPort }
+
+# The .env file is only required when deploying the API (it carries DB_*).
+if (-not $Uninstall -and -not $SkipApi -and -not (Test-Path $EnvFile -PathType Leaf)) {
+    throw "Env file not found: $EnvFile`n(default is <InstallDir>\.env.$Environment; pass -EnvFile to override)"
+}
+
+# Service / task names — namespaced per environment so staging and production
+# never collide on a shared host.
+$SVC_API        = "OpenDateaubase-$tag-API"
+$SVC_APP        = "OpenDateaubase-$tag-App"
+$SVC_PROXY      = "OpenDateaubase-$tag-Proxy"
+$TASK_IMPORT    = "OpenDateaubase-$tag-Importer"
+$TASK_LOGROTATE = "OpenDateaubase-$tag-LogRotate"
+$CMD_PATH       = Join-Path $scriptDir "run-importer-$Environment.cmd"
+
+# Per-environment nginx prefix dir (own conf/logs/temp) so two proxies on one
+# host do not overwrite each other's configuration.
+$nginxRoot      = Join-Path $InstallDir "tools\nginx\$Environment"
+
 # Ensure log dir exists before starting transcript
 New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 $transcriptPath = Join-Path $LogDir "deploy-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 Start-Transcript -Path $transcriptPath -Append | Out-Null
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Import-Module (Join-Path $scriptDir 'DeployHelpers.psm1') -Force
-
 Write-Step '================================================='
 Write-Step ' open_datEAUbase Windows Deployment'
+Write-Step "  Environment: $Environment"
 Write-Step "  InstallDir : $InstallDir"
 Write-Step "  LogDir     : $LogDir"
 Write-Step "  EnvFile    : $EnvFile"
+Write-Step "  Ports      : proxy=$ProxyPort  api=$ApiPort  app=$AppPort"
 Write-Step "  Importer   : $ImporterConfig (every $ImporterIntervalMinutes min)"
 Write-Step '================================================='
-
-# Service names (constants)
-$SVC_API      = 'OpenDateaubase-API'
-$SVC_APP      = 'OpenDateaubase-App'
-$SVC_PROXY    = 'OpenDateaubase-Proxy'
-$TASK_IMPORT  = 'OpenDateaubase-Importer'
-$CMD_PATH     = Join-Path $scriptDir 'run-importer.cmd'
 
 # ---------------------------------------------------------------------------
 # Uninstall mode
@@ -168,8 +204,8 @@ if ($Uninstall) {
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_API
     }
     Remove-ImporterTask -TaskName $TASK_IMPORT
-    Remove-ImporterTask -TaskName 'OpenDateaubase-LogRotate'
-    Write-Step 'Uninstall complete.' -Success
+    Remove-ImporterTask -TaskName $TASK_LOGROTATE
+    Write-Step "Uninstall complete for environment '$Environment'." -Success
     Stop-Transcript | Out-Null
     exit 0
 }
@@ -213,10 +249,10 @@ Write-Step "NSSM found: $nssmExe" -Success
 # ---------------------------------------------------------------------------
 
 if (-not $SkipProxy) {
-    Write-Step 'Locating nginx...'
-    $nginxExe = Find-Nginx -NginxPath $NginxPath -InstallDir $InstallDir
+    Write-Step "Locating nginx (prefix: $nginxRoot)..."
+    $nginxExe = Find-Nginx -NginxPath $NginxPath -NginxRoot $nginxRoot
     if (-not $nginxExe) {
-        $nginxExe = Install-Nginx -InstallDir $InstallDir
+        $nginxExe = Install-Nginx -DestDir $nginxRoot
     }
     Write-Step "nginx found: $nginxExe" -Success
 }
@@ -242,8 +278,8 @@ if (-not $SkipApi) {
         -Application     $uvExe `
         -AppParameters   "run uvicorn api.main:app --host 0.0.0.0 --port $ApiPort" `
         -AppDirectory    $InstallDir `
-        -DisplayName     'open_datEAUbase REST API' `
-        -Description     'FastAPI/uvicorn REST API for open_datEAUbase' `
+        -DisplayName     "open_datEAUbase REST API ($tag)" `
+        -Description     "FastAPI/uvicorn REST API for open_datEAUbase ($Environment)" `
         -StdoutLog       (Join-Path $LogDir 'api\stdout.log') `
         -StderrLog       (Join-Path $LogDir 'api\stderr.log') `
         -ServiceUser     $ServiceUser `
@@ -271,8 +307,8 @@ if (-not $SkipApp) {
         -Application     $uvExe `
         -AppParameters   "run streamlit run app/Home.py --server.port=$AppPort --server.address=0.0.0.0 --server.headless=true" `
         -AppDirectory    $InstallDir `
-        -DisplayName     'open_datEAUbase Web App' `
-        -Description     'Streamlit web UI for open_datEAUbase' `
+        -DisplayName     "open_datEAUbase Web App ($tag)" `
+        -Description     "Streamlit web UI for open_datEAUbase ($Environment)" `
         -StdoutLog       (Join-Path $LogDir 'app\stdout.log') `
         -StderrLog       (Join-Path $LogDir 'app\stderr.log') `
         -ServiceUser     $ServiceUser `
@@ -307,6 +343,7 @@ if (-not $SkipImporter) {
         -ServicePassword $ServicePassword
 
     Register-LogRotateTask `
+        -TaskName        $TASK_LOGROTATE `
         -LogDir          $LogDir `
         -ServiceUser     $ServiceUser `
         -ServicePassword $ServicePassword
@@ -333,8 +370,8 @@ if (-not $SkipProxy) {
         -Application     $nginxExe `
         -AppParameters   "-p `"$nginxDir`"" `
         -AppDirectory    $nginxDir `
-        -DisplayName     'open_datEAUbase Proxy (nginx)' `
-        -Description     'nginx reverse proxy for open_datEAUbase (port 80 → Streamlit / API)' `
+        -DisplayName     "open_datEAUbase Proxy - nginx ($tag)" `
+        -Description     "nginx reverse proxy for open_datEAUbase ($Environment; port $ProxyPort → Streamlit / API)" `
         -StdoutLog       (Join-Path $LogDir 'nginx\stdout.log') `
         -StderrLog       (Join-Path $LogDir 'nginx\stderr.log') `
         -ServiceUser     $ServiceUser `
@@ -350,7 +387,7 @@ if (-not $SkipProxy) {
 
 Write-Host ''
 Write-Host '=================================================================' -ForegroundColor White
-Write-Host ' Deployment Summary' -ForegroundColor White
+Write-Host " Deployment Summary — $Environment" -ForegroundColor White
 Write-Host '=================================================================' -ForegroundColor White
 
 $rows = @()

@@ -16,8 +16,12 @@
 .PARAMETER ServerInstance
     SQL Server instance. Examples: "localhost", "DBSERVER2025\INST", "host,1433".
 
+.PARAMETER Environment
+    Target environment ('staging' or 'production'). When supplied without
+    -DatabaseName, the database name is derived from the environment profile.
+
 .PARAMETER DatabaseName
-    Name of the existing database to migrate.
+    Name of the existing database to migrate. Optional if -Environment is given.
 
 .PARAMETER DbUser
     SQL Server login. Defaults to 'SA'. Leave empty when using -WindowsAuth.
@@ -45,7 +49,7 @@
     # Apply all pending migrations
     .\Run-Migrations.ps1 `
         -ServerInstance "DBSERVER2025" `
-        -DatabaseName   "open_dateaubase_prod" `
+        -Environment    production `
         -DbPassword     "Str0ngPr0ductionPwd!" `
         -InstallDir     "C:\open_dateaubase"
 
@@ -53,7 +57,7 @@
     # Dry run — see what would be applied
     .\Run-Migrations.ps1 `
         -ServerInstance "DBSERVER2025" `
-        -DatabaseName   "open_dateaubase_prod" `
+        -Environment    production `
         -DbPassword     "Str0ngPr0ductionPwd!" `
         -InstallDir     "C:\open_dateaubase" `
         -DryRun
@@ -62,7 +66,7 @@
     # Migrate to a specific version (useful for staged rollouts)
     .\Run-Migrations.ps1 `
         -ServerInstance "DBSERVER2025" `
-        -DatabaseName   "open_dateaubase_prod" `
+        -Environment    production `
         -DbPassword     "Str0ngPr0ductionPwd!" `
         -InstallDir     "C:\open_dateaubase" `
         -TargetVersion  "v2.1.0"
@@ -83,8 +87,12 @@ param(
     [Parameter(Mandatory)]
     [string]$ServerInstance,
 
-    [Parameter(Mandatory)]
-    [string]$DatabaseName,
+    # Either -DatabaseName or -Environment must be supplied. When only
+    # -Environment is given, the database name is derived from its profile.
+    [ValidateSet('staging', 'production')]
+    [string]$Environment = '',
+
+    [string]$DatabaseName = '',
 
     [string]$DbUser      = 'SA',
     [string]$DbPassword  = '',
@@ -104,6 +112,19 @@ $ErrorActionPreference = 'Stop'
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Import-Module (Join-Path $scriptDir 'DbHelpers.psm1') -Force
+Import-Module (Join-Path $scriptDir 'EnvironmentProfiles.psm1') -Force
+
+# ---------------------------------------------------------------------------
+# Resolve the target database name (explicit -DatabaseName or via -Environment)
+# ---------------------------------------------------------------------------
+
+if ([string]::IsNullOrWhiteSpace($DatabaseName)) {
+    if ($Environment) {
+        $DatabaseName = (Get-EnvironmentProfile -Environment $Environment).DatabaseName
+    } else {
+        throw 'Specify -DatabaseName or -Environment.'
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Migration catalogue
