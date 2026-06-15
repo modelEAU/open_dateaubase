@@ -26,7 +26,8 @@ which means staging and production are isolated from each other.
 | Browser (proxy) port | `8080` | `80` |
 | API port | `8010` | `8000` |
 | App port | `8511` | `8501` |
-| Windows services | `OpenDateaubase-Staging-{API,App,Proxy}` | `OpenDateaubase-Production-{API,App,Proxy}` |
+| Log viewer port (localhost) | `5090` | `5080` |
+| Windows services | `OpenDateaubase-Staging-{API,App,Proxy,LogViewer,LogShip}` | `OpenDateaubase-Production-{API,App,Proxy,LogViewer,LogShip}` |
 | Importer task | `OpenDateaubase-Staging-Importer` | `OpenDateaubase-Production-Importer` |
 | Log directory | `C:\Logs\open_dateaubase\staging` | `C:\Logs\open_dateaubase\production` |
 | Env file (default) | `<InstallDir>\.env.staging` | `<InstallDir>\.env.production` |
@@ -105,10 +106,16 @@ config.
 - `OpenDateaubase-Production-API` — FastAPI on port 8000; logs → `C:\Logs\open_dateaubase\production\api\`
 - `OpenDateaubase-Production-App` — Streamlit on port 8501; logs → `C:\Logs\open_dateaubase\production\app\`
 - `OpenDateaubase-Production-Proxy` — nginx reverse proxy on port 80
+- `OpenDateaubase-Production-LogViewer` — OpenObserve log viewer on localhost:5080, exposed via nginx at `/logs/`
+- `OpenDateaubase-Production-LogShip` — Vector, tails the log directory and ships to the viewer
 - `OpenDateaubase-Production-Importer` — Scheduled Task running the table importer every N minutes
 - `OpenDateaubase-Production-LogRotate` — daily 02:00 task that gzips importer logs over 10 MB
 
-(For `staging`, substitute `Staging` and ports 8080/8010/8511.)
+(For `staging`, substitute `Staging` and ports 8080/8010/8511, log viewer 5090.)
+
+Skip the log viewer with `-SkipLogViewer`. See
+[log-inspection.md](log-inspection.md) for the `/logs/` UI, credentials and the
+retention knob.
 
 **To redeploy only one component** (e.g. after updating the API):
 
@@ -137,10 +144,12 @@ All logs for an environment are centralised on disk under its
 
 ```text
 C:\Logs\open_dateaubase\production\
-  api\      stdout.log  stderr.log
-  app\      stdout.log  stderr.log
-  nginx\    stdout.log  stderr.log  access.log  error.log
-  importer\ stdout.log  stderr.log
+  api\       stdout.log  stderr.log
+  app\       stdout.log  stderr.log
+  nginx\     stdout.log  stderr.log  access.log  error.log
+  importer\  stdout.log  stderr.log
+  logviewer\ stdout.log  stderr.log  credentials.txt
+  logship\   stdout.log  stderr.log
   deploy-<timestamp>.log      # full transcript of each deploy run
 ```
 
@@ -149,9 +158,11 @@ C:\Logs\open_dateaubase\production\
 - The importer (a Scheduled Task) appends to its own logs; the daily LogRotate
   task gzips any importer log over 10 MB.
 
-Logs are **not** forwarded off-box. To aggregate them (e.g. across staging and
-production, or to a central store), point a log shipper at the per-environment
-`LogDir` tree — nothing in the deploy does this for you.
+These on-disk logs are also indexed for **browser-based search** by the
+OpenObserve log viewer (the Vector shipper tails this tree and forwards every
+line). Open `http://<host>/logs/` to search/filter instead of RDP-ing in — see
+[log-inspection.md](log-inspection.md). The viewer is local to the box; logs are
+still not pushed to any third party.
 
 ---
 
