@@ -1,0 +1,36 @@
+# Optional log-inspection stack for local dev, mirroring the Windows deploy:
+# OpenObserve (browser UI + search/store) + Vector (ships container logs to it).
+#
+# Run alongside the main stack:
+#   docker compose -f docker-compose.yml -f docker-compose.logs.yml up
+# Then open http://localhost:5080 and log in with ZO_ROOT_USER_* (defaults below).
+services:
+  openobserve:
+    image: openobserve/openobserve:latest
+    container_name: open_dateaubase_openobserve
+    environment:
+      ZO_ROOT_USER_EMAIL: "${LOGVIEWER_USER:-admin@open_dateaubase.local}"
+      ZO_ROOT_USER_PASSWORD: "${LOGVIEWER_PASSWORD:-Complexpass#123}"
+      ZO_DATA_DIR: /data
+      ZO_COMPACT_DATA_RETENTION_DAYS: "30"
+    ports:
+      - "5080:5080"
+    volumes:
+      - openobserve_data:/data
+    restart: unless-stopped
+
+  vector:
+    image: timberio/vector:latest-debian
+    container_name: open_dateaubase_vector
+    depends_on:
+      - openobserve
+    environment:
+      ZO_ROOT_USER_EMAIL: "${LOGVIEWER_USER:-admin@open_dateaubase.local}"
+      ZO_ROOT_USER_PASSWORD: "${LOGVIEWER_PASSWORD:-Complexpass#123}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./scripts/deploy/vector/vector.docker.toml:/etc/vector/vector.toml:ro
+    restart: unless-stopped
+
+volumes:
+  openobserve_data:

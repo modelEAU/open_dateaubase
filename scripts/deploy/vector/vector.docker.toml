@@ -1,0 +1,40 @@
+# Dev (Docker) log pipeline for open_datEAUbase.
+# Mirrors the Windows vector.toml but sources logs from the Docker daemon
+# instead of files, then ships to the OpenObserve container's _json endpoint.
+# Used by docker-compose.logs.yml. Validate with:
+#   vector validate scripts/deploy/vector/vector.docker.toml
+data_dir = "/var/lib/vector"
+
+[sources.docker]
+type = "docker_logs"
+# Only collect this stack's containers (names are open_dateaubase_*).
+include_containers = ["open_dateaubase"]
+
+[transforms.tag]
+type = "remap"
+inputs = ["docker"]
+source = '''
+.environment = "docker"
+# Derive a short service name from the container name, e.g.
+# "open_dateaubase_api" -> "api".
+.service = string(.container_name) ?? "unknown"
+.service = replace(.service, "open_dateaubase_", "")
+'''
+
+[sinks.openobserve]
+type = "http"
+inputs = ["tag"]
+uri = "http://openobserve:5080/api/default/open_dateaubase/_json"
+method = "post"
+compression = "gzip"
+
+[sinks.openobserve.encoding]
+codec = "json"
+
+[sinks.openobserve.request.headers]
+Content-Type = "application/json"
+
+[sinks.openobserve.auth]
+strategy = "basic"
+user = "${ZO_ROOT_USER_EMAIL:-admin@open_dateaubase.local}"
+password = "${ZO_ROOT_USER_PASSWORD:-Complexpass#123}"
