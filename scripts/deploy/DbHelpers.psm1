@@ -307,7 +307,7 @@ function Get-SchemaVersion {
     $query = @'
 SELECT CASE
     WHEN OBJECT_ID(N'dbo.SchemaVersion') IS NULL THEN NULL
-    ELSE (SELECT TOP 1 Version FROM dbo.SchemaVersion ORDER BY AppliedAt DESC)
+    ELSE (SELECT TOP 1 Version FROM dbo.SchemaVersion ORDER BY AppliedDateTime DESC)
 END AS Version
 '@
     $rows = Invoke-SqlQuery `

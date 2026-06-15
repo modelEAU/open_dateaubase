@@ -180,7 +180,7 @@ def main() -> None:
     # 5. Report final state
     # ------------------------------------------------------------------
     cursor = conn.cursor()
-    cursor.execute("SELECT [Version], [AppliedAt], [Description] FROM [dbo].[SchemaVersion] ORDER BY [AppliedAt]")
+    cursor.execute("SELECT [Version], [AppliedDateTime], [Description] FROM [dbo].[SchemaVersion] ORDER BY [AppliedDateTime]")
     versions = [(r[0], r[1], r[2]) for r in cursor.fetchall()]
 
     cursor.execute("SELECT COUNT(*) FROM [dbo].[Channel]")
