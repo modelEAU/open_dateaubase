@@ -212,6 +212,10 @@ function Invoke-SqlScript {
         [string]$DbPassword         = '',
         [string]$Description        = '',
         [switch]$SubstituteName,
+        # Value substituted for the template DB name. Defaults to $DatabaseName.
+        # Override when connecting to a system database (e.g. msdb for Agent jobs)
+        # while the script still references the real deployment database.
+        [string]$SubstituteValue    = '',
         [hashtable]$ExtraSubstitutions = @{}
     )
 
@@ -224,14 +228,15 @@ function Invoke-SqlScript {
 
     $tempFile = $null
     try {
-        $needsSubstitution = ($SubstituteName -and $DatabaseName -ne $script:TEMPLATE_DB_NAME) -or $ExtraSubstitutions.Count -gt 0
+        $subTarget = if ($SubstituteValue) { $SubstituteValue } else { $DatabaseName }
+        $needsSubstitution = ($SubstituteName -and $subTarget -ne $script:TEMPLATE_DB_NAME) -or $ExtraSubstitutions.Count -gt 0
 
         if ($needsSubstitution) {
             $sql = Get-Content $ScriptPath -Raw
 
-            if ($SubstituteName -and $DatabaseName -ne $script:TEMPLATE_DB_NAME) {
-                $sql = $sql -replace "\[$script:TEMPLATE_DB_NAME\]", "[$DatabaseName]"
-                $sql = $sql -replace "(?<![_\w])$([regex]::Escape($script:TEMPLATE_DB_NAME))(?![_\w])", $DatabaseName
+            if ($SubstituteName -and $subTarget -ne $script:TEMPLATE_DB_NAME) {
+                $sql = $sql -replace "\[$script:TEMPLATE_DB_NAME\]", "[$subTarget]"
+                $sql = $sql -replace "(?<![_\w])$([regex]::Escape($script:TEMPLATE_DB_NAME))(?![_\w])", $subTarget
             }
 
             foreach ($find in $ExtraSubstitutions.Keys) {

@@ -321,6 +321,8 @@ if ($WithBackupJobs) {
 
         # Backup directories were already created before the recovery step above.
         # Run the maintenance script against msdb, substituting both the DB name and backup path
+        # Connect to msdb (where Agent jobs live), but substitute the real
+        # deployment database name into the script, not 'msdb'.
         Invoke-SqlScript `
             -SqlCmdExe          $sqlcmd `
             -ServerInstance     $ServerInstance `
@@ -330,6 +332,7 @@ if ($WithBackupJobs) {
             -DbPassword         $authPwd `
             -Description        'SQL Agent backup jobs' `
             -SubstituteName `
+            -SubstituteValue    $DatabaseName `
             -ExtraSubstitutions @{ 'C:\Backups' = $BackupDir }
     }
 }
