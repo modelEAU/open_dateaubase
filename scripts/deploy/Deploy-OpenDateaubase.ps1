@@ -380,6 +380,10 @@ if (-not $SkipImporter) {
 # ---------------------------------------------------------------------------
 
 if (-not $SkipLogViewer) {
+    # The log stack is auxiliary: wrap the whole block so any failure (download,
+    # service start, config) warns and continues — the core app + nginx proxy
+    # must still deploy. Use -SkipLogViewer to opt out entirely.
+    try {
     Write-Step 'Deploying log viewer (OpenObserve) + shipper (Vector)...'
 
     # --- Credentials (shared by the OpenObserve service and the Vector sink so
@@ -476,6 +480,9 @@ if (-not $SkipLogViewer) {
 
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_LOGSHIP
     Write-Step "Log viewer ready at http://localhost:$ProxyPort/logs/ (credentials: $credFile)" -Success
+    } catch {
+        Write-Step "Log stack setup failed ($_). Continuing without it — core app + proxy are unaffected. Inspect $LogDir\logviewer\stderr.log; re-run to retry or pass -SkipLogViewer." -Warn
+    }
 }
 
 # ---------------------------------------------------------------------------
