@@ -30,7 +30,8 @@
     Defaults to <InstallDir>\.env.<environment>.
 
 .PARAMETER ImporterConfig
-    Absolute path to the importer YAML config file.
+    Absolute path to the importer YAML config file. Required unless
+    -SkipImporter is set; omit it when deploying the app without the importer.
 
 .PARAMETER ImporterIntervalMinutes
     How often the importer Scheduled Task runs (default: 5).
@@ -117,9 +118,9 @@ param(
     # Defaults to <InstallDir>\.env.<environment> when omitted.
     [string]$EnvFile         = '',
 
-    [Parameter(Mandatory)]
-    [ValidateScript({ Test-Path $_ -PathType Leaf })]
-    [string]$ImporterConfig,
+    # Required only when the importer task is registered (i.e. without
+    # -SkipImporter); validated in the body so -SkipImporter can omit it.
+    [string]$ImporterConfig = '',
 
     [ValidateRange(1, 1440)]
     [int]$ImporterIntervalMinutes = 5,
@@ -173,6 +174,16 @@ if (-not $Uninstall -and -not $SkipApi -and -not (Test-Path $EnvFile -PathType L
     throw "Env file not found: $EnvFile`n(default is <InstallDir>\.env.$Environment; pass -EnvFile to override)"
 }
 
+# The importer config is only required when the importer task is registered.
+if (-not $Uninstall -and -not $SkipImporter) {
+    if ([string]::IsNullOrWhiteSpace($ImporterConfig)) {
+        throw "-ImporterConfig is required unless -SkipImporter is set."
+    }
+    if (-not (Test-Path $ImporterConfig -PathType Leaf)) {
+        throw "Importer config not found: $ImporterConfig"
+    }
+}
+
 # Service / task names — namespaced per environment so staging and production
 # never collide on a shared host.
 $SVC_API        = "OpenDateaubase-$tag-API"
@@ -200,7 +211,7 @@ Write-Step "  InstallDir : $InstallDir"
 Write-Step "  LogDir     : $LogDir"
 Write-Step "  EnvFile    : $EnvFile"
 Write-Step "  Ports      : proxy=$ProxyPort  api=$ApiPort  app=$AppPort"
-Write-Step "  Importer   : $ImporterConfig (every $ImporterIntervalMinutes min)"
+Write-Step "  Importer   : $(if ($SkipImporter) { '(skipped)' } else { "$ImporterConfig (every $ImporterIntervalMinutes min)" })"
 Write-Step '================================================='
 
 # ---------------------------------------------------------------------------
@@ -548,9 +559,11 @@ if (-not $SkipProxy) {
         Write-Host "  Inspect logs   : http://$(hostname)/logs/" -ForegroundColor Green
     }
 }
-Write-Host ''
-Write-Host 'To manually trigger the importer:' -ForegroundColor Yellow
-Write-Host "  Start-ScheduledTask -TaskName '$TASK_IMPORT'" -ForegroundColor Yellow
-Write-Host ''
+if (-not $SkipImporter) {
+    Write-Host ''
+    Write-Host 'To manually trigger the importer:' -ForegroundColor Yellow
+    Write-Host "  Start-ScheduledTask -TaskName '$TASK_IMPORT'" -ForegroundColor Yellow
+    Write-Host ''
+}
 
 Stop-Transcript | Out-Null
