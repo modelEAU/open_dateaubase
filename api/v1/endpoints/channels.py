@@ -199,7 +199,7 @@ def provision_channel(body: ChannelProvisionIn, conn=Depends(get_db)):
     if body.unit_name:
         unit_id = signal_interface_repository.find_unit_by_name(conn, body.unit_name)
     channel_kind_id = (
-        signal_interface_repository.find_channel_role_by_name(conn, body.channel_role) or 1
+        signal_interface_repository.find_channel_kind_by_name(conn, body.channel_kind) or 1
     )
     existing = channel_repository.find_channel_by_signal_interface_tag(
         conn, signal_interface_id=body.signal_interface_id, tag_name=body.tag_name

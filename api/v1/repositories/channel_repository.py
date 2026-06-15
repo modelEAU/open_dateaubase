@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import pyodbc
 
+# Channel is the Sensor subtype of Stream (StreamKind discriminator: 1=Sensor,
+# 2=Lab). Minting a Stream row yields the shared Stream_ID used as the Channel PK.
+STREAM_KIND_SENSOR = 1
+
 _CHANNEL_SELECT = """
     SELECT
-        c.[Channel_ID],
+        c.[Stream_ID],
         c.[SignalInterface_ID],
         si.[Name]                    AS SignalInterfaceName,
         c.[TagName],
@@ -30,7 +34,7 @@ _CHANNEL_SELECT = """
     FROM [dbo].[Channel] c
     LEFT JOIN [dbo].[SignalInterface]          si  ON si.[SignalInterface_ID]  = c.[SignalInterface_ID]
     LEFT JOIN [dbo].[SignalInterfacePort]      sip ON sip.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]
-    LEFT JOIN [dbo].[Channel]                  parent ON parent.[Channel_ID] = c.[ParentChannel_ID]
+    LEFT JOIN [dbo].[Channel]                  parent ON parent.[Stream_ID] = c.[ParentChannel_ID]
     LEFT JOIN [dbo].[ChannelKind]              cr  ON cr.[ChannelKind_ID]    = c.[ChannelKind_ID]
     LEFT JOIN [dbo].[Parameter]                p   ON p.[Parameter_ID]       = c.[Parameter_ID]
     LEFT JOIN [dbo].[DataProvenanceKind]       dp  ON dp.[DataProvenanceKind_ID] = c.[DataProvenanceKind_ID]
@@ -48,7 +52,7 @@ _CHANNEL_SELECT = """
 
 _CHANNEL_SELECT_WITH_CAMPAIGN = """
     SELECT
-        c.[Channel_ID],
+        c.[Stream_ID],
         c.[SignalInterface_ID],
         si.[Name]                    AS SignalInterfaceName,
         c.[TagName],
@@ -72,7 +76,7 @@ _CHANNEL_SELECT_WITH_CAMPAIGN = """
     FROM [dbo].[Channel] c
     LEFT JOIN [dbo].[SignalInterface]          si  ON si.[SignalInterface_ID]  = c.[SignalInterface_ID]
     LEFT JOIN [dbo].[SignalInterfacePort]      sip ON sip.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]
-    LEFT JOIN [dbo].[Channel]                  parent ON parent.[Channel_ID] = c.[ParentChannel_ID]
+    LEFT JOIN [dbo].[Channel]                  parent ON parent.[Stream_ID] = c.[ParentChannel_ID]
     LEFT JOIN [dbo].[ChannelKind]              cr  ON cr.[ChannelKind_ID]    = c.[ChannelKind_ID]
     LEFT JOIN [dbo].[Parameter]                p   ON p.[Parameter_ID]       = c.[Parameter_ID]
     LEFT JOIN [dbo].[DataProvenanceKind]       dp  ON dp.[DataProvenanceKind_ID] = c.[DataProvenanceKind_ID]
@@ -196,7 +200,7 @@ def list_channels(
     data_sql = (
         base_select
         + f" {where_clause} "
-        + "ORDER BY c.[Channel_ID] "
+        + "ORDER BY c.[Stream_ID] "
         + f"OFFSET {offset} ROWS FETCH NEXT {page_size} ROWS ONLY"
     )
     cursor.execute(data_sql, *params)
@@ -206,19 +210,37 @@ def list_channels(
 
 def get_channel_by_id(conn: pyodbc.Connection, channel_id: int) -> dict | None:
     cursor = conn.cursor()
-    cursor.execute(_CHANNEL_SELECT + " WHERE c.[Channel_ID] = ?", channel_id)
+    cursor.execute(_CHANNEL_SELECT + " WHERE c.[Stream_ID] = ?", channel_id)
     row = cursor.fetchone()
     return _row_to_dict(row) if row else None
 
 
+def _insert_stream(cursor: pyodbc.Cursor, stream_kind_id: int) -> int:
+    """Mint a Stream supertype row and return its new Stream_ID (ADR 0004)."""
+    cursor.execute(
+        "INSERT INTO [dbo].[Stream] ([StreamKind_ID]) "
+        "OUTPUT INSERTED.[Stream_ID] VALUES (?)",
+        stream_kind_id,
+    )
+    return int(cursor.fetchone()[0])
+
+
 def insert_channel(conn: pyodbc.Connection, data: dict) -> dict | None:
-    """Insert a new channel and return the created record."""
+    """Insert a new channel and return the created record.
+
+    Channel.Stream_ID is a shared (non-identity) primary key: a Stream row is
+    minted first to obtain the id, then the Channel row is inserted with it
+    (ADR 0004). The previous ``SELECT @@IDENTITY`` path was invalid under the
+    Stream-supertype schema.
+    """
     cursor = conn.cursor()
+    new_id = _insert_stream(cursor, STREAM_KIND_SENSOR)
     cursor.execute(
         "INSERT INTO [dbo].[Channel] "
-        "([SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [ParentChannel_ID], "
+        "([Stream_ID], [SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [ParentChannel_ID], "
         "[ChannelKind_ID], [Parameter_ID], [DataProvenanceKind_ID], [ProducedByStep_ID], [ValueKind_ID], [Unit_ID])"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        new_id,
         data.get("signal_interface_id"),
         data.get("tag_name"),
         data.get("signal_interface_port_id"),
@@ -230,10 +252,6 @@ def insert_channel(conn: pyodbc.Connection, data: dict) -> dict | None:
         data.get("value_kind_id", 1),  # Default to Scalar
         data.get("unit_id"),
     )
-    cursor.execute("SELECT @@IDENTITY")
-    _row = cursor.fetchone()
-    assert _row is not None
-    new_id = int(_row[0])
     conn.commit()
     return get_channel_by_id(conn, new_id)
 
@@ -245,7 +263,7 @@ def update_channel(conn: pyodbc.Connection, channel_id: int, data: dict) -> dict
         "UPDATE [dbo].[Channel]"
         " SET [SignalInterface_ID]=?, [TagName]=?, [SignalInterfacePort_ID]=?, [ParentChannel_ID]=?, "
         "[ChannelKind_ID]=?, [Parameter_ID]=?, [DataProvenanceKind_ID]=?, [ProducedByStep_ID]=?, [ValueKind_ID]=?, [Unit_ID]=?"
-        " WHERE [Channel_ID]=?",
+        " WHERE [Stream_ID]=?",
         data.get("signal_interface_id"),
         data.get("tag_name"),
         data.get("signal_interface_port_id"),
@@ -265,7 +283,7 @@ def update_channel(conn: pyodbc.Connection, channel_id: int, data: dict) -> dict
 def delete_channel(conn: pyodbc.Connection, channel_id: int) -> bool:
     """Delete a channel by ID. Returns True if deleted, False if not found."""
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM [dbo].[Channel] WHERE [Channel_ID]=?", channel_id)
+    cursor.execute("DELETE FROM [dbo].[Channel] WHERE [Stream_ID]=?", channel_id)
     conn.commit()
     return cursor.rowcount > 0
 
@@ -371,7 +389,7 @@ def get_channel_ids_for_equipment(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT c.[Channel_ID]
+        SELECT c.[Stream_ID]
         FROM [dbo].[Channel] c
         JOIN [dbo].[EquipmentWiringHistory] ewh
             ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
