@@ -319,7 +319,8 @@ END AS Version
         -DbPassword     $DbPassword
     if (-not $rows) { return $null }
     $value = ($rows[0]).Trim()
-    return if ($value -eq 'NULL') { $null } else { $value }
+    if ($value -eq 'NULL') { return $null }
+    return $value
 }
 
 # ---------------------------------------------------------------------------
