@@ -172,7 +172,7 @@ function Install-Nssm {
     $zipUrl  = 'https://nssm.cc/release/nssm-2.24.zip'
     $zipPath = Join-Path $env:TEMP 'nssm-2.24.zip'
     $destDir = Join-Path $InstallDir 'tools\nssm'
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+    Invoke-WithRetry { Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing }
     Expand-Archive -Path $zipPath -DestinationPath (Join-Path $env:TEMP 'nssm-extract') -Force
     New-Item -ItemType Directory -Path $destDir -Force | Out-Null
     Copy-Item (Join-Path $env:TEMP 'nssm-extract\nssm-2.24\win64\nssm.exe') -Destination $destDir -Force
@@ -328,7 +328,7 @@ function Install-Nginx {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     # Fetch the stable download page to discover the latest Windows zip filename
     $indexUrl  = 'https://nginx.org/en/download.html'
-    $indexHtml = (Invoke-WebRequest -Uri $indexUrl -UseBasicParsing).Content
+    $indexHtml = (Invoke-WithRetry { Invoke-WebRequest -Uri $indexUrl -UseBasicParsing }).Content
     # Match the latest stable Windows zip link, e.g. nginx-1.26.1.zip
     if ($indexHtml -match 'href="(/download/(nginx-[\d.]+\.zip))"') {
         $zipName = $matches[2]
@@ -339,7 +339,7 @@ function Install-Nginx {
         $zipUrl  = "https://nginx.org/download/$zipName"
     }
     $zipPath  = Join-Path $env:TEMP $zipName
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+    Invoke-WithRetry { Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing }
     $extractBase = Join-Path $env:TEMP 'nginx-extract'
     Expand-Archive -Path $zipPath -DestinationPath $extractBase -Force
     # The zip contains a single top-level directory (e.g. nginx-1.26.2)
@@ -487,7 +487,7 @@ function Install-OpenObserve {
 
     $zipPath     = Join-Path $env:TEMP 'openobserve-windows.zip'
     $extractBase = Join-Path $env:TEMP 'openobserve-extract'
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+    Invoke-WithRetry { Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing }
     if (Test-Path $extractBase) { Remove-Item $extractBase -Recurse -Force }
     Expand-Archive -Path $zipPath -DestinationPath $extractBase -Force
     $exe = Get-ChildItem $extractBase -Recurse -Filter 'openobserve.exe' | Select-Object -First 1
@@ -544,7 +544,7 @@ function Install-Vector {
 
     $zipPath     = Join-Path $env:TEMP 'vector-windows.zip'
     $extractBase = Join-Path $env:TEMP 'vector-extract'
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+    Invoke-WithRetry { Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing }
     if (Test-Path $extractBase) { Remove-Item $extractBase -Recurse -Force }
     Expand-Archive -Path $zipPath -DestinationPath $extractBase -Force
     $exe = Get-ChildItem $extractBase -Recurse -Filter 'vector.exe' | Select-Object -First 1
