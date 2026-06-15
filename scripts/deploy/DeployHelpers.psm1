@@ -93,7 +93,9 @@ function Install-Uv {
     Write-Step 'Installing uv via winget...'
     $winget = Get-Command winget -ErrorAction SilentlyContinue
     if ($winget) {
-        & winget install astral-sh.uv --silent --accept-package-agreements --accept-source-agreements 2>&1
+        # Pipe to Out-Null: winget's console output must not leak into the
+        # function's output stream, or it pollutes the returned path.
+        & winget install astral-sh.uv --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
         $uv = Find-Uv
         if ($uv) { return $uv }
     }
@@ -163,7 +165,9 @@ function Install-Nssm {
     Write-Step 'Installing NSSM via winget...'
     $winget = Get-Command winget -ErrorAction SilentlyContinue
     if ($winget) {
-        & winget install NSSM.NSSM --silent --accept-package-agreements --accept-source-agreements 2>&1
+        # Pipe to Out-Null: winget's console output must not leak into the
+        # function's output stream, or it pollutes the returned path.
+        & winget install NSSM.NSSM --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
         $nssm = Find-Nssm -InstallDir $InstallDir
         if ($nssm) { return $nssm }
     }
