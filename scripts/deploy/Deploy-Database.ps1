@@ -280,11 +280,22 @@ if ($WithSeedData) {
 # ---------------------------------------------------------------------------
 
 Write-DbStep "Setting recovery model to FULL for '$DatabaseName'..."
+
+# The recovery script seeds an initial full backup, and the optional Agent jobs
+# write here too. Create the backup subdirs (under the actual database name) up
+# front so the seed backup below does not fail on a missing path.
+foreach ($sub in 'full', 'diff', 'log') {
+    New-Item -ItemType Directory -Path (Join-Path $BackupDir "$DatabaseName\$sub") -Force | Out-Null
+}
+
 $recoveryScript = Join-Path $InstallDir 'scripts\maintenance\01_set_full_recovery.sql'
 if (Test-Path $recoveryScript) {
+    # Substitute the backup path too, so the seed backup honors -BackupDir
+    # (the script hardcodes C:\Backups).
     Invoke-SqlScript @invokeParams `
-        -ScriptPath  $recoveryScript `
-        -Description 'Set FULL recovery model + initial backup'
+        -ScriptPath         $recoveryScript `
+        -Description        'Set FULL recovery model + initial backup' `
+        -ExtraSubstitutions @{ 'C:\Backups' = $BackupDir }
 } else {
     # Inline fallback if the maintenance script is absent
     Invoke-SqlQuery `
@@ -308,11 +319,7 @@ if ($WithBackupJobs) {
     } else {
         Write-DbStep 'Installing SQL Agent backup jobs...'
 
-        # Ensure backup directories exist (under the actual database name, not the template)
-        foreach ($sub in 'full', 'diff', 'log') {
-            New-Item -ItemType Directory -Path (Join-Path $BackupDir "$DatabaseName\$sub") -Force | Out-Null
-        }
-
+        # Backup directories were already created before the recovery step above.
         # Run the maintenance script against msdb, substituting both the DB name and backup path
         Invoke-SqlScript `
             -SqlCmdExe          $sqlcmd `
