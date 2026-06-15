@@ -91,11 +91,12 @@ PRINT ''Full backup written to: '' + @filename;
     @on_fail_action    = 2;  -- quit with failure
 
 EXEC msdb.dbo.sp_add_schedule
-    @schedule_name     = N'open_dateaubase Full Backup Schedule',
-    @freq_type         = 8,        -- weekly
-    @freq_interval     = 1,        -- Sunday (bit 1)
-    @freq_subday_type  = 1,        -- once
-    @active_start_time = 020000;   -- 02:00:00
+    @schedule_name          = N'open_dateaubase Full Backup Schedule',
+    @freq_type              = 8,        -- weekly
+    @freq_interval          = 1,        -- Sunday (bit 1)
+    @freq_recurrence_factor = 1,        -- every week (required for weekly schedules)
+    @freq_subday_type       = 1,        -- once
+    @active_start_time      = 020000;   -- 02:00:00
 
 EXEC msdb.dbo.sp_attach_schedule
     @job_id        = @job_id,
@@ -151,11 +152,12 @@ PRINT ''Differential backup written to: '' + @filename;
 -- freq_interval for weekly type: bitmask of days Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
 -- Mon–Sat = 2+4+8+16+32+64 = 126
 EXEC msdb.dbo.sp_add_schedule
-    @schedule_name     = N'open_dateaubase Differential Backup Schedule',
-    @freq_type         = 8,        -- weekly
-    @freq_interval     = 126,      -- Mon–Sat
-    @freq_subday_type  = 1,        -- once per day
-    @active_start_time = 020000;   -- 02:00:00
+    @schedule_name          = N'open_dateaubase Differential Backup Schedule',
+    @freq_type              = 8,        -- weekly
+    @freq_interval          = 126,      -- Mon–Sat
+    @freq_recurrence_factor = 1,        -- every week (required for weekly schedules)
+    @freq_subday_type       = 1,        -- once per day
+    @active_start_time      = 020000;   -- 02:00:00
 
 EXEC msdb.dbo.sp_attach_schedule
     @job_id        = @job_id,
