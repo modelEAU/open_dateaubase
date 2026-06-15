@@ -14,8 +14,8 @@
 -- ID anchors used (must not change):
 --   Unit:          mg/L=1  NTU=2  pH units=3  °C=4
 --   Parameter:     TSS=1  COD=2  pH=3  Temp=4  DO=8  Turb=9  NH4-N=11  NO3-N=12  CODf=13
---   ValueKind:     Scalar=1
---   ProcessingKind: Raw=1
+--   ValueKind:     Scalar=1  Vector=2  Image=4
+--   StreamKind:    Sensor=1  Lab=2 (AnalysisSeries is the Lab subtype of Stream)
 --   SiteKind:      Experimental WWTP=12
 --   CampaignKind:  Experiment=1  Operations=2
 --   ProcessUnitKind: Area=1  Zone=2  Basin=9  Clarifier=8
@@ -194,66 +194,76 @@ INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [SamplingPoint_ID],
 VALUES (@CampExpID, @SP_BR4,        N'Bioreactor');
 
 -- ============================================================
--- AnalysisSeries (9 rows — lab-analysable parameters only)
+-- AnalysisSeries (15 rows — lab-analysable parameters only)
 --
--- All Scalar (ValueKind_ID=1), Raw (ProcessingKind_ID=1)
+-- AnalysisSeries is the Lab subtype of Stream (table-per-type): each series
+-- first mints a Stream row (StreamKind_ID=2 Lab) whose Stream_ID becomes the
+-- series PK. The @AS_* vars hold that Stream_ID for LabPanelSeries / LabAnalysis.
+-- All Scalar (ValueKind_ID=1) unless noted. Processing now lives in ProcessingStep,
+-- not on the series.
 -- ============================================================
 DECLARE @AS_TSS_Inf    INT, @AS_COD_Inf    INT, @AS_CODf_Inf   INT, @AS_NH4_Inf   INT,
         @AS_TSS_Eff    INT, @AS_COD_Eff    INT, @AS_CODf_Eff   INT,
-        @AS_NH4_Eff    INT, @AS_NO3_Eff    INT;
+        @AS_NH4_Eff    INT, @AS_NO3_Eff    INT,
+        @StreamID      INT;
 
 -- Ops campaign: routine inlet + outlet monitoring (4 influent + 5 effluent)
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ TSS at Influent', 1, @SP_Influent, 1, 1, 1, @CampOpsID);       -- TSS, mg/L
-SET @AS_TSS_Inf = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_TSS_Inf = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_TSS_Inf, N'TEST_ TSS at Influent', 1, @SP_Influent, 1, 1, @CampOpsID);       -- TSS, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ COD at Influent', 2, @SP_Influent, 1, 1, 1, @CampOpsID);       -- COD, mg/L
-SET @AS_COD_Inf = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_COD_Inf = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_COD_Inf, N'TEST_ COD at Influent', 2, @SP_Influent, 1, 1, @CampOpsID);       -- COD, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ CODf at Influent', 13, @SP_Influent, 1, 1, 1, @CampOpsID);     -- COD filtered, mg/L
-SET @AS_CODf_Inf = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_CODf_Inf = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_CODf_Inf, N'TEST_ CODf at Influent', 13, @SP_Influent, 1, 1, @CampOpsID);     -- COD filtered, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ NH4-N at Influent', 11, @SP_Influent, 1, 1, 1, @CampOpsID);    -- NH4-N, mg/L
-SET @AS_NH4_Inf = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_NH4_Inf = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_NH4_Inf, N'TEST_ NH4-N at Influent', 11, @SP_Influent, 1, 1, @CampOpsID);    -- NH4-N, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ TSS at Final effluent', 1, @SP_FinalEff, 1, 1, 1, @CampOpsID); -- TSS, mg/L
-SET @AS_TSS_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_TSS_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_TSS_Eff, N'TEST_ TSS at Final effluent', 1, @SP_FinalEff, 1, 1, @CampOpsID); -- TSS, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ COD at Final effluent', 2, @SP_FinalEff, 1, 1, 1, @CampOpsID); -- COD, mg/L
-SET @AS_COD_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_COD_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_COD_Eff, N'TEST_ COD at Final effluent', 2, @SP_FinalEff, 1, 1, @CampOpsID); -- COD, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ CODf at Final effluent', 13, @SP_FinalEff, 1, 1, 1, @CampOpsID); -- COD filtered, mg/L
-SET @AS_CODf_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_CODf_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_CODf_Eff, N'TEST_ CODf at Final effluent', 13, @SP_FinalEff, 1, 1, @CampOpsID); -- COD filtered, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ NH4-N at Final effluent', 11, @SP_FinalEff, 1, 1, 1, @CampOpsID); -- NH4-N, mg/L
-SET @AS_NH4_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_NH4_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_NH4_Eff, N'TEST_ NH4-N at Final effluent', 11, @SP_FinalEff, 1, 1, @CampOpsID); -- NH4-N, mg/L
 
 -- Experiment campaign: effluent NO3-N + intermediate points (4 extra series)
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ NO3-N at Final effluent', 12, @SP_FinalEff, 1, 1, 1, @CampExpID); -- NO3-N, mg/L
-SET @AS_NO3_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_NO3_Eff = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_NO3_Eff, N'TEST_ NO3-N at Final effluent', 12, @SP_FinalEff, 1, 1, @CampExpID); -- NO3-N, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ TSS at Primary effluent', 1, @SP_PrimEff, 1, 1, 1, @CampExpID);   -- TSS, mg/L
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@StreamID, N'TEST_ TSS at Primary effluent', 1, @SP_PrimEff, 1, 1, @CampExpID);   -- TSS, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ NH4-N at Anoxic zone outlet', 11, @SP_AnoxicOut, 1, 1, 1, @CampExpID); -- NH4-N, mg/L
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@StreamID, N'TEST_ NH4-N at Anoxic zone outlet', 11, @SP_AnoxicOut, 1, 1, @CampExpID); -- NH4-N, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ NO3-N at Anoxic zone outlet', 12, @SP_AnoxicOut, 1, 1, 1, @CampExpID); -- NO3-N, mg/L
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@StreamID, N'TEST_ NO3-N at Anoxic zone outlet', 12, @SP_AnoxicOut, 1, 1, @CampExpID); -- NO3-N, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ NH4-N at Aerobic zone outlet', 11, @SP_AerobicOut, 1, 1, 1, @CampExpID); -- NH4-N, mg/L
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@StreamID, N'TEST_ NH4-N at Aerobic zone outlet', 11, @SP_AerobicOut, 1, 1, @CampExpID); -- NH4-N, mg/L
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ Sludge microscopy at Bioreactor 4', 16, @SP_BR4, 4, 11, 1, @CampExpID); -- floc_morphology, Image, dimensionless
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@StreamID, N'TEST_ Sludge microscopy at Bioreactor 4', 16, @SP_BR4, 4, 11, @CampExpID); -- floc_morphology, Image, dimensionless
 
 -- ============================================================
 -- LabPanel (1 row)
@@ -333,9 +343,9 @@ INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [NominalValue])
     (@LabUVAxis, 0, 220), (@LabUVAxis, 1, 254), (@LabUVAxis, 2, 300),
     (@LabUVAxis, 3, 360), (@LabUVAxis, 4, 440), (@LabUVAxis, 5, 550);
 
-INSERT INTO [dbo].[AnalysisSeries] ([Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [ProcessingKind_ID], [Campaign_ID])
-VALUES (N'TEST_ Lab absorbance spectrum at Final effluent', 10, @SP_FinalEff, 2, 10, 1, @CampExpID); -- absorbance, AU, Vector
-SET @AS_AbsVec = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_AbsVec = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_AbsVec, N'TEST_ Lab absorbance spectrum at Final effluent', 10, @SP_FinalEff, 2, 10, @CampExpID); -- absorbance, AU, Vector
 INSERT INTO [dbo].[AnalysisSeriesAxis] ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (@AS_AbsVec, 0, @LabUVAxis);
 
 INSERT INTO [dbo].[LabExperiment] ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID])
@@ -389,9 +399,11 @@ VALUES (@EM_Turb, N'TEST_Turb-001', N'T001-2026', N'modelEAU Lab');
 SET @EQ_Turb = SCOPE_IDENTITY();
 
 -- Channel: Turbidity, Scalar (ValueKind=1), NTU (Unit=2), Sensor (DataProvenanceKind=1)
-INSERT INTO [dbo].[Channel] ([SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID], [ValueKind_ID], [Unit_ID])
-VALUES (@SI_ID, N'TEST_Turb-001/Turbidity', 9, 1, 1, 2);
-SET @CH_Turb = SCOPE_IDENTITY();
+-- Channel is the Sensor subtype of Stream (table-per-type): mint a Stream row
+-- (StreamKind_ID=1 Sensor) whose Stream_ID becomes the Channel PK.
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (1); SET @CH_Turb = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Channel] ([Stream_ID], [SignalInterface_ID], [TagName], [Parameter_ID], [DataProvenanceKind_ID], [ValueKind_ID], [Unit_ID])
+VALUES (@CH_Turb, @SI_ID, N'TEST_Turb-001/Turbidity', 9, 1, 1, 2);
 
 INSERT INTO [dbo].[EquipmentWiringHistory] ([Equipment_ID], [SignalInterface_ID], [ValidFrom])
 VALUES (@EQ_Turb, @SI_ID, '2026-01-01T00:00:00');
@@ -489,4 +501,112 @@ INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_
 INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,'2026-06-09T08:00:00',1); SET @ObsID=SCOPE_IDENTITY();
 INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,289.0,1);
 
-PRINT 'Demo seed loaded: 3 persons, 1 site, 6 process units, 6 sampling points, 2 campaigns, 15 analysis series, 1 lab panel, scalar COD (final eff + influent) + vector UV-Vis lab data + 1 Turbidity sensor chain (1 680 hourly obs, Apr-Jun 2026) + 10 COD influent grab samples.';
+-- ============================================================
+-- Provenance showcase DAG (Data Explorer "Provenance" panel)
+-- Builds a processing chain off the raw Turbidity sensor channel (@CH_Turb):
+--   raw  --(S1 OutlierRemoval)-->  outlier-free  --(S2 Smoothing)-->  smoothed
+--   smoothed + lab Turbidity grabs  --(S3 Interpolation gap-fill)-->  reconstructed
+-- Exercises: derived channels (SignalInterface NULL, ProducedByStep set), the
+-- accumulated ChannelTrait set, a multi-input step fusing a sensor + a lab series,
+-- and forward/backward lineage. Each derived channel carries its own observations
+-- (projected from the raw series) so it can be overlaid on the plot.
+-- OperationKind IDs: 1 Unprocessed, 2 OutlierRemoval, 5 Smoothing, 6 Interpolation.
+-- ============================================================
+DECLARE @S1 INT, @S2 INT, @S3 INT;
+DECLARE @CH_Clean INT, @CH_Smooth INT, @CH_Recon INT, @AS_TurbLab INT;
+
+-- Raw sensor channel carries the single Unprocessed trait (ADR 0005).
+INSERT INTO [dbo].[ChannelTrait] ([Stream_ID], [OperationKind_ID]) VALUES (@CH_Turb, 1);
+
+-- --- Step S1: outlier removal -> outlier-free channel ---------------------
+INSERT INTO [dbo].[ProcessingStep] ([Name],[Description],[MethodName],[MethodVersion],[OperationKind_ID],[MethodParameters],[ExecutedDateTime],[ExecutedByPerson_ID])
+VALUES (N'TEST_ Turbidity outlier removal', N'MAD-based spike removal on raw turbidity', N'mad_outlier_removal', N'meteaudata 0.5.1', 2, N'{"window": 24, "threshold": 3.5}', '2026-05-02T14:03:00', @PersonProfID);
+SET @S1 = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (1); SET @CH_Clean = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Channel] ([Stream_ID],[SignalInterface_ID],[TagName],[Parameter_ID],[DataProvenanceKind_ID],[ProducedByStep_ID],[ParentChannel_ID],[ValueKind_ID],[Unit_ID])
+VALUES (@CH_Clean, NULL, N'TEST_Turb-001/Turbidity::outlier_free', 9, 7, @S1, @CH_Turb, 1, 2);
+INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID],[Stream_ID]) VALUES (@S1, @CH_Turb);
+INSERT INTO [dbo].[ChannelTrait] ([Stream_ID],[OperationKind_ID]) VALUES (@CH_Clean, 2);
+
+-- --- Step S2: smoothing -> smoothed channel ------------------------------
+INSERT INTO [dbo].[ProcessingStep] ([Name],[Description],[MethodName],[MethodVersion],[OperationKind_ID],[MethodParameters],[ExecutedDateTime],[ExecutedByPerson_ID])
+VALUES (N'TEST_ Turbidity smoothing', N'Centred moving-average smoothing', N'moving_average', N'meteaudata 0.5.1', 5, N'{"window": 6}', '2026-05-02T14:05:00', NULL);
+SET @S2 = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (1); SET @CH_Smooth = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Channel] ([Stream_ID],[SignalInterface_ID],[TagName],[Parameter_ID],[DataProvenanceKind_ID],[ProducedByStep_ID],[ParentChannel_ID],[ValueKind_ID],[Unit_ID])
+VALUES (@CH_Smooth, NULL, N'TEST_Turb-001/Turbidity::smoothed', 9, 7, @S2, @CH_Clean, 1, 2);
+INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID],[Stream_ID]) VALUES (@S2, @CH_Clean);
+INSERT INTO [dbo].[ChannelTrait] ([Stream_ID],[OperationKind_ID]) VALUES (@CH_Smooth, 2), (@CH_Smooth, 5);
+
+-- --- Lab Turbidity grab series at the Aerobic outlet (fusion anchor) ------
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_TurbLab = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID],[Name],[Parameter_ID],[SamplingPoint_ID],[ValueKind_ID],[Unit_ID],[Campaign_ID])
+VALUES (@AS_TurbLab, N'TEST_ Turbidity grab at Aerobic outlet', 9, @SP_AerobicOut, 1, 2, @CampOpsID);
+
+DECLARE @ExpTurbLab INT;
+INSERT INTO [dbo].[LabExperiment] ([Name],[Campaign_ID],[ExperimentDateTime],[Description],[CreatedByPerson_ID])
+VALUES (N'TEST_ Turbidity grab series', @CampOpsID, '2026-06-09T09:00:00', N'Weekly turbidity grab samples for sensor reconciliation', @PersonProfID);
+SET @ExpTurbLab = SCOPE_IDENTITY();
+
+DECLARE @i INT = 0;
+WHILE @i < 6
+BEGIN
+    DECLARE @gts DATETIME2(7) = DATEADD(DAY, 7 * @i, '2026-05-05T08:00:00');
+    DECLARE @gval FLOAT = 5.0 + 0.8 * SIN(@i * 0.9);  -- ~4.2..5.8 NTU
+    INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart]) VALUES (@SP_AerobicOut,@PersonTechID,@CampOpsID,@gts); SET @SmpID=SCOPE_IDENTITY();
+    INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID],[AnalysisSeries_ID],[Sample_ID],[Replicate],[QualityCode_ID],[Laboratory_ID],[AnalystPerson_ID],[AnalysisDateTime]) VALUES (@ExpTurbLab,@AS_TurbLab,@SmpID,1,1,1,@PersonTechID,DATEADD(DAY,1,@gts)); SET @LaID=SCOPE_IDENTITY();
+    INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID]) VALUES (NULL,@LaID,@gts,1); SET @ObsID=SCOPE_IDENTITY();
+    INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode]) VALUES (@ObsID,@gval,1);
+    SET @i = @i + 1;
+END
+
+-- --- Step S3: lab-anchored gap-fill (multi-input) -> reconstructed channel
+INSERT INTO [dbo].[ProcessingStep] ([Name],[Description],[MethodName],[MethodVersion],[OperationKind_ID],[MethodParameters],[ExecutedDateTime],[ExecutedByPerson_ID])
+VALUES (N'TEST_ Turbidity lab-anchored gap-fill', N'Gap-fill smoothed sensor data anchored on lab grabs', N'lab_anchored_gapfill', N'meteaudata 0.6.0', 6, N'{"max_gap_h": 12}', '2026-05-03T09:20:00', @PersonProfID);
+SET @S3 = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (1); SET @CH_Recon = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Channel] ([Stream_ID],[SignalInterface_ID],[TagName],[Parameter_ID],[DataProvenanceKind_ID],[ProducedByStep_ID],[ParentChannel_ID],[ValueKind_ID],[Unit_ID])
+VALUES (@CH_Recon, NULL, N'TEST_Turb-001/Turbidity::reconstructed', 9, 7, @S3, @CH_Smooth, 1, 2);
+INSERT INTO [dbo].[ProcessingLineage] ([ProcessingStep_ID],[Stream_ID]) VALUES (@S3, @CH_Smooth), (@S3, @AS_TurbLab);
+INSERT INTO [dbo].[ChannelTrait] ([Stream_ID],[OperationKind_ID]) VALUES (@CH_Recon, 2), (@CH_Recon, 5), (@CH_Recon, 6);
+
+-- --- Derived observations: project the raw turbidity series onto each channel
+SELECT
+    o.[Timestamp] AS ts,
+    v.[Value]     AS raw_val,
+    AVG(v.[Value]) OVER (ORDER BY o.[Timestamp] ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING) AS smooth_val
+INTO #turb_deriv
+FROM [dbo].[Observation] o
+JOIN [dbo].[Value] v ON v.[Observation_ID] = o.[Observation_ID]
+WHERE o.[Channel_ID] = @CH_Turb;
+
+-- outlier-free: copy raw values
+DECLARE @CleanObs TABLE (obs_id INT, ts DATETIME2(7));
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID])
+OUTPUT INSERTED.[Observation_ID], INSERTED.[Timestamp] INTO @CleanObs (obs_id, ts)
+SELECT @CH_Clean, NULL, ts, 1 FROM #turb_deriv;
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode])
+SELECT c.obs_id, d.raw_val, 1 FROM @CleanObs c JOIN #turb_deriv d ON d.ts = c.ts;
+
+-- smoothed: centred moving average
+DECLARE @SmoothObs TABLE (obs_id INT, ts DATETIME2(7));
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID])
+OUTPUT INSERTED.[Observation_ID], INSERTED.[Timestamp] INTO @SmoothObs (obs_id, ts)
+SELECT @CH_Smooth, NULL, ts, 1 FROM #turb_deriv;
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode])
+SELECT s.obs_id, d.smooth_val, 1 FROM @SmoothObs s JOIN #turb_deriv d ON d.ts = s.ts;
+
+-- reconstructed: smoothed values (lab-anchored gap-fill leaves dense regions intact)
+DECLARE @ReconObs TABLE (obs_id INT, ts DATETIME2(7));
+INSERT INTO [dbo].[Observation] ([Channel_ID],[LabAnalysis_ID],[Timestamp],[ValueKind_ID])
+OUTPUT INSERTED.[Observation_ID], INSERTED.[Timestamp] INTO @ReconObs (obs_id, ts)
+SELECT @CH_Recon, NULL, ts, 1 FROM #turb_deriv;
+INSERT INTO [dbo].[Value] ([Observation_ID],[Value],[QualityCode])
+SELECT r.obs_id, d.smooth_val, 1 FROM @ReconObs r JOIN #turb_deriv d ON d.ts = r.ts;
+
+DROP TABLE #turb_deriv;
+
+PRINT 'Demo seed loaded: 3 persons, 1 site, 6 process units, 6 sampling points, 2 campaigns, 15 analysis series, 1 lab panel, scalar COD (final eff + influent) + vector UV-Vis lab data + 1 Turbidity sensor chain (1 680 hourly obs, Apr-Jun 2026) + 10 COD influent grab samples + provenance showcase DAG (3 derived Turbidity channels + lab grab series across 3 processing steps).';
