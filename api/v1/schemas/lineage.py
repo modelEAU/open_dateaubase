@@ -50,3 +50,56 @@ class LineageTreeOut(BaseModel):
     children: list[dict]
 
 
+class ProvenanceTraitOut(BaseModel):
+    operation_kind_id: int
+    name: str
+
+
+class ProvenanceNodeOut(BaseModel):
+    """A measurement stream in a provenance graph, fully resolved for display
+    and ready to drop onto the Explorer plot (deployment-trace-shaped keys)."""
+
+    stream_id: int
+    kind: str  # "channel" | "series"
+    label: str
+    parameter_name: str | None = None
+    unit_name: str | None = None
+    value_kind_id: int | None = None
+    equipment_identifier: str | None = None
+    sampling_point_label: str | None = None
+    campaign_name: str | None = None
+    provenance_kind_name: str | None = None
+    traits: list[ProvenanceTraitOut] = []
+    is_derived: bool = False
+    is_root: bool = False
+    # carry the original id under the key the Explorer expects per kind
+    channel_id: int | None = None
+    analysis_series_id: int | None = None
+
+
+class ProvenanceStepOut(BaseModel):
+    """A processing step (edge group) in a provenance graph, with full detail."""
+
+    processing_step_id: int
+    name: str | None = None
+    operation_kind_id: int | None = None
+    operation_kind_name: str | None = None
+    method_name: str | None = None
+    method_version: str | None = None
+    method_parameters: str | None = None
+    executed_at: datetime | None = None
+    executed_by_name: str | None = None
+    input_stream_ids: list[int] = []
+    output_stream_ids: list[int] = []
+
+
+class ProvenanceGraphOut(BaseModel):
+    """A resolved provenance graph rooted at one stream: nodes + ancestor and
+    descendant processing steps."""
+
+    root_id: int
+    nodes: list[ProvenanceNodeOut]
+    ancestors: list[ProvenanceStepOut]
+    descendants: list[ProvenanceStepOut]
+
+

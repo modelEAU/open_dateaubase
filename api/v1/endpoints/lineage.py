@@ -9,6 +9,7 @@ from ..schemas.lineage import (
     LineageTreeOut,
     ProcessingStepCreate,
     ProcessingStepOut,
+    ProvenanceGraphOut,
 )
 from ..services import lineage_service
 
@@ -66,5 +67,17 @@ def get_backward_lineage(channel_id: int, conn=Depends(get_db)):
 def get_lineage_tree(channel_id: int, conn=Depends(get_db)):
     """Return the complete processing DAG rooted at this Channel."""
     return lineage_service.full_lineage_tree(conn, channel_id)
+
+
+@router.get("/streams/{stream_id}/provenance", response_model=ProvenanceGraphOut)
+def get_stream_provenance(stream_id: int, conn=Depends(get_db)):
+    """Return a fully-resolved provenance graph rooted at this Stream.
+
+    Composes the lineage DAG with per-node label resolution (parameter, unit,
+    equipment / sampling point, provenance kind, accumulated traits) and per-step
+    detail (operation kind, method, parameters, who/when, inputs/outputs) so the
+    Data Explorer's Provenance panel needs only one round trip.
+    """
+    return lineage_service.resolved_provenance(conn, stream_id)
 
 

@@ -280,6 +280,113 @@ def get_full_lineage_tree(stream_id: int, conn) -> dict:
     }
 
 
+def get_traits_for_stream(stream_id: int, conn) -> list[dict]:
+    """Return the accumulated ChannelTrait set of a single Stream.
+
+    Each Channel carries a many-to-many set of OperationKinds (ADR 0005) that is
+    the union of its inputs' traits plus its producing step's OperationKind. Raw
+    sensor channels carry a single ``Unprocessed`` trait; lab AnalysisSeries carry
+    none.
+
+    Args:
+        stream_id: The Stream (Channel or AnalysisSeries) to read traits for.
+        conn: A pyodbc connection to open_dateaubase.
+
+    Returns:
+        List of dicts ``{operation_kind_id, name}`` ordered by OperationKind_ID
+        (possibly empty).
+    """
+    sql = """
+        SELECT ok.[OperationKind_ID], ok.[Name]
+        FROM [dbo].[ChannelTrait] ct
+        JOIN [dbo].[OperationKind] ok
+            ON ok.[OperationKind_ID] = ct.[OperationKind_ID]
+        WHERE ct.[Stream_ID] = ?
+        ORDER BY ok.[OperationKind_ID]
+    """
+    cursor = conn.cursor()
+    cursor.execute(sql, stream_id)
+    return [
+        {"operation_kind_id": row[0], "name": row[1]} for row in cursor.fetchall()
+    ]
+
+
+def get_processing_step_detail(step_id: int, conn) -> dict | None:
+    """Return one ProcessingStep with its OperationKind name, executor name, and
+    the input / output Stream_IDs it connects.
+
+    Args:
+        step_id: ProcessingStep_ID.
+        conn: A pyodbc connection to open_dateaubase.
+
+    Returns:
+        A dict of the step's columns (plus ``operation_kind_name``,
+        ``executed_by_name``, ``input_stream_ids``, ``output_stream_ids``), or
+        ``None`` if the step does not exist.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            ps.[ProcessingStep_ID],
+            ps.[Name],
+            ps.[Description],
+            ps.[MethodName],
+            ps.[MethodVersion],
+            ps.[OperationKind_ID],
+            ok.[Name]            AS [OperationKindName],
+            ps.[MethodParameters],
+            ps.[ExecutedDateTime],
+            ps.[ExecutedByPerson_ID],
+            per.[FirstName],
+            per.[LastName]
+        FROM [dbo].[ProcessingStep] ps
+        JOIN [dbo].[OperationKind] ok
+            ON ok.[OperationKind_ID] = ps.[OperationKind_ID]
+        LEFT JOIN [dbo].[Person] per
+            ON per.[Person_ID] = ps.[ExecutedByPerson_ID]
+        WHERE ps.[ProcessingStep_ID] = ?
+        """,
+        step_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    first, last = row[10], row[11]
+    executed_by_name = " ".join(p for p in (first, last) if p) or None
+
+    cursor.execute(
+        "SELECT [Stream_ID] FROM [dbo].[ProcessingLineage] "
+        "WHERE [ProcessingStep_ID] = ? ORDER BY [Stream_ID]",
+        step_id,
+    )
+    input_stream_ids = [r[0] for r in cursor.fetchall()]
+
+    cursor.execute(
+        "SELECT [Stream_ID] FROM [dbo].[Channel] "
+        "WHERE [ProducedByStep_ID] = ? ORDER BY [Stream_ID]",
+        step_id,
+    )
+    output_stream_ids = [r[0] for r in cursor.fetchall()]
+
+    return {
+        "processing_step_id": row[0],
+        "name": row[1],
+        "description": row[2],
+        "method_name": row[3],
+        "method_version": row[4],
+        "operation_kind_id": row[5],
+        "operation_kind_name": row[6],
+        "method_parameters": row[7],
+        "executed_at": row[8],
+        "executed_by_person_id": row[9],
+        "executed_by_name": executed_by_name,
+        "input_stream_ids": input_stream_ids,
+        "output_stream_ids": output_stream_ids,
+    }
+
+
 def get_channel_traits(
     equipment_id: int,
     parameter_id: int,
