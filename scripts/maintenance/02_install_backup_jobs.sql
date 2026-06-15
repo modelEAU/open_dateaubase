@@ -218,6 +218,7 @@ PRINT ''Log backup written to: '' + @filename;
 EXEC msdb.dbo.sp_add_schedule
     @schedule_name        = N'open_dateaubase Log Backup Schedule',
     @freq_type            = 4,     -- daily
+    @freq_interval        = 1,     -- every day (required for daily schedules)
     @freq_subday_type     = 8,     -- hours
     @freq_subday_interval = 4,     -- every 4 hours
     @active_start_time    = 000000; -- starting at midnight
@@ -277,6 +278,7 @@ PRINT ''Cleanup complete.'';
 EXEC msdb.dbo.sp_add_schedule
     @schedule_name     = N'open_dateaubase Backup Cleanup Schedule',
     @freq_type         = 4,        -- daily
+    @freq_interval     = 1,        -- every day (required for daily schedules)
     @freq_subday_type  = 1,        -- once
     @active_start_time = 030000;   -- 03:00:00
 
