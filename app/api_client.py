@@ -803,6 +803,19 @@ def get_channel_stats(channel_id: int) -> dict:
     return r.json()
 
 
+def get_stream_provenance(stream_id: int) -> dict:
+    """Fetch the resolved provenance graph rooted at a Stream (sensor channel or
+    lab series): nodes (with labels, provenance kind, traits) plus ancestor and
+    descendant processing steps. Powers the Data Explorer Provenance panel."""
+    try:
+        with _get_client() as client:
+            r = client.get(f"/lineage/streams/{stream_id}/provenance")
+    except httpx.ConnectError:
+        raise APIError(503, "Cannot reach API")
+    _raise_for_status(r)
+    return r.json()
+
+
 def get_channel_thumbnail(channel_id: int, timestamp: str) -> bytes:
     """Fetch the JPEG thumbnail bytes for an image channel entry."""
     try:

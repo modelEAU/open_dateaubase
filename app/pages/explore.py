@@ -50,6 +50,7 @@ from app.api_client import (
     get_analysis_series_stats,
     get_analysis_series_thumbnail,
     get_analysis_series_image,
+    get_stream_provenance,
 )
 from app.components.lttb import lttb
 
@@ -81,6 +82,28 @@ QUALITY_COLORS = {
 DEFAULT_QUALITY_COLOR = "#aaaaaa"
 
 VIZ_MAX_POINTS = 1000
+
+# Provenance panel colour maps (mirror .tasks/provenance-panel/mockup.html)
+PROVENANCE_COLORS = {
+    "Sensor": "#1f77b4",
+    "Laboratory": "#16a085",
+    "Derived": "#8e44ad",
+    "Model Output": "#e67e22",
+    "Forecast": "#d4a017",
+    "Controller Output": "#34495e",
+    "External Source": "#7f8c8d",
+}
+DEFAULT_PROVENANCE_COLOR = "#7f8c8d"
+
+OPERATION_COLORS = {
+    "Unprocessed": "#95a5a6",
+    "OutlierRemoval": "#e74c3c",
+    "DriftCorrection": "#3498db",
+    "FaultRemoval": "#a6761d",
+    "Smoothing": "#8e44ad",
+    "Interpolation": "#2ecc71",
+}
+DEFAULT_OPERATION_COLOR = "#95a5a6"
 
 _VALUE_TYPE_OPTIONS: dict[str, int | None] = {
     "(all types)": None,
@@ -127,6 +150,10 @@ def _init_state() -> None:
         "picker_equipment_id": None,
         "picker_vtype_id": None,
         "picker_search_text": "",
+        # Provenance panel
+        "explore_inspect_trail": [],       # list[tuple[str, int]] — current = trail[-1]
+        "explore_provenance_cache": {},    # stream_id -> resolved provenance graph
+        "explore_prov_tab": "Lineage",     # active sub-tab in the panel
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -1402,6 +1429,60 @@ def _apply_picker_filters(
     )
 
 
+def _add_channel_to_plot(node: dict, *, rerun: bool = True) -> bool:
+    """Add a sensor channel to the active plot from a deployment-trace-shaped meta
+    dict (``channel_id`` + label fields). Returns True if newly added.
+
+    Shared by the picker and the Provenance panel so both add paths stay in sync.
+    """
+    ch_id = node["channel_id"]
+    active = st.session_state.explore_active_channels
+    if ch_id in active:
+        return False
+    active.append(ch_id)
+    st.session_state.explore_channel_meta[ch_id] = node
+    _fetch_channel_stats(ch_id, node)
+    _invalidate_data_cache()
+    if rerun:
+        st.rerun()
+    return True
+
+
+def _add_series_to_plot(node: dict, *, rerun: bool = True) -> bool:
+    """Add a lab AnalysisSeries to the active plot from a meta dict
+    (``analysis_series_id`` + label fields). Returns True if newly added."""
+    s_id = node["analysis_series_id"]
+    active = st.session_state.explore_active_series
+    if s_id in active:
+        return False
+    active.append(s_id)
+    st.session_state.explore_series_meta[s_id] = node
+    _fetch_series_stats(s_id)
+    _invalidate_data_cache()
+    if rerun:
+        st.rerun()
+    return True
+
+
+def _add_node_to_plot(node: dict, *, rerun: bool = True) -> bool:
+    """Dispatch a resolved provenance node to the right add-to-plot path."""
+    if node.get("kind") == "series":
+        return _add_series_to_plot(node, rerun=rerun)
+    return _add_channel_to_plot(node, rerun=rerun)
+
+
+def _load_provenance(stream_id: int) -> dict | None:
+    """Fetch and cache the resolved provenance graph for a stream."""
+    cache = st.session_state.explore_provenance_cache
+    if stream_id not in cache:
+        try:
+            cache[stream_id] = get_stream_provenance(stream_id)
+        except APIError as e:
+            st.error(f"Failed to load provenance for stream {stream_id}: {e.message}")
+            return None
+    return cache[stream_id]
+
+
 def _render_unified_picker(
     deployment_traces: list[dict],
     series_list: list[dict],
@@ -1526,24 +1607,10 @@ def _render_unified_picker(
             key="upicker_add_btn",
         ):
             if sel_kind == "channel" and sel_item is not None:
-                ch_id = sel_item["channel_id"]
-                if ch_id not in active_channels:
-                    active_channels.append(ch_id)
-                    st.session_state.explore_channel_meta[ch_id] = sel_item
-                    _fetch_channel_stats(ch_id, sel_item)
-                    _invalidate_data_cache()
-                    st.rerun()
-                else:
+                if not _add_channel_to_plot(sel_item):
                     st.info("Channel already in plot.")
             elif sel_kind == "series" and sel_item is not None:
-                s_id = sel_item["analysis_series_id"]
-                if s_id not in active_series:
-                    active_series.append(s_id)
-                    st.session_state.explore_series_meta[s_id] = sel_item
-                    _fetch_series_stats(s_id)
-                    _invalidate_data_cache()
-                    st.rerun()
-                else:
+                if not _add_series_to_plot(sel_item):
                     st.info("Series already in plot.")
 
 
@@ -1573,7 +1640,7 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
 
     to_remove: list[int] = []
 
-    cols = st.columns([5, 2, 2, 1])
+    cols = st.columns([5, 2, 2, 1, 1])
     cols[0].caption("**Stream**")
     cols[1].caption("**First value**")
     cols[2].caption("**Last value**")
@@ -1589,10 +1656,12 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
         max_str = str(max_ts)[:10] if max_ts else "—"
 
         with st.container(border=True):
-            name_col, min_col, max_col, rm_col = st.columns([5, 2, 2, 1])
+            name_col, min_col, max_col, insp_col, rm_col = st.columns([5, 2, 2, 1, 1])
             name_col.markdown(label)
             min_col.markdown(min_str)
             max_col.markdown(max_str)
+            if insp_col.button("🔬", key=f"insp_{ch_id}", help="Inspect provenance"):
+                _inspect_stream("channel", ch_id)
             if rm_col.button("✕", key=f"rm_{ch_id}", help="Remove stream"):
                 to_remove.append(ch_id)
 
@@ -1623,10 +1692,12 @@ def _render_series_chips(series_meta: dict[int, dict]) -> None:
         max_str = str(max_ts)[:10] if max_ts else "—"
 
         with st.container(border=True):
-            name_col, min_col, max_col, rm_col = st.columns([5, 2, 2, 1])
+            name_col, min_col, max_col, insp_col, rm_col = st.columns([5, 2, 2, 1, 1])
             name_col.markdown(label)
             min_col.markdown(min_str)
             max_col.markdown(max_str)
+            if insp_col.button("🔬", key=f"s_insp_{s_id}", help="Inspect provenance"):
+                _inspect_stream("series", s_id)
             if rm_col.button("✕", key=f"s_rm_{s_id}", help="Remove series"):
                 to_remove.append(s_id)
 
@@ -1636,6 +1707,320 @@ def _render_series_chips(series_meta: dict[int, dict]) -> None:
         st.session_state.explore_series_stats.pop(s_id, None)
         _invalidate_data_cache()
         st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Provenance panel
+# ---------------------------------------------------------------------------
+
+
+def _inspect_stream(kind: str, stream_id: int) -> None:
+    """Push a stream onto the breadcrumb trail and rerun. The trail is independent
+    of the active-plot lists (inspecting never requires a stream to be plotted),
+    so removing a plotted stream can never desync it."""
+    trail = st.session_state.explore_inspect_trail
+    if not trail or trail[-1] != (kind, stream_id):
+        trail.append((kind, stream_id))
+    st.rerun()
+
+
+def _prov_badge_html(name: str | None) -> str:
+    label = name or "—"
+    color = PROVENANCE_COLORS.get(label, DEFAULT_PROVENANCE_COLOR)
+    return (
+        f"<span style='background:{color};color:#fff;padding:2px 8px;"
+        f"border-radius:999px;font-size:11px;font-weight:700'>{label}</span>"
+    )
+
+
+def _op_badge_html(name: str | None) -> str:
+    label = name or "?"
+    color = OPERATION_COLORS.get(label, DEFAULT_OPERATION_COLOR)
+    return (
+        f"<span style='background:{color};color:#fff;padding:2px 8px;"
+        f"border-radius:999px;font-size:11px;font-weight:700'>{label}</span>"
+    )
+
+
+def _trait_pills_html(traits: list[dict]) -> str:
+    if not traits:
+        return "<span style='color:#888;font-size:11px'>no traits</span>"
+    spans = []
+    for t in traits:
+        name = t.get("name") or "?"
+        color = OPERATION_COLORS.get(name, DEFAULT_OPERATION_COLOR)
+        spans.append(
+            f"<span style='border:1px solid {color};color:{color};padding:1px 7px;"
+            f"border-radius:6px;font-size:11px;font-weight:600;margin-right:4px'>{name}</span>"
+        )
+    return "".join(spans)
+
+
+def _ancestor_stream_ids(graph: dict, root_id: int) -> list[int]:
+    """All stream ids reachable upstream of root (intermediates + raw sources)."""
+    ids: set[int] = set()
+    for step in graph.get("ancestors", []):
+        ids.update(step.get("input_stream_ids", []))
+        ids.update(step.get("output_stream_ids", []))
+    ids.discard(root_id)
+    return sorted(ids)
+
+
+def _descendant_stream_ids(graph: dict, root_id: int) -> list[int]:
+    ids: set[int] = set()
+    for step in graph.get("descendants", []):
+        ids.update(step.get("input_stream_ids", []))
+        ids.update(step.get("output_stream_ids", []))
+    ids.discard(root_id)
+    return sorted(ids)
+
+
+def _ordered_ancestor_steps(graph: dict, root_id: int) -> list[dict]:
+    """Ancestor steps ordered nearest-to-root first (BFS upward from root)."""
+    steps_by_output: dict[int, dict] = {}
+    for step in graph.get("ancestors", []):
+        for out in step.get("output_stream_ids", []):
+            steps_by_output[out] = step
+
+    order: list[dict] = []
+    seen: set[int] = set()
+    frontier = [root_id]
+    while frontier:
+        nxt: list[int] = []
+        for nid in frontier:
+            step = steps_by_output.get(nid)
+            if step and step["processing_step_id"] not in seen:
+                seen.add(step["processing_step_id"])
+                order.append(step)
+                nxt.extend(step.get("input_stream_ids", []))
+        frontier = nxt
+    return order
+
+
+def _build_dag_dot(graph: dict, nodes: dict[int, dict], root_id: int) -> str:
+    """Build a Graphviz DOT string for the provenance DAG (orientation picture)."""
+    lines = [
+        "digraph prov {",
+        "rankdir=LR; bgcolor=transparent;",
+        'node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=10];',
+    ]
+    for sid, node in nodes.items():
+        color = PROVENANCE_COLORS.get(
+            node.get("provenance_kind_name"), DEFAULT_PROVENANCE_COLOR
+        )
+        label = (node.get("label") or str(sid)).replace('"', "'")
+        pen = ' penwidth=2 color="#1f2733"' if sid == root_id else ""
+        lines.append(
+            f'"{sid}" [label="{label}" fillcolor="{color}" fontcolor="white"{pen}];'
+        )
+    for step in graph.get("ancestors", []) + graph.get("descendants", []):
+        op = (step.get("operation_kind_name") or "").replace('"', "'")
+        for src in step.get("input_stream_ids", []):
+            for dst in step.get("output_stream_ids", []):
+                if src in nodes and dst in nodes:
+                    lines.append(f'"{src}" -> "{dst}" [label="{op}" fontsize=8];')
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def _render_prov_node_card(node: dict, key_ctx: str) -> None:
+    sid = node["stream_id"]
+    with st.container(border=True):
+        st.markdown(
+            _prov_badge_html(node.get("provenance_kind_name"))
+            + f" &nbsp;<b>{node.get('label', sid)}</b>",
+            unsafe_allow_html=True,
+        )
+        traits = node.get("traits", [])
+        if traits:
+            st.markdown(_trait_pills_html(traits), unsafe_allow_html=True)
+        in_plot = (
+            node.get("channel_id") in st.session_state.explore_active_channels
+            or node.get("analysis_series_id") in st.session_state.explore_active_series
+        )
+        c1, c2 = st.columns(2)
+        if c1.button(
+            "✓ plotted" if in_plot else "➕ plot",
+            key=f"prov_plot_{key_ctx}_{sid}",
+            disabled=in_plot,
+            use_container_width=True,
+        ):
+            _add_node_to_plot(node)
+        if c2.button(
+            "🔬 inspect",
+            key=f"prov_insp_{key_ctx}_{sid}",
+            use_container_width=True,
+        ):
+            _inspect_stream(node.get("kind", "channel"), sid)
+
+
+def _render_breadcrumb(trail: list) -> None:
+    cols = st.columns(len(trail) + 1)
+    for i, (kind, sid) in enumerate(trail):
+        prefix = "LAB" if kind == "series" else "CH"
+        is_last = i == len(trail) - 1
+        if cols[i].button(
+            f"{prefix}-{sid}",
+            key=f"prov_crumb_{i}_{sid}",
+            disabled=is_last,
+            help="Jump back to this stream" if not is_last else "Current stream",
+        ):
+            st.session_state.explore_inspect_trail = trail[: i + 1]
+            st.rerun()
+    if cols[-1].button("✕", key="prov_crumb_close", help="Close panel"):
+        st.session_state.explore_inspect_trail = []
+        st.rerun()
+
+
+def _render_prov_overview(root: dict) -> None:
+    rows = [
+        ("Parameter", root.get("parameter_name")),
+        ("Unit", root.get("unit_name")),
+        ("Location", root.get("sampling_point_label")),
+        ("Source", root.get("equipment_identifier")),
+        ("Campaign", root.get("campaign_name")),
+        ("Stream ID", root.get("stream_id")),
+        ("Type", root.get("kind")),
+    ]
+    for label, value in rows:
+        shown = value if value not in (None, "") else "—"
+        st.markdown(f"**{label}:** {shown}")
+    st.caption(
+        "Traits are the accumulated set of operations across the full lineage "
+        "(ChannelTrait), not just the last step."
+    )
+
+
+def _render_prov_lineage(graph: dict, nodes: dict[int, dict], root_id: int) -> None:
+    st.graphviz_chart(_build_dag_dot(graph, nodes, root_id), use_container_width=True)
+
+    steps = _ordered_ancestor_steps(graph, root_id)
+    if not steps:
+        st.caption("No ancestors — this is a raw source stream.")
+    else:
+        st.markdown("**Ancestors** (nearest first)")
+        seen: set[int] = set()
+        for step in steps:
+            op = step.get("operation_kind_name") or "?"
+            color = OPERATION_COLORS.get(op, DEFAULT_OPERATION_COLOR)
+            st.markdown(
+                f"<span style='color:{color};font-weight:600'>● {op}</span> "
+                f"<span style='color:#888;font-size:12px'>· "
+                f"{step.get('method_name') or ''}</span>",
+                unsafe_allow_html=True,
+            )
+            for inp in step.get("input_stream_ids", []):
+                if inp == root_id or inp in seen:
+                    continue
+                seen.add(inp)
+                node = nodes.get(inp)
+                if node:
+                    _render_prov_node_card(node, key_ctx=f"anc{step['processing_step_id']}")
+
+    desc_ids = _descendant_stream_ids(graph, root_id)
+    if desc_ids:
+        with st.expander(f"⬇ Downstream — what this became ({len(desc_ids)})"):
+            for did in desc_ids:
+                node = nodes.get(did)
+                if node:
+                    _render_prov_node_card(node, key_ctx="desc")
+
+
+def _render_prov_steps(graph: dict) -> None:
+    steps = graph.get("ancestors", [])
+    if not steps:
+        st.caption("No processing steps — this is a raw source stream.")
+        return
+    for step in steps:
+        with st.container(border=True):
+            st.markdown(
+                _op_badge_html(step.get("operation_kind_name"))
+                + f" &nbsp;<code>{step.get('method_name') or ''}"
+                + (f" · {step.get('method_version')}" if step.get("method_version") else "")
+                + "</code>",
+                unsafe_allow_html=True,
+            )
+            params = step.get("method_parameters")
+            if params:
+                st.code(str(params), language="json")
+            who = step.get("executed_by_name") or "(automated)"
+            when = str(step.get("executed_at") or "")[:19]
+            st.caption(f"▸ {who} · {when}")
+            ins = ", ".join(str(i) for i in step.get("input_stream_ids", []))
+            outs = ", ".join(str(o) for o in step.get("output_stream_ids", []))
+            st.caption(f"inputs: {ins} → outputs: {outs}")
+
+
+def _render_provenance_panel() -> None:
+    """Right-hand Provenance inspector for the stream at the top of the trail."""
+    trail = st.session_state.explore_inspect_trail
+    if not trail:
+        return
+
+    st.subheader("🔬 Provenance")
+    _render_breadcrumb(trail)
+
+    _, sid = trail[-1]
+    graph = _load_provenance(sid)
+    if graph is None:
+        return
+
+    nodes = {n["stream_id"]: n for n in graph.get("nodes", [])}
+    root = nodes.get(sid)
+    if root is None:
+        st.warning("Stream not found in the provenance graph.")
+        return
+
+    st.markdown(
+        _prov_badge_html(root.get("provenance_kind_name"))
+        + f" &nbsp;<b>{root.get('label', sid)}</b>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(_trait_pills_html(root.get("traits", [])), unsafe_allow_html=True)
+
+    anc_ids = _ancestor_stream_ids(graph, sid)
+    raw_ids = [i for i in anc_ids if not nodes.get(i, {}).get("is_derived", False)]
+    if root.get("is_derived"):
+        st.caption(
+            f"Derived stream — produced from {len(anc_ids)} ancestor stream(s) "
+            f"({len(raw_ids)} raw source(s)) through {len(graph.get('ancestors', []))} "
+            "processing step(s)."
+        )
+    else:
+        st.caption("Raw source stream — no upstream processing.")
+
+    if anc_ids:
+        c1, c2 = st.columns(2)
+        if c1.button(
+            f"➕ Overlay all {len(anc_ids)} ancestors",
+            key="prov_add_all",
+            use_container_width=True,
+        ):
+            for i in anc_ids:
+                if i in nodes:
+                    _add_node_to_plot(nodes[i], rerun=False)
+            st.rerun()
+        if raw_ids and c2.button(
+            "➕ Raw source only", key="prov_add_raw", use_container_width=True
+        ):
+            for i in raw_ids:
+                if i in nodes:
+                    _add_node_to_plot(nodes[i], rerun=False)
+            st.rerun()
+
+    tab = st.radio(
+        "Provenance view",
+        ["Overview", "Lineage", "Steps"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="explore_prov_tab",
+    )
+    if tab == "Overview":
+        _render_prov_overview(root)
+    elif tab == "Steps":
+        _render_prov_steps(graph)
+    else:
+        _render_prov_lineage(graph, nodes, sid)
 
 
 # ---------------------------------------------------------------------------
@@ -2306,11 +2691,21 @@ def main() -> None:
             event_type_options=event_types,
         )
 
-    # --- Visualization area ---
-    _render_visualization_area(
-        active_channels, channel_meta, annotation_types, equipment, event_types,
-        active_series, series_meta,
-    )
+    # --- Visualization area (+ Provenance panel when a stream is inspected) ---
+    if st.session_state.explore_inspect_trail:
+        viz_col, prov_col = st.columns([7, 3])
+        with viz_col:
+            _render_visualization_area(
+                active_channels, channel_meta, annotation_types, equipment, event_types,
+                active_series, series_meta,
+            )
+        with prov_col:
+            _render_provenance_panel()
+    else:
+        _render_visualization_area(
+            active_channels, channel_meta, annotation_types, equipment, event_types,
+            active_series, series_meta,
+        )
 
 
 def _in_streamlit_run() -> bool:
