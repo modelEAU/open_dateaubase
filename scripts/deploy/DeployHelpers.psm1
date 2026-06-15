@@ -360,10 +360,31 @@ function Write-NginxConf {
         [string]$ApiPort,
         [string]$AppPort,
         [string]$ProxyPort,
-        [string]$LogDir
+        [string]$LogDir,
+        [string]$LogViewerPort = ''
     )
     # nginx requires forward slashes in paths
     $logDirFwd = $LogDir.Replace('\', '/')
+
+    # Optional OpenObserve log viewer block, exposed under /logs/ (set via
+    # ZO_BASE_URI=/logs on the service). Uses the same WebSocket-upgrade headers
+    # as the Streamlit block because OpenObserve's UI streams live tail over ws.
+    $logViewerBlock = ''
+    if ($LogViewerPort) {
+        $logViewerBlock = @"
+
+        # OpenObserve log viewer -- WebSocket upgrade for live tail
+        location /logs/ {
+            proxy_pass         http://127.0.0.1:$LogViewerPort;
+            proxy_http_version 1.1;
+            proxy_set_header   Upgrade `$http_upgrade;
+            proxy_set_header   Connection "upgrade";
+            proxy_set_header   Host `$host;
+            proxy_set_header   X-Real-IP `$remote_addr;
+            proxy_read_timeout 86400;
+        }
+"@
+    }
 
     $conf = @"
 worker_processes 1;
@@ -399,6 +420,7 @@ http {
             proxy_set_header Host `$host;
             proxy_set_header X-Real-IP `$remote_addr;
         }
+$logViewerBlock
     }
 }
 "@
@@ -407,6 +429,211 @@ http {
     New-Item -ItemType Directory -Path (Split-Path $confPath) -Force | Out-Null
     Set-Content -Path $confPath -Value $conf -Encoding UTF8
     Write-Step "nginx.conf written to $confPath" -Success
+}
+
+# ---------------------------------------------------------------------------
+# OpenObserve (log viewer) + Vector (log shipper)
+# ---------------------------------------------------------------------------
+
+# Pinned fallbacks used only when the dynamic "latest release" lookup fails
+# (e.g. offline GitHub, rate limit). Mirrors Install-Nginx's fallback approach.
+$script:OpenObserveFallbackVersion = 'v0.14.4'
+$script:VectorFallbackVersion      = '0.43.1'
+
+function Find-OpenObserve {
+    <#
+    .SYNOPSIS
+        Locates openobserve.exe inside a per-host tools directory.
+    #>
+    param([string]$OpenObservePath = '', [string]$DestDir = '')
+    $candidates = @(
+        $OpenObservePath,
+        $(if ($DestDir) { Join-Path $DestDir 'openobserve.exe' })
+    ) | Where-Object { $_ -and (Test-Path $_) }
+    if ($candidates) { return $candidates[0] }
+    return $null
+}
+
+function Install-OpenObserve {
+    <#
+    .SYNOPSIS
+        Downloads + extracts the OpenObserve Windows amd64 zip into $DestDir.
+    .DESCRIPTION
+        Tries the GitHub "latest release" API to discover the current
+        windows-amd64 asset, falling back to a pinned known-good version.
+        Mirrors Install-Nginx's TLS-1.2 + Invoke-WebRequest + Expand-Archive flow.
+    #>
+    param([string]$DestDir)
+    Write-Step 'Downloading OpenObserve (log viewer) for Windows...'
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    $zipUrl = $null
+    try {
+        $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/openobserve/openobserve/releases/latest' `
+            -Headers @{ 'User-Agent' = 'open-dateaubase-deploy' } -UseBasicParsing
+        $asset = $rel.assets | Where-Object { $_.name -match 'windows-amd64\.zip$' } | Select-Object -First 1
+        if ($asset) { $zipUrl = $asset.browser_download_url }
+    } catch {
+        Write-Step "OpenObserve latest-release lookup failed ($_); using pinned $($script:OpenObserveFallbackVersion)." -Warn
+    }
+    if (-not $zipUrl) {
+        $v = $script:OpenObserveFallbackVersion
+        $zipUrl = "https://github.com/openobserve/openobserve/releases/download/$v/openobserve-$v-windows-amd64.zip"
+    }
+
+    $zipPath     = Join-Path $env:TEMP 'openobserve-windows.zip'
+    $extractBase = Join-Path $env:TEMP 'openobserve-extract'
+    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+    if (Test-Path $extractBase) { Remove-Item $extractBase -Recurse -Force }
+    Expand-Archive -Path $zipPath -DestinationPath $extractBase -Force
+    $exe = Get-ChildItem $extractBase -Recurse -Filter 'openobserve.exe' | Select-Object -First 1
+    if (-not $exe) { throw 'OpenObserve installation failed: openobserve.exe not found in archive.' }
+    New-Item -ItemType Directory -Path $DestDir -Force | Out-Null
+    Copy-Item $exe.FullName -Destination $DestDir -Force
+    Remove-Item $zipPath, $extractBase -Recurse -Force -ErrorAction SilentlyContinue
+    $dest = Join-Path $DestDir 'openobserve.exe'
+    if (-not (Test-Path $dest)) { throw 'OpenObserve installation failed.' }
+    Write-Step "OpenObserve installed: $dest" -Success
+    return $dest
+}
+
+function Find-Vector {
+    <#
+    .SYNOPSIS
+        Locates vector.exe inside a per-host tools directory.
+    #>
+    param([string]$VectorPath = '', [string]$DestDir = '')
+    $candidates = @(
+        $VectorPath,
+        $(if ($DestDir) { Join-Path $DestDir 'vector.exe' })
+    ) | Where-Object { $_ -and (Test-Path $_) }
+    if ($candidates) { return $candidates[0] }
+    return $null
+}
+
+function Install-Vector {
+    <#
+    .SYNOPSIS
+        Downloads + extracts the Vector Windows (msvc) zip into $DestDir.
+    .DESCRIPTION
+        Tries the GitHub "latest release" API to discover the current
+        x86_64-pc-windows-msvc asset, falling back to a pinned known-good version.
+    #>
+    param([string]$DestDir)
+    Write-Step 'Downloading Vector (log shipper) for Windows...'
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    $zipUrl = $null
+    try {
+        $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/vectordotdev/vector/releases/latest' `
+            -Headers @{ 'User-Agent' = 'open-dateaubase-deploy' } -UseBasicParsing
+        $asset = $rel.assets | Where-Object { $_.name -match 'x86_64-pc-windows-msvc\.zip$' } | Select-Object -First 1
+        if ($asset) { $zipUrl = $asset.browser_download_url }
+    } catch {
+        Write-Step "Vector latest-release lookup failed ($_); using pinned $($script:VectorFallbackVersion)." -Warn
+    }
+    if (-not $zipUrl) {
+        $v = $script:VectorFallbackVersion
+        $zipUrl = "https://github.com/vectordotdev/vector/releases/download/v$v/vector-$v-x86_64-pc-windows-msvc.zip"
+    }
+
+    $zipPath     = Join-Path $env:TEMP 'vector-windows.zip'
+    $extractBase = Join-Path $env:TEMP 'vector-extract'
+    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+    if (Test-Path $extractBase) { Remove-Item $extractBase -Recurse -Force }
+    Expand-Archive -Path $zipPath -DestinationPath $extractBase -Force
+    $exe = Get-ChildItem $extractBase -Recurse -Filter 'vector.exe' | Select-Object -First 1
+    if (-not $exe) { throw 'Vector installation failed: vector.exe not found in archive.' }
+    New-Item -ItemType Directory -Path $DestDir -Force | Out-Null
+    Copy-Item $exe.FullName -Destination $DestDir -Force
+    Remove-Item $zipPath, $extractBase -Recurse -Force -ErrorAction SilentlyContinue
+    $dest = Join-Path $DestDir 'vector.exe'
+    if (-not (Test-Path $dest)) { throw 'Vector installation failed.' }
+    Write-Step "Vector installed: $dest" -Success
+    return $dest
+}
+
+function Write-VectorConfig {
+    <#
+    .SYNOPSIS
+        Generates vector.toml: tails the four per-service log sub-dirs, tags each
+        record with environment/service, merges multi-line Python tracebacks, and
+        ships to OpenObserve's _json HTTP endpoint with basic auth + gzip.
+    #>
+    param(
+        [string]$OutPath,
+        [string]$LogDir,
+        [string]$Environment,
+        [string]$ViewerPort,
+        [string]$Org      = 'default',
+        [string]$Stream   = 'open_dateaubase',
+        [string]$User,
+        [string]$Password,
+        [string]$DataDir  = ''
+    )
+    # Vector accepts forward slashes on Windows; avoids TOML escaping headaches.
+    $logDirFwd = $LogDir.Replace('\', '/')
+    if (-not $DataDir) { $DataDir = Join-Path (Split-Path $OutPath) 'data' }
+    $dataDirFwd = $DataDir.Replace('\', '/')
+
+    $toml = @"
+# Generated by Deploy-OpenDateaubase.ps1 -- do not edit by hand.
+# Tails $logDirFwd/{api,app,nginx,importer}/*.log and ships to OpenObserve.
+data_dir = "$dataDirFwd"
+
+[sources.open_dateaubase_logs]
+type = "file"
+read_from = "beginning"
+include = [
+  "$logDirFwd/api/*.log",
+  "$logDirFwd/app/*.log",
+  "$logDirFwd/nginx/*.log",
+  "$logDirFwd/importer/*.log",
+]
+
+# Merge continuation lines (Python tracebacks, etc.) into the preceding
+# timestamped log entry: a new event starts only on a leading timestamp.
+[sources.open_dateaubase_logs.multiline]
+start_pattern = '^(\d{4}-\d{2}-\d{2}|\[\d|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+mode = "halt_before"
+condition_pattern = '^(\d{4}-\d{2}-\d{2}|\[\d|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+timeout_ms = 1000
+
+[transforms.tag]
+type = "remap"
+inputs = ["open_dateaubase_logs"]
+source = '''
+.environment = "$Environment"
+.service = "unknown"
+matched = parse_regex(.file, r'[\\/](?P<svc>[^\\/]+)[\\/][^\\/]+$') ?? {}
+if is_string(matched.svc) {
+    .service = matched.svc
+}
+'''
+
+[sinks.openobserve]
+type = "http"
+inputs = ["tag"]
+uri = "http://127.0.0.1:$ViewerPort/api/$Org/$Stream/_json"
+method = "post"
+compression = "gzip"
+
+[sinks.openobserve.encoding]
+codec = "json"
+
+[sinks.openobserve.request.headers]
+Content-Type = "application/json"
+
+[sinks.openobserve.auth]
+strategy = "basic"
+user = "$User"
+password = "$Password"
+"@
+
+    New-Item -ItemType Directory -Path (Split-Path $OutPath) -Force | Out-Null
+    New-Item -ItemType Directory -Path $DataDir -Force | Out-Null
+    Set-Content -Path $OutPath -Value $toml -Encoding UTF8
+    Write-Step "vector.toml written to $OutPath" -Success
 }
 
 # ---------------------------------------------------------------------------
@@ -445,7 +672,7 @@ function Initialize-LogStructure {
         [string]$ServiceUser = 'LocalSystem'
     )
     Write-Step "Creating log directory structure under $LogDir..."
-    $services = 'api', 'app', 'nginx', 'importer'
+    $services = 'api', 'app', 'nginx', 'importer', 'logviewer', 'logship'
     foreach ($svc in $services) {
         $dir = Join-Path $LogDir $svc
         New-Item -ItemType Directory -Path $dir -Force | Out-Null

@@ -53,6 +53,10 @@
 .PARAMETER ProxyPort
     Port nginx listens on for browser traffic (default: 80).
 
+.PARAMETER LogViewerPort
+    Local port OpenObserve (the log viewer) binds to on 127.0.0.1; exposed only
+    through nginx at /logs/ (default: production 5080, staging 5090).
+
 .PARAMETER ServiceUser
     Windows account to run services under (default: LocalSystem).
 
@@ -70,6 +74,9 @@
 
 .PARAMETER SkipProxy
     Do not deploy/update the nginx proxy service.
+
+.PARAMETER SkipLogViewer
+    Do not deploy/update the OpenObserve log viewer + Vector log shipper services.
 
 .PARAMETER Uninstall
     Stop and remove all services and scheduled tasks.
@@ -126,6 +133,7 @@ param(
     [string]$ApiPort         = '',
     [string]$AppPort         = '',
     [string]$ProxyPort       = '',
+    [string]$LogViewerPort   = '',
 
     [string]$ServiceUser     = 'LocalSystem',
     [string]$ServicePassword = '',
@@ -134,6 +142,7 @@ param(
     [switch]$SkipApp,
     [switch]$SkipImporter,
     [switch]$SkipProxy,
+    [switch]$SkipLogViewer,
     [switch]$Uninstall
 )
 
@@ -154,9 +163,10 @@ $tag        = $envProfile.ServiceTag
 
 if ([string]::IsNullOrWhiteSpace($LogDir))    { $LogDir    = "C:\Logs\open_dateaubase\$Environment" }
 if ([string]::IsNullOrWhiteSpace($EnvFile))   { $EnvFile   = Join-Path $InstallDir ".env.$Environment" }
-if ([string]::IsNullOrWhiteSpace($ApiPort))   { $ApiPort   = $envProfile.ApiPort }
-if ([string]::IsNullOrWhiteSpace($AppPort))   { $AppPort   = $envProfile.AppPort }
-if ([string]::IsNullOrWhiteSpace($ProxyPort)) { $ProxyPort = $envProfile.ProxyPort }
+if ([string]::IsNullOrWhiteSpace($ApiPort))       { $ApiPort       = $envProfile.ApiPort }
+if ([string]::IsNullOrWhiteSpace($AppPort))       { $AppPort       = $envProfile.AppPort }
+if ([string]::IsNullOrWhiteSpace($ProxyPort))     { $ProxyPort     = $envProfile.ProxyPort }
+if ([string]::IsNullOrWhiteSpace($LogViewerPort)) { $LogViewerPort = $envProfile.LogViewerPort }
 
 # The .env file is only required when deploying the API (it carries DB_*).
 if (-not $Uninstall -and -not $SkipApi -and -not (Test-Path $EnvFile -PathType Leaf)) {
@@ -168,6 +178,8 @@ if (-not $Uninstall -and -not $SkipApi -and -not (Test-Path $EnvFile -PathType L
 $SVC_API        = "OpenDateaubase-$tag-API"
 $SVC_APP        = "OpenDateaubase-$tag-App"
 $SVC_PROXY      = "OpenDateaubase-$tag-Proxy"
+$SVC_LOGVIEW    = "OpenDateaubase-$tag-LogViewer"
+$SVC_LOGSHIP    = "OpenDateaubase-$tag-LogShip"
 $TASK_IMPORT    = "OpenDateaubase-$tag-Importer"
 $TASK_LOGROTATE = "OpenDateaubase-$tag-LogRotate"
 $CMD_PATH       = Join-Path $scriptDir "run-importer-$Environment.cmd"
@@ -199,6 +211,8 @@ if ($Uninstall) {
     Write-Step 'Uninstall mode — removing all services and tasks...'
     $nssmExe = Find-Nssm -NssmPath $NssmPath -InstallDir $InstallDir
     if ($nssmExe) {
+        Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_LOGSHIP
+        Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_LOGVIEW
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_PROXY
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_APP
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_API
@@ -350,7 +364,111 @@ if (-not $SkipImporter) {
 }
 
 # ---------------------------------------------------------------------------
-# Step 10: Deploy nginx reverse proxy service
+# Step 10: Deploy log viewer (OpenObserve) + log shipper (Vector)
+#          Placed before nginx so the /logs/ route is always consistent.
+# ---------------------------------------------------------------------------
+
+if (-not $SkipLogViewer) {
+    Write-Step 'Deploying log viewer (OpenObserve) + shipper (Vector)...'
+
+    # --- Credentials (shared by the OpenObserve service and the Vector sink so
+    #     they always match). Prefer values from the .env file; otherwise reuse a
+    #     previously generated password (idempotent re-runs) or generate a new one.
+    $lvUser = 'admin@open_dateaubase.local'
+    $lvPass = ''
+    if (Test-Path $EnvFile -PathType Leaf) {
+        $envForLv = Import-EnvFile -Path $EnvFile
+        if ($envForLv.Contains('LOGVIEWER_USER')     -and $envForLv['LOGVIEWER_USER'])     { $lvUser = $envForLv['LOGVIEWER_USER'] }
+        if ($envForLv.Contains('LOGVIEWER_PASSWORD') -and $envForLv['LOGVIEWER_PASSWORD']) { $lvPass = $envForLv['LOGVIEWER_PASSWORD'] }
+    }
+    $credFile = Join-Path $LogDir 'logviewer\credentials.txt'
+    if (-not $lvPass -and (Test-Path $credFile)) {
+        $existing = Import-EnvFile -Path $credFile
+        if ($existing.Contains('password') -and $existing['password']) { $lvPass = $existing['password'] }
+    }
+    if (-not $lvPass) {
+        $chars  = (48..57) + (65..90) + (97..122)
+        $lvPass = (-join ($chars | Get-Random -Count 24 | ForEach-Object { [char]$_ })) + '!aA9'
+    }
+    New-Item -ItemType Directory -Path (Split-Path $credFile) -Force | Out-Null
+    Set-Content -Path $credFile -Value @("user=$lvUser", "password=$lvPass") -Encoding UTF8
+
+    # --- OpenObserve (UI + store + search), bound to localhost, behind nginx /logs/
+    $ooDir = Join-Path $InstallDir 'tools\openobserve'
+    $ooExe = Find-OpenObserve -DestDir $ooDir
+    if (-not $ooExe) { $ooExe = Install-OpenObserve -DestDir $ooDir }
+
+    $ooDataDir = Join-Path $InstallDir "data\openobserve\$Environment"
+    New-Item -ItemType Directory -Path $ooDataDir -Force | Out-Null
+
+    $ooEnv = [ordered]@{
+        ZO_ROOT_USER_EMAIL             = $lvUser
+        ZO_ROOT_USER_PASSWORD          = $lvPass
+        ZO_DATA_DIR                    = $ooDataDir
+        ZO_HTTP_PORT                   = $LogViewerPort
+        ZO_HTTP_ADDR                   = '127.0.0.1'
+        ZO_BASE_URI                    = '/logs'
+        ZO_COMPACT_DATA_RETENTION_DAYS = '30'
+    }
+
+    Install-NssmService `
+        -NssmExe         $nssmExe `
+        -ServiceName     $SVC_LOGVIEW `
+        -Application     $ooExe `
+        -AppParameters   '' `
+        -AppDirectory    (Split-Path $ooExe) `
+        -DisplayName     "open_datEAUbase Log Viewer ($tag)" `
+        -Description     "OpenObserve log viewer for open_datEAUbase ($Environment; localhost:$LogViewerPort behind nginx /logs/)" `
+        -StdoutLog       (Join-Path $LogDir 'logviewer\stdout.log') `
+        -StderrLog       (Join-Path $LogDir 'logviewer\stderr.log') `
+        -ServiceUser     $ServiceUser `
+        -ServicePassword $ServicePassword `
+        -AppEnvironment  $ooEnv
+
+    Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_LOGVIEW
+    # HTTP health is a bonus signal; ZO_BASE_URI may relocate /healthz, and the
+    # viewer is auxiliary, so a failed probe warns rather than aborting the deploy.
+    try {
+        Assert-ServiceHealthy -Url "http://localhost:$LogViewerPort/healthz" -TimeoutSec 30
+    } catch {
+        Write-Step "Log viewer health probe did not pass ($_). Service is Running; check $LogDir\logviewer\ if /logs/ is unreachable." -Warn
+    }
+
+    # --- Vector (tails $LogDir, ships to the viewer), started after viewer is up
+    $vecDir = Join-Path $InstallDir 'tools\vector'
+    $vecExe = Find-Vector -DestDir $vecDir
+    if (-not $vecExe) { $vecExe = Install-Vector -DestDir $vecDir }
+
+    $vecConf = Join-Path $InstallDir "tools\vector\$Environment\vector.toml"
+    $vecData = Join-Path $InstallDir "tools\vector\$Environment\data"
+    Write-VectorConfig `
+        -OutPath     $vecConf `
+        -LogDir      $LogDir `
+        -Environment $Environment `
+        -ViewerPort  $LogViewerPort `
+        -User        $lvUser `
+        -Password    $lvPass `
+        -DataDir     $vecData
+
+    Install-NssmService `
+        -NssmExe         $nssmExe `
+        -ServiceName     $SVC_LOGSHIP `
+        -Application     $vecExe `
+        -AppParameters   "--config `"$vecConf`"" `
+        -AppDirectory    (Split-Path $vecExe) `
+        -DisplayName     "open_datEAUbase Log Shipper ($tag)" `
+        -Description     "Vector log shipper for open_datEAUbase ($Environment; tails $LogDir → OpenObserve)" `
+        -StdoutLog       (Join-Path $LogDir 'logship\stdout.log') `
+        -StderrLog       (Join-Path $LogDir 'logship\stderr.log') `
+        -ServiceUser     $ServiceUser `
+        -ServicePassword $ServicePassword
+
+    Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_LOGSHIP
+    Write-Step "Log viewer ready at http://localhost:$ProxyPort/logs/ (credentials: $credFile)" -Success
+}
+
+# ---------------------------------------------------------------------------
+# Step 11: Deploy nginx reverse proxy service
 # ---------------------------------------------------------------------------
 
 if (-not $SkipProxy) {
@@ -358,11 +476,12 @@ if (-not $SkipProxy) {
     $nginxDir = Split-Path -Parent $nginxExe
 
     Write-NginxConf `
-        -NginxDir  $nginxDir `
-        -ApiPort   $ApiPort `
-        -AppPort   $AppPort `
-        -ProxyPort $ProxyPort `
-        -LogDir    $LogDir
+        -NginxDir      $nginxDir `
+        -ApiPort       $ApiPort `
+        -AppPort       $AppPort `
+        -ProxyPort     $ProxyPort `
+        -LogDir        $LogDir `
+        -LogViewerPort $(if (-not $SkipLogViewer) { $LogViewerPort } else { '' })
 
     Install-NssmService `
         -NssmExe         $nssmExe `
@@ -403,6 +522,12 @@ if (-not $SkipProxy) {
     $s = Get-Service $SVC_PROXY -ErrorAction SilentlyContinue
     $rows += [pscustomobject]@{ Component='Proxy';    Type='Windows Service';     Name=$SVC_PROXY;   Status=$s?.Status; URL="http://localhost:$ProxyPort/" }
 }
+if (-not $SkipLogViewer) {
+    $sv = Get-Service $SVC_LOGVIEW -ErrorAction SilentlyContinue
+    $ss = Get-Service $SVC_LOGSHIP -ErrorAction SilentlyContinue
+    $rows += [pscustomobject]@{ Component='LogViewer'; Type='Windows Service';    Name=$SVC_LOGVIEW; Status=$sv?.Status; URL="http://localhost:$ProxyPort/logs/" }
+    $rows += [pscustomobject]@{ Component='LogShip';   Type='Windows Service';    Name=$SVC_LOGSHIP; Status=$ss?.Status; URL='(ships to LogViewer)' }
+}
 if (-not $SkipImporter) {
     $t = Get-ScheduledTask $TASK_IMPORT -ErrorAction SilentlyContinue
     $rows += [pscustomobject]@{ Component='Importer'; Type='Scheduled Task';      Name=$TASK_IMPORT; Status=$t?.State;  URL="(every $ImporterIntervalMinutes min)" }
@@ -413,9 +538,15 @@ $rows | Format-Table -AutoSize
 Write-Host ''
 Write-Host "  Log directory : $LogDir" -ForegroundColor Cyan
 Write-Host "  Deploy log    : $transcriptPath" -ForegroundColor Cyan
+if (-not $SkipLogViewer) {
+    Write-Host "  Log viewer creds: $credFile" -ForegroundColor Cyan
+}
 if (-not $SkipProxy) {
     Write-Host ''
     Write-Host "  Open in browser: http://$(hostname)/" -ForegroundColor Green
+    if (-not $SkipLogViewer) {
+        Write-Host "  Inspect logs   : http://$(hostname)/logs/" -ForegroundColor Green
+    }
 }
 Write-Host ''
 Write-Host 'To manually trigger the importer:' -ForegroundColor Yellow

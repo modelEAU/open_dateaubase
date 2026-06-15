@@ -32,6 +32,7 @@ $script:EnvironmentProfiles = @{
         ApiPort       = '8010'
         AppPort       = '8511'
         ProxyPort     = '8080'
+        LogViewerPort = '5090'                     # OpenObserve UI, exposed via nginx /logs/
         AllowSeedData = $false                     # dev/demo seed never loaded into staging
     }
     production = [pscustomobject]@{
@@ -41,6 +42,7 @@ $script:EnvironmentProfiles = @{
         ApiPort       = '8000'
         AppPort       = '8501'
         ProxyPort     = '80'
+        LogViewerPort = '5080'                     # OpenObserve UI, exposed via nginx /logs/
         AllowSeedData = $false                     # dev/demo seed never loaded into production
     }
 }
