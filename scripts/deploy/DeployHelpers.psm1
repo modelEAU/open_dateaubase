@@ -84,7 +84,8 @@ function Find-Uv {
         "$env:LOCALAPPDATA\uv\uv.exe",
         "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\astral-sh.uv_Microsoft.Winget.Source_*\uv.exe"
     ) | Where-Object { $_ -and (Test-Path $_) }
-    if ($candidates) { return $candidates[0] }
+    # @(...) keeps array context so a lone candidate isn't indexed char-wise.
+    if ($candidates) { return @($candidates)[0] }
     return $null
 }
 
@@ -152,7 +153,8 @@ function Find-Nssm {
         'C:\nssm\nssm.exe',
         "$env:ProgramFiles\NSSM\nssm.exe"
     ) | Where-Object { $_ -and (Test-Path $_) }
-    if ($candidates) { return $candidates[0] }
+    # @(...) keeps array context so a lone candidate isn't indexed char-wise.
+    if ($candidates) { return @($candidates)[0] }
     return $null
 }
 
@@ -315,7 +317,8 @@ function Find-Nginx {
         $NginxPath,
         $(if ($NginxRoot) { Join-Path $NginxRoot 'nginx.exe' })
     ) | Where-Object { $_ -and (Test-Path $_) }
-    if ($candidates) { return $candidates[0] }
+    # @(...) keeps array context so a lone candidate isn't indexed char-wise.
+    if ($candidates) { return @($candidates)[0] }
     return $null
 }
 
@@ -450,7 +453,8 @@ function Find-OpenObserve {
         $OpenObservePath,
         $(if ($DestDir) { Join-Path $DestDir 'openobserve.exe' })
     ) | Where-Object { $_ -and (Test-Path $_) }
-    if ($candidates) { return $candidates[0] }
+    # @(...) keeps array context so a lone candidate isn't indexed char-wise.
+    if ($candidates) { return @($candidates)[0] }
     return $null
 }
 
@@ -507,7 +511,8 @@ function Find-Vector {
         $VectorPath,
         $(if ($DestDir) { Join-Path $DestDir 'vector.exe' })
     ) | Where-Object { $_ -and (Test-Path $_) }
-    if ($candidates) { return $candidates[0] }
+    # @(...) keeps array context so a lone candidate isn't indexed char-wise.
+    if ($candidates) { return @($candidates)[0] }
     return $null
 }
 
