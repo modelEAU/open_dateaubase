@@ -530,25 +530,25 @@ Write-Host '=================================================================' -
 $rows = @()
 if (-not $SkipApi) {
     $s = Get-Service $SVC_API -ErrorAction SilentlyContinue
-    $rows += [pscustomobject]@{ Component='API';      Type='Windows Service';     Name=$SVC_API;     Status=$s?.Status; URL="http://localhost:$ApiPort/" }
+    $rows += [pscustomobject]@{ Component='API';      Type='Windows Service';     Name=$SVC_API;     Status=${s}?.Status; URL="http://localhost:$ApiPort/" }
 }
 if (-not $SkipApp) {
     $s = Get-Service $SVC_APP -ErrorAction SilentlyContinue
-    $rows += [pscustomobject]@{ Component='App';      Type='Windows Service';     Name=$SVC_APP;     Status=$s?.Status; URL="http://localhost:$AppPort/" }
+    $rows += [pscustomobject]@{ Component='App';      Type='Windows Service';     Name=$SVC_APP;     Status=${s}?.Status; URL="http://localhost:$AppPort/" }
 }
 if (-not $SkipProxy) {
     $s = Get-Service $SVC_PROXY -ErrorAction SilentlyContinue
-    $rows += [pscustomobject]@{ Component='Proxy';    Type='Windows Service';     Name=$SVC_PROXY;   Status=$s?.Status; URL="http://localhost:$ProxyPort/" }
+    $rows += [pscustomobject]@{ Component='Proxy';    Type='Windows Service';     Name=$SVC_PROXY;   Status=${s}?.Status; URL="http://localhost:$ProxyPort/" }
 }
 if (-not $SkipLogViewer) {
     $sv = Get-Service $SVC_LOGVIEW -ErrorAction SilentlyContinue
     $ss = Get-Service $SVC_LOGSHIP -ErrorAction SilentlyContinue
-    $rows += [pscustomobject]@{ Component='LogViewer'; Type='Windows Service';    Name=$SVC_LOGVIEW; Status=$sv?.Status; URL="http://localhost:$ProxyPort/logs/" }
-    $rows += [pscustomobject]@{ Component='LogShip';   Type='Windows Service';    Name=$SVC_LOGSHIP; Status=$ss?.Status; URL='(ships to LogViewer)' }
+    $rows += [pscustomobject]@{ Component='LogViewer'; Type='Windows Service';    Name=$SVC_LOGVIEW; Status=${sv}?.Status; URL="http://localhost:$ProxyPort/logs/" }
+    $rows += [pscustomobject]@{ Component='LogShip';   Type='Windows Service';    Name=$SVC_LOGSHIP; Status=${ss}?.Status; URL='(ships to LogViewer)' }
 }
 if (-not $SkipImporter) {
     $t = Get-ScheduledTask $TASK_IMPORT -ErrorAction SilentlyContinue
-    $rows += [pscustomobject]@{ Component='Importer'; Type='Scheduled Task';      Name=$TASK_IMPORT; Status=$t?.State;  URL="(every $ImporterIntervalMinutes min)" }
+    $rows += [pscustomobject]@{ Component='Importer'; Type='Scheduled Task';      Name=$TASK_IMPORT; Status=${t}?.State;  URL="(every $ImporterIntervalMinutes min)" }
 }
 
 $rows | Format-Table -AutoSize
