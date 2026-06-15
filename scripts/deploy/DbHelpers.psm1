@@ -125,7 +125,11 @@ function Get-SqlCmdArgs {
         [string]$DbUser         = '',
         [string]$DbPassword     = ''
     )
-    $cmdArgs = @('-S', $ServerInstance, '-d', $DatabaseName, '-b', '-V', '1')
+    # -C trusts the server certificate. Modern sqlcmd (go-sqlcmd / ODBC Driver 18)
+    # defaults to mandatory encryption with full cert validation, which fails against
+    # a SQL Server using a self-signed cert. This matches the TrustServerCertificate=yes
+    # used in the generated .env connection string (see Get-ConnectionString).
+    $cmdArgs = @('-S', $ServerInstance, '-d', $DatabaseName, '-b', '-V', '1', '-C')
     if ($DbUser) {
         $cmdArgs += @('-U', $DbUser, '-P', $DbPassword)
     } else {
