@@ -592,6 +592,7 @@ function Write-VectorConfig {
     # Vector accepts forward slashes on Windows; avoids TOML escaping headaches.
     $logDirFwd = $LogDir.Replace('\', '/')
     if (-not $DataDir) { $DataDir = Join-Path (Split-Path $OutPath) 'data' }
+    New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
     $dataDirFwd = $DataDir.Replace('\', '/')
 
     $toml = @"
@@ -632,7 +633,8 @@ if is_string(matched.svc) {
 [sinks.openobserve]
 type = "http"
 inputs = ["tag"]
-uri = "http://127.0.0.1:$ViewerPort/api/$Org/$Stream/_json"
+# ZO_BASE_URI=/logs relocates every OpenObserve route, including ingestion, under that prefix.
+uri = "http://127.0.0.1:$ViewerPort/logs/api/$Org/$Stream/_json"
 method = "post"
 compression = "gzip"
 

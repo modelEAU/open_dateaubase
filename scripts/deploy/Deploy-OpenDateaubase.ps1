@@ -389,7 +389,9 @@ if (-not $SkipLogViewer) {
     # --- Credentials (shared by the OpenObserve service and the Vector sink so
     #     they always match). Prefer values from the .env file; otherwise reuse a
     #     previously generated password (idempotent re-runs) or generate a new one.
-    $lvUser = 'admin@open_dateaubase.local'
+    # OpenObserve validates the root email with a regex whose domain part
+    # disallows underscores, so "open_dateaubase.local" panics the server.
+    $lvUser = 'admin@open-dateaubase.local'
     $lvPass = ''
     if (Test-Path $EnvFile -PathType Leaf) {
         $envForLv = Import-EnvFile -Path $EnvFile
@@ -441,10 +443,11 @@ if (-not $SkipLogViewer) {
         -AppEnvironment  $ooEnv
 
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_LOGVIEW
-    # HTTP health is a bonus signal; ZO_BASE_URI may relocate /healthz, and the
-    # viewer is auxiliary, so a failed probe warns rather than aborting the deploy.
+    # HTTP health is a bonus signal; ZO_BASE_URI=/logs relocates /healthz under
+    # that prefix, and the viewer is auxiliary, so a failed probe warns rather
+    # than aborting the deploy.
     try {
-        Assert-ServiceHealthy -Url "http://localhost:$LogViewerPort/healthz" -TimeoutSec 30
+        Assert-ServiceHealthy -Url "http://localhost:$LogViewerPort/logs/healthz" -TimeoutSec 30
     } catch {
         Write-Step "Log viewer health probe did not pass ($_). Service is Running; check $LogDir\logviewer\ if /logs/ is unreachable." -Warn
     }
