@@ -216,6 +216,11 @@ function Install-NssmService {
 
     if ($exists) {
         Write-Step "Service '$ServiceName' exists — stopping for reconfiguration..."
+        $svcState = (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue)?.Status
+        if ($svcState -eq 'Paused') {
+            Resume-Service -Name $ServiceName -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        }
         & $NssmExe stop $ServiceName confirm 2>&1 | Out-Null
         Start-Sleep -Seconds 2
     } else {
@@ -277,13 +282,17 @@ function Remove-NssmService {
 function Start-ManagedService {
     param([string]$NssmExe, [string]$ServiceName, [int]$TimeoutSeconds = 30)
     Write-Step "Starting service '$ServiceName'..."
-    & $NssmExe start $ServiceName
+    & $NssmExe start $ServiceName 2>&1 | Out-Null
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
         $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
         if ($svc -and $svc.Status -eq 'Running') {
             Write-Step "Service '$ServiceName' is Running." -Success
             return
+        }
+        if ($svc -and $svc.Status -eq 'Paused') {
+            Write-Step "Service '$ServiceName' is Paused — resuming..." -Warn
+            Resume-Service -Name $ServiceName -ErrorAction SilentlyContinue
         }
         Start-Sleep -Seconds 2
     }
