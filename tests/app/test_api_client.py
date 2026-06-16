@@ -69,6 +69,13 @@ class _FakeClient:
         self.last_method, self.last_url, self.last_kwargs = "PUT", url, kwargs
         return self._response
 
+    def request(self, method, url, **kwargs):
+        # api_client now funnels every call through client.request(); drop kwargs
+        # that are always-None so assertions on last_kwargs stay unchanged.
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        self.last_method, self.last_url, self.last_kwargs = method.upper(), url, kwargs
+        return self._response
+
 
 # ---------------------------------------------------------------------------
 # APIError
