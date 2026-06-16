@@ -22,6 +22,23 @@ from fixtures.sample_dictionary import (
 
 
 @pytest.fixture(autouse=True)
+def _clear_streamlit_cache():
+    """Clear st.cache_data between tests.
+
+    Reference-data lookups in app.api_client are wrapped in st.cache_data; the
+    cache is process-global, so without this a result cached by one test would
+    leak into the next. Harmless when streamlit isn't installed/used.
+    """
+    try:
+        import streamlit as st
+
+        st.cache_data.clear()
+    except Exception:
+        pass
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _auth_override(request):
     """Bypass API auth for endpoint tests.
 

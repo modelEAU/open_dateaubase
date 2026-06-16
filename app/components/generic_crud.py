@@ -164,6 +164,7 @@ def render_crud_page(
         _modified = True
         try:
             delete_fn(selected[pk_field])
+            _api.clear_lookup_caches()
             st.success(f"{title} deleted.")
             if not embedded:
                 st.rerun()
@@ -226,6 +227,7 @@ def _normalize_options(raw: list[dict]) -> list[dict]:
 def _handle_create(fn: Callable, data: dict, title: str) -> bool:
     try:
         fn(data)
+        _api.clear_lookup_caches()
         st.success(f"{title} created.")
         return True
     except APIError as e:
@@ -236,6 +238,7 @@ def _handle_create(fn: Callable, data: dict, title: str) -> bool:
 def _handle_update(fn: Callable, pk: int, data: dict, title: str) -> bool:
     try:
         fn(pk, data)
+        _api.clear_lookup_caches()
         st.success(f"{title} updated.")
         return True
     except APIError as e:

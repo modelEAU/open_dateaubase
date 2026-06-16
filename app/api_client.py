@@ -2753,3 +2753,41 @@ def list_sample_collection_kinds_lookup() -> list[dict]:
 def list_sample_kinds_lookup() -> list[dict]:
     """Return sample kinds for dropdown (wrapper for consistency)."""
     return list_sample_kinds()
+
+
+# ---------------------------------------------------------------------------
+# Reference-data caching
+# ---------------------------------------------------------------------------
+# The ``list_*_lookup`` functions return slowly-changing reference data that
+# pages re-fetch on every Streamlit rerun (i.e. on every keystroke/widget
+# change), hammering the API. Wrap them all in st.cache_data so repeated reads
+# within the TTL are served from memory. Auto-discovery keeps new lookups
+# cached without touching this block. Mutations invalidate via
+# clear_lookup_caches() (called by generic_crud after create/update/delete).
+import types as _types
+
+_LOOKUP_TTL_SECONDS = 60
+
+_CACHED_LOOKUP_NAMES = sorted(
+    name
+    for name, obj in list(globals().items())
+    if name.startswith("list_")
+    and name.endswith("_lookup")
+    and isinstance(obj, _types.FunctionType)
+)
+
+for _name in _CACHED_LOOKUP_NAMES:
+    globals()[_name] = st.cache_data(ttl=_LOOKUP_TTL_SECONDS)(globals()[_name])
+
+
+def clear_lookup_caches() -> None:
+    """Invalidate all cached reference-data lookups.
+
+    Call after any create/update/delete so freshly changed reference data is
+    visible immediately instead of waiting for the cache TTL to expire.
+    """
+    for _name in _CACHED_LOOKUP_NAMES:
+        fn = globals().get(_name)
+        clear = getattr(fn, "clear", None)
+        if callable(clear):
+            clear()
