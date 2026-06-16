@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
+from api.config import settings
 from api.database import get_db
 from ..repositories.audit_repository import AuditRepository
 from ..repositories.auth_repository import AuthRepository
@@ -11,6 +14,17 @@ from ..schemas.auth import AuthResponse, LoginRequest, SignupRequest, UserOut
 from ..services.auth_service import AuthService
 
 router = APIRouter()
+
+# Identity returned for machine clients authenticating with the service token.
+SERVICE_PRINCIPAL = {
+    "user_id": 0,
+    "email": "service@open-dateaubase",
+    "full_name": "Service Account",
+    "is_active": True,
+    "is_verified": True,
+    "created_at": datetime(1970, 1, 1, tzinfo=timezone.utc),
+    "updated_at": datetime(1970, 1, 1, tzinfo=timezone.utc),
+}
 
 
 def get_audit_repo(conn=Depends(get_db)) -> AuditRepository:
@@ -42,6 +56,9 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Authorization header.",
         )
+
+    if settings.service_token and token == settings.service_token:
+        return SERVICE_PRINCIPAL
 
     return service.get_current_user_from_token(token)
 

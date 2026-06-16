@@ -24,6 +24,11 @@ class Settings:
     db_password: str = os.getenv("DB_PASSWORD", "")
     db_driver: str = os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server")
 
+    # Shared secret for machine clients (importer, dev auto-login). Sent as a
+    # bearer token and accepted by get_current_user alongside real user JWTs.
+    # Empty string disables service-token auth (only user JWTs are accepted).
+    service_token: str = os.getenv("API_SERVICE_TOKEN", "")
+
     api_title: str = "open_datEAUbase API"
     api_description: str = (
         "REST API for the open_datEAUbase water quality database. "
