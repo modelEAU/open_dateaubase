@@ -5,6 +5,83 @@ from __future__ import annotations
 import pyodbc
 
 
+# ---------------------------------------------------------------------------
+# Generic CRUD for (ID, Name, Description) "kind" vocabulary tables.
+# ponytail: table/id_col/id_key are hardcoded literals passed by the named
+# wrappers below — never user input — so f-string interpolation is injection-safe;
+# the actual values stay parameterized with ?.
+# ---------------------------------------------------------------------------
+
+
+def _list_kinds(conn: pyodbc.Connection, table: str, id_col: str, id_key: str) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        f"SELECT [{id_col}], [Name], [Description]"
+        f" FROM [dbo].[{table}] ORDER BY [{id_col}]"
+    )
+    return [
+        {id_key: row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+def _insert_kind(
+    conn: pyodbc.Connection, table: str, id_col: str, id_key: str,
+    name: str, description: str | None = None,
+) -> dict:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            f"INSERT INTO [dbo].[{table}] ([Name], [Description])"
+            f" OUTPUT inserted.[{id_col}], inserted.[Name], inserted.[Description]"
+            f" VALUES (?, ?)",
+            name,
+            description,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        return {id_key: row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _update_kind(
+    conn: pyodbc.Connection, table: str, id_col: str, id_key: str,
+    kind_id: int, name: str, description: str | None = None,
+) -> dict | None:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            f"UPDATE [dbo].[{table}]"
+            f" SET [Name]=?, [Description]=?"
+            f" OUTPUT inserted.[{id_col}], inserted.[Name], inserted.[Description]"
+            f" WHERE [{id_col}]=?",
+            name,
+            description,
+            kind_id,
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            return None
+        return {id_key: row[0], "name": row[1], "description": row[2]}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _delete_kind(conn: pyodbc.Connection, table: str, id_col: str, kind_id: int) -> bool:
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"DELETE FROM [dbo].[{table}] WHERE [{id_col}]=?", kind_id)
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def get_unit_by_id(conn: pyodbc.Connection, unit_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
@@ -602,14 +679,7 @@ def delete_sample_collection_kind(conn: pyodbc.Connection, sample_collection_kin
 
 
 def get_bin_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [BinKind_ID], [Name], [Description] FROM [dbo].[BinKind] ORDER BY [BinKind_ID]"
-    )
-    return [
-        {"bin_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
+    return _list_kinds(conn, "BinKind", "BinKind_ID", "bin_kind_id")
 
 
 # ---------------------------------------------------------------------------
@@ -618,15 +688,7 @@ def get_bin_kinds(conn: pyodbc.Connection) -> list[dict]:
 
 
 def get_channel_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [ChannelKind_ID], [Name], [Description]"
-        " FROM [dbo].[ChannelKind] ORDER BY [ChannelKind_ID]"
-    )
-    return [
-        {"channel_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
+    return _list_kinds(conn, "ChannelKind", "ChannelKind_ID", "channel_kind_id")
 
 
 # ---------------------------------------------------------------------------
@@ -635,13 +697,7 @@ def get_channel_kinds(conn: pyodbc.Connection) -> list[dict]:
 
 
 def get_operation_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [OperationKind_ID], [Name], [Description] FROM [dbo].[OperationKind] ORDER BY [OperationKind_ID]"
-    )
-    return [
-        {"operation_kind_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()
-    ]
+    return _list_kinds(conn, "OperationKind", "OperationKind_ID", "operation_kind_id")
 
 
 # ---------------------------------------------------------------------------
@@ -650,133 +706,24 @@ def get_operation_kinds(conn: pyodbc.Connection) -> list[dict]:
 
 
 def insert_campaign_kind(conn: pyodbc.Connection, name: str, description: str | None = None) -> dict:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO [dbo].[CampaignKind] ([Name], [Description])"
-            " OUTPUT inserted.[CampaignKind_ID], inserted.[Name], inserted.[Description]"
-            " VALUES (?, ?)",
-            name,
-            description,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        return {"campaign_kind_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
+    return _insert_kind(conn, "CampaignKind", "CampaignKind_ID", "campaign_kind_id", name, description)
 
 
 def update_campaign_kind(
     conn: pyodbc.Connection, campaign_kind_id: int, name: str, description: str | None = None
 ) -> dict | None:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "UPDATE [dbo].[CampaignKind]"
-            " SET [Name]=?, [Description]=?"
-            " OUTPUT inserted.[CampaignKind_ID], inserted.[Name], inserted.[Description]"
-            " WHERE [CampaignKind_ID]=?",
-            name,
-            description,
-            campaign_kind_id,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        if row is None:
-            return None
-        return {"campaign_kind_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
+    return _update_kind(
+        conn, "CampaignKind", "CampaignKind_ID", "campaign_kind_id",
+        campaign_kind_id, name, description,
+    )
 
 
 def delete_campaign_kind(conn: pyodbc.Connection, campaign_kind_id: int) -> bool:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "DELETE FROM [dbo].[CampaignKind] WHERE [CampaignKind_ID]=?",
-            campaign_kind_id,
-        )
-        conn.commit()
-        return cursor.rowcount > 0
-    except Exception:
-        conn.rollback()
-        raise
+    return _delete_kind(conn, "CampaignKind", "CampaignKind_ID", campaign_kind_id)
 
 
-# ---------------------------------------------------------------------------
-# EquipmentEventKind
-# ---------------------------------------------------------------------------
-
-
-def get_equipment_event_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [EquipmentEventKind_ID], [Name], [Description]"
-        " FROM [dbo].[EquipmentEventKind] ORDER BY [EquipmentEventKind_ID]"
-    )
-    return [
-        {"equipment_event_kind_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()
-    ]
-
-
-def insert_equipment_event_kind(conn: pyodbc.Connection, name: str, description: str | None = None) -> dict:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO [dbo].[EquipmentEventKind] ([Name], [Description])"
-            " OUTPUT inserted.[EquipmentEventKind_ID], inserted.[Name], inserted.[Description]"
-            " VALUES (?, ?)",
-            name,
-            description,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        return {"equipment_event_kind_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def update_equipment_event_kind(
-    conn: pyodbc.Connection, equipment_event_kind_id: int, name: str, description: str | None = None
-) -> dict | None:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "UPDATE [dbo].[EquipmentEventKind]"
-            " SET [Name]=?, [Description]=?"
-            " OUTPUT inserted.[EquipmentEventKind_ID], inserted.[Name], inserted.[Description]"
-            " WHERE [EquipmentEventKind_ID]=?",
-            name,
-            description,
-            equipment_event_kind_id,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        if row is None:
-            return None
-        return {"equipment_event_kind_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def delete_equipment_event_kind(
-    conn: pyodbc.Connection, equipment_event_kind_id: int
-) -> bool:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "DELETE FROM [dbo].[EquipmentEventKind] WHERE [EquipmentEventKind_ID]=?",
-            equipment_event_kind_id,
-        )
-        conn.commit()
-        return cursor.rowcount > 0
-    except Exception:
-        conn.rollback()
-        raise
+# EquipmentEventKind CRUD lives in equipment_repository (the live path); the
+# duplicate copies that used to be here were dead and have been removed.
 
 
 # ---------------------------------------------------------------------------
@@ -785,69 +732,24 @@ def delete_equipment_event_kind(
 
 
 def get_procedure_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [ProcedureKind_ID], [Name], [Description] FROM [dbo].[ProcedureKind] ORDER BY [ProcedureKind_ID]"
-    )
-    return [
-        {"procedure_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
+    return _list_kinds(conn, "ProcedureKind", "ProcedureKind_ID", "procedure_kind_id")
 
 
 def insert_procedure_kind(conn: pyodbc.Connection, name: str, description: str | None = None) -> dict:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO [dbo].[ProcedureKind] ([Name], [Description])"
-            " OUTPUT inserted.[ProcedureKind_ID], inserted.[Name], inserted.[Description]"
-            " VALUES (?, ?)",
-            name,
-            description,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        return {"procedure_kind_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
+    return _insert_kind(conn, "ProcedureKind", "ProcedureKind_ID", "procedure_kind_id", name, description)
 
 
 def update_procedure_kind(
     conn: pyodbc.Connection, procedure_kind_id: int, name: str, description: str | None = None
 ) -> dict | None:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "UPDATE [dbo].[ProcedureKind]"
-            " SET [Name]=?, [Description]=?"
-            " OUTPUT inserted.[ProcedureKind_ID], inserted.[Name], inserted.[Description]"
-            " WHERE [ProcedureKind_ID]=?",
-            name,
-            description,
-            procedure_kind_id,
-        )
-        row = cursor.fetchone()
-        conn.commit()
-        if row is None:
-            return None
-        return {"procedure_kind_id": row[0], "name": row[1], "description": row[2]}
-    except Exception:
-        conn.rollback()
-        raise
+    return _update_kind(
+        conn, "ProcedureKind", "ProcedureKind_ID", "procedure_kind_id",
+        procedure_kind_id, name, description,
+    )
 
 
 def delete_procedure_kind(conn: pyodbc.Connection, procedure_kind_id: int) -> bool:
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "DELETE FROM [dbo].[ProcedureKind] WHERE [ProcedureKind_ID]=?", procedure_kind_id
-        )
-        conn.commit()
-        return cursor.rowcount > 0
-    except Exception:
-        conn.rollback()
-        raise
+    return _delete_kind(conn, "ProcedureKind", "ProcedureKind_ID", procedure_kind_id)
 
 
 # ---------------------------------------------------------------------------
@@ -1180,16 +1082,9 @@ def get_tags_lookup(conn: pyodbc.Connection, das_id: int) -> list[dict]:
 
 
 def get_das_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [DataAcquisitionSystemKind_ID], [Name], [Description]"
-        " FROM [dbo].[DataAcquisitionSystemKind]"
-        " ORDER BY [DataAcquisitionSystemKind_ID]"
+    return _list_kinds(
+        conn, "DataAcquisitionSystemKind", "DataAcquisitionSystemKind_ID", "das_kind_id"
     )
-    return [
-        {"das_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
 
 
 # ---------------------------------------------------------------------------
@@ -1198,13 +1093,4 @@ def get_das_kinds(conn: pyodbc.Connection) -> list[dict]:
 
 
 def get_controller_kinds(conn: pyodbc.Connection) -> list[dict]:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT [ControllerKind_ID], [Name], [Description]"
-        " FROM [dbo].[ControllerKind]"
-        " ORDER BY [ControllerKind_ID]"
-    )
-    return [
-        {"controller_kind_id": row[0], "name": row[1], "description": row[2]}
-        for row in cursor.fetchall()
-    ]
+    return _list_kinds(conn, "ControllerKind", "ControllerKind_ID", "controller_kind_id")
