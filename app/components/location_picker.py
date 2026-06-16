@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+
 import httpx
 import folium
 import streamlit as st
@@ -13,6 +15,15 @@ _HEADERS = {"User-Agent": "open_datEAUbase/2.1.0 (water quality database)"}
 _DEFAULT_LAT = 45.5017
 _DEFAULT_LNG = -73.5673  # Montreal
 _MAP_HEIGHT = 350
+
+# Inlined as a data URI so the marker never depends on a CDN fetch
+# (Leaflet's default icon is loaded from cdn.jsdelivr.net, which was failing
+# intermittently on this network).
+_PIN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">
+<path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 9.4 12.5 28.5 12.5 28.5s12.5-19.1 12.5-28.5C25 5.6 19.4 0 12.5 0z" fill="#2A81CB" stroke="#1c5a8e" stroke-width="1"/>
+<circle cx="12.5" cy="12.5" r="5" fill="white"/>
+</svg>"""
+_PIN_ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(_PIN_SVG.encode()).decode()
 
 
 def _nominatim_search_raw(query: str) -> list[dict]:
@@ -144,6 +155,7 @@ def render_location_picker(
     folium.Marker(
         [center_lat, center_lng],
         tooltip=f"{center_lat:.6f}, {center_lng:.6f}",
+        icon=folium.CustomIcon(_PIN_ICON_URI, icon_size=(25, 41), icon_anchor=(12, 41)),
     ).add_to(m)
 
     # Key encodes coordinates so the component re-mounts (showing new marker)
