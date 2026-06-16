@@ -912,6 +912,38 @@ foreach (\$log in Get-ChildItem \$dir -Filter '*.log') {
 }
 
 # ---------------------------------------------------------------------------
+# Windows Firewall
+# ---------------------------------------------------------------------------
+
+function Set-AppFirewallRule {
+    <#
+    .SYNOPSIS
+        Ensures an inbound-allow firewall rule exists for the given TCP port,
+        so LAN clients (not just localhost) can reach the nginx proxy.
+    #>
+    param(
+        [string]$DisplayName,
+        [int]$Port
+    )
+    if (Get-NetFirewallRule -DisplayName $DisplayName -ErrorAction SilentlyContinue) {
+        Set-NetFirewallRule -DisplayName $DisplayName -Enabled True -Action Allow -Profile Any | Out-Null
+        Write-Step "Firewall rule '$DisplayName' already present (TCP $Port) — ensured enabled." -Success
+    } else {
+        New-NetFirewallRule -DisplayName $DisplayName -Direction Inbound -Action Allow `
+            -Protocol TCP -LocalPort $Port -Profile Any | Out-Null
+        Write-Step "Firewall rule '$DisplayName' created (inbound TCP $Port)." -Success
+    }
+}
+
+function Remove-AppFirewallRule {
+    param([string]$DisplayName)
+    if (Get-NetFirewallRule -DisplayName $DisplayName -ErrorAction SilentlyContinue) {
+        Remove-NetFirewallRule -DisplayName $DisplayName
+        Write-Step "Firewall rule '$DisplayName' removed."
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
 

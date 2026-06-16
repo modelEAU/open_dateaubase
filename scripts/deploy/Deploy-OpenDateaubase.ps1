@@ -194,6 +194,7 @@ $SVC_LOGSHIP    = "OpenDateaubase-$tag-LogShip"
 $TASK_IMPORT    = "OpenDateaubase-$tag-Importer"
 $TASK_LOGROTATE = "OpenDateaubase-$tag-LogRotate"
 $CMD_PATH       = Join-Path $scriptDir "run-importer-$Environment.cmd"
+$FW_PROXY       = "OpenDateaubase-$tag-Proxy"
 
 # Per-environment nginx prefix dir (own conf/logs/temp) so two proxies on one
 # host do not overwrite each other's configuration.
@@ -230,6 +231,7 @@ if ($Uninstall) {
     }
     Remove-ImporterTask -TaskName $TASK_IMPORT
     Remove-ImporterTask -TaskName $TASK_LOGROTATE
+    Remove-AppFirewallRule -DisplayName $FW_PROXY
     Write-Step "Uninstall complete for environment '$Environment'." -Success
     Stop-Transcript | Out-Null
     exit 0
@@ -532,6 +534,11 @@ if (-not $SkipProxy) {
 
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_PROXY
     Assert-ServiceHealthy -Url "http://localhost:$ProxyPort/" -TimeoutSec 15
+
+    # nginx binds 0.0.0.0 so it's reachable on the LAN once the firewall allows
+    # it; without this rule the default inbound-block policy only lets
+    # localhost traffic through.
+    Set-AppFirewallRule -DisplayName $FW_PROXY -Port $ProxyPort
 }
 
 # ---------------------------------------------------------------------------
