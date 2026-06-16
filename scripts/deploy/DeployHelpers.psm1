@@ -398,6 +398,7 @@ function Write-NginxConf {
             proxy_set_header   Host `$host;
             proxy_set_header   X-Real-IP `$remote_addr;
             proxy_read_timeout 86400;
+            proxy_buffering    off;
         }
 "@
     }
@@ -428,6 +429,7 @@ http {
             proxy_set_header   Host `$host;
             proxy_set_header   X-Real-IP `$remote_addr;
             proxy_read_timeout 86400;
+            proxy_buffering    off;
         }
 
         # FastAPI REST API
