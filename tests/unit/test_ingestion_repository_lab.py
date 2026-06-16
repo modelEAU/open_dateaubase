@@ -13,8 +13,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi import HTTPException
-
+from api.v1.errors import EntityNotFoundError
 from api.v1.repositories import ingestion_repository
 
 
@@ -246,14 +245,13 @@ class TestGetSampleCollectionTime:
         assert "SampleDateTimeStart" in sql
         assert "[dbo].[Sample]" in sql
 
-    def test_raises_404_when_sample_missing(self):
+    def test_raises_not_found_when_sample_missing(self):
         conn, _ = _conn_with_fetchone([None])
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(EntityNotFoundError) as exc_info:
             ingestion_repository.get_sample_collection_time(conn, sample_id=999)
 
-        assert exc_info.value.status_code == 404
-        assert "999" in str(exc_info.value.detail)
+        assert "999" in str(exc_info.value)
 
 
 class TestFindOrCreateSensorMetadata:
