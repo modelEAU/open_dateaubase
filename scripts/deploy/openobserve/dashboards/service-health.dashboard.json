@@ -1,0 +1,410 @@
+{
+  "version": 5,
+  "dashboardId": "7472655298528804875",
+  "title": "open_dateaubase overview",
+  "description": "",
+  "role": "",
+  "owner": "",
+  "created": "2026-06-16T14:36:02.470Z",
+  "tabs": [
+    {
+      "tabId": "default",
+      "name": "Default",
+      "panels": [
+        {
+          "id": "Panel_ID1041710",
+          "type": "bar",
+          "title": "Log volume per service",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "legends_position": null,
+            "decimals": 2,
+            "line_thickness": 1.5,
+            "step_value": "0",
+            "top_results_others": false,
+            "axis_border_show": false,
+            "label_option": {
+              "rotate": 0
+            },
+            "show_symbol": false,
+            "line_interpolation": "smooth",
+            "legend_width": {
+              "unit": "px"
+            },
+            "base_map": {
+              "type": "osm"
+            },
+            "map_type": {
+              "type": "world"
+            },
+            "map_view": {
+              "zoom": 1,
+              "lat": 0,
+              "lng": 0
+            },
+            "map_symbol_style": {
+              "size": "by Value",
+              "size_by_value": {
+                "min": 1,
+                "max": 100
+              },
+              "size_fixed": 2
+            },
+            "drilldown": [],
+            "mark_line": [],
+            "override_config": [],
+            "connect_nulls": false,
+            "no_value_replacement": "",
+            "wrap_table_cells": false,
+            "table_transpose": false,
+            "table_dynamic_columns": false,
+            "color": {
+              "mode": "palette-classic-by-series",
+              "fixedColor": [
+                "#53ca53"
+              ],
+              "seriesBy": "last"
+            },
+            "trellis": {
+              "layout": null,
+              "num_of_columns": 1
+            }
+          },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT histogram(_timestamp) as \"x_axis_1\", count(*) as \"y_axis_1\", service as \"breakdown_1\"\r\nFROM \"open_dateaubase\" GROUP BY x_axis_1, breakdown_1 ORDER BY x_axis_1",
+              "vrlFunctionQuery": "",
+              "customQuery": true,
+              "fields": {
+                "stream": "open_dateaubase",
+                "stream_type": "logs",
+                "x": [
+                  {
+                    "label": "Timestamp",
+                    "alias": "x_axis_1",
+                    "column": "x_axis_1",
+                    "color": null,
+                    "aggregationFunction": "histogram",
+                    "sortBy": "ASC",
+                    "isDerived": false
+                  }
+                ],
+                "y": [
+                  {
+                    "label": "Timestamp",
+                    "alias": "y_axis_1",
+                    "column": "y_axis_1",
+                    "color": null,
+                    "aggregationFunction": "count",
+                    "isDerived": false
+                  }
+                ],
+                "z": [],
+                "breakdown": [
+                  {
+                    "label": "Service",
+                    "alias": "breakdown_1",
+                    "column": "breakdown_1",
+                    "color": null,
+                    "isDerived": false
+                  }
+                ],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "",
+                "layer_type": "scatter",
+                "weight_fixed": 1,
+                "limit": 0,
+                "min": 0,
+                "max": 100,
+                "time_shift": []
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 0,
+            "w": 24,
+            "h": 9,
+            "i": 1,
+            "moved": false
+          },
+          "htmlContent": "",
+          "markdownContent": "",
+          "customChartContent": " // To know more about ECharts , \n// visit: https://echarts.apache.org/examples/en/index.html \n// Example: https://echarts.apache.org/examples/en/editor.html?c=line-simple \n// Define your ECharts 'option' here. \n// 'data' variable is available for use and contains the response data from the search result and it is an array.\noption = {  \n \n};\n  "
+        },
+        {
+          "id": "Panel_ID9355410",
+          "type": "line",
+          "title": "Errors over time",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "legends_position": null,
+            "decimals": 2,
+            "line_thickness": 1.5,
+            "step_value": "0",
+            "top_results_others": false,
+            "axis_border_show": false,
+            "label_option": {
+              "rotate": 0
+            },
+            "show_symbol": false,
+            "line_interpolation": "smooth",
+            "legend_width": {
+              "unit": "px"
+            },
+            "base_map": {
+              "type": "osm"
+            },
+            "map_type": {
+              "type": "world"
+            },
+            "map_view": {
+              "zoom": 1,
+              "lat": 0,
+              "lng": 0
+            },
+            "map_symbol_style": {
+              "size": "by Value",
+              "size_by_value": {
+                "min": 1,
+                "max": 100
+              },
+              "size_fixed": 2
+            },
+            "drilldown": [],
+            "mark_line": [],
+            "override_config": [],
+            "connect_nulls": false,
+            "no_value_replacement": "",
+            "wrap_table_cells": false,
+            "table_transpose": false,
+            "table_dynamic_columns": false,
+            "color": {
+              "mode": "palette-classic-by-series",
+              "fixedColor": [
+                "#53ca53"
+              ],
+              "seriesBy": "last"
+            },
+            "trellis": {
+              "layout": null,
+              "num_of_columns": 1
+            }
+          },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT timestamp as \"x_axis_1\", count(timestamp) as \"y_axis_1\", service as \"breakdown_1\"  FROM \"open_dateaubase\"   WHERE message LIKE '%ERROR%' OR message LIKE '%Exception%' OR message LIKE '%Traceback%' OR message LIKE '% 500 %' GROUP BY x_axis_1, breakdown_1 ORDER BY x_axis_1",
+              "vrlFunctionQuery": "",
+              "customQuery": true,
+              "fields": {
+                "stream": "open_dateaubase",
+                "stream_type": "logs",
+                "x": [
+                  {
+                    "label": "Timestamp",
+                    "alias": "x_axis_1",
+                    "column": "x_axis_1",
+                    "color": null,
+                    "isDerived": false
+                  }
+                ],
+                "y": [
+                  {
+                    "label": "Timestamp",
+                    "alias": "y_axis_1",
+                    "column": "y_axis_1",
+                    "color": null,
+                    "aggregationFunction": "count",
+                    "isDerived": false
+                  }
+                ],
+                "z": [],
+                "breakdown": [
+                  {
+                    "label": "Service",
+                    "alias": "breakdown_1",
+                    "column": "breakdown_1",
+                    "color": null,
+                    "isDerived": false
+                  }
+                ],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "",
+                "layer_type": "scatter",
+                "weight_fixed": 1,
+                "limit": 0,
+                "min": 0,
+                "max": 100,
+                "time_shift": []
+              }
+            }
+          ],
+          "layout": {
+            "x": 24,
+            "y": 0,
+            "w": 24,
+            "h": 9,
+            "i": 2,
+            "moved": false
+          },
+          "htmlContent": "",
+          "markdownContent": "",
+          "customChartContent": " // To know more about ECharts , \n// visit: https://echarts.apache.org/examples/en/index.html \n// Example: https://echarts.apache.org/examples/en/editor.html?c=line-simple \n// Define your ECharts 'option' here. \n// 'data' variable is available for use and contains the response data from the search result and it is an array.\noption = {  \n \n};\n  "
+        },
+        {
+          "id": "Panel_ID7022210",
+          "type": "table",
+          "title": "Recent errors",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "legends_position": null,
+            "decimals": 2,
+            "line_thickness": 1.5,
+            "step_value": "0",
+            "top_results_others": false,
+            "axis_border_show": false,
+            "label_option": {
+              "rotate": 0
+            },
+            "show_symbol": false,
+            "line_interpolation": "smooth",
+            "legend_width": {
+              "unit": "px"
+            },
+            "base_map": {
+              "type": "osm"
+            },
+            "map_type": {
+              "type": "world"
+            },
+            "map_view": {
+              "zoom": 1,
+              "lat": 0,
+              "lng": 0
+            },
+            "map_symbol_style": {
+              "size": "by Value",
+              "size_by_value": {
+                "min": 1,
+                "max": 100
+              },
+              "size_fixed": 2
+            },
+            "drilldown": [],
+            "mark_line": [],
+            "override_config": [],
+            "connect_nulls": false,
+            "no_value_replacement": "",
+            "wrap_table_cells": false,
+            "table_transpose": false,
+            "table_dynamic_columns": false,
+            "color": {
+              "mode": "palette-classic-by-series",
+              "fixedColor": [
+                "#53ca53"
+              ],
+              "seriesBy": "last"
+            },
+            "trellis": {
+              "layout": null,
+              "num_of_columns": 1
+            }
+          },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT _timestamp, service, message FROM \"open_dateaubase\"\r\nWHERE message LIKE '%ERROR%' OR message LIKE '%Exception%' OR message LIKE '%Traceback%' OR message LIKE '% 500 %'\r\nORDER BY _timestamp DESC LIMIT 50",
+              "vrlFunctionQuery": "",
+              "customQuery": true,
+              "fields": {
+                "stream": "open_dateaubase",
+                "stream_type": "logs",
+                "x": [
+                  {
+                    "label": "_timestamp",
+                    "alias": "_timestamp",
+                    "column": "_timestamp",
+                    "color": null,
+                    "aggregationFunction": "histogram",
+                    "sortBy": "DESC",
+                    "isDerived": false
+                  }
+                ],
+                "y": [
+                  {
+                    "label": "service",
+                    "alias": "service",
+                    "column": "service",
+                    "color": "#5960b2",
+                    "aggregationFunction": "count",
+                    "isDerived": false
+                  },
+                  {
+                    "label": "message",
+                    "alias": "message",
+                    "column": "message",
+                    "color": "#c23531",
+                    "aggregationFunction": "count",
+                    "isDerived": false
+                  }
+                ],
+                "z": [],
+                "breakdown": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "",
+                "layer_type": "scatter",
+                "weight_fixed": 1,
+                "limit": 0,
+                "min": 0,
+                "max": 100,
+                "time_shift": []
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 9,
+            "w": 24,
+            "h": 9,
+            "i": 3,
+            "moved": false
+          },
+          "htmlContent": "",
+          "markdownContent": "",
+          "customChartContent": " // To know more about ECharts , \n// visit: https://echarts.apache.org/examples/en/index.html \n// Example: https://echarts.apache.org/examples/en/editor.html?c=line-simple \n// Define your ECharts 'option' here. \n// 'data' variable is available for use and contains the response data from the search result and it is an array.\noption = {  \n \n};\n  "
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "list": [],
+    "showDynamicFilters": true
+  },
+  "defaultDatetimeDuration": {
+    "type": "relative",
+    "relativeTimePeriod": "15m"
+  }
+}

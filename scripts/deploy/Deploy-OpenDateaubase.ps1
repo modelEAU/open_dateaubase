@@ -482,6 +482,19 @@ if (-not $SkipLogViewer) {
         -ServicePassword $ServicePassword
 
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_LOGSHIP
+
+    # --- Dashboards (idempotent: matched/updated by title, not re-created on each deploy)
+    $dashboardDir = Join-Path $PSScriptRoot 'openobserve\dashboards'
+    if (Test-Path $dashboardDir) {
+        Get-ChildItem -Path $dashboardDir -Filter '*.dashboard.json' | ForEach-Object {
+            try {
+                Publish-OpenObserveDashboard -ViewerPort $LogViewerPort -User $lvUser -Password $lvPass -TemplatePath $_.FullName
+            } catch {
+                Write-Step "Could not publish dashboard '$($_.Name)' ($_)." -Warn
+            }
+        }
+    }
+
     Write-Step "Log viewer ready at http://localhost:$ProxyPort/logs/ (credentials: $credFile)" -Success
     } catch {
         Write-Step "Log stack setup failed ($_). Continuing without it — core app + proxy are unaffected. Inspect $LogDir\logviewer\stderr.log; re-run to retry or pass -SkipLogViewer." -Warn

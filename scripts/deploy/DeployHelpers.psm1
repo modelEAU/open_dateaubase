@@ -659,6 +659,53 @@ password = "$Password"
 }
 
 # ---------------------------------------------------------------------------
+# OpenObserve dashboard provisioning
+# ---------------------------------------------------------------------------
+
+function Publish-OpenObserveDashboard {
+    <#
+    .SYNOPSIS
+        Creates or updates an OpenObserve dashboard from an exported dashboard
+        JSON file (Dashboards > ... > Export in the OpenObserve UI). Matches
+        existing dashboards by title so re-running is idempotent: updates in
+        place rather than creating a duplicate.
+    #>
+    param(
+        [string]$ViewerPort,
+        [string]$User,
+        [string]$Password,
+        [string]$TemplatePath,
+        [string]$Org = 'default'
+    )
+    if (-not (Test-Path $TemplatePath)) {
+        throw "Dashboard template not found: $TemplatePath"
+    }
+
+    $cred = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("${User}:${Password}"))
+    $headers = @{ Authorization = "Basic $cred"; 'Content-Type' = 'application/json' }
+    $base = "http://127.0.0.1:$ViewerPort/logs/api/$Org/dashboards"
+
+    $template = Get-Content $TemplatePath -Raw | ConvertFrom-Json
+    $template.owner = $User
+    $title = $template.title
+
+    $existing = Invoke-RestMethod -Uri $base -Headers $headers -Method Get
+    $match = $existing.dashboards | Where-Object { $_.v5.title -eq $title -or $_.v1.title -eq $title } | Select-Object -First 1
+
+    $body = $template | ConvertTo-Json -Depth 30
+    if ($match) {
+        $dashId = if ($match.v5) { $match.v5.dashboardId } else { $match.v1.dashboardId }
+        $current = Invoke-RestMethod -Uri "$base/$dashId" -Headers $headers -Method Get
+        $hash = if ($current.v5) { $current.hash } else { $current.hash }
+        Invoke-RestMethod -Uri "$base/$dashId`?hash=$hash" -Headers $headers -Method Put -Body $body | Out-Null
+        Write-Step "Dashboard '$title' updated." -Success
+    } else {
+        Invoke-RestMethod -Uri $base -Headers $headers -Method Post -Body $body | Out-Null
+        Write-Step "Dashboard '$title' created." -Success
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Importer launcher
 # ---------------------------------------------------------------------------
 
