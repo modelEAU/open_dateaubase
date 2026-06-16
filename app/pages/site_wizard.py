@@ -273,6 +273,11 @@ def _step_sampling_locations(lookups: dict) -> None:
 
 
 def _step_review(lookups: dict) -> None:
+    # Streamlit clears widget-bound session_state keys for widgets not
+    # rendered in the current run; restore them before reading.
+    for s in range(3):
+        restore_snapshot(_WIZ, s)
+
     site_name = st.session_state.get(f"{_WIZ}_s0_name", "")
     kind_label = st.session_state.get(f"{_WIZ}_s0_kind", "(none)")
     description = st.session_state.get(f"{_WIZ}_s0_description", "")

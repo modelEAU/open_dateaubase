@@ -360,6 +360,11 @@ def _step_channels(lookups: dict) -> None:
 
 
 def _step_review(lookups: dict) -> None:
+    # Streamlit clears widget-bound session_state keys for widgets not
+    # rendered in the current run; restore them before reading.
+    for s in range(4):
+        restore_snapshot(_WIZ, s)
+
     das_name = st.session_state.get(f"{_WIZ}_s0_name", "")
     das_desc = st.session_state.get(f"{_WIZ}_s0_description", "")
     si_ids = st.session_state.get(f"{_WIZ}_si_ids", [])
@@ -454,7 +459,7 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                 "das_kind_id": st.session_state.get(f"{_WIZ}_s0_kind_id"),
             }
         )
-        das_id: int = das["data_acquisition_system_id"]
+        das_id: int = das["das_id"]
         created.append({"label": f"DAS: {das.get('name', '')}", "detail": f"id={das_id}"})
     except APIError as e:
         errors.append(f"DAS creation failed: {e.message}")

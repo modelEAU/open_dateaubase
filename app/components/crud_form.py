@@ -54,12 +54,19 @@ def render_form_field(
                 help=help_text,
             )
 
-        # Map options to display labels, return ID
+        # Map options to display labels, return ID. Optional fields get a
+        # "— None —" sentinel so an unset FK isn't silently defaulted to
+        # whatever option happens to be first in the list.
+        none_label = "— None —"
         option_map = {opt["label"]: opt["id"] for opt in options}
         labels = list(option_map.keys())
+        if not required:
+            option_map[none_label] = None
+            labels = [none_label] + labels
+        fallback = none_label if not required else (labels[0] if labels else none_label)
         current_label = next(
             (opt["label"] for opt in options if opt["id"] == value),
-            labels[0] if labels else None,
+            fallback,
         )
         selected = st.selectbox(
             label,

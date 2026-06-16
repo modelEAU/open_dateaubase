@@ -249,7 +249,8 @@ def insert_channel(conn: pyodbc.Connection, data: dict) -> dict | None:
         data.get("parameter_id"),
         data.get("data_provenance_kind_id"),
         data.get("produced_by_step_id"),
-        data.get("value_kind_id", 1),  # Default to Scalar
+        data.get("value_kind_id") or 1,  # Default to Scalar; dict.get's default
+        # arg won't fire since model_dump() always includes the key as None.
         data.get("unit_id"),
     )
     conn.commit()
@@ -272,7 +273,7 @@ def update_channel(conn: pyodbc.Connection, channel_id: int, data: dict) -> dict
         data.get("parameter_id"),
         data.get("data_provenance_kind_id"),
         data.get("produced_by_step_id"),
-        data.get("value_kind_id"),
+        data.get("value_kind_id") or 1,
         data.get("unit_id"),
         channel_id,
     )
