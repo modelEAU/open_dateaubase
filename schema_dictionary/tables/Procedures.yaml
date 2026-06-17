@@ -33,3 +33,8 @@ table:
       description: "Where is the procedure stored (URL)"
 
   primary_key: [Procedure_ID]
+
+  seed_data:
+    - { Procedure_ID: 1, ProcedureName: "Grab sampling",      Description: "Manual grab sample collected at water surface",                          ProcedureLocation: "/procedures/grab_sampling.pdf" }
+    - { Procedure_ID: 2, ProcedureName: "24h composite",      Description: "Time-weighted 24-hour composite sample via autosampler",                  ProcedureLocation: "/procedures/composite_24h.pdf" }
+    - { Procedure_ID: 3, ProcedureName: "Online continuous",  Description: "Continuous in-situ measurement with data logging",                       ProcedureLocation: "/procedures/online_continuous.pdf" }

@@ -40,9 +40,12 @@ class ApiError(Exception):
 class DateaubaseClient:
     """Thin synchronous wrapper around the open_datEAUbase REST API."""
 
-    def __init__(self, api_url: str, timeout: float = 300.0) -> None:
+    def __init__(
+        self, api_url: str, timeout: float = 300.0, token: str | None = None
+    ) -> None:
         self._base = api_url.rstrip("/")
-        self._client = httpx.Client(timeout=timeout)
+        headers = {"Authorization": f"Bearer {token}"} if token else None
+        self._client = httpx.Client(timeout=timeout, headers=headers)
 
     def close(self) -> None:
         self._client.close()

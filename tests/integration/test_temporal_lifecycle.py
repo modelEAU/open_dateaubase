@@ -52,9 +52,9 @@ ANNOTATION_TYPE_EQUIPMENT_MOVE = 11
 
 
 @pytest.fixture()
-def db(db_at_v400):
+def db(db_at_v200):
     """Database at v4.0.0 with the data needed for lifecycle tests."""
-    conn, db_name = db_at_v400
+    conn, db_name = db_at_v200
     cursor = conn.cursor()
 
     # Two equipment records
@@ -193,7 +193,7 @@ def _annotation_count(conn, channel_id: int, annotation_kind_id: int) -> int:
     cursor = conn.cursor()
     cursor.execute(
         "SELECT COUNT(*) FROM [dbo].[Annotation]"
-        " WHERE [Channel_ID] = ? AND [AnnotationKind_ID] = ?",
+        " WHERE [Stream_ID] = ? AND [AnnotationKind_ID] = ?",
         channel_id,
         annotation_kind_id,
     )
@@ -206,12 +206,12 @@ def _annotate_equipment_move(
     """Replicate endpoint auto-annotation behaviour for equipment moves."""
     from api.v1.repositories import channel_repository
 
-    channel_ids = channel_repository.get_channel_ids_for_equipment(conn, equipment_id)
-    if not channel_ids:
+    stream_ids = channel_repository.get_channel_ids_for_equipment(conn, equipment_id)
+    if not stream_ids:
         return []
     return annotation_repository.create_equipment_move_annotations(
         conn,
-        channel_ids=channel_ids,
+        stream_ids=stream_ids,
         annotation_kind_id=ANNOTATION_TYPE_EQUIPMENT_MOVE,
         title=title,
         comment=comment,
@@ -292,7 +292,7 @@ def test_equipment_swap_channel_id_unchanged(db):
     # Channel_ID must not have changed
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Channel_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?", channel_id
+        "SELECT [Stream_ID] FROM [dbo].[Channel] WHERE [Stream_ID] = ?", channel_id
     )
     assert cursor.fetchone() is not None
 
@@ -420,7 +420,7 @@ def test_decommission_sets_is_active_and_channel_unaffected(db):
 
     # Channel must still exist
     cursor.execute(
-        "SELECT [Channel_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?", channel_id
+        "SELECT [Stream_ID] FROM [dbo].[Channel] WHERE [Stream_ID] = ?", channel_id
     )
     assert cursor.fetchone() is not None
 
@@ -458,7 +458,7 @@ def test_sensor_relocation_channel_id_unchanged(db):
     # Channel_ID must be unchanged
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Channel_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?", channel_id
+        "SELECT [Stream_ID] FROM [dbo].[Channel] WHERE [Stream_ID] = ?", channel_id
     )
     assert cursor.fetchone() is not None
 
@@ -530,7 +530,7 @@ def test_relocation_creates_annotation(db):
     assert _annotation_count(conn, channel_id, ANNOTATION_TYPE_EQUIPMENT_MOVE) == 1
 
     # Verify annotation content
-    annots = annotation_repository.get_annotations_for_timeseries(
+    annots = annotation_repository.get_annotations_for_stream(
         conn,
         channel_id,
         from_dt=t_move - timedelta(seconds=1),

@@ -7,6 +7,8 @@ from datetime import datetime
 
 import pyodbc
 
+from api.v1.errors import EntityNotFoundError
+
 logger = logging.getLogger(__name__)
 
 # Stream subtype discriminators (StreamKind lookup seed rows).
@@ -193,8 +195,6 @@ def find_or_create_derived_metadata(
     the ChannelTrait set is written as the union of the source channel's existing
     traits and the producing ProcessingStep's OperationKind (ADR 0005).
     """
-    from fastapi import HTTPException
-
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -206,10 +206,7 @@ def find_or_create_derived_metadata(
     )
     row = cursor.fetchone()
     if row is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Source channel {source_channel_id} not found.",
-        )
+        raise EntityNotFoundError(f"Source channel {source_channel_id} not found.")
     tag_name, parameter_id, value_kind_id, unit_id = row
 
     _DERIVED_PROVENANCE_KIND_ID = 7  # "Derived" seed row
@@ -649,10 +646,8 @@ def get_sample_collection_time(
     """Return Sample.SampleDateTimeStart (collection time) for a Sample_ID.
 
     This is the real-world moment the water was sampled — the time anchor for
-    lab Observations. Raises HTTPException(404) if the sample does not exist.
+    lab Observations. Raises EntityNotFoundError if the sample does not exist.
     """
-    from fastapi import HTTPException
-
     cursor = conn.cursor()
     cursor.execute(
         "SELECT [SampleDateTimeStart] FROM [dbo].[Sample] WHERE [Sample_ID] = ?",
@@ -660,7 +655,7 @@ def get_sample_collection_time(
     )
     row = cursor.fetchone()
     if row is None:
-        raise HTTPException(status_code=404, detail=f"Sample {sample_id} not found.")
+        raise EntityNotFoundError(f"Sample {sample_id} not found.")
     return row[0]
 
 

@@ -64,5 +64,6 @@ table:
       columns: [ControlLoop_ID]
       unique: true
       description: "At most one active (EndTime IS NULL) application per control loop. Filtered index."
+      filter: "[EndTime] IS NULL"
 
   primary_key: [ControlLoopApplication_ID]

@@ -151,10 +151,11 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
     """
     print(datetime.now())
     api_conf = settings.api_config
+    api_token = os.environ.get("API_SERVICE_TOKEN")
 
     # Pre-flight: validate every (parameter_name, destination_unit_name) pair before
     # any data is ingested. Raises ConfigValidationError on first invalid pair.
-    with DateaubaseClient(api_conf.api_url) as preflight_client:
+    with DateaubaseClient(api_conf.api_url, token=api_token) as preflight_client:
         all_sources: list = (
             list(settings.file_configs)
             + list(settings.tsdb_configs)
@@ -177,7 +178,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
             .timestamp()
         )
 
-    with DateaubaseClient(api_conf.api_url) as client:
+    with DateaubaseClient(api_conf.api_url, token=api_token) as client:
         # ------------------------------------------------------------------
         # File-based sources
         # ------------------------------------------------------------------

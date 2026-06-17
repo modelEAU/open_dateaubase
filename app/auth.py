@@ -15,7 +15,8 @@ def _ensure_auth_state() -> None:
 
     if os.getenv("APP_DEV_AUTO_LOGIN") == "1" and not st.session_state["authenticated"]:
         st.session_state["authenticated"] = True
-        st.session_state["access_token"] = "dev"
+        # Use the service token so dev-mode requests pass the now-secured API.
+        st.session_state["access_token"] = os.getenv("API_SERVICE_TOKEN", "dev")
         st.session_state["user"] = {
             "user_id": 0,
             "email": os.getenv("APP_DEV_EMAIL", "dev@localhost"),

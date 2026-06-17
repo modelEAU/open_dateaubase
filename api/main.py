@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from .config import settings
 from .observability import RequestTimingMiddleware
+from .v1.errors import EntityNotFoundError
 from .v1.router import router as v1_router
 
 # Create upload directories on startup
@@ -28,6 +30,12 @@ app = FastAPI(
 app.add_middleware(RequestTimingMiddleware)
 
 app.include_router(v1_router, prefix="/api/v1")
+
+
+@app.exception_handler(EntityNotFoundError)
+def _entity_not_found_handler(_: Request, exc: EntityNotFoundError) -> JSONResponse:
+    """Map repository-layer not-found errors to HTTP 404."""
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
 @app.get("/", tags=["root"])

@@ -67,7 +67,7 @@ def _make_child_channel(conn, parent_channel_id: int, tag: str, role_name: str) 
     assert role_id is not None, f"Unknown channel role: {role_name}"
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [SignalInterface_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?",
+        "SELECT [SignalInterface_ID] FROM [dbo].[Channel] WHERE [Stream_ID] = ?",
         parent_channel_id,
     )
     row = cursor.fetchone()
@@ -89,9 +89,9 @@ def _make_child_channel(conn, parent_channel_id: int, tag: str, role_name: str) 
 def _get_sub_signal_channel_ids(conn, parent_channel_id: int) -> list[int]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Channel_ID] FROM [dbo].[Channel]"
+        "SELECT [Stream_ID] FROM [dbo].[Channel]"
         " WHERE [ParentChannel_ID] = ?"
-        " ORDER BY [Channel_ID]",
+        " ORDER BY [Stream_ID]",
         parent_channel_id,
     )
     return [row[0] for row in cursor.fetchall()]
@@ -104,7 +104,7 @@ def _get_channel_role_name(conn, channel_id: int) -> str:
         SELECT cr.[Name]
         FROM [dbo].[Channel] c
         JOIN [dbo].[ChannelKind] cr ON cr.[ChannelKind_ID] = c.[ChannelKind_ID]
-        WHERE c.[Channel_ID] = ?
+        WHERE c.[Stream_ID] = ?
         """,
         channel_id,
     )
@@ -120,7 +120,7 @@ def _get_status_channel_for_measurement(
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT sc.[Channel_ID]
+        SELECT sc.[Stream_ID]
         FROM [dbo].[Channel] sc
         JOIN [dbo].[ChannelKind] cr ON cr.[ChannelKind_ID] = sc.[ChannelKind_ID]
         WHERE sc.[ParentChannel_ID] = ?
@@ -159,30 +159,30 @@ def _insert_observation_and_value(
 
 
 class TestParentChildLink:
-    def test_parent_channel_links_sub_signal(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_parent_channel_links_sub_signal(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-101")
         child_id = _make_child_channel(conn, parent_id, "TIT-101.status", "Status")
 
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT [ParentChannel_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?",
+            "SELECT [ParentChannel_ID] FROM [dbo].[Channel] WHERE [Stream_ID] = ?",
             child_id,
         )
         row = cursor.fetchone()
         assert row is not None
         assert row[0] == parent_id
 
-    def test_parent_channel_link_idempotent(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_parent_channel_link_idempotent(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-202")
         child_id_1 = _make_child_channel(conn, parent_id, "TIT-202.alarm", "Alarm")
         child_id_2 = _make_child_channel(conn, parent_id, "TIT-202.alarm", "Alarm")
 
         assert child_id_1 == child_id_2
 
-    def test_child_channels_differentiated_by_role(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_child_channels_differentiated_by_role(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-303")
         status_id = _make_child_channel(conn, parent_id, "TIT-303.status", "Status")
         alarm_id = _make_child_channel(conn, parent_id, "TIT-303.alarm", "Alarm")
@@ -196,8 +196,8 @@ class TestParentChildLink:
 
 
 class TestChannelRole:
-    def test_sub_signal_has_correct_channel_role(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_sub_signal_has_correct_channel_role(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-404")
         status_id = _make_child_channel(conn, parent_id, "TIT-404.status", "Status")
         alarm_id = _make_child_channel(conn, parent_id, "TIT-404.alarm", "Alarm")
@@ -217,8 +217,8 @@ class TestChannelRole:
 
 
 class TestGetSubSignals:
-    def test_get_sub_signals_returns_all_children(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_get_sub_signals_returns_all_children(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-505")
         status_id = _make_child_channel(conn, parent_id, "TIT-505.status", "Status")
         alarm_id = _make_child_channel(conn, parent_id, "TIT-505.alarm", "Alarm")
@@ -229,8 +229,8 @@ class TestGetSubSignals:
         children = _get_sub_signal_channel_ids(conn, parent_id)
         assert set(children) == {status_id, alarm_id, unc_id}
 
-    def test_get_sub_signals_empty_for_root_channel(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_get_sub_signals_empty_for_root_channel(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-606")
         children = _get_sub_signal_channel_ids(conn, parent_id)
         assert children == []
@@ -242,23 +242,23 @@ class TestGetSubSignals:
 
 
 class TestStatusChannelAutoSelection:
-    def test_status_channel_for_measurement_query(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_status_channel_for_measurement_query(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-707")
         status_id = _make_child_channel(conn, parent_id, "TIT-707.status", "Status")
 
         resolved = _get_status_channel_for_measurement(conn, parent_id)
         assert resolved == status_id
 
-    def test_status_channel_returns_none_when_missing(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_status_channel_returns_none_when_missing(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-808")
 
         resolved = _get_status_channel_for_measurement(conn, parent_id)
         assert resolved is None
 
-    def test_status_channel_resolves_with_observation(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_status_channel_resolves_with_observation(self, db_at_v200):
+        conn, _ = db_at_v200
         parent_id = _make_parent_channel(conn, "DAS1", "TIT-909")
         status_id = _make_child_channel(conn, parent_id, "TIT-909.status", "Status")
 
@@ -276,21 +276,21 @@ class TestStatusChannelAutoSelection:
 # ---------------------------------------------------------------------------
 
 
-def test_parent_child_link_survives_equipment_wiring(db_at_v400):
+def test_parent_child_link_survives_equipment_wiring(db_at_v200):
     """Opening an EquipmentWiringHistory row does not affect Channel.ParentChannel_ID."""
     from api.v1.repositories.signal_interface_repository import (
         find_or_create_equipment_by_identifier,
         open_equipment_wiring_history,
     )
 
-    conn, _ = db_at_v400
+    conn, _ = db_at_v200
     parent_id = _make_parent_channel(conn, "DAS1", "TIT-WIRE")
     child_id = _make_child_channel(conn, parent_id, "TIT-WIRE.status", "Status")
 
     equip_id, _ = find_or_create_equipment_by_identifier(conn, "Probe_Wire")
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [SignalInterface_ID] FROM [dbo].[Channel] WHERE [Channel_ID] = ?",
+        "SELECT [SignalInterface_ID] FROM [dbo].[Channel] WHERE [Stream_ID] = ?",
         parent_id,
     )
     si_id = cursor.fetchone()[0]

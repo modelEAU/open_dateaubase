@@ -48,49 +48,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
-MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
-ARCHIVE_DIR = MIGRATIONS_DIR / "archive" / "intermediate"
-SEED_DIR = PROJECT_ROOT / "sql"
-
 SQL_FILES = {
-    "v1.0.0_create": MIGRATIONS_DIR / "v1.0.0_create_mssql.sql",
-    "v1.0.0_to_v1.0.1": ARCHIVE_DIR / "v1.0.0_to_v1.0.1_mssql.sql",
-    "v1.0.1_to_v1.0.2": ARCHIVE_DIR / "v1.0.1_to_v1.0.2_mssql.sql",
-    "v1.0.2_to_v1.1.0": ARCHIVE_DIR / "v1.0.2_to_v1.1.0_mssql.sql",
-    "v1.1.0_to_v1.2.0": ARCHIVE_DIR / "v1.1.0_to_v1.2.0_mssql.sql",
-    "v1.2.0_to_v1.3.0": ARCHIVE_DIR / "v1.2.0_to_v1.3.0_mssql.sql",
-    "v1.3.0_to_v1.4.0": ARCHIVE_DIR / "v1.3.0_to_v1.4.0_mssql.sql",
-    "v1.4.0_to_v1.5.0": ARCHIVE_DIR / "v1.4.0_to_v1.5.0_mssql.sql",
-    "v1.5.0_to_v1.6.0": ARCHIVE_DIR / "v1.5.0_to_v1.6.0_mssql.sql",
-    "rollback_v1.0.1": ARCHIVE_DIR / "v1.0.0_to_v1.0.1_mssql_rollback.sql",
-    "rollback_v1.0.2": ARCHIVE_DIR / "v1.0.1_to_v1.0.2_mssql_rollback.sql",
-    "rollback_v1.1.0": ARCHIVE_DIR / "v1.0.2_to_v1.1.0_mssql_rollback.sql",
-    "rollback_v1.2.0": ARCHIVE_DIR / "v1.1.0_to_v1.2.0_mssql_rollback.sql",
-    "rollback_v1.3.0": ARCHIVE_DIR / "v1.2.0_to_v1.3.0_mssql_rollback.sql",
-    "rollback_v1.4.0": ARCHIVE_DIR / "v1.3.0_to_v1.4.0_mssql_rollback.sql",
-    "rollback_v1.5.0": ARCHIVE_DIR / "v1.4.0_to_v1.5.0_mssql_rollback.sql",
-    "rollback_v1.6.0": ARCHIVE_DIR / "v1.5.0_to_v1.6.0_mssql_rollback.sql",
-    "seed_v1.0.0": SEED_DIR / "seed_v1.0.0.sql",
-    "seed_v1.0.1": SEED_DIR / "seed_v1.0.1.sql",
-    "seed_v1.0.2": SEED_DIR / "seed_v1.0.2.sql",
-    "seed_v1.1.0": SEED_DIR / "seed_v1.1.0.sql",
-    "seed_v1.2.0": SEED_DIR / "seed_v1.2.0.sql",
-    "seed_v1.3.0": SEED_DIR / "seed_v1.3.0.sql",
-    "seed_v1.4.0": SEED_DIR / "seed_v1.4.0.sql",
-    "seed_v1.5.0": SEED_DIR / "seed_v1.5.0.sql",
-    "seed_v1.6.0": SEED_DIR / "archive" / "seed_v1.6.0.sql",
-    "v2.1.0_to_v2.2.0": ARCHIVE_DIR / "v2.1.0_to_v2.2.0_mssql.sql",
-    "rollback_v2.2.0": ARCHIVE_DIR / "v2.1.0_to_v2.2.0_mssql_rollback.sql",
-    "seed_v2.2.0": SEED_DIR / "seed_v2.2.0.sql",
-    "v2.2.0_create": PROJECT_ROOT
-    / "sql_generation_scripts"
-    / "v2.2.0_create_mssql.sql",
-    "v4.1.0_create": PROJECT_ROOT
-    / "sql_generation_scripts"
-    / "v4.1.0_create_mssql.sql",
-    "v4.1.0_seed": PROJECT_ROOT
-    / "sql_generation_scripts"
-    / "v4.1.0_seed_mssql.sql",
+    "v2.0.0_create": PROJECT_ROOT / "sql_generation_scripts" / "v2.0.0_create_mssql.sql",
+    "v2.0.0_seed": PROJECT_ROOT / "sql_generation_scripts" / "v2.0.0_seed_mssql.sql",
 }
 
 
@@ -223,237 +183,19 @@ def _apply_schema_and_seeds(conn: "pyodbc.Connection", steps: list[str]) -> None
 
 
 @pytest.fixture()
-def db_at_v100(fresh_db):
-    """Database at v1.0.0 with baseline sample data."""
+def db_at_v200(fresh_db):
+    """Database at v2.0.0 (current schema) with full seed vocabulary."""
     conn, db_name = fresh_db
-    _apply_schema_and_seeds(conn, ["v1.0.0_create", "seed_v1.0.0"])
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v101(fresh_db):
-    """Database migrated to v1.0.1 with all sample data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        ["v1.0.0_create", "seed_v1.0.0", "v1.0.0_to_v1.0.1", "seed_v1.0.1"],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v102(fresh_db):
-    """Database migrated to v1.0.2 with all sample data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v1.0.0_create",
-            "seed_v1.0.0",
-            "v1.0.0_to_v1.0.1",
-            "seed_v1.0.1",
-            "v1.0.1_to_v1.0.2",
-            "seed_v1.0.2",
-        ],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v110(fresh_db):
-    """Database migrated to v1.1.0 with all sample data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v1.0.0_create",
-            "seed_v1.0.0",
-            "v1.0.0_to_v1.0.1",
-            "seed_v1.0.1",
-            "v1.0.1_to_v1.0.2",
-            "seed_v1.0.2",
-            "v1.0.2_to_v1.1.0",
-            "seed_v1.1.0",
-        ],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v120(fresh_db):
-    """Database migrated to v1.2.0 with all sample data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v1.0.0_create",
-            "seed_v1.0.0",
-            "v1.0.0_to_v1.0.1",
-            "seed_v1.0.1",
-            "v1.0.1_to_v1.0.2",
-            "seed_v1.0.2",
-            "v1.0.2_to_v1.1.0",
-            "seed_v1.1.0",
-            "v1.1.0_to_v1.2.0",
-            "seed_v1.2.0",
-        ],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v130(fresh_db):
-    """Database migrated to v1.3.0 with all sample data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v1.0.0_create",
-            "seed_v1.0.0",
-            "v1.0.0_to_v1.0.1",
-            "seed_v1.0.1",
-            "v1.0.1_to_v1.0.2",
-            "seed_v1.0.2",
-            "v1.0.2_to_v1.1.0",
-            "seed_v1.1.0",
-            "v1.1.0_to_v1.2.0",
-            "seed_v1.2.0",
-            "v1.2.0_to_v1.3.0",
-            "seed_v1.3.0",
-        ],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v140(fresh_db):
-    """Database migrated to v1.4.0 with all sample data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v1.0.0_create",
-            "seed_v1.0.0",
-            "v1.0.0_to_v1.0.1",
-            "seed_v1.0.1",
-            "v1.0.1_to_v1.0.2",
-            "seed_v1.0.2",
-            "v1.0.2_to_v1.1.0",
-            "seed_v1.1.0",
-            "v1.1.0_to_v1.2.0",
-            "seed_v1.2.0",
-            "v1.2.0_to_v1.3.0",
-            "seed_v1.3.0",
-            "v1.3.0_to_v1.4.0",
-            "seed_v1.4.0",
-        ],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v150(fresh_db):
-    """Database migrated to v1.5.0 with all sample data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v1.0.0_create",
-            "seed_v1.0.0",
-            "v1.0.0_to_v1.0.1",
-            "seed_v1.0.1",
-            "v1.0.1_to_v1.0.2",
-            "seed_v1.0.2",
-            "v1.0.2_to_v1.1.0",
-            "seed_v1.1.0",
-            "v1.1.0_to_v1.2.0",
-            "seed_v1.2.0",
-            "v1.2.0_to_v1.3.0",
-            "seed_v1.3.0",
-            "v1.3.0_to_v1.4.0",
-            "seed_v1.4.0",
-            "v1.4.0_to_v1.5.0",
-            "seed_v1.5.0",
-        ],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v160(fresh_db):
-    """Database migrated to v1.6.0 with all sample data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v1.0.0_create",
-            "seed_v1.0.0",
-            "v1.0.0_to_v1.0.1",
-            "seed_v1.0.1",
-            "v1.0.1_to_v1.0.2",
-            "seed_v1.0.2",
-            "v1.0.2_to_v1.1.0",
-            "seed_v1.1.0",
-            "v1.1.0_to_v1.2.0",
-            "seed_v1.2.0",
-            "v1.2.0_to_v1.3.0",
-            "seed_v1.3.0",
-            "v1.3.0_to_v1.4.0",
-            "seed_v1.4.0",
-            "v1.4.0_to_v1.5.0",
-            "seed_v1.5.0",
-            "v1.5.0_to_v1.6.0",
-            "seed_v1.6.0",
-        ],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v220(fresh_db):
-    """Database at v2.2.0 with sample data (Observation hub pattern).
-
-    Uses the v2.2.0 baseline CREATE script directly instead of applying
-    all migrations from v1.0.0 for faster test setup.
-    """
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v2.2.0_create",  # Baseline v2.2.0 schema
-        ],
-    )
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v400(fresh_db):
-    """Database at v4.x schema with full seed vocabulary. Used for signal interface tests."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(conn, ["v4.1.0_create", "v4.1.0_seed"])
-    yield conn, db_name
-
-
-@pytest.fixture()
-def db_at_v410(fresh_db):
-    """Database at v4.1.0 schema with full seed data."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(
-        conn,
-        [
-            "v4.1.0_create",
-            "v4.1.0_seed",
-        ],
-    )
+    _apply_schema_and_seeds(conn, ["v2.0.0_create", "v2.0.0_seed"])
     yield conn, db_name
 
 
 # ---------------------------------------------------------------------------
-# v4.0.0 shared helpers (used by 5C–5G)
+# v2.0.0 shared helpers
 # ---------------------------------------------------------------------------
 
 
-def make_signal_interface(conn, das_id: int, name: str, type_id: int = 1) -> int:
+def make_signal_interface(conn, das_id: int, name: str) -> int:
     """Create or retrieve a SignalInterface. Returns SignalInterface_ID."""
     from api.v1.repositories.signal_interface_repository import (
         find_or_create_signal_interface,
@@ -464,7 +206,7 @@ def make_signal_interface(conn, das_id: int, name: str, type_id: int = 1) -> int
 
 
 def make_signal_interface_port(
-    conn, si_id: int, port_identifier: str, kind_id: int = 1
+    conn, si_id: int, port_identifier: str
 ) -> int:
     """Create or retrieve a SignalInterfacePort. Returns SignalInterfacePort_ID."""
     from api.v1.repositories.signal_interface_repository import (
@@ -482,7 +224,7 @@ def make_channel(
     parameter_id: int,
     **kwargs,
 ) -> int:
-    """Create or retrieve a Channel. Returns Channel_ID."""
+    """Create or retrieve a Channel. Returns Stream_ID."""
     from api.v1.repositories.ingestion_repository import (
         find_or_create_sensor_metadata,
     )

@@ -86,9 +86,9 @@ def _open_location(
 
 
 @pytest.fixture()
-def db(db_at_v400):
+def db(db_at_v200):
     """Database at v4.0.0 with equipment and sampling points for lifecycle tests."""
-    conn, db_name = db_at_v400
+    conn, db_name = db_at_v200
     cursor = conn.cursor()
 
     # Two equipment records
@@ -169,7 +169,7 @@ def _create_interface_and_channel(
     if port_id is not None:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Channel_ID] = ?",
+            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Stream_ID] = ?",
             port_id,
             channel_id,
         )
@@ -182,7 +182,7 @@ def _insert_observation_and_value(
 ) -> int:
     """Insert an Observation + Value and return the Observation_ID.
 
-    Uses direct SQL (not insert_scalar_values) because the db_at_v400
+    Uses direct SQL (not insert_scalar_values) because the db_at_v200
     fixture does not apply the v3.0.1 QualityCode migration, so dbo.Value
     lacks the QualityCode column.
     """
@@ -315,7 +315,7 @@ class TestPortAndEquipmentWired:
         # Update channel to have the port
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Channel_ID] = ?",
+            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Stream_ID] = ?",
             port_id,
             channel_id,
         )
@@ -378,7 +378,7 @@ class TestTresCONMux:
         # Assign the same port to both channels
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Channel_ID] IN (?, ?)",
+            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Stream_ID] IN (?, ?)",
             port_id,
             ch1_id,
             ch2_id,
@@ -456,7 +456,7 @@ class TestTresCONMux:
         # Assign port to both channels
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Channel_ID] IN (?, ?)",
+            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Stream_ID] IN (?, ?)",
             port_id,
             parent_id,
             child_id,
@@ -529,7 +529,7 @@ class TestBackfillBlankPort:
         # Backfill: set port on channel via direct update
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Channel_ID] = ?",
+            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Stream_ID] = ?",
             port_id,
             channel_id,
         )
@@ -628,7 +628,7 @@ class TestEquipmentSwapHistoricalResolution:
         # Update channel to have the port
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Channel_ID] = ?",
+            "UPDATE [dbo].[Channel] SET [SignalInterfacePort_ID] = ? WHERE [Stream_ID] = ?",
             port_id,
             channel_id,
         )

@@ -111,10 +111,10 @@ def _equipment_count_by_identifier(conn, identifier: str) -> int:
 
 
 class TestTagGeneration:
-    def test_generate_tagless_tagname_strips_and_lowercases(self, db_at_v400):
+    def test_generate_tagless_tagname_strips_and_lowercases(self, db_at_v200):
         assert generate_tagless_tagname("Probe_A ", " DO ") == "probe_a/do"
 
-    def test_generate_tagless_tagname_is_deterministic(self, db_at_v400):
+    def test_generate_tagless_tagname_is_deterministic(self, db_at_v200):
         assert generate_tagless_tagname(
             "Station1", "Temperature"
         ) == generate_tagless_tagname("Station1", "Temperature")
@@ -126,8 +126,8 @@ class TestTagGeneration:
 
 
 class TestFirstTaglessIngest:
-    def test_first_ingest_creates_signal_interface_with_synthetic_tag(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_first_ingest_creates_signal_interface_with_synthetic_tag(self, db_at_v200):
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "DirectStation-A")
         equip_id, _ = find_or_create_equipment_by_identifier(conn, "Probe_X")
         param_id = find_parameter_by_name(conn, "Temperature")
@@ -163,8 +163,8 @@ class TestFirstTaglessIngest:
         assert channel_id > 0
         assert _channel_count_by_stream(conn, si_id, synthetic_name, param_id) == 1
 
-    def test_first_ingest_wiring_row_links_correct_signal_interface(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_first_ingest_wiring_row_links_correct_signal_interface(self, db_at_v200):
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "DirectStation-B")
         equip_id, _ = find_or_create_equipment_by_identifier(conn, "ProbeWithHistory")
         param_id = find_parameter_by_name(conn, "Temperature")
@@ -185,8 +185,8 @@ class TestFirstTaglessIngest:
 
 
 class TestIdempotency:
-    def test_repeated_ingest_does_not_duplicate_signal_interface(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_repeated_ingest_does_not_duplicate_signal_interface(self, db_at_v200):
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "IdempotentDAS")
         synthetic_name = generate_tagless_tagname("Probe_Idem", "Temperature")
 
@@ -198,9 +198,9 @@ class TestIdempotency:
         assert si_id1 == si_id2
         assert _si_count_by_name(conn, das_id, synthetic_name) == 1
 
-    def test_repeated_ingest_does_not_open_extra_history_row(self, db_at_v400):
+    def test_repeated_ingest_does_not_open_extra_history_row(self, db_at_v200):
         """Only one EquipmentWiringHistory row per equipment (opened on first creation only)."""
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "HistoryIdempotentDAS")
         equip_id, _ = find_or_create_equipment_by_identifier(conn, "Probe_HistIdem")
         param_id = find_parameter_by_name(conn, "Temperature")
@@ -227,8 +227,8 @@ class TestIdempotency:
 
 
 class TestEquipmentAutoCreate:
-    def test_unknown_equipment_identifier_auto_creates(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_unknown_equipment_identifier_auto_creates(self, db_at_v200):
+        conn, _ = db_at_v200
         identifier = "BrandNewProbeXYZ"
         assert _equipment_count_by_identifier(conn, identifier) == 0
 
@@ -238,23 +238,23 @@ class TestEquipmentAutoCreate:
         assert equip_id > 0
         assert _equipment_count_by_identifier(conn, identifier) == 1
 
-    def test_known_equipment_identifier_returns_created_false(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_known_equipment_identifier_returns_created_false(self, db_at_v200):
+        conn, _ = db_at_v200
         id1, _ = find_or_create_equipment_by_identifier(conn, "ExistingProbe")
         id2, created = find_or_create_equipment_by_identifier(conn, "ExistingProbe")
 
         assert created is False
         assert id1 == id2
 
-    def test_equipment_lookup_case_insensitive(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_equipment_lookup_case_insensitive(self, db_at_v200):
+        conn, _ = db_at_v200
         id1, _ = find_or_create_equipment_by_identifier(conn, "CaseProbe")
         id2, created = find_or_create_equipment_by_identifier(conn, "CASEPROBE")
         assert created is False
         assert id1 == id2
 
-    def test_equipment_lookup_trims_whitespace(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_equipment_lookup_trims_whitespace(self, db_at_v200):
+        conn, _ = db_at_v200
         id1, _ = find_or_create_equipment_by_identifier(conn, "TrimProbe")
         id2, created = find_or_create_equipment_by_identifier(conn, "  TrimProbe  ")
         assert created is False
@@ -267,18 +267,18 @@ class TestEquipmentAutoCreate:
 
 
 class TestValidationLookups:
-    def test_unknown_parameter_returns_none(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_unknown_parameter_returns_none(self, db_at_v200):
+        conn, _ = db_at_v200
         assert find_parameter_by_name(conn, "nonexistent_param_tagless_xyz") is None
 
-    def test_known_parameter_returns_id(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_known_parameter_returns_id(self, db_at_v200):
+        conn, _ = db_at_v200
         assert find_parameter_by_name(conn, "temperature") is not None
 
-    def test_unknown_unit_returns_none(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_unknown_unit_returns_none(self, db_at_v200):
+        conn, _ = db_at_v200
         assert find_unit_by_name(conn, "nonexistent_unit_tagless_xyz") is None
 
-    def test_known_unit_returns_id(self, db_at_v400):
-        conn, _ = db_at_v400
+    def test_known_unit_returns_id(self, db_at_v200):
+        conn, _ = db_at_v200
         assert find_unit_by_name(conn, "°C") is not None

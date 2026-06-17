@@ -1,0 +1,24 @@
+{
+  // Type-checking config. Goal: silence third-party/stub-gap noise without hiding real bugs.
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "extraPaths": ["."],
+  "typeCheckingMode": "basic",
+  "exclude": [
+    "**/__pycache__",
+    "**/node_modules",
+    ".venv",
+    ".git",
+    "build",
+    "dist",
+    "site",
+    "importer"
+  ],
+  // pyodbc cursor.fetchone() is typed Row | None, but this codebase always issues
+  // OUTPUT/SELECT that returns a row, so row[0] is idiomatic. Was 73 false positives,
+  // all in api/v1/repositories/.
+  "reportOptionalSubscript": "none",
+  // pyodbc and similar C-extension deps ship no type stubs.
+  "reportMissingModuleSource": "none"
+}

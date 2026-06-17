@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from .endpoints.auth import router as auth_router
+from .endpoints.auth import get_current_user, router as auth_router
 from .endpoints.audit import router as audit_router
 from .endpoints.health import router as health_router
 from .endpoints.sites import router as sites_router
@@ -48,72 +48,84 @@ from .endpoints.deployment_traces import router as deployment_traces_router
 
 router = APIRouter()
 
-router.include_router(auth_router, prefix="/auth", tags=["auth"])
-router.include_router(audit_router, prefix="/audit", tags=["audit"])
-router.include_router(health_router, tags=["health"])
-router.include_router(sites_router, prefix="/sites", tags=["sites"])
-router.include_router(channels_router, prefix="/channels", tags=["channels"])
-router.include_router(timeseries_router, prefix="/timeseries", tags=["timeseries"])
-router.include_router(
+# Public routes: login/signup must be reachable without a token; health is for
+# liveness probes. /auth/me stays protected via its own endpoint dependency.
+public_router = APIRouter()
+public_router.include_router(auth_router, prefix="/auth", tags=["auth"])
+public_router.include_router(health_router, tags=["health"])
+
+# Everything else requires a valid bearer token (user JWT or service token).
+# Secure by default: new sub-routers added below are protected unless they are
+# explicitly moved to public_router above.
+protected = APIRouter(dependencies=[Depends(get_current_user)])
+protected.include_router(audit_router, prefix="/audit", tags=["audit"])
+protected.include_router(sites_router, prefix="/sites", tags=["sites"])
+protected.include_router(channels_router, prefix="/channels", tags=["channels"])
+protected.include_router(timeseries_router, prefix="/timeseries", tags=["timeseries"])
+protected.include_router(
     analysis_series_timeseries_router,
     prefix="/analysis-series",
     tags=["analysis-series-timeseries"],
 )
-router.include_router(
+protected.include_router(
     analysis_series_annotations_router,
     prefix="/analysis-series",
     tags=["annotations"],
 )
-router.include_router(
+protected.include_router(
     timeseries_annotations_router, prefix="/timeseries", tags=["annotations"]
 )
-router.include_router(campaigns_router, prefix="/campaigns", tags=["campaigns"])
-router.include_router(equipment_router, prefix="/equipment", tags=["equipment"])
-router.include_router(
+protected.include_router(campaigns_router, prefix="/campaigns", tags=["campaigns"])
+protected.include_router(equipment_router, prefix="/equipment", tags=["equipment"])
+protected.include_router(
     equipment_move_router, prefix="/equipment", tags=["equipment-move"]
 )
-router.include_router(das_move_router, prefix="/das", tags=["das-move"])
-router.include_router(lineage_router, prefix="/lineage", tags=["lineage"])
-router.include_router(ingest_router, prefix="/ingest", tags=["ingestion"])
-router.include_router(lab_router, prefix="/ingest/lab", tags=["ingestion-lab"])
-router.include_router(annotations_router, prefix="/annotations", tags=["annotations"])
-router.include_router(
+protected.include_router(das_move_router, prefix="/das", tags=["das-move"])
+protected.include_router(lineage_router, prefix="/lineage", tags=["lineage"])
+protected.include_router(ingest_router, prefix="/ingest", tags=["ingestion"])
+protected.include_router(lab_router, prefix="/ingest/lab", tags=["ingestion-lab"])
+protected.include_router(annotations_router, prefix="/annotations", tags=["annotations"])
+protected.include_router(
     annotation_kinds_router, prefix="/annotation-kinds", tags=["annotation-types"]
 )
-router.include_router(sensor_status_router, tags=["sensor-status"])
-router.include_router(parameters_router, prefix="/parameters", tags=["parameters"])
-router.include_router(
+protected.include_router(sensor_status_router, tags=["sensor-status"])
+protected.include_router(parameters_router, prefix="/parameters", tags=["parameters"])
+protected.include_router(
     signal_interfaces_router, prefix="/signal-interfaces", tags=["signal-interfaces"]
 )
-router.include_router(
+protected.include_router(
     signal_interface_ports_router,
     prefix="/signal-interface-ports",
     tags=["signal-interface-ports"],
 )
-router.include_router(
+protected.include_router(
     value_binning_router, prefix="/value-binning-axes", tags=["value-binning-axes"]
 )
-router.include_router(
+protected.include_router(
     control_loops_router, prefix="/control-loops", tags=["control-loops"]
 )
-router.include_router(persons_router, prefix="/persons", tags=["persons"])
-router.include_router(
+protected.include_router(persons_router, prefix="/persons", tags=["persons"])
+protected.include_router(
     quality_codes_router, prefix="/quality-codes", tags=["quality-codes"]
 )
-router.include_router(
+protected.include_router(
     sample_kinds_router, prefix="/sample-kinds", tags=["sample-types"]
 )
-router.include_router(
+protected.include_router(
     sample_collection_kinds_router, prefix="/sample-collection-kinds", tags=["sample-methods"]
 )
-router.include_router(
+protected.include_router(
     process_unit_kinds_router, prefix="/process-unit-kinds", tags=["process-units"]
 )
-router.include_router(
+protected.include_router(
     process_units_router, prefix="/process-units", tags=["process-units"]
 )
-router.include_router(vocab_router, prefix="/vocab", tags=["vocabulary"])
-router.include_router(convert_router, tags=["conversion"])
-router.include_router(
+protected.include_router(vocab_router, prefix="/vocab", tags=["vocabulary"])
+protected.include_router(convert_router, tags=["conversion"])
+protected.include_router(
     deployment_traces_router, prefix="/deployment-traces", tags=["deployment-traces"]
 )
+
+# Mount the public and protected groups onto the v1 router.
+router.include_router(public_router)
+router.include_router(protected)

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import SQL_FILES, _apply_schema_and_seeds, fresh_db, mssql_engine  # noqa: F401
 from api.v1.repositories import process_unit_repository, site_repository
 
 pytestmark = pytest.mark.db
@@ -27,10 +26,9 @@ pytestmark = pytest.mark.db
 
 
 @pytest.fixture()
-def db(fresh_db):
-    """Database at v4.1.0 schema with full seed vocabulary and a seed Site."""
-    conn, db_name = fresh_db
-    _apply_schema_and_seeds(conn, ["v4.1.0_create", "v4.1.0_seed"])
+def db(db_at_v200):
+    """Database at v2.0.0 schema with full seed vocabulary and a seed Site."""
+    conn, db_name = db_at_v200
 
     cursor = conn.cursor()
     cursor.execute(

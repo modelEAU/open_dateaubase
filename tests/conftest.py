@@ -21,6 +21,46 @@ from fixtures.sample_dictionary import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _clear_streamlit_cache():
+    """Clear st.cache_data between tests.
+
+    Reference-data lookups in app.api_client are wrapped in st.cache_data; the
+    cache is process-global, so without this a result cached by one test would
+    leak into the next. Harmless when streamlit isn't installed/used.
+    """
+    try:
+        import streamlit as st
+
+        st.cache_data.clear()
+    except Exception:
+        pass
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _auth_override(request):
+    """Bypass API auth for endpoint tests.
+
+    All routes except /auth and /health now require a bearer token. Tests that
+    exercise endpoints via TestClient predate that and send no token, so we
+    override get_current_user to return a fake principal. Mark a test with
+    ``@pytest.mark.no_auth_override`` to test the real auth behavior.
+    """
+    if request.node.get_closest_marker("no_auth_override"):
+        yield
+        return
+    try:
+        from api.main import app
+        from api.v1.endpoints.auth import get_current_user, SERVICE_PRINCIPAL
+    except Exception:
+        yield
+        return
+    app.dependency_overrides[get_current_user] = lambda: SERVICE_PRINCIPAL
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
+
 @pytest.fixture
 def sample_json_dict():
     """Return sample dictionary data as Python dict."""
@@ -94,4 +134,7 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers", "db: requires running MSSQL Docker container"
+    )
+    config.addinivalue_line(
+        "markers", "no_auth_override: do not bypass API auth in this test"
     )

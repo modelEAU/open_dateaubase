@@ -746,11 +746,16 @@ function Write-ImporterCmd {
         [string]$UvExe,
         [string]$InstallDir,
         [string]$ImporterConfig,
-        [string]$OutPath    # full path for the .cmd file
+        [string]$OutPath,           # full path for the .cmd file
+        [string]$ApiServiceToken = ''  # bearer token for the secured API
     )
+    # The API now requires auth; the importer authenticates with the shared
+    # service token, passed via the environment of the Scheduled Task process.
+    $tokenLine = if ($ApiServiceToken) { "set `"API_SERVICE_TOKEN=$ApiServiceToken`"" } else { '' }
     $cmd = @"
 @echo off
 cd /d "$InstallDir"
+$tokenLine
 "$UvExe" run table-import --config "$ImporterConfig" >>%LOG_STDOUT% 2>>%LOG_STDERR%
 "@
     New-Item -ItemType Directory -Path (Split-Path $OutPath) -Force | Out-Null

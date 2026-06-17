@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.0.0
 -- Platform: mssql
--- Generated: 2026-06-12 03:59:34 UTC
+-- Generated: 2026-06-17 15:21:45 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -406,7 +406,7 @@ CREATE TABLE [dbo].[EquipmentLocationHistory] (
     [SamplingPoint_ID] INT NOT NULL,
     [ValidFrom] DATETIME2(7) NOT NULL,
     [ValidTo] DATETIME2(7),
-    [Campaign_ID] INT NOT NULL,
+    [Campaign_ID] INT,
     [Notes] NVARCHAR(MAX),
     CONSTRAINT [PK_EquipmentLocationHistory] PRIMARY KEY ([EquipmentLocationHistory_ID])
 );
@@ -435,7 +435,7 @@ CREATE TABLE [dbo].[EquipmentWiringHistory] (
 );
 
 CREATE TABLE [dbo].[HydrologicalCharacteristics] (
-    [Watershed_ID] INT IDENTITY(1,1) NOT NULL,
+    [Watershed_ID] INT NOT NULL,
     [UrbanArea] REAL,
     [Forest] REAL,
     [Wetlands] REAL,
@@ -501,7 +501,7 @@ CREATE TABLE [dbo].[Laboratory] (
 );
 
 CREATE TABLE [dbo].[LandUse] (
-    [Watershed_ID] INT IDENTITY(1,1) NOT NULL,
+    [Watershed_ID] INT NOT NULL,
     [Commercial] REAL,
     [GreenSpaces] REAL,
     [Industrial] REAL,
@@ -776,7 +776,7 @@ CREATE INDEX [IX_ChannelPortHistory_Port] ON [dbo].[ChannelPortHistory] ([Signal
 CREATE INDEX [IX_ChannelTrait_Stream] ON [dbo].[ChannelTrait] ([Stream_ID]);
 
 
-CREATE UNIQUE INDEX [UQ_ControlLoopApplication_ActiveRow] ON [dbo].[ControlLoopApplication] ([ControlLoop_ID]);
+CREATE UNIQUE INDEX [UQ_ControlLoopApplication_ActiveRow] ON [dbo].[ControlLoopApplication] ([ControlLoop_ID]) WHERE [EndTime] IS NULL;
 
 CREATE UNIQUE INDEX [UQ_ControlLoopPort_LoopChannel] ON [dbo].[ControlLoopPort] ([ControlLoop_ID], [Channel_ID]);
 
@@ -1069,3 +1069,8 @@ JOIN [dbo].[EquipmentWiringHistory] ewh
 JOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]
 WHERE role.[Name] = N'Status';
 
+
+GO
+-- Schema version stamp (from schema_dictionary/version.yaml)
+INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])
+VALUES (N'2.0.0', N'Initial public release. Complete redesign of the signal interface, annotation model, lab observation model, and deployment trace concept. Breaking change from v1.x — no migration provided; fresh install only.');

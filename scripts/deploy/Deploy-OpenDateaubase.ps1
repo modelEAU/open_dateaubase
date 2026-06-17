@@ -357,11 +357,22 @@ if (-not $SkipApp) {
 if (-not $SkipImporter) {
     Write-Step 'Setting up table importer Scheduled Task...'
 
+    # The importer authenticates to the secured API with the service token from
+    # the env file (same secret the API validates). Optional: warn if absent.
+    $importerToken = ''
+    if (Test-Path $EnvFile) {
+        $importerToken = (Import-EnvFile -Path $EnvFile)['API_SERVICE_TOKEN']
+    }
+    if ([string]::IsNullOrWhiteSpace($importerToken)) {
+        Write-Step "API_SERVICE_TOKEN not set in $EnvFile; importer calls will be rejected by the secured API." -Warn
+    }
+
     Write-ImporterCmd `
         -UvExe         $uvExe `
         -InstallDir    $InstallDir `
         -ImporterConfig $ImporterConfig `
-        -OutPath       $CMD_PATH
+        -OutPath       $CMD_PATH `
+        -ApiServiceToken $importerToken
 
     Register-ImporterTask `
         -TaskName        $TASK_IMPORT `

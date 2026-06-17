@@ -82,6 +82,8 @@ services:
       dockerfile: Dockerfile.importer
     container_name: open_dateaubase_import
     restart: "no"
+    env_file:
+      - .env.docker
     depends_on:
       api:
         condition: service_healthy
@@ -97,6 +99,8 @@ services:
     container_name: open_dateaubase_app
     ports:
       - "8501:8501"
+    env_file:
+      - .env.docker          # provides API_SERVICE_TOKEN for dev auto-login
     environment:
       - API_BASE_URL=http://api:8000/api/v1
       - APP_DEV_AUTO_LOGIN=1

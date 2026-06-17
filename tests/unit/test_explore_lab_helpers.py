@@ -9,6 +9,9 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from app.pages import explore
+# _build_scalar_figure moved to explore_scalar; it resolves the data loaders in
+# that module's namespace, so patch the loaders there (not on `explore`).
+from app.components import explore_scalar
 
 
 _SERIES = [
@@ -109,11 +112,11 @@ class TestScalarFigureOverlay:
             {"timestamp": "2026-05-01T00:00:00", "value": 11.0, "quality_code": 1},
             {"timestamp": "2026-05-08T00:00:00", "value": 13.0, "quality_code": 1},
         ]}
-        with patch.object(explore, "_load_timeseries", return_value=ch_data), \
-             patch.object(explore, "_load_annotations", return_value=[]), \
-             patch.object(explore, "_load_series_annotations", return_value=[]), \
-             patch.object(explore, "_load_equipment_events", return_value=[]), \
-             patch.object(explore, "_load_series_timeseries", return_value=s_data):
+        with patch.object(explore_scalar, "_load_timeseries", return_value=ch_data), \
+             patch.object(explore_scalar, "_load_annotations", return_value=[]), \
+             patch.object(explore_scalar, "_load_series_annotations", return_value=[]), \
+             patch.object(explore_scalar, "_load_equipment_events", return_value=[]), \
+             patch.object(explore_scalar, "_load_series_timeseries", return_value=s_data):
             fig, _ = explore._build_scalar_figure(
                 [5], channel_meta, "extract", [1], series_meta
             )

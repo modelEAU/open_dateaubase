@@ -32,9 +32,9 @@ from api.v1.repositories import control_loop_repository
 
 
 @pytest.fixture()
-def db(db_at_v400):  # noqa: F811
-    """Database at v4.0.0 schema with minimal seed data for control loop tests."""
-    conn, db_name = db_at_v400
+def db(db_at_v200):  # noqa: F811
+    """Database at v2.0.0 schema with minimal seed data for control loop tests."""
+    conn, db_name = db_at_v200
 
     from api.v1.repositories.ingestion_repository import find_or_create_sensor_metadata
     from api.v1.repositories.signal_interface_repository import find_parameter_by_name
@@ -48,14 +48,12 @@ def db(db_at_v400):  # noqa: F811
     )
     das_id = cursor.fetchone()[0]
 
-    # SignalInterfaceType_ID 1 = PLC (seeded by v4.0.0 migration)
     cursor.execute(
         "INSERT INTO [dbo].[SignalInterface]"
-        "    ([DataAcquisitionSystem_ID], [SignalInterfaceType_ID], [Name])"
+        "    ([DataAcquisitionSystem_ID], [Name])"
         " OUTPUT INSERTED.[SignalInterface_ID]"
-        " VALUES (?, ?, ?)",
+        " VALUES (?, ?)",
         das_id,
-        1,
         "TestInterface",
     )
     si_id = cursor.fetchone()[0]
@@ -88,8 +86,18 @@ def db(db_at_v400):  # noqa: F811
 def _role_id(conn, name: str) -> int:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ControlLoopPortRole_ID] FROM [dbo].[ControlLoopPortRole]"
+        "SELECT [ControlLoopPortKind_ID] FROM [dbo].[ControlLoopPortKind]"
         " WHERE [Name] = ?",
+        name,
+    )
+    return cursor.fetchone()[0]
+
+
+def _kind_id(conn, name: str) -> int:
+    """Return ControllerKind_ID for name (must exist in seed)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [ControllerKind_ID] FROM [dbo].[ControllerKind] WHERE [Name] = ?",
         name,
     )
     return cursor.fetchone()[0]
@@ -116,25 +124,25 @@ class TestControlLoopCreation:
     def test_create_pid_loop(self, db):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="DO PID", controller_type="PID"
+            conn, name="DO PID", controller_kind_id=_kind_id(conn, "PID")
         )
         assert isinstance(loop_id, int) and loop_id > 0
 
-    @pytest.mark.parametrize("ct", ["PI", "P", "BangBang", "Manual"])
+    @pytest.mark.parametrize("ct", ["Feedforward", "MPC", "On-Off", "Manual"])
     def test_create_all_supported_types(self, db, ct):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name=f"{ct} loop", controller_type=ct
+            conn, name=f"{ct} loop", controller_kind_id=_kind_id(conn, ct)
         )
         row = control_loop_repository.get_control_loop(conn, loop_id)
-        assert row["ControllerType"] == ct
+        assert row["controller_kind_name"] == ct
 
     def test_create_custom_loop_with_algorithm_reference(self, db):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
             conn,
             name="MPC reactor",
-            controller_type="Custom",
+            controller_kind_id=_kind_id(conn, "Other"),
             algorithm_reference="https://github.com/example/mpc-controller",
             description="Model predictive control for reactor temperature",
         )
@@ -158,7 +166,7 @@ class TestControlLoopPort:
     def test_add_three_ports(self, db):
         conn, _, channel_map = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="DO PID 3port", controller_type="PID"
+            conn, name="DO PID 3port", controller_kind_id=_kind_id(conn, "PID")
         )
         mv_id = _role_id(conn, "MeasuredVariable")
         manip_id = _role_id(conn, "ManipulatedVariable")
@@ -183,7 +191,7 @@ class TestControlLoopPort:
 
         conn, _, channel_map = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="Dup Port Test", controller_type="P"
+            conn, name="Dup Port Test", controller_kind_id=_kind_id(conn, "MPC")
         )
         mv_id = _role_id(conn, "MeasuredVariable")
 
@@ -207,7 +215,7 @@ class TestControlLoopApplication:
     def test_open_application_creates_active_row(self, db):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="App Test", controller_type="PID"
+            conn, name="App Test", controller_kind_id=_kind_id(conn, "PID")
         )
         app_id = control_loop_repository.open_application(
             conn,
@@ -223,7 +231,7 @@ class TestControlLoopApplication:
     def test_second_open_raises_value_error(self, db):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="At-most-one", controller_type="PID"
+            conn, name="At-most-one", controller_kind_id=_kind_id(conn, "PID")
         )
         control_loop_repository.open_application(
             conn, loop_id=loop_id, start_time=datetime(2025, 1, 1)
@@ -236,7 +244,7 @@ class TestControlLoopApplication:
     def test_retune_closes_old_and_opens_new(self, db):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="Retune Test", controller_type="PID"
+            conn, name="Retune Test", controller_kind_id=_kind_id(conn, "PID")
         )
         old_id = control_loop_repository.open_application(
             conn,
@@ -272,7 +280,7 @@ class TestControlLoopApplication:
     def test_retune_without_active_creates_first_row(self, db):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="Retune No Active", controller_type="PI"
+            conn, name="Retune No Active", controller_kind_id=_kind_id(conn, "Feedforward")
         )
         new_id, closed_id = control_loop_repository.retune(
             conn,
@@ -286,7 +294,7 @@ class TestControlLoopApplication:
     def test_old_tuning_preserved_with_time_window(self, db):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="History Preserved", controller_type="PID"
+            conn, name="History Preserved", controller_kind_id=_kind_id(conn, "PID")
         )
         app1_id = control_loop_repository.open_application(
             conn,
@@ -329,7 +337,7 @@ class TestPointInTimeQuery:
 
     def _build_two_tunings(self, conn):
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="Point-in-time", controller_type="PID"
+            conn, name="Point-in-time", controller_kind_id=_kind_id(conn, "PID")
         )
         app1_id = control_loop_repository.open_application(
             conn,
@@ -398,10 +406,10 @@ class TestCascadeArchitecture:
         sp_role = _role_id(conn, "SetPoint")
 
         outer_loop_id = control_loop_repository.create_control_loop(
-            conn, name="Outer DO loop", controller_type="PID"
+            conn, name="Outer DO loop", controller_kind_id=_kind_id(conn, "PID")
         )
         inner_loop_id = control_loop_repository.create_control_loop(
-            conn, name="Inner aeration loop", controller_type="PID"
+            conn, name="Inner aeration loop", controller_kind_id=_kind_id(conn, "PID")
         )
 
         # DO_SP is the ManipulatedVariable of the outer loop
@@ -433,18 +441,18 @@ class TestFallbackChain:
     def test_three_level_chain(self, db):
         conn, _, _ = db
         manual_id = control_loop_repository.create_control_loop(
-            conn, name="Manual fallback", controller_type="Manual"
+            conn, name="Manual fallback", controller_kind_id=_kind_id(conn, "Manual")
         )
         pi_id = control_loop_repository.create_control_loop(
             conn,
             name="PI fallback",
-            controller_type="PI",
+            controller_kind_id=_kind_id(conn, "Feedforward"),
             fallback_control_loop_id=manual_id,
         )
         pid_id = control_loop_repository.create_control_loop(
             conn,
             name="PID outer",
-            controller_type="PID",
+            controller_kind_id=_kind_id(conn, "PID"),
             fallback_control_loop_id=pi_id,
         )
 
@@ -458,7 +466,7 @@ class TestFallbackChain:
     def test_single_loop_chain(self, db):
         conn, _, _ = db
         loop_id = control_loop_repository.create_control_loop(
-            conn, name="Standalone", controller_type="PID"
+            conn, name="Standalone", controller_kind_id=_kind_id(conn, "PID")
         )
         chain = control_loop_repository.get_fallback_chain(conn, loop_id)
         assert len(chain) == 1
@@ -476,10 +484,10 @@ class TestCascadeDeactivation:
     def test_close_outer_leaves_inner_active(self, db):
         conn, _, _ = db
         outer_id = control_loop_repository.create_control_loop(
-            conn, name="Outer", controller_type="PID"
+            conn, name="Outer", controller_kind_id=_kind_id(conn, "PID")
         )
         inner_id = control_loop_repository.create_control_loop(
-            conn, name="Inner", controller_type="PID"
+            conn, name="Inner", controller_kind_id=_kind_id(conn, "PID")
         )
 
         outer_app_id = control_loop_repository.open_application(
@@ -517,7 +525,7 @@ class TestModelBasedLoop:
         loop_id = control_loop_repository.create_control_loop(
             conn,
             name="MPC nitrification",
-            controller_type="Custom",
+            controller_kind_id=_kind_id(conn, "Other"),
             algorithm_reference="git+https://github.com/example/mpc-n@v1.2.0",
         )
         mv_role = _role_id(conn, "MeasuredVariable")
