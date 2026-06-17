@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 # Add project root to path for tool imports
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -278,6 +280,19 @@ def generate_all_from_yaml(
     sql_path = sql_dir / f"v{version}_create_{platform}.sql"
     sql_path.write_text(sql_script, encoding="utf-8")
     print(f"Generated SQL CREATE script: {sql_path}")
+
+    # Append SchemaVersion stamp so the health endpoint reports the correct version.
+    version_yaml_path = tables_dir.parent / "version.yaml"
+    if version_yaml_path.exists():
+        with version_yaml_path.open(encoding="utf-8") as fh:
+            ver_meta = yaml.safe_load(fh)
+        description = (ver_meta.get("description") or "").strip().replace("'", "''")
+        with sql_path.open("a", encoding="utf-8") as fh:
+            fh.write(
+                f"\n-- Schema version stamp (from schema_dictionary/version.yaml)\n"
+                f"INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])\n"
+                f"VALUES (N'{version}', N'{description}');\n"
+            )
 
     # Step 7: SQL seed script
     seed_script = render_seed_script(schema, version, platform)
