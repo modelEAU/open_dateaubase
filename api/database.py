@@ -1,24 +1,53 @@
 """Database connection management for the open_datEAUbase API.
 
-All endpoints call get_connection() to obtain a raw pyodbc connection.
-Callers are responsible for closing the connection (use try/finally or
-FastAPI dependency injection via get_db()).
+Connections are served from a process-wide SQLAlchemy ``QueuePool`` rather than
+opened per request. ``pool_pre_ping`` validates a pooled connection before
+handing it out (SQL Server idle-closes connections), and ``pool_recycle`` caps
+connection age. ``get_db()`` yields a raw DBAPI (pyodbc-compatible) connection,
+so repository code that calls ``conn.cursor()`` / ``conn.commit()`` is unchanged.
+
+Closing a yielded connection returns it to the pool instead of tearing down the
+TCP/auth session, which is what eliminates the ~400ms cold-connect cost that was
+paid on every lookup request.
 """
 
 from __future__ import annotations
 
-import pyodbc
-from fastapi import HTTPException
+import time
+import urllib.parse
+from typing import Iterator
+
+from fastapi import HTTPException, Request
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
 
 from .config import settings
 
+# Process-wide engine, created lazily on first use (see get_engine).
+_engine: Engine | None = None
 
-def get_connection() -> pyodbc.Connection:
-    """Return a new pyodbc connection to SQL Server.
 
-    Raises:
-        HTTPException(503): If the connection cannot be established.
+def _build_odbc_str() -> str:
+    """Assemble the ODBC connection string from settings.
+
+    Single source of truth for the connection string so network/driver tweaks
+    (instance vs port, Encrypt, etc.) live in one place.
     """
+    return (
+        f"DRIVER={{{settings.db_driver}}};"
+        f"SERVER={settings.db_host},{settings.db_port};"
+        f"DATABASE={settings.db_name};"
+        f"UID={settings.db_user};"
+        f"PWD={settings.db_password};"
+        "Encrypt=no;"
+        "TrustServerCertificate=yes;"
+        "Connection Timeout=10;"
+    )
+
+
+def _assert_configured() -> None:
+    """Raise HTTPException(503) if required DB env vars are missing."""
     if not all([settings.db_host, settings.db_name, settings.db_user, settings.db_password]):
         missing = [
             k
@@ -35,28 +64,56 @@ def get_connection() -> pyodbc.Connection:
             detail=f"Database not configured. Missing env vars: {', '.join(missing)}",
         )
 
-    conn_str = (
-        f"DRIVER={{{settings.db_driver}}};"
-        f"SERVER={settings.db_host},{settings.db_port};"
-        f"DATABASE={settings.db_name};"
-        f"UID={settings.db_user};"
-        f"PWD={settings.db_password};"
-        "Encrypt=no;"
-        "TrustServerCertificate=yes;"
-        "Connection Timeout=10;"
-    )
+
+def get_engine() -> Engine:
+    """Return the process-wide SQLAlchemy engine, creating it on first use."""
+    global _engine
+    if _engine is None:
+        _assert_configured()
+        url = "mssql+pyodbc:///?odbc_connect=" + urllib.parse.quote_plus(_build_odbc_str())
+        _engine = create_engine(
+            url,
+            pool_pre_ping=True,  # validate a pooled connection before handing it out
+            pool_size=5,
+            max_overflow=10,
+            pool_recycle=1800,  # recycle connections older than 30 min
+            pool_timeout=30,
+        )
+    return _engine
+
+
+def get_connection():
+    """Return a pooled raw DBAPI (pyodbc-compatible) connection.
+
+    Raises:
+        HTTPException(503): If the DB is unconfigured or unreachable.
+
+    Callers must close the connection (which returns it to the pool).
+    """
+    _assert_configured()
     try:
-        return pyodbc.connect(conn_str)
-    except pyodbc.Error as exc:
+        return get_engine().raw_connection()
+    except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=503,
             detail=f"Cannot connect to database: {exc}",
         ) from exc
 
 
-def get_db():
-    """FastAPI dependency that yields a connection and closes it after the request."""
+def get_db(request: Request = None) -> Iterator:
+    """FastAPI dependency: yield a pooled connection, then return it to the pool.
+
+    Records the time spent acquiring the connection on ``request.state``
+    (``db_connect_ms``) so the request-timing middleware can log it. This is high
+    on a genuine cold connect and ~0 when a connection is reused from the pool,
+    which is exactly the signal we use to confirm pooling is working.
+    """
+    start = time.perf_counter()
     conn = get_connection()
+    connect_ms = round((time.perf_counter() - start) * 1000, 1)
+    if request is not None:
+        prior = getattr(request.state, "db_connect_ms", 0.0) or 0.0
+        request.state.db_connect_ms = round(prior + connect_ms, 1)
     try:
         yield conn
     finally:

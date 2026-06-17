@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from .config import settings
+from .observability import RequestTimingMiddleware
 from .v1.router import router as v1_router
 
 # Create upload directories on startup
@@ -21,6 +22,10 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+# Emit one structured JSON timing line per request (consumed by Vector ->
+# OpenObserve performance dashboard).
+app.add_middleware(RequestTimingMiddleware)
 
 app.include_router(v1_router, prefix="/api/v1")
 
