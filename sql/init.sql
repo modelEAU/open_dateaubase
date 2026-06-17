@@ -19,11 +19,6 @@ GO
 :r /sql_generation_scripts/v2.0.0_seed_mssql.sql
 GO
 
--- Fixture seed: procedures, one TEST_ watershed, one TEST_ lab.
--- No equipment, sites, campaigns, or channels — those are created by the importer.
-:r /sql/seed_fixtures.sql
-GO
-
 -- Demo seed: TEST_ site, process units, sampling points, persons, campaigns, analysis
 -- series, and a pre-built LabPanel. Safe for the importer — no Equipment or Channel rows.
 :r /sql/seed_demo.sql
