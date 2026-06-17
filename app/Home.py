@@ -23,8 +23,8 @@ st.set_page_config(page_title=settings.APP_TITLE, page_icon="💧", layout="wide
 
 
 def _home() -> None:
-    st.header(st.markdown("# open_dat *EAU* base"))
-    st.subheader(st.markdown("model *EAU*'s open-source water quality data management system"))
+    st.header("open_datEAUbase")
+    st.subheader("modelEAU's open-source water quality data management system")
 
     col_status, col_nav = st.columns(2)
 

@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.0.0
 -- Platform: mssql
--- Generated: 2026-06-17 15:10:35 UTC
+-- Generated: 2026-06-17 15:21:45 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -1070,6 +1070,7 @@ JOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]
 WHERE role.[Name] = N'Status';
 
 
+GO
 -- Schema version stamp (from schema_dictionary/version.yaml)
 INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])
 VALUES (N'2.0.0', N'Initial public release. Complete redesign of the signal interface, annotation model, lab observation model, and deployment trace concept. Breaking change from v1.x — no migration provided; fresh install only.');

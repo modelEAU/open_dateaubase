@@ -289,7 +289,8 @@ def generate_all_from_yaml(
         description = (ver_meta.get("description") or "").strip().replace("'", "''")
         with sql_path.open("a", encoding="utf-8") as fh:
             fh.write(
-                f"\n-- Schema version stamp (from schema_dictionary/version.yaml)\n"
+                f"\nGO\n"
+                f"-- Schema version stamp (from schema_dictionary/version.yaml)\n"
                 f"INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])\n"
                 f"VALUES (N'{version}', N'{description}');\n"
             )
