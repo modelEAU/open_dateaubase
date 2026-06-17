@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.0.0
 -- Platform: mssql
--- Generated: 2026-06-17 15:03:54 UTC
+-- Generated: 2026-06-17 15:10:35 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -435,7 +435,7 @@ CREATE TABLE [dbo].[EquipmentWiringHistory] (
 );
 
 CREATE TABLE [dbo].[HydrologicalCharacteristics] (
-    [Watershed_ID] INT IDENTITY(1,1) NOT NULL,
+    [Watershed_ID] INT NOT NULL,
     [UrbanArea] REAL,
     [Forest] REAL,
     [Wetlands] REAL,
@@ -501,7 +501,7 @@ CREATE TABLE [dbo].[Laboratory] (
 );
 
 CREATE TABLE [dbo].[LandUse] (
-    [Watershed_ID] INT IDENTITY(1,1) NOT NULL,
+    [Watershed_ID] INT NOT NULL,
     [Commercial] REAL,
     [GreenSpaces] REAL,
     [Industrial] REAL,

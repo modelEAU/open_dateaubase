@@ -8,7 +8,6 @@ table:
     - name: Watershed_ID
       logical_type: integer
       nullable: false
-      identity: true
       description: "Linked to the Watershed table"
       foreign_key:
         table: Watershed
