@@ -267,7 +267,7 @@ class TestValidationLookups:
         from api.v1.repositories.signal_interface_repository import find_unit_by_name
 
         conn, _ = db_at_v200
-        assert find_unit_by_name(conn, "degc") is not None
+        assert find_unit_by_name(conn, "°C") is not None
 
 
 # ---------------------------------------------------------------------------
@@ -336,9 +336,9 @@ class TestNormalisation:
         from api.v1.repositories.signal_interface_repository import find_unit_by_name
 
         conn, _ = db_at_v200
-        id1 = find_unit_by_name(conn, "degc")
-        id2 = find_unit_by_name(conn, "DEGC")
-        id3 = find_unit_by_name(conn, "  degC  ")
+        id1 = find_unit_by_name(conn, "°c")
+        id2 = find_unit_by_name(conn, "°C")
+        id3 = find_unit_by_name(conn, "  °C  ")
         assert id1 is not None
         assert id1 == id2 == id3
 
