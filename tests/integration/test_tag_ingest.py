@@ -74,13 +74,13 @@ def _get_signal_interface_is_active(conn, si_id: int) -> bool:
 
 
 class TestResolveTag:
-    def test_resolve_creates_das_and_signal_interface_on_first_call(self, db_at_v400):
+    def test_resolve_creates_das_and_signal_interface_on_first_call(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_or_create_das,
             find_or_create_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, das_created = find_or_create_das(conn, "PlantSCADA")
         assert das_created is True
         assert das_id > 0
@@ -91,13 +91,13 @@ class TestResolveTag:
         assert si_created is True
         assert si_id > 0
 
-    def test_repeated_resolve_is_idempotent(self, db_at_v400):
+    def test_repeated_resolve_is_idempotent(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_or_create_das,
             find_or_create_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id1, _ = find_or_create_das(conn, "StationA")
         das_id2, _ = find_or_create_das(conn, "StationA")
         assert das_id1 == das_id2
@@ -106,7 +106,7 @@ class TestResolveTag:
         si_id2, _ = find_or_create_signal_interface(conn, das_id1, "FIT-201")
         assert si_id1 == si_id2
 
-    def test_first_ingest_creates_channel(self, db_at_v400):
+    def test_first_ingest_creates_channel(self, db_at_v200):
         from api.v1.repositories.ingestion_repository import (
             find_or_create_sensor_metadata,
         )
@@ -116,7 +116,7 @@ class TestResolveTag:
             find_parameter_by_name,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "SCADA-A")
         si_id, _ = find_or_create_signal_interface(conn, das_id, "TIT-001")
         param_id = find_parameter_by_name(conn, "temperature")
@@ -134,7 +134,7 @@ class TestResolveTag:
         assert channel_id > 0
         assert _channel_count(conn, si_id) == 1
 
-    def test_repeated_find_or_create_channel_is_idempotent(self, db_at_v400):
+    def test_repeated_find_or_create_channel_is_idempotent(self, db_at_v200):
         from api.v1.repositories.ingestion_repository import (
             find_or_create_sensor_metadata,
         )
@@ -144,7 +144,7 @@ class TestResolveTag:
             find_parameter_by_name,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "SCADA-B")
         si_id, _ = find_or_create_signal_interface(conn, das_id, "PIT-001")
         param_id = find_parameter_by_name(conn, "ph")
@@ -178,10 +178,10 @@ class TestResolveTag:
 
 
 class TestDASAutoCreate:
-    def test_unrecognised_das_auto_creates_with_warning(self, db_at_v400):
+    def test_unrecognised_das_auto_creates_with_warning(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import find_or_create_das
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         assert _das_count(conn, "NewDAS") == 0
 
         with warnings.catch_warnings(record=True):
@@ -190,10 +190,10 @@ class TestDASAutoCreate:
         assert created is True
         assert _das_count(conn, "NewDAS") == 1
 
-    def test_known_das_returns_created_false(self, db_at_v400):
+    def test_known_das_returns_created_false(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import find_or_create_das
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id1, _ = find_or_create_das(conn, "ExistingDAS")
         das_id2, created = find_or_create_das(conn, "ExistingDAS")
         assert created is False
@@ -206,13 +206,13 @@ class TestDASAutoCreate:
 
 
 class TestSignalInterfaceAutoCreate:
-    def test_unrecognised_tag_auto_creates_signal_interface(self, db_at_v400):
+    def test_unrecognised_tag_auto_creates_signal_interface(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_or_create_das,
             find_or_create_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "DAS-SI-Test")
 
         assert _signal_interface_count(conn, das_id, "NEW-TAG-99") == 0
@@ -220,13 +220,13 @@ class TestSignalInterfaceAutoCreate:
         assert created is True
         assert _signal_interface_count(conn, das_id, "NEW-TAG-99") == 1
 
-    def test_known_tag_returns_created_false(self, db_at_v400):
+    def test_known_tag_returns_created_false(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_or_create_das,
             find_or_create_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "DAS-Known-SI")
         si_id1, _ = find_or_create_signal_interface(conn, das_id, "EXISTING-TAG")
         si_id2, created = find_or_create_signal_interface(
@@ -241,32 +241,32 @@ class TestSignalInterfaceAutoCreate:
 
 
 class TestValidationLookups:
-    def test_unknown_parameter_returns_none(self, db_at_v400):
+    def test_unknown_parameter_returns_none(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_parameter_by_name,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         assert find_parameter_by_name(conn, "nonexistent_param_xyz") is None
 
-    def test_unknown_unit_returns_none(self, db_at_v400):
+    def test_unknown_unit_returns_none(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import find_unit_by_name
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         assert find_unit_by_name(conn, "nonexistent_unit_xyz") is None
 
-    def test_known_parameter_returns_id(self, db_at_v400):
+    def test_known_parameter_returns_id(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_parameter_by_name,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         assert find_parameter_by_name(conn, "temperature") is not None
 
-    def test_known_unit_returns_id(self, db_at_v400):
+    def test_known_unit_returns_id(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import find_unit_by_name
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         assert find_unit_by_name(conn, "degc") is not None
 
 
@@ -276,78 +276,78 @@ class TestValidationLookups:
 
 
 class TestNormalisation:
-    def test_das_lookup_case_insensitive(self, db_at_v400):
+    def test_das_lookup_case_insensitive(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import find_or_create_das
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         id1, _ = find_or_create_das(conn, "MyScada")
         id2, created = find_or_create_das(conn, "MYSCADA")
         assert created is False
         assert id1 == id2
 
-    def test_das_lookup_trims_whitespace(self, db_at_v400):
+    def test_das_lookup_trims_whitespace(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import find_or_create_das
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         id1, _ = find_or_create_das(conn, "TrimDAS")
         id2, created = find_or_create_das(conn, "  TrimDAS  ")
         assert created is False
         assert id1 == id2
 
-    def test_signal_interface_lookup_case_insensitive(self, db_at_v400):
+    def test_signal_interface_lookup_case_insensitive(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_or_create_das,
             find_or_create_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "NormDAS-SI")
         id1, _ = find_or_create_signal_interface(conn, das_id, "tit-200")
         id2, created = find_or_create_signal_interface(conn, das_id, "TIT-200")
         assert created is False
         assert id1 == id2
 
-    def test_signal_interface_lookup_trims_whitespace(self, db_at_v400):
+    def test_signal_interface_lookup_trims_whitespace(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_or_create_das,
             find_or_create_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "NormDAS-Trim")
         id1, _ = find_or_create_signal_interface(conn, das_id, "FIT-300")
         id2, created = find_or_create_signal_interface(conn, das_id, "  FIT-300  ")
         assert created is False
         assert id1 == id2
 
-    def test_parameter_lookup_case_insensitive(self, db_at_v400):
+    def test_parameter_lookup_case_insensitive(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_parameter_by_name,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         id1 = find_parameter_by_name(conn, "temperature")
         id2 = find_parameter_by_name(conn, "TEMPERATURE")
         id3 = find_parameter_by_name(conn, "  Temperature  ")
         assert id1 is not None
         assert id1 == id2 == id3
 
-    def test_unit_lookup_case_insensitive(self, db_at_v400):
+    def test_unit_lookup_case_insensitive(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import find_unit_by_name
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         id1 = find_unit_by_name(conn, "degc")
         id2 = find_unit_by_name(conn, "DEGC")
         id3 = find_unit_by_name(conn, "  degC  ")
         assert id1 is not None
         assert id1 == id2 == id3
 
-    def test_channel_role_lookup_case_insensitive(self, db_at_v400):
+    def test_channel_role_lookup_case_insensitive(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_channel_kind_by_name,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         id1 = find_channel_kind_by_name(conn, "value")
         id2 = find_channel_kind_by_name(conn, "VALUE")
         id3 = find_channel_kind_by_name(conn, "  Value  ")
@@ -361,14 +361,14 @@ class TestNormalisation:
 
 
 class TestDeactivation:
-    def test_deactivate_signal_interface_sets_is_active_false(self, db_at_v400):
+    def test_deactivate_signal_interface_sets_is_active_false(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             find_or_create_das,
             find_or_create_signal_interface,
             patch_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "DAS-Deactivate")
         si_id, _ = find_or_create_signal_interface(conn, das_id, "RETIRE-001")
 
@@ -377,7 +377,7 @@ class TestDeactivation:
         assert result is not None
         assert _get_signal_interface_is_active(conn, si_id) is False
 
-    def test_deactivate_signal_interface_does_not_affect_channel(self, db_at_v400):
+    def test_deactivate_signal_interface_does_not_affect_channel(self, db_at_v200):
         from api.v1.repositories.ingestion_repository import (
             find_or_create_sensor_metadata,
         )
@@ -388,7 +388,7 @@ class TestDeactivation:
             patch_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         das_id, _ = find_or_create_das(conn, "DAS-Chan-Retain")
         si_id, _ = find_or_create_signal_interface(conn, das_id, "RETIRE-002")
         param_id = find_parameter_by_name(conn, "temperature")
@@ -410,11 +410,11 @@ class TestDeactivation:
         # Channel row must still exist
         assert _channel_count(conn, si_id) == 1
 
-    def test_deactivate_missing_signal_interface_returns_none(self, db_at_v400):
+    def test_deactivate_missing_signal_interface_returns_none(self, db_at_v200):
         from api.v1.repositories.signal_interface_repository import (
             patch_signal_interface,
         )
 
-        conn, _ = db_at_v400
+        conn, _ = db_at_v200
         result = patch_signal_interface(conn, 999999, {"is_active": False})
         assert result is None

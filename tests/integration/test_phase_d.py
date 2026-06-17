@@ -22,54 +22,54 @@ V220_REMOVED_COLUMNS = {
 }
 
 V220_ADDED_COLUMNS = {
-    "Observation": {"Observation_ID", "Channel_ID", "Timestamp", "DataType"},
+    "Observation": {"Observation_ID", "Channel_ID", "Timestamp"},
     "ValueImage": {"Observation_ID"},
     "Annotation": {"Observation_ID"},
 }
 
 
 class TestV220Schema:
-    def test_observation_table_exists(self, db_at_v220):
-        conn, _ = db_at_v220
+    def test_observation_table_exists(self, db_at_v200):
+        conn, _ = db_at_v200
         tables = get_table_names(conn)
         assert "Observation" in tables
 
-    def test_observation_columns(self, db_at_v220):
-        conn, _ = db_at_v220
+    def test_observation_columns(self, db_at_v200):
+        conn, _ = db_at_v200
         for col in V220_ADDED_COLUMNS["Observation"]:
             assert column_exists(conn, "Observation", col), f"Observation.{col} missing"
 
-    def test_value_dropped_columns(self, db_at_v220):
-        conn, _ = db_at_v220
+    def test_value_dropped_columns(self, db_at_v200):
+        conn, _ = db_at_v200
         for col in V220_REMOVED_COLUMNS["Value"]:
             assert not column_exists(conn, "Value", col), (
                 f"Value.{col} should have been dropped"
             )
 
-    def test_value_has_observation_id(self, db_at_v220):
-        conn, _ = db_at_v220
+    def test_value_has_observation_id(self, db_at_v200):
+        conn, _ = db_at_v200
         assert column_exists(conn, "Value", "Observation_ID")
 
-    def test_valuevector_dropped_columns(self, db_at_v220):
-        conn, _ = db_at_v220
+    def test_valuevector_dropped_columns(self, db_at_v200):
+        conn, _ = db_at_v200
         for col in V220_REMOVED_COLUMNS["ValueVector"]:
             assert not column_exists(conn, "ValueVector", col), (
                 f"ValueVector.{col} should have been dropped"
             )
 
-    def test_valuematrix_dropped_columns(self, db_at_v220):
-        conn, _ = db_at_v220
+    def test_valuematrix_dropped_columns(self, db_at_v200):
+        conn, _ = db_at_v200
         for col in V220_REMOVED_COLUMNS["ValueMatrix"]:
             assert not column_exists(conn, "ValueMatrix", col)
 
-    def test_valueimage_swapped_pk(self, db_at_v220):
-        conn, _ = db_at_v220
+    def test_valueimage_swapped_pk(self, db_at_v200):
+        conn, _ = db_at_v200
         assert not column_exists(conn, "ValueImage", "ValueImage_ID")
         assert column_exists(conn, "ValueImage", "Observation_ID")
 
-    def test_annotation_observation_id_nullable(self, db_at_v220):
+    def test_annotation_observation_id_nullable(self, db_at_v200):
         """Annotation.Observation_ID must exist and be nullable."""
-        conn, _ = db_at_v220
+        conn, _ = db_at_v200
         assert column_exists(conn, "Annotation", "Observation_ID")
         cursor = conn.cursor()
         cursor.execute("""
@@ -80,35 +80,35 @@ class TestV220Schema:
         assert row is not None
         assert row[0] == "YES", "Annotation.Observation_ID must be nullable"
 
-    def test_processing_lineage_unchanged(self, db_at_v220):
+    def test_processing_lineage_unchanged(self, db_at_v200):
         """ProcessingLineage must NOT have Observation_ID (left intentionally unchanged)."""
-        conn, _ = db_at_v220
+        conn, _ = db_at_v200
         assert not column_exists(conn, "ProcessingLineage", "Observation_ID")
 
 
 class TestV410ChannelIdentity:
     """Verify the v4.1.0 channel identity refactor: ProducedByStep_ID replaces ProcessingKind_ID."""
 
-    def test_channel_has_produced_by_step_id(self, db_at_v410):
-        conn, _ = db_at_v410
+    def test_channel_has_produced_by_step_id(self, db_at_v200):
+        conn, _ = db_at_v200
         assert column_exists(conn, "Channel", "ProducedByStep_ID"), (
             "Channel must have ProducedByStep_ID"
         )
 
-    def test_channel_lacks_processing_kind_id(self, db_at_v410):
-        conn, _ = db_at_v410
+    def test_channel_lacks_processing_kind_id(self, db_at_v200):
+        conn, _ = db_at_v200
         assert not column_exists(conn, "Channel", "ProcessingKind_ID"), (
             "Channel must NOT have ProcessingKind_ID"
         )
 
-    def test_processing_lineage_lacks_role_column(self, db_at_v410):
-        conn, _ = db_at_v410
+    def test_processing_lineage_lacks_role_column(self, db_at_v200):
+        conn, _ = db_at_v200
         assert not column_exists(conn, "ProcessingLineage", "RoleInProcessingStep"), (
             "ProcessingLineage must NOT have RoleInProcessingStep"
         )
 
-    def test_data_provenance_has_derived_row(self, db_at_v410):
-        conn, _ = db_at_v410
+    def test_data_provenance_has_derived_row(self, db_at_v200):
+        conn, _ = db_at_v200
         cursor = conn.cursor()
         cursor.execute(
             "SELECT COUNT(*) FROM [dbo].[DataProvenanceKind] WHERE [Name] = 'Derived'"
@@ -118,8 +118,8 @@ class TestV410ChannelIdentity:
             "DataProvenanceKind must contain exactly one 'Derived' row"
         )
 
-    def test_data_provenance_has_seven_rows(self, db_at_v410):
-        conn, _ = db_at_v410
+    def test_data_provenance_has_seven_rows(self, db_at_v200):
+        conn, _ = db_at_v200
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM [dbo].[DataProvenanceKind]")
         row = cursor.fetchone()
