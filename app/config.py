@@ -26,8 +26,10 @@ _load_dotenv_local()
 @dataclass
 class Settings:
     API_BASE_URL: str = field(
+        # 127.0.0.1, not localhost: on Windows localhost resolves ::1 first and a
+        # IPv4-only API makes each call stall ~2s on the dead IPv6 attempt.
         default_factory=lambda: os.getenv(
-            "API_BASE_URL", "http://localhost:8000/api/v1"
+            "API_BASE_URL", "http://127.0.0.1:8000/api/v1"
         )
     )
     APP_TITLE: str = field(
