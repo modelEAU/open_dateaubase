@@ -36,7 +36,6 @@ from app.api_client import (
     create_annotation,
     get_channel_stats,
     get_channel_thumbnail,
-    get_channel_image,
     list_annotation_kinds,
     list_equipment_lookup,
     list_equipment_event_kinds,
@@ -45,7 +44,6 @@ from app.api_client import (
     list_analysis_series_lookup,
     list_deployment_traces_lookup,
     get_analysis_series_thumbnail,
-    get_analysis_series_image,
 )
 
 # Provenance inspector lives in its own module (Phase 5 split). Re-exported here
@@ -80,6 +78,7 @@ from app.components.explore_matrix import (  # noqa: F401
     _build_matrix_slice_line,
 )
 from app.components.explore_scalar import _build_scalar_figure  # noqa: F401
+from app.components.explore_image import _image_viewer_dialog  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -385,37 +384,6 @@ def _equipment_event_dialog(
             st.rerun()
         except APIError as e:
             st.error(f"Failed: {e.message}")
-
-
-@st.dialog("Image viewer", width="large")
-def _image_viewer_dialog(
-    trace: tuple[str, int],
-    timestamp: str,
-    annotation_types: list[dict],
-) -> None:
-    kind, t_id = trace
-    try:
-        img_bytes = (
-            get_channel_image(t_id, timestamp)
-            if kind == "channel"
-            else get_analysis_series_image(t_id, timestamp)
-        )
-        st.image(img_bytes, caption=timestamp, use_container_width=True)
-    except APIError as e:
-        st.warning(f"Could not load full image: {e.message}")
-
-    # Image-level annotation is sensor-only for now. Lab AnalysisSeries traces
-    # are fully annotatable from the scalar chart view (range + point, via
-    # /analysis-series/{id}/annotations); only this per-image affordance remains
-    # channel-only.
-    if kind == "channel":
-        st.divider()
-        if st.button("Create Annotation for this image"):
-            st.session_state._show_annotation_dialog = True
-            st.session_state._ann_channel_id = t_id
-            st.session_state._ann_start = timestamp
-            st.session_state._ann_end = timestamp
-            st.rerun()
 
 
 # ---------------------------------------------------------------------------
