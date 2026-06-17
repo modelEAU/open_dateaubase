@@ -72,6 +72,18 @@ from app.components.explore_provenance import (  # noqa: E402,F401
     _load_provenance,
     _render_provenance_panel,
 )
+from app.components.explore_vector import (  # noqa: F401
+    _bin_label,
+    _vector_value_label,
+    _build_vector_heatmap,
+    _build_vector_slice_time,
+    _build_vector_slice_bin,
+)
+from app.components.explore_matrix import (  # noqa: F401
+    _matrix_axis_label_map,
+    _build_matrix_timeslice,
+    _build_matrix_slice_line,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -646,234 +658,6 @@ def _build_scalar_figure(
         height=480,
     )
     return fig, overlay_rows
-
-
-def _bin_label(row: dict) -> float:
-    """Return a numeric label for a bin row.
-
-    Priority: nominal_value → midpoint of (lower_bound + upper_bound) / 2 → bin_index.
-    """
-    nv = row.get("nominal_value")
-    if nv is not None:
-        return nv
-    lb = row.get("lower_bound")
-    ub = row.get("upper_bound")
-    if lb is not None and ub is not None:
-        return (lb + ub) / 2
-    return row["bin_index"]
-
-
-def _vector_value_label(data: dict) -> str:
-    param = data.get("parameter") or ""
-    unit = data.get("unit") or ""
-    return f"{param} ({unit})" if param and unit else param or unit or "Value"
-
-
-def _build_vector_heatmap(data: dict, as_3d: bool = False) -> go.Figure:
-    """Build a 2D heatmap (time × bin) or 3D surface for vector data."""
-    rows = data.get("data", [])
-    if not rows:
-        return go.Figure()
-
-    df = pd.DataFrame(rows)
-    if df.empty or "bin_index" not in df.columns:
-        return go.Figure()
-
-    # Build a label per bin_index (consistent across all timestamps)
-    bin_label_map = (
-        df.drop_duplicates("bin_index")
-        .set_index("bin_index")
-        .apply(_bin_label, axis=1)
-    )
-    df["bin_label"] = df["bin_index"].map(bin_label_map)
-
-    pivot = df.pivot_table(
-        index="bin_label", columns="timestamp", values="value", aggfunc="first"
-    )
-    z = pivot.values.tolist()
-    x = [str(c) for c in pivot.columns.tolist()]
-    y = pivot.index.tolist()
-
-    value_label = _vector_value_label(data)
-
-    if as_3d:
-        # go.Surface requires numeric axes — use integer indices for time
-        x_numeric = list(range(len(x)))
-        tick_step = max(1, len(x) // 10)
-        tickvals = x_numeric[::tick_step]
-        ticktext = x[::tick_step]
-        fig = go.Figure(data=[go.Surface(z=z, x=x_numeric, y=y, colorscale="Viridis")])
-        fig.update_layout(
-            scene=dict(
-                xaxis=dict(title="Time", tickvals=tickvals, ticktext=ticktext),
-                yaxis=dict(title="Bin"),
-                zaxis=dict(title=value_label),
-            ),
-            height=520,
-        )
-    else:
-        fig = go.Figure(
-            data=go.Heatmap(
-                z=z,
-                x=x,
-                y=y,
-                colorscale="Viridis",
-                hoverongaps=False,
-                colorbar=dict(title=value_label),
-            )
-        )
-        fig.update_layout(
-            xaxis_title="Time",
-            yaxis_title="Bin",
-            height=420,
-        )
-    return fig
-
-
-def _build_vector_slice_time(data: dict, timestamp: str) -> go.Figure:
-    """Vertical slice: value vs bin label at a fixed timestamp."""
-    rows = data.get("data", [])
-    if not rows:
-        return go.Figure()
-    df = pd.DataFrame(rows)
-    bin_label_map = (
-        df.drop_duplicates("bin_index")
-        .set_index("bin_index")
-        .apply(_bin_label, axis=1)
-    )
-    df["bin_label"] = df["bin_index"].map(bin_label_map)
-    slice_df = df[df["timestamp"].astype(str) == timestamp].sort_values("bin_label")
-    value_label = _vector_value_label(data)
-    fig = go.Figure(
-        go.Scatter(
-            x=slice_df["bin_label"].tolist(),
-            y=slice_df["value"].tolist(),
-            mode="lines+markers",
-        )
-    )
-    fig.update_layout(xaxis_title="Bin", yaxis_title=value_label, height=320)
-    return fig
-
-
-def _build_vector_slice_bin(data: dict, bin_idx: int) -> go.Figure:
-    """Horizontal slice: value vs time at a fixed bin."""
-    rows = data.get("data", [])
-    if not rows:
-        return go.Figure()
-    df = pd.DataFrame(rows)
-    bin_label_map = (
-        df.drop_duplicates("bin_index")
-        .set_index("bin_index")
-        .apply(_bin_label, axis=1)
-    )
-    slice_df = df[df["bin_index"] == bin_idx].sort_values("timestamp")
-    value_label = _vector_value_label(data)
-    label = bin_label_map.get(bin_idx, bin_idx)
-    fig = go.Figure(
-        go.Scatter(
-            x=slice_df["timestamp"].tolist(),
-            y=slice_df["value"].tolist(),
-            mode="lines+markers",
-            name=f"Bin {label}",
-        )
-    )
-    fig.update_layout(xaxis_title="Time", yaxis_title=value_label, height=320)
-    return fig
-
-
-def _matrix_axis_label_map(df: "pd.DataFrame", axis: str) -> dict:
-    """Return {bin_index: label} for the given matrix axis ('row' or 'col').
-
-    Label priority: nominal_value → (lower+upper)/2 → bin_index.
-    """
-    prefix = axis  # 'row' or 'col'
-    idx_col = f"{prefix}_bin_index"
-    nom_col = f"{prefix}_nominal_value"
-    lb_col = f"{prefix}_lower_bound"
-    ub_col = f"{prefix}_upper_bound"
-
-    result = {}
-    for _, row in df.drop_duplicates(idx_col).iterrows():
-        nv = row.get(nom_col)
-        if nv is not None:
-            result[row[idx_col]] = nv
-            continue
-        lb = row.get(lb_col)
-        ub = row.get(ub_col)
-        if lb is not None and ub is not None:
-            result[row[idx_col]] = (lb + ub) / 2
-            continue
-        result[row[idx_col]] = row[idx_col]
-    return result
-
-
-def _build_matrix_timeslice(data: dict, timestamp: str) -> go.Figure:
-    """Build a 2D heatmap for a specific timestamp slice of matrix data."""
-    rows = data.get("data", [])
-    if not rows:
-        return go.Figure()
-
-    df = pd.DataFrame(rows)
-    ts_col = "timestamp"
-    df[ts_col] = df[ts_col].astype(str)
-    slice_df = df[df[ts_col] == timestamp]
-    if slice_df.empty:
-        st.warning(f"No data at {timestamp}")
-        return go.Figure()
-
-    row_labels = _matrix_axis_label_map(df, "row")
-    col_labels = _matrix_axis_label_map(df, "col")
-    slice_df = slice_df.copy()
-    slice_df["row_label"] = slice_df["row_bin_index"].map(row_labels)
-    slice_df["col_label"] = slice_df["col_bin_index"].map(col_labels)
-
-    pivot = slice_df.pivot_table(
-        index="row_label", columns="col_label", values="value", aggfunc="first"
-    )
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=pivot.values.tolist(),
-            x=pivot.columns.tolist(),
-            y=pivot.index.tolist(),
-            colorscale="Viridis",
-        )
-    )
-    fig.update_layout(
-        xaxis_title="Column bin",
-        yaxis_title="Row bin",
-        title=f"Matrix at {timestamp}",
-        height=420,
-    )
-    return fig
-
-
-def _build_matrix_slice_line(data: dict, axis: str, bin_idx: int) -> go.Figure:
-    """Build a time-series line chart for a fixed row or column slice of matrix data."""
-    rows = data.get("data", [])
-    if not rows:
-        return go.Figure()
-
-    df = pd.DataFrame(rows)
-    label_map = _matrix_axis_label_map(df, axis)
-    bin_label = label_map.get(bin_idx, bin_idx)
-
-    if axis == "row":
-        slice_df = df[df["row_bin_index"] == bin_idx]
-        trace_label = f"Row {bin_label}"
-    else:
-        slice_df = df[df["col_bin_index"] == bin_idx]
-        trace_label = f"Col {bin_label}"
-
-    fig = go.Figure(
-        go.Scatter(
-            x=slice_df["timestamp"].tolist(),
-            y=slice_df["value"].tolist(),
-            mode="lines+markers",
-            name=trace_label,
-        )
-    )
-    fig.update_layout(xaxis_title="Time", yaxis_title="Value", height=380)
-    return fig
 
 
 # ---------------------------------------------------------------------------
