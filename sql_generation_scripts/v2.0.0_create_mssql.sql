@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.0.0
 -- Platform: mssql
--- Generated: 2026-06-12 03:59:34 UTC
+-- Generated: 2026-06-17 14:31:00 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -406,7 +406,7 @@ CREATE TABLE [dbo].[EquipmentLocationHistory] (
     [SamplingPoint_ID] INT NOT NULL,
     [ValidFrom] DATETIME2(7) NOT NULL,
     [ValidTo] DATETIME2(7),
-    [Campaign_ID] INT NOT NULL,
+    [Campaign_ID] INT,
     [Notes] NVARCHAR(MAX),
     CONSTRAINT [PK_EquipmentLocationHistory] PRIMARY KEY ([EquipmentLocationHistory_ID])
 );
@@ -776,7 +776,7 @@ CREATE INDEX [IX_ChannelPortHistory_Port] ON [dbo].[ChannelPortHistory] ([Signal
 CREATE INDEX [IX_ChannelTrait_Stream] ON [dbo].[ChannelTrait] ([Stream_ID]);
 
 
-CREATE UNIQUE INDEX [UQ_ControlLoopApplication_ActiveRow] ON [dbo].[ControlLoopApplication] ([ControlLoop_ID]);
+CREATE UNIQUE INDEX [UQ_ControlLoopApplication_ActiveRow] ON [dbo].[ControlLoopApplication] ([ControlLoop_ID]) WHERE [EndTime] IS NULL;
 
 CREATE UNIQUE INDEX [UQ_ControlLoopPort_LoopChannel] ON [dbo].[ControlLoopPort] ([ControlLoop_ID], [Channel_ID]);
 

@@ -2057,9 +2057,9 @@
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
-          "is_required": true,
+          "is_required": false,
           "fk_target": "Campaign.Campaign_ID",
-          "description": "Campaign under which this deployment occurred. Every deployment must belong to a campaign; permanent baseline sensors use a standing operational campaign."
+          "description": "Campaign under which this deployment occurred. Recommended: permanent baseline sensors reference a standing operational campaign."
         },
         {
           "name": "Notes",

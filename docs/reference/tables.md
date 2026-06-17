@@ -563,7 +563,7 @@ Temporal record of where a piece of Equipment is physically installed (which Sam
 | SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location where this equipment is installed during this period | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
 | ValidFrom | DATETIME2(7) | - | ✓ | <span id="ValidFrom"></span>UTC datetime when the equipment started measuring at this location | - |
 | ValidTo | DATETIME2(7) | - |  | <span id="ValidTo"></span>UTC datetime when the equipment left this location. NULL = currently installed. | - |
-| Campaign_ID | INT | - | ✓ | <span id="Campaign_ID"></span>Campaign under which this deployment occurred. Every deployment must belong to a campaign; permanent baseline sensors use a standing operational campaign. | FK → [Campaign.Campaign_ID](#Campaign) |
+| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign under which this deployment occurred. Recommended: permanent baseline sensors reference a standing operational campaign. | FK → [Campaign.Campaign_ID](#Campaign) |
 | Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes about the deployment or relocation | - |
 
 <span id="EquipmentModel"></span>
