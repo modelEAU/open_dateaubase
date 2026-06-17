@@ -14,6 +14,9 @@ from streamlit.testing.v1 import AppTest
 
 HARNESS = str(Path(__file__).parent / "explore_harness.py")
 MOD = "app.pages.explore"
+# Data loaders moved to explore_data; patch the timeseries/stats/annotation API
+# calls where those loaders look them up, not in the page namespace.
+DATA = "app.components.explore_data"
 
 _EQUIPMENT = [{"equipment_id": 5, "identifier": "EQ5"}]
 _SERIES = [
@@ -67,15 +70,15 @@ def _patches(stack: ExitStack) -> None:
         patch(f"{MOD}.list_deployment_traces_lookup", return_value=[_DEPLOYMENT_TRACE])
     )
     stack.enter_context(
-        patch(f"{MOD}.get_analysis_series_timeseries", return_value=_SERIES_TS)
+        patch(f"{DATA}.get_analysis_series_timeseries", return_value=_SERIES_TS)
     )
     stack.enter_context(
-        patch(f"{MOD}.get_analysis_series_stats",
+        patch(f"{DATA}.get_analysis_series_stats",
               return_value={"analysis_series_id": 1,
                             "min_timestamp": "2026-05-01T00:00:00",
                             "max_timestamp": "2026-05-08T00:00:00", "row_count": 2})
     )
-    stack.enter_context(patch(f"{MOD}.get_channel_timeseries", return_value=_CHANNEL_TS))
+    stack.enter_context(patch(f"{DATA}.get_channel_timeseries", return_value=_CHANNEL_TS))
     stack.enter_context(
         patch(f"{MOD}.get_channel_stats",
               return_value={"channel_id": 5,
@@ -129,7 +132,7 @@ def test_lab_image_replicates_same_timestamp_no_duplicate_key():
             patch(f"{MOD}.list_analysis_series_lookup", return_value=[_IMG_SERIES])
         )
         stack.enter_context(
-            patch(f"{MOD}.get_analysis_series_timeseries", return_value=_IMG_TS)
+            patch(f"{DATA}.get_analysis_series_timeseries", return_value=_IMG_TS)
         )
         # Force the caption fallback (no valid image bytes needed); the widget
         # keys under test fire regardless of the image/except branch.
@@ -173,7 +176,7 @@ def test_lab_series_annotation_renders_overlay():
         _patches(stack)
         # The lab annotation loader hits this thin httpx wrapper; mock it.
         stack.enter_context(
-            patch(f"{MOD}._api_list_annotations_for_series", return_value=[_LAB_ANNOTATION])
+            patch(f"{DATA}._api_list_annotations_for_series", return_value=[_LAB_ANNOTATION])
         )
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [1]
@@ -279,7 +282,7 @@ def test_lab_point_selection_shows_pin_button():
     with ExitStack() as stack:
         _patches(stack)
         stack.enter_context(
-            patch(f"{MOD}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
+            patch(f"{DATA}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
         )
         stack.enter_context(
             patch(f"{MOD}.list_annotation_kinds",
@@ -309,7 +312,7 @@ def test_lab_point_pin_dialog_shows_observation_info():
     with ExitStack() as stack:
         _patches(stack)
         stack.enter_context(
-            patch(f"{MOD}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
+            patch(f"{DATA}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
         )
         stack.enter_context(
             patch(f"{MOD}.list_annotation_kinds",
@@ -347,7 +350,7 @@ def test_lab_point_pin_dialog_called_with_observation_id():
     with ExitStack() as stack:
         _patches(stack)
         stack.enter_context(
-            patch(f"{MOD}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
+            patch(f"{DATA}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
         )
         stack.enter_context(
             patch(f"{MOD}.list_annotation_kinds",
