@@ -2753,3 +2753,84 @@ def list_sample_collection_kinds_lookup() -> list[dict]:
 def list_sample_kinds_lookup() -> list[dict]:
     """Return sample kinds for dropdown (wrapper for consistency)."""
     return list_sample_kinds()
+
+
+# ---------------------------------------------------------------------------
+# Reference-data caching
+# ---------------------------------------------------------------------------
+# Streamlit re-runs the whole script on every interaction, so without caching
+# every page re-fetches its dropdown lookups (each a separate HTTP + DB round
+# trip) on each rerun -- the "Loading lookup data…" stall. These lookups return
+# read-only reference data that is the same for every user, so we wrap them in a
+# process-wide, short-TTL st.cache_data. Newly-added entities appear within
+# LOOKUP_CACHE_TTL_SECONDS, or immediately when the user clicks "Refresh data"
+# (see render_sidebar in app/components/page_layout.py -> st.cache_data.clear()).
+#
+# Wrapping is done here, once, rather than with a decorator on each definition:
+# it keeps the cached set visible in a single reviewable list, and the thin
+# alias wrappers above (list_site_kind_lookup, etc.) automatically benefit
+# because they call these canonical functions by name at call time.
+LOOKUP_CACHE_TTL_SECONDS = 300
+
+# Canonical read-only lookups safe to cache. Excludes time-windowed queries
+# (e.g. list_deployment_traces_lookup) and the thin alias wrappers, which
+# delegate to the entries below.
+_CACHED_LOOKUPS = (
+    # Vocabularies / kinds -- change rarely.
+    "list_site_kinds",
+    "list_campaign_kinds",
+    "list_operation_kinds_lookup",
+    "list_operation_kinds",
+    "list_annotation_kinds",
+    "list_equipment_event_kinds",
+    "list_das_kinds",
+    "list_controller_kinds",
+    "list_quality_codes",
+    "list_sample_kinds",
+    "list_sample_collection_kinds",
+    "list_process_unit_types",
+    "list_bin_kinds",
+    "list_procedure_kinds",
+    "list_watersheds",
+    "list_units_lookup",
+    "list_laboratories_lookup",
+    "list_procedures_lookup",
+    "list_data_provenance_lookup",
+    "list_binning_axes_lookup",
+    # Entity lookups for dropdowns -- read-only; staleness bounded by the TTL
+    # and the manual refresh control. Arg-bearing ones are cached per-argument.
+    "list_sites_lookup",
+    "list_equipment_lookup",
+    "list_equipment_models_lookup",
+    "list_parameters_lookup",
+    "list_campaigns_lookup",
+    "list_signal_interfaces_lookup",
+    "list_das_lookup",
+    "list_persons",
+    "list_persons_lookup",
+    "list_samples_lookup",
+    "list_sampling_points_lookup",
+    "list_equipment_events_lookup",
+    "list_process_units_lookup",
+    "list_tags_lookup",
+    "list_analysis_series_lookup",
+    "list_lab_panels",
+    "list_lab_experiments_lookup",
+)
+
+
+_LOOKUP_CACHE_INSTALLED = False
+
+
+def _install_lookup_cache() -> None:
+    """Wrap each name in _CACHED_LOOKUPS with st.cache_data (idempotent)."""
+    global _LOOKUP_CACHE_INSTALLED
+    if _LOOKUP_CACHE_INSTALLED:
+        return
+    _cache = st.cache_data(ttl=LOOKUP_CACHE_TTL_SECONDS, show_spinner=False)
+    for _name in _CACHED_LOOKUPS:
+        globals()[_name] = _cache(globals()[_name])
+    _LOOKUP_CACHE_INSTALLED = True
+
+
+_install_lookup_cache()
