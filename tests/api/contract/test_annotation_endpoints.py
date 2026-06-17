@@ -505,9 +505,9 @@ class TestPinIntegrityGuardEndpoint:
             "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
             return_value=_KIND_ROW,
         ), patch(
-            # Observation 70 belongs to channel 99, not the anchored channel 42.
+            # Observation 70 belongs to channel 99 (stream_id=99), not the anchored channel 42.
             "api.v1.repositories.annotation_repository.get_observation_anchor",
-            return_value={"channel_id": 99, "analysis_series_id": None},
+            return_value=99,
         ), patch(
             "api.v1.repositories.annotation_repository.create_annotation",
         ) as mock_create:
@@ -525,7 +525,7 @@ class TestPinIntegrityGuardEndpoint:
             return_value=_KIND_ROW,
         ), patch(
             "api.v1.repositories.annotation_repository.get_observation_anchor",
-            return_value={"channel_id": 42, "analysis_series_id": None},
+            return_value=42,
         ), patch(
             "api.v1.repositories.annotation_repository.create_annotation",
             return_value={"annotation_id": 17, "created_datetime": "2026-06-10T11:22:33"},
@@ -544,9 +544,9 @@ class TestPinIntegrityGuardEndpoint:
             "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
             return_value=_KIND_ROW,
         ), patch(
-            # Observation 50 belongs to series 8, not the anchored series 7.
+            # Observation 50 belongs to series 8 (stream_id=8), not the anchored series 7.
             "api.v1.repositories.annotation_repository.get_observation_anchor",
-            return_value={"channel_id": None, "analysis_series_id": 8},
+            return_value=8,
         ), patch(
             "api.v1.repositories.annotation_repository.create_annotation",
         ) as mock_create:
@@ -564,7 +564,7 @@ class TestPinIntegrityGuardEndpoint:
             return_value=_KIND_ROW,
         ), patch(
             "api.v1.repositories.annotation_repository.get_observation_anchor",
-            return_value={"channel_id": None, "analysis_series_id": 7},
+            return_value=7,
         ), patch(
             "api.v1.repositories.annotation_repository.create_annotation",
             return_value={"annotation_id": 31, "created_datetime": "2026-06-10T11:22:33"},
@@ -584,7 +584,7 @@ class TestPinIntegrityGuardEndpoint:
             return_value=_KIND_ROW,
         ), patch(
             "api.v1.repositories.annotation_repository.get_observation_anchor",
-            return_value={"channel_id": None, "analysis_series_id": 7},
+            return_value=7,
         ), patch(
             "api.v1.repositories.annotation_repository.create_annotation",
             return_value={"annotation_id": 32, "created_datetime": "2026-06-10T11:22:33"},
@@ -800,14 +800,23 @@ FROM = "2026-01-01T00:00:00"
 TO = "2026-02-28T23:59:59"
 
 
-def _feed_row(annotation_id, *, channel_id=None, series_id=None,
+def _feed_row(annotation_id, *, stream_id, stream_kind_id=1,
               location=None, parameter=None, created="2026-01-15T10:00:00"):
-    """A 20-column feed row matching the repo's UNION SELECT shape."""
+    """A 20-column feed row matching the repo's UNION SELECT shape.
+
+    Column layout must match _row_to_annotation + _feed_row in annotation_repository:
+    0=annotation_id, 1=stream_id, 2=annotation_kind_id, 3=name, 4=color,
+    5=start_time, 6=end_time, 7=title, 8=comment, 9=author_person_id,
+    10=author_name, 11=campaign_id, 12=campaign_name, 13=equipment_event_id,
+    14=created_datetime, 15=modified_datetime, 16=stream_kind_id,
+    17=observation_id, 18=location_name, 19=parameter_name.
+    stream_kind_id=1 → sensor/channel, stream_kind_id=2 → lab/series.
+    """
     return (
-        annotation_id, channel_id, 3, "Fault", "#FF0000",
+        annotation_id, stream_id, 3, "Fault", "#FF0000",
         "2026-01-10T00:00:00", "2026-01-20T00:00:00", "title", "comment",
         None, None, None, None, None, created, None,
-        series_id, None, location, parameter,
+        stream_kind_id, None, location, parameter,
     )
 
 
@@ -816,9 +825,9 @@ class TestRecentIncludesLabAnnotations:
         c, conn, cursor = patched_client
         # Cursor returns one sensor + one lab row (lab is more recent).
         cursor.fetchall.return_value = [
-            _feed_row(2, series_id=7, location="Effluent", parameter="COD",
+            _feed_row(2, stream_id=7, stream_kind_id=2, location="Effluent", parameter="COD",
                       created="2026-01-16T00:00:00"),
-            _feed_row(1, channel_id=42, parameter="TSS",
+            _feed_row(1, stream_id=42, stream_kind_id=1, parameter="TSS",
                       created="2026-01-15T00:00:00"),
         ]
         r = c.get("/api/v1/annotations/recent")
@@ -836,8 +845,8 @@ class TestByTypeIncludesLabAnnotations:
     def test_lab_annotation_appears_with_location_and_variable(self, patched_client):
         c, conn, cursor = patched_client
         cursor.fetchall.return_value = [
-            _feed_row(1, channel_id=42, parameter="TSS"),
-            _feed_row(2, series_id=7, location="Effluent", parameter="COD"),
+            _feed_row(1, stream_id=42, stream_kind_id=1, parameter="TSS"),
+            _feed_row(2, stream_id=7, stream_kind_id=2, location="Effluent", parameter="COD"),
         ]
         with patch(
             "api.v1.repositories.annotation_repository.get_annotation_kind_by_name",
@@ -893,7 +902,7 @@ class TestAnnotationOpenAPISpec:
 
 REQUIRED_TIMESERIES_FIELDS = {
     "channel_id", "location", "site", "parameter", "unit",
-    "data_shape", "provenance", "processing_degree", "campaign",
+    "data_shape", "provenance", "traits", "campaign",
     "from_timestamp", "to_timestamp", "row_count", "data",
 }
 
@@ -910,7 +919,7 @@ class TestTimeseriesContractUnchanged:
             "unit": "mg/L",
             "data_shape": "Scalar",
             "provenance": "Sensor",
-            "processing_degree": "Raw",
+            "traits": [],
             "campaign": None,
             "from_timestamp": "2025-01-01T00:00:00",
             "to_timestamp": "2025-01-31T00:00:00",
