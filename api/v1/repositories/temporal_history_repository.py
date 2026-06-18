@@ -515,38 +515,109 @@ def list_deployment_traces(
     that were wired to that equipment during the deployment period, plus
     SamplingPoint and Campaign metadata.
 
+    Channels that have no EquipmentWiringHistory (imported but not yet linked
+    to a deployment) are included as a UNION when no campaign/location filter
+    is active.  Those rows have NULL deployment fields and is_deployed=False.
+
     Time-range filter: returns deployments that overlapped [from_dt, to_dt].
     """
-    where_parts = ["1=1"]
+    deployed_where_parts = ["1=1"]
     params: list = []
 
     if sampling_point_id is not None:
-        where_parts.append("elh.[SamplingPoint_ID] = ?")
+        deployed_where_parts.append("elh.[SamplingPoint_ID] = ?")
         params.append(sampling_point_id)
     if campaign_id is not None:
-        where_parts.append("elh.[Campaign_ID] = ?")
+        deployed_where_parts.append("elh.[Campaign_ID] = ?")
         params.append(campaign_id)
     if parameter_id is not None:
-        where_parts.append("ch.[Parameter_ID] = ?")
+        deployed_where_parts.append("ch.[Parameter_ID] = ?")
         params.append(parameter_id)
     if value_kind_id is not None:
-        where_parts.append("ch.[ValueKind_ID] = ?")
+        deployed_where_parts.append("ch.[ValueKind_ID] = ?")
         params.append(value_kind_id)
     if to_dt is not None:
-        where_parts.append("elh.[ValidFrom] <= ?")
+        deployed_where_parts.append("elh.[ValidFrom] <= ?")
         params.append(to_dt)
     if from_dt is not None:
-        where_parts.append("(elh.[ValidTo] IS NULL OR elh.[ValidTo] >= ?)")
+        deployed_where_parts.append("(elh.[ValidTo] IS NULL OR elh.[ValidTo] >= ?)")
         params.append(from_dt)
 
-    where_clause = " AND ".join(where_parts)
+    deployed_where = " AND ".join(deployed_where_parts)
+
+    # Orphaned channels (no wiring history) are shown when no campaign/location
+    # filter is active — they have no deployment context to match against.
+    include_orphaned = sampling_point_id is None and campaign_id is None
+
+    # Orphaned filter: channels with no ELH for their equipment (never placed at a location).
+    # Uses NOT EXISTS to handle both: channels with no EWH at all, and channels whose
+    # equipment has EWH but has never been given an EquipmentLocationHistory row.
+    orphaned_extra_parts: list[str] = []
+    orphaned_params: list = []
+    if parameter_id is not None:
+        orphaned_extra_parts.append("ch.[Parameter_ID] = ?")
+        orphaned_params.append(parameter_id)
+    if value_kind_id is not None:
+        orphaned_extra_parts.append("ch.[ValueKind_ID] = ?")
+        orphaned_params.append(value_kind_id)
+
+    orphaned_extra = ""
+    if orphaned_extra_parts:
+        orphaned_extra = "AND " + " AND ".join(orphaned_extra_parts)
+
+    union_sql = ""
+    if include_orphaned:
+        union_sql = f"""
+        UNION ALL
+        SELECT DISTINCT
+            NULL                        AS EquipmentLocationHistory_ID,
+            ch.[Stream_ID],
+            e.[Equipment_ID],
+            COALESCE(e.[Identifier], si.[Name]) AS equipment_identifier,
+            NULL                        AS SamplingPoint_ID,
+            NULL                        AS sampling_point_label,
+            p.[Parameter_ID],
+            p.[Parameter]               AS parameter_name,
+            ch.[ValueKind_ID],
+            NULL                        AS Campaign_ID,
+            NULL                        AS campaign_name,
+            NULL                        AS ValidFrom,
+            NULL                        AS ValidTo,
+            0                           AS is_deployed
+        FROM [dbo].[Channel] ch
+        JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = ch.[SignalInterface_ID]
+        JOIN [dbo].[Parameter]       p  ON p.[Parameter_ID]        = ch.[Parameter_ID]
+        LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
+            ON ewh.[SignalInterface_ID] = ch.[SignalInterface_ID]
+            AND (
+                ewh.[SignalInterfacePort_ID] = ch.[SignalInterfacePort_ID]
+                OR (ewh.[SignalInterfacePort_ID] IS NULL AND ch.[SignalInterfacePort_ID] IS NULL)
+                OR ch.[SignalInterfacePort_ID] IS NULL
+            )
+            AND ewh.[ValidTo] IS NULL
+        LEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM [dbo].[EquipmentWiringHistory] ewh2
+            JOIN [dbo].[EquipmentLocationHistory] elh2
+                ON elh2.[Equipment_ID] = ewh2.[Equipment_ID]
+            WHERE ewh2.[SignalInterface_ID] = ch.[SignalInterface_ID]
+              AND (
+                  ewh2.[SignalInterfacePort_ID] = ch.[SignalInterfacePort_ID]
+                  OR (ewh2.[SignalInterfacePort_ID] IS NULL AND ch.[SignalInterfacePort_ID] IS NULL)
+                  OR ch.[SignalInterfacePort_ID] IS NULL
+              )
+        )
+        {orphaned_extra}
+        """
+        params.extend(orphaned_params)
 
     cursor = conn.cursor()
     cursor.execute(
         f"""
         SELECT DISTINCT
             elh.[EquipmentLocationHistory_ID],
-            ch.[Channel_ID],
+            ch.[Stream_ID],
             e.[Equipment_ID],
             e.[Identifier]          AS equipment_identifier,
             sp.[SamplingPoint_ID],
@@ -557,7 +628,8 @@ def list_deployment_traces(
             c.[Campaign_ID],
             c.[Name]                AS campaign_name,
             elh.[ValidFrom],
-            elh.[ValidTo]
+            elh.[ValidTo],
+            1                       AS is_deployed
         FROM [dbo].[EquipmentLocationHistory] elh
         JOIN [dbo].[Equipment]       e   ON e.[Equipment_ID]      = elh.[Equipment_ID]
         JOIN [dbo].[SamplingPoint]   sp  ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
@@ -574,8 +646,9 @@ def list_deployment_traces(
                 OR ch.[SignalInterfacePort_ID] IS NULL
             )
         JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = ch.[Parameter_ID]
-        WHERE {where_clause}
-        ORDER BY c.[Name], sp.[SamplingPoint], p.[Parameter]
+        WHERE {deployed_where}
+        {union_sql}
+        ORDER BY is_deployed DESC, campaign_name, sampling_point_label, parameter_name
         """,
         *params,
     )
@@ -595,6 +668,7 @@ def list_deployment_traces(
             "campaign_name": r[10],
             "valid_from": r[11],
             "valid_to": r[12],
+            "is_deployed": bool(r[13]),
         }
         for r in rows
     ]
