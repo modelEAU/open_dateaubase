@@ -86,6 +86,7 @@ class BaseVariable(BaseModel):
     signal_port_type: str = "value"
     data_provenance_id: int = 1
     processing_degree_id: int = 1
+    filename_contains: str | None = None  # optional substring filter on filenames in directory_path
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +310,7 @@ class PilEAUteSCADAStructure(BaseModel):
     server: str | None = None
     database: str | None = None
     credentials_path: str | None = None
+    float_table: str = "FloatTable_hedi"  # override for DBs that use "FloatTable"
 
 
 class PilEAUteSCADAConfig(BaseModel):

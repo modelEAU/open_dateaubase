@@ -126,9 +126,20 @@ class RodtoxFile(TextDBFile):
         if structure.variable_column and variable.source_variable_name:
             df = df.loc[df[structure.variable_column] == variable.source_variable_name]
 
+        # Resolve the value column — s::can .par files embed the measurement range
+        # in the column name (e.g. "NH4-N [ppm]19.80-0.10_2") which changes on
+        # recalibration. Fall back to prefix matching up to the first "]" so that
+        # "NH4-N [ppm]71.94-0.10_1" in older files still matches "NH4-N [ppm]".
+        value_col = structure.value_column
+        if value_col not in df.columns and "]" in value_col:
+            prefix = value_col.split("]")[0] + "]"
+            matches = [c for c in df.columns if c.startswith(prefix)]
+            if matches:
+                value_col = matches[0]
+
         # Replace commas by dots so that values are treated as floats
-        df[structure.value_column] = df[structure.value_column].replace({",": "."}, regex=True)
-        df[structure.value_column] = pd.to_numeric(df[structure.value_column])
+        df[value_col] = df[value_col].replace({",": "."}, regex=True)
+        df[value_col] = pd.to_numeric(df[value_col])
 
         # Timestamps
         df[structure.time_column] = pd.to_datetime(
@@ -159,7 +170,7 @@ class RodtoxFile(TextDBFile):
         df = df.rename(
             columns={
                 structure.time_column: "Timestamp",
-                structure.value_column: "Value",
+                value_col: "Value",
             }
         )
         cols = ["Timestamp", "Value", "QualityCode"]

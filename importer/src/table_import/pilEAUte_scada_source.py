@@ -9,9 +9,8 @@ from sqlalchemy import create_engine, text
 from table_import.config import PilEAUteSCADAStructure, PilEAUteSCADAVariable
 from table_import.tables import ValueTable
 
-# Hardcoded pilEAUte SCADA table/column constants
-_FLOAT_TABLE = "FloatTable_hedi"
 _DATETIME_COL = "DateAndTime"
+_MILLITM_COL  = "Millitm"
 _TAG_INDEX_COL = "TagIndex"
 _VALUE_COL = "Val"
 _TAG_TABLE = "TagTable"
@@ -19,17 +18,26 @@ _TAG_NAME_COL = "TagName"
 
 
 def _build_scada_engine(structure: PilEAUteSCADAStructure) -> sqlalchemy.Engine:
-    """Build a database engine — SQLite when sqlite_path is set, SQL Server otherwise."""
+    """Build a database engine — SQLite when sqlite_path is set, SQL Server otherwise.
+
+    SQL Server connections use a raw ODBC connect string so that named instances
+    (e.g. SERVER\\INSTANCE) are handled correctly without port-based resolution.
+    """
     if structure.sqlite_path:
         return create_engine(f"sqlite:///{structure.sqlite_path}")
     with open(structure.credentials_path) as f:
         username = f.readline().strip()
-        password = parse.quote_plus(f.readline().strip())
-    url = (
-        f"mssql+pyodbc://{username}:{password}@{structure.server}:1433"
-        f"/{structure.database}?driver=ODBC+Driver+17+for+SQL+Server"
+        password = f.readline().strip()
+    odbc = (
+        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+        f"SERVER={structure.server};"
+        f"DATABASE={structure.database};"
+        f"UID={username};"
+        f"PWD={password};"
+        f"TrustServerCertificate=yes;"
     )
-    return create_engine(url, connect_args={"connect_timeout": 2}, fast_executemany=True)
+    url = f"mssql+pyodbc:///?odbc_connect={parse.quote_plus(odbc)}"
+    return create_engine(url, fast_executemany=True)
 
 
 @dataclass
@@ -56,7 +64,7 @@ class PilEAUteSCADASource:
         """Return the most recent DateAndTime for this variable as a naive UTC datetime."""
         tag_index = self._resolve_tag_index(self.variable.tag)
         query = text(
-            f"SELECT MAX({_DATETIME_COL}) FROM {_FLOAT_TABLE} "
+            f"SELECT MAX({_DATETIME_COL}) FROM {self.structure.float_table} "
             f"WHERE {_TAG_INDEX_COL} = :tag"
         )
         with self.engine.connect() as conn:
@@ -85,7 +93,8 @@ class PilEAUteSCADASource:
         )
 
         query = text(
-            f"SELECT {_DATETIME_COL}, {_VALUE_COL} FROM {_FLOAT_TABLE} "
+            f"SELECT {_DATETIME_COL}, {_MILLITM_COL}, {_VALUE_COL} "
+            f"FROM {self.structure.float_table} "
             f"WHERE {_TAG_INDEX_COL} = :tag AND {_DATETIME_COL} > :cutoff"
         )
         with self.engine.connect() as conn:
@@ -103,6 +112,7 @@ class PilEAUteSCADASource:
             .dt.tz_localize(self.structure.timezone, ambiguous="NaT", nonexistent="NaT")
             .dt.tz_convert("UTC")
             .map(lambda ts: ts.timestamp() if pd.notna(ts) else float("nan"))
+            + df[_MILLITM_COL] / 1000.0
         )
         df = df.dropna(subset=["Timestamp"])
         df["Value"] = pd.to_numeric(df[_VALUE_COL]) * self.variable.conversion_factor

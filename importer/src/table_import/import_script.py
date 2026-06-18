@@ -37,7 +37,7 @@ def build_api_payload(
     if min_unix_ts is not None:
         mask &= df["Timestamp"] >= min_unix_ts
 
-    filtered = df[mask]
+    filtered = df[mask].dropna(subset=["Value"])
     return [
         {
             "timestamp": unix_seconds_to_iso(row["Timestamp"]),
@@ -51,6 +51,7 @@ def build_api_payload(
 
 
 _INGEST_CHUNK_SIZE = 5_000
+_VECTOR_CHUNK_SIZE = 100  # vector observations are large (221 bins each)
 
 
 def ingest_via_api(
@@ -109,7 +110,7 @@ def ingest_via_api(
         total_written += result["rows_written"]
         channel_id = result["channel_id"]
     print(
-        f"{label}: wrote {total_written} rows → channel_id={channel_id}"
+        f"{label}: wrote {total_written} rows -> channel_id={channel_id}"
     )
 
 
@@ -125,6 +126,7 @@ def _get_file_values(
         str(path.joinpath(x))
         for x in os.listdir(str(path))
         if file_structure.extension in x
+        and (variable.filename_contains is None or variable.filename_contains in x)
     ]
     # Convert Unix float to naive UTC datetime for DataCombiner compatibility
     last_date = datetime.utcfromtimestamp(last_unix_ts) if last_unix_ts > 0 else None
@@ -441,7 +443,7 @@ def _ingest_vector_source(
         )
         if created:
             print(
-                f"{label}: created binning axis {variable.axis.name!r} → axis_id={axis_id}"
+                f"{label}: created binning axis {variable.axis.name!r} -> axis_id={axis_id}"
             )
         for w in axis_warnings:
             print(f"[WARNING] {label}: {w}")
@@ -519,32 +521,40 @@ def _ingest_vector_source(
             print(f"[DRY RUN] {label}: would send {len(deduped)} observations to API")
             continue
 
-        if mode == "tagged":
-            result = client.ingest_vector_observations(
-                das_name=vec_cfg.das_name,
-                tag=variable.tag,
-                signal_port_type=variable.signal_port_type,
-                parameter_name=variable.parameter_name,
-                unit_name=variable.destination_unit_name,
-                binning_axis_id=axis_id,
-                data_provenance_id=variable.data_provenance_id,
-                processing_degree_id=variable.processing_degree_id,
-                observations=deduped,
-                signal_interface_name=vec_cfg.signal_interface_name,
-            )
-        else:
-            result = client.ingest_vector_observations_tagless(
-                das_name=vec_cfg.das_name,
-                equipment_name=variable.equipment_name,
-                parameter_name=variable.parameter_name,
-                unit_name=variable.destination_unit_name,
-                binning_axis_id=axis_id,
-                data_provenance_id=variable.data_provenance_id,
-                processing_degree_id=variable.processing_degree_id,
-                observations=deduped,
-            )
+        total_written = 0
+        final_channel_id = None
+        for i in range(0, max(len(deduped), 1), _VECTOR_CHUNK_SIZE):
+            chunk = deduped[i : i + _VECTOR_CHUNK_SIZE]
+            if not chunk:
+                break
+            if mode == "tagged":
+                result = client.ingest_vector_observations(
+                    das_name=vec_cfg.das_name,
+                    tag=variable.tag,
+                    signal_port_type=variable.signal_port_type,
+                    parameter_name=variable.parameter_name,
+                    unit_name=variable.destination_unit_name,
+                    binning_axis_id=axis_id,
+                    data_provenance_id=variable.data_provenance_id,
+                    processing_degree_id=variable.processing_degree_id,
+                    observations=chunk,
+                    signal_interface_name=vec_cfg.signal_interface_name,
+                )
+            else:
+                result = client.ingest_vector_observations_tagless(
+                    das_name=vec_cfg.das_name,
+                    equipment_name=variable.equipment_name,
+                    parameter_name=variable.parameter_name,
+                    unit_name=variable.destination_unit_name,
+                    binning_axis_id=axis_id,
+                    data_provenance_id=variable.data_provenance_id,
+                    processing_degree_id=variable.processing_degree_id,
+                    observations=chunk,
+                )
+            total_written += result["rows_written"]
+            final_channel_id = result["channel_id"]
         print(
-            f"{label}: wrote {result['rows_written']} observations → channel_id={result['channel_id']}"
+            f"{label}: wrote {total_written} observations -> channel_id={final_channel_id}"
         )
 
 
@@ -639,7 +649,7 @@ def _ingest_image_source(
                 signal_interface_name=img_cfg.signal_interface_name,
             )
             print(
-                f"{label}: ingested {os.path.basename(fp)} → "
+                f"{label}: ingested {os.path.basename(fp)} -> "
                 f"channel_id={result['channel_id']} value_image_id={result['value_image_id']}"
             )
             sent += 1
@@ -662,7 +672,7 @@ def read_config_from_file(path: str) -> config.Config:
     path_obj = Path(path)
     if not path_obj.is_file():
         raise ValueError(f"Could not find config file at {path}")
-    with open(path_obj) as f:
+    with open(path_obj, encoding="utf-8") as f:
         file_config = yaml.safe_load(f)
     return config.Config(**file_config)
 
@@ -692,7 +702,7 @@ def read_configs_from_dir(dir_path: str) -> config.Config:
     }
 
     for yaml_file in yaml_files:
-        with open(yaml_file) as f:
+        with open(yaml_file, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         if api_config_raw is None and "api_config" in data:
             api_config_raw = data["api_config"]
