@@ -741,6 +741,9 @@ function Write-ImporterCmd {
     .SYNOPSIS
         Generates the run-importer.cmd wrapper used by Task Scheduler.
         Appends stdout/stderr to log files supplied via %LOG_STDOUT% / %LOG_STDERR%.
+
+        $ImporterConfig may be a single YAML file (--config) or a directory of
+        YAML files (--config-dir); the flag is chosen automatically.
     #>
     param(
         [string]$UvExe,
@@ -752,15 +755,19 @@ function Write-ImporterCmd {
     # The API now requires auth; the importer authenticates with the shared
     # service token, passed via the environment of the Scheduled Task process.
     $tokenLine = if ($ApiServiceToken) { "set `"API_SERVICE_TOKEN=$ApiServiceToken`"" } else { '' }
+
+    # Choose --config (file) or --config-dir (directory) automatically.
+    $configFlag = if (Test-Path $ImporterConfig -PathType Container) { '--config-dir' } else { '--config' }
+
     $cmd = @"
 @echo off
 cd /d "$InstallDir"
 $tokenLine
-"$UvExe" run table-import --config "$ImporterConfig" >>%LOG_STDOUT% 2>>%LOG_STDERR%
+"$UvExe" run table-import $configFlag "$ImporterConfig" >>%LOG_STDOUT% 2>>%LOG_STDERR%
 "@
     New-Item -ItemType Directory -Path (Split-Path $OutPath) -Force | Out-Null
     Set-Content -Path $OutPath -Value $cmd -Encoding ASCII
-    Write-Step "run-importer.cmd written to $OutPath" -Success
+    Write-Step "run-importer.cmd written to $OutPath ($configFlag)" -Success
 }
 
 # ---------------------------------------------------------------------------
@@ -823,10 +830,17 @@ function Register-ImporterTask {
         [string]$InstallDir,
         [string]$LogDir,
         [int]$IntervalMinutes,
+        # Max wall-clock time before the task is killed. Defaults to IntervalMinutes - 1
+        # so a single-source run can never bleed into the next trigger. When using
+        # --config-dir with many sources, pass a larger value (e.g. IntervalMinutes * 3).
+        [int]$ExecutionTimeLimitMinutes = -1,
         [string]$ServiceUser     = 'LocalSystem',
         [string]$ServicePassword = ''
     )
-    Write-Step "Registering scheduled task '$TaskName' (every $IntervalMinutes min)..."
+    if ($ExecutionTimeLimitMinutes -lt 0) {
+        $ExecutionTimeLimitMinutes = [Math]::Max(1, $IntervalMinutes - 1)
+    }
+    Write-Step "Registering scheduled task '$TaskName' (every $IntervalMinutes min, limit $ExecutionTimeLimitMinutes min)..."
 
     if (Test-ImporterTaskExists -TaskName $TaskName) {
         Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
@@ -849,7 +863,7 @@ function Register-ImporterTask {
         -At (Get-Date)
 
     $settings = New-ScheduledTaskSettingsSet `
-        -ExecutionTimeLimit  (New-TimeSpan -Minutes ([Math]::Max(1, $IntervalMinutes - 1))) `
+        -ExecutionTimeLimit  (New-TimeSpan -Minutes $ExecutionTimeLimitMinutes) `
         -MultipleInstances   IgnoreNew `
         -RestartCount        1 `
         -RestartInterval     (New-TimeSpan -Minutes 1) `

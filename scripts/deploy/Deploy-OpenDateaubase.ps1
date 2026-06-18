@@ -30,8 +30,10 @@
     Defaults to <InstallDir>\.env.<environment>.
 
 .PARAMETER ImporterConfig
-    Absolute path to the importer YAML config file. Required unless
-    -SkipImporter is set; omit it when deploying the app without the importer.
+    Path to a single YAML config file, or to a directory containing multiple
+    YAML config files. A file triggers --config; a directory triggers --config-dir
+    (all *.yaml files in the directory are loaded). Required unless -SkipImporter
+    is set; omit it when deploying the app without the importer.
 
 .PARAMETER ImporterIntervalMinutes
     How often the importer Scheduled Task runs (default: 5).
@@ -83,11 +85,18 @@
     Stop and remove all services and scheduled tasks.
 
 .EXAMPLE
-    # Production deploy (LogDir, EnvFile and ports all derived from -Environment):
+    # Production deploy — single YAML config file:
     .\Deploy-OpenDateaubase.ps1 `
         -InstallDir     C:\open_dateaubase `
         -Environment    production `
         -ImporterConfig C:\open_dateaubase\importer\configs\wwtp_plc_scada.yaml
+
+.EXAMPLE
+    # Staging deploy — directory of YAML configs (all files loaded via --config-dir):
+    .\Deploy-OpenDateaubase.ps1 `
+        -InstallDir     C:\source\open_dateaubase `
+        -Environment    staging `
+        -ImporterConfig C:\source\open_dateaubase\pileaute-config\stage\configs
 
 .EXAMPLE
     # Redeploy only the API after a code update:
@@ -120,10 +129,17 @@ param(
 
     # Required only when the importer task is registered (i.e. without
     # -SkipImporter); validated in the body so -SkipImporter can omit it.
+    # Accepts a single YAML file (--config) or a directory of YAML files
+    # (--config-dir); the correct flag is chosen automatically.
     [string]$ImporterConfig = '',
 
     [ValidateRange(1, 1440)]
     [int]$ImporterIntervalMinutes = 5,
+
+    # Max wall-clock seconds before the importer task is killed. -1 (default)
+    # auto-selects IntervalMinutes-1. Increase when using --config-dir with many
+    # sources (e.g. -ImporterExecutionTimeLimitMinutes 14 for 5 sources × 5 min).
+    [int]$ImporterExecutionTimeLimitMinutes = -1,
 
     [string]$UvPath          = '',
     [string]$NssmPath        = '',
@@ -179,8 +195,8 @@ if (-not $Uninstall -and -not $SkipImporter) {
     if ([string]::IsNullOrWhiteSpace($ImporterConfig)) {
         throw "-ImporterConfig is required unless -SkipImporter is set."
     }
-    if (-not (Test-Path $ImporterConfig -PathType Leaf)) {
-        throw "Importer config not found: $ImporterConfig"
+    if (-not (Test-Path $ImporterConfig)) {
+        throw "Importer config not found: $ImporterConfig (must be a YAML file or a directory of YAML files)"
     }
 }
 
@@ -375,13 +391,14 @@ if (-not $SkipImporter) {
         -ApiServiceToken $importerToken
 
     Register-ImporterTask `
-        -TaskName        $TASK_IMPORT `
-        -CmdPath         $CMD_PATH `
-        -InstallDir      $InstallDir `
-        -LogDir          $LogDir `
-        -IntervalMinutes $ImporterIntervalMinutes `
-        -ServiceUser     $ServiceUser `
-        -ServicePassword $ServicePassword
+        -TaskName                    $TASK_IMPORT `
+        -CmdPath                     $CMD_PATH `
+        -InstallDir                  $InstallDir `
+        -LogDir                      $LogDir `
+        -IntervalMinutes             $ImporterIntervalMinutes `
+        -ExecutionTimeLimitMinutes   $ImporterExecutionTimeLimitMinutes `
+        -ServiceUser                 $ServiceUser `
+        -ServicePassword             $ServicePassword
 
     Register-LogRotateTask `
         -TaskName        $TASK_LOGROTATE `
