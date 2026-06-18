@@ -2,13 +2,16 @@
 
 Extracted from explore.py (Phase 5). Holds the lineage-graph helpers, the
 colour maps used only here, and the right-hand inspector panel renderer. The
-two plot/inspect actions (``_add_node_to_plot``, ``_inspect_stream``) live in
-explore.py and are imported lazily inside the handlers to avoid a circular
-import. Function names are re-exported from explore.py so existing tests that
-reference ``explore._build_dag_dot`` etc. keep working.
+two plot/inspect actions (``_add_node_to_plot``, ``_inspect_stream``) are passed
+in as callbacks by explore.py so this module never needs to import the page and
+there is no risk of re-executing it. Function names are re-exported from
+explore.py so existing tests that reference ``explore._build_dag_dot`` etc. keep
+working.
 """
 
 from __future__ import annotations
+
+from typing import Callable
 
 import streamlit as st
 
@@ -148,9 +151,12 @@ def _build_dag_dot(graph: dict, nodes: dict[int, dict], root_id: int) -> str:
     return "\n".join(lines)
 
 
-def _render_prov_node_card(node: dict, key_ctx: str) -> None:
-    from app.pages.explore import _add_node_to_plot, _inspect_stream  # avoid circular
-
+def _render_prov_node_card(
+    node: dict,
+    key_ctx: str,
+    add_node_to_plot: Callable[..., None],
+    inspect_stream: Callable[[str, int], None],
+) -> None:
     sid = node["stream_id"]
     with st.container(border=True):
         st.markdown(
@@ -172,13 +178,13 @@ def _render_prov_node_card(node: dict, key_ctx: str) -> None:
             disabled=in_plot,
             use_container_width=True,
         ):
-            _add_node_to_plot(node)
+            add_node_to_plot(node)
         if c2.button(
             "🔬 inspect",
             key=f"prov_insp_{key_ctx}_{sid}",
             use_container_width=True,
         ):
-            _inspect_stream(node.get("kind", "channel"), sid)
+            inspect_stream(node.get("kind", "channel"), sid)
 
 
 def _render_breadcrumb(trail: list) -> None:
@@ -218,7 +224,13 @@ def _render_prov_overview(root: dict) -> None:
     )
 
 
-def _render_prov_lineage(graph: dict, nodes: dict[int, dict], root_id: int) -> None:
+def _render_prov_lineage(
+    graph: dict,
+    nodes: dict[int, dict],
+    root_id: int,
+    add_node_to_plot: Callable[..., None],
+    inspect_stream: Callable[[str, int], None],
+) -> None:
     st.graphviz_chart(_build_dag_dot(graph, nodes, root_id), use_container_width=True)
 
     steps = _ordered_ancestor_steps(graph, root_id)
@@ -242,7 +254,12 @@ def _render_prov_lineage(graph: dict, nodes: dict[int, dict], root_id: int) -> N
                 seen.add(inp)
                 node = nodes.get(inp)
                 if node:
-                    _render_prov_node_card(node, key_ctx=f"anc{step['processing_step_id']}")
+                    _render_prov_node_card(
+                        node,
+                        key_ctx=f"anc{step['processing_step_id']}",
+                        add_node_to_plot=add_node_to_plot,
+                        inspect_stream=inspect_stream,
+                    )
 
     desc_ids = _descendant_stream_ids(graph, root_id)
     if desc_ids:
@@ -250,7 +267,12 @@ def _render_prov_lineage(graph: dict, nodes: dict[int, dict], root_id: int) -> N
             for did in desc_ids:
                 node = nodes.get(did)
                 if node:
-                    _render_prov_node_card(node, key_ctx="desc")
+                    _render_prov_node_card(
+                        node,
+                        key_ctx="desc",
+                        add_node_to_plot=add_node_to_plot,
+                        inspect_stream=inspect_stream,
+                    )
 
 
 def _render_prov_steps(graph: dict) -> None:
@@ -278,10 +300,11 @@ def _render_prov_steps(graph: dict) -> None:
             st.caption(f"inputs: {ins} → outputs: {outs}")
 
 
-def _render_provenance_panel() -> None:
+def _render_provenance_panel(
+    add_node_to_plot: Callable[..., None],
+    inspect_stream: Callable[[str, int], None],
+) -> None:
     """Right-hand Provenance inspector for the stream at the top of the trail."""
-    from app.pages.explore import _add_node_to_plot  # avoid circular
-
     trail = st.session_state.explore_inspect_trail
     if not trail:
         return
@@ -327,14 +350,14 @@ def _render_provenance_panel() -> None:
         ):
             for i in anc_ids:
                 if i in nodes:
-                    _add_node_to_plot(nodes[i], rerun=False)
+                    add_node_to_plot(nodes[i], rerun=False)
             st.rerun()
         if raw_ids and c2.button(
             "➕ Raw source only", key="prov_add_raw", use_container_width=True
         ):
             for i in raw_ids:
                 if i in nodes:
-                    _add_node_to_plot(nodes[i], rerun=False)
+                    add_node_to_plot(nodes[i], rerun=False)
             st.rerun()
 
     tab = st.radio(
@@ -349,4 +372,6 @@ def _render_provenance_panel() -> None:
     elif tab == "Steps":
         _render_prov_steps(graph)
     else:
-        _render_prov_lineage(graph, nodes, sid)
+        _render_prov_lineage(
+            graph, nodes, sid, add_node_to_plot=add_node_to_plot, inspect_stream=inspect_stream
+        )
