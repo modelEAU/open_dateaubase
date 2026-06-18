@@ -51,7 +51,8 @@ uploads/**/*
 
 # Compiled documentation site
 site
-
+data
+tools
 # Local L5X exploration artifacts
 out/
 *.L5X

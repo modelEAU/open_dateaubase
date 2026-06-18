@@ -314,7 +314,7 @@ if (-not $SkipApi) {
         -AppEnvironment  $envVars
 
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_API
-    Assert-ServiceHealthy -Url "http://localhost:$ApiPort/" -TimeoutSec 30
+    Assert-ServiceHealthy -Url "http://127.0.0.1:$ApiPort/" -TimeoutSec 30
 }
 
 # ---------------------------------------------------------------------------
@@ -324,7 +324,10 @@ if (-not $SkipApi) {
 if (-not $SkipApp) {
     Write-Step 'Deploying Streamlit app service...'
     $appEnv = [ordered]@{
-        API_BASE_URL     = "http://localhost:$ApiPort/api/v1"
+        # 127.0.0.1 (not localhost): on Windows, localhost resolves ::1 first and
+        # uvicorn binds IPv4-only, so each call stalls ~2s on the dead IPv6 attempt
+        # before falling back. Measured localhost=~2085ms vs 127.0.0.1=~35ms/call.
+        API_BASE_URL     = "http://127.0.0.1:$ApiPort/api/v1"
         PYTHONUNBUFFERED = '1'
     }
 
@@ -460,7 +463,7 @@ if (-not $SkipLogViewer) {
     # that prefix, and the viewer is auxiliary, so a failed probe warns rather
     # than aborting the deploy.
     try {
-        Assert-ServiceHealthy -Url "http://localhost:$LogViewerPort/logs/healthz" -TimeoutSec 30
+        Assert-ServiceHealthy -Url "http://127.0.0.1:$LogViewerPort/logs/healthz" -TimeoutSec 30
     } catch {
         Write-Step "Log viewer health probe did not pass ($_). Service is Running; check $LogDir\logviewer\ if /logs/ is unreachable." -Warn
     }
@@ -544,7 +547,7 @@ if (-not $SkipProxy) {
         -ServicePassword $ServicePassword
 
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_PROXY
-    Assert-ServiceHealthy -Url "http://localhost:$ProxyPort/" -TimeoutSec 15
+    Assert-ServiceHealthy -Url "http://127.0.0.1:$ProxyPort/" -TimeoutSec 15
 
     # nginx binds 0.0.0.0 so it's reachable on the LAN once the firewall allows
     # it; without this rule the default inbound-block policy only lets

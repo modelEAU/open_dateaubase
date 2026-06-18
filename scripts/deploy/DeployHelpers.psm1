@@ -414,7 +414,23 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
 
-    access_log  $logDirFwd/nginx/access.log;
+    # JSON access log with request/upstream timing, ingested by Vector ->
+    # OpenObserve for the performance dashboard. upstream_* fields are quoted
+    # because nginx writes '-' (or comma-joined values) when there's no upstream.
+    log_format perf_json escape=json
+        '{'
+          '"time":"`$time_iso8601",'
+          '"remote_addr":"`$remote_addr",'
+          '"method":"`$request_method",'
+          '"uri":"`$uri",'
+          '"status":`$status,'
+          '"body_bytes":`$body_bytes_sent,'
+          '"request_time":`$request_time,'
+          '"upstream_response_time":"`$upstream_response_time",'
+          '"upstream_addr":"`$upstream_addr"'
+        '}';
+
+    access_log  $logDirFwd/nginx/access.log perf_json;
     error_log   $logDirFwd/nginx/error.log;
 
     # Streamlit app -- WebSocket upgrade required for live reactivity
@@ -613,11 +629,15 @@ include = [
 ]
 
 # Merge continuation lines (Python tracebacks, etc.) into the preceding
-# timestamped log entry: a new event starts only on a leading timestamp.
+# log entry: a new event starts only on a leading timestamp, nginx bracket/IP
+# prefix, '{' (JSON perf records from the API and nginx), or a uvicorn/logging
+# level prefix. The level prefixes are essential: without them a uvicorn
+# "INFO: ... GET ... 200 OK" access line gets merged onto the preceding JSON
+# perf line, corrupting it so parse_json fails and duration_ms is never hoisted.
 [sources.open_dateaubase_logs.multiline]
-start_pattern = '^(\d{4}-\d{2}-\d{2}|\[\d|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+start_pattern = '^(\d{4}-\d{2}-\d{2}|\[\d|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\{|INFO:|WARNING:|ERROR:|DEBUG:|CRITICAL:)'
 mode = "halt_before"
-condition_pattern = '^(\d{4}-\d{2}-\d{2}|\[\d|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+condition_pattern = '^(\d{4}-\d{2}-\d{2}|\[\d|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\{|INFO:|WARNING:|ERROR:|DEBUG:|CRITICAL:)'
 timeout_ms = 1000
 
 [transforms.tag]
@@ -629,6 +649,13 @@ source = '''
 matched = parse_regex(.file, r'[\\/](?P<svc>[^\\/]+)[\\/][^\\/]+$') ?? {}
 if is_string(matched.svc) {
     .service = matched.svc
+}
+# Hoist structured JSON log lines (API request-timing records and nginx
+# perf_json access logs) to top-level fields so duration_ms / request_time /
+# status / route become queryable columns. Non-JSON lines pass through.
+parsed = parse_json(.message) ?? null
+if is_object(parsed) {
+    . = merge(., object!(parsed))
 }
 '''
 

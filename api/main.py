@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .config import settings
+from .observability import RequestTimingMiddleware
 from .v1.errors import EntityNotFoundError
 from .v1.router import router as v1_router
 
@@ -23,6 +24,10 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+# Emit one structured JSON timing line per request (consumed by Vector ->
+# OpenObserve performance dashboard).
+app.add_middleware(RequestTimingMiddleware)
 
 app.include_router(v1_router, prefix="/api/v1")
 
