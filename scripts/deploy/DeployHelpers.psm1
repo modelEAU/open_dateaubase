@@ -912,18 +912,18 @@ function Register-LogRotateTask {
     }
 
     $rotateScript = @"
-\$dir = '$LogDir\importer'
-foreach (\$log in Get-ChildItem \$dir -Filter '*.log') {
-    if (\$log.Length -gt 10MB) {
-        \$archive = \$log.FullName + '.' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.gz'
-        \$src = \$log.FullName; \$dst = \$archive
+`$dir = '$LogDir\importer'
+foreach (`$log in Get-ChildItem `$dir -Filter '*.log') {
+    if (`$log.Length -gt 10MB) {
+        `$archive = `$log.FullName + '.' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.gz'
+        `$src = `$log.FullName; `$dst = `$archive
         try {
-            \$in  = [IO.File]::OpenRead(\$src)
-            \$out = [IO.File]::Create(\$dst)
-            \$gz  = New-Object IO.Compression.GZipStream(\$out, [IO.Compression.CompressionMode]::Compress)
-            \$in.CopyTo(\$gz)
-            \$gz.Close(); \$out.Close(); \$in.Close()
-            Clear-Content \$log.FullName
+            `$in  = [IO.File]::OpenRead(`$src)
+            `$out = [IO.File]::Create(`$dst)
+            `$gz  = New-Object IO.Compression.GZipStream(`$out, [IO.Compression.CompressionMode]::Compress)
+            `$in.CopyTo(`$gz)
+            `$gz.Close(); `$out.Close(); `$in.Close()
+            Clear-Content `$log.FullName
         } catch {}
     }
 }
