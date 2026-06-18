@@ -4,6 +4,9 @@
 .env.docker
 .env.staging
 
+# Generated importer launcher — contains the API_SERVICE_TOKEN secret
+scripts/deploy/run-importer-*.cmd
+
 # Site-specific private config repo (tracked separately in pileaute-config/)
 pileaute-config/
 importer/credentials/
