@@ -29,6 +29,8 @@ INSERT INTO [dbo].[Unit] ([Unit]) VALUES (N'AU');           -- ID 10: absorbance
 INSERT INTO [dbo].[Unit] ([Unit]) VALUES (N'-');            -- ID 11: dimensionless (images)
 INSERT INTO [dbo].[Unit] ([Unit]) VALUES (N'm³/h');         -- ID 12: volumetric flow rate
 INSERT INTO [dbo].[Unit] ([Unit]) VALUES (N'm');            -- ID 13: metres (level/depth)
+INSERT INTO [dbo].[Unit] ([Unit]) VALUES (N'Nm³/h');        -- ID 14: normal cubic metres per hour (gas flow)
+INSERT INTO [dbo].[Unit] ([Unit]) VALUES (N'%');            -- ID 15: percent (valve position, efficiency)
 
 -- ============================================================
 -- Parameters (17 total)
@@ -67,6 +69,14 @@ INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
 VALUES (N'floc_morphology', N'Activated sludge floc morphology image from inline microscope');  -- ID 16
 INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
 VALUES (N'Potassium',     N'Potassium concentration (K)');                                       -- ID 17
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
+VALUES (N'Nitrite-N concentration', N'Nitrite nitrogen concentration (NO2-N)');               -- ID 18
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
+VALUES (N'NOx-N concentration',    N'Total oxidized nitrogen (NO3-N + NO2-N)');                -- ID 19
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
+VALUES (N'Air flow',      N'Volumetric air/gas flow rate');                                      -- ID 20
+INSERT INTO [dbo].[Parameter] ([Parameter], [Description])
+VALUES (N'Valve position', N'Control valve analog output position (0–100%)');                    -- ID 21
 
 -- ============================================================
 -- Unit ontology (QUDT IRIs + SI dimension vectors)
@@ -236,6 +246,32 @@ INSERT INTO [dbo].[SampleCollectionKind] ([SampleCollectionKind_ID], [Name], [De
 INSERT INTO [dbo].[SampleCollectionKind] ([SampleCollectionKind_ID], [Name], [Description]) VALUES (5, N'Other',        N'Collection kind not covered by the standard vocabulary');
 
 -- ============================================================
+-- ParameterHasUnit (one row per valid parameter→unit pair)
+-- IDs match the insertion order above.
+-- ============================================================
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (1,  1);  -- TSS → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (2,  1);  -- COD → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (3,  3);  -- pH → pH units
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (4,  4);  -- Temperature → °C
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (5,  5);  -- Conductivity → mS/cm
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (6,  9);  -- Sensor Status → Status Code
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (7,  9);  -- Device Status → Status Code
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (8,  1);  -- Dissolved oxygen → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (9,  2);  -- Turbidity → NTU
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (10, 10); -- absorbance → AU
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (11, 1);  -- Ammonium-N → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (12, 1);  -- Nitrate-N → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (13, 1);  -- COD filtered → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (14, 12); -- Flow → m³/h
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (15, 13); -- Level → m
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (16, 11); -- floc_morphology → - (dimensionless)
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (17, 1);  -- Potassium → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (18, 1);  -- Nitrite-N → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (19, 1);  -- NOx-N → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (20, 14); -- Air flow → Nm³/h
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (21, 15); -- Valve position → %
+
+-- ============================================================
 -- Procedures (3 standard ones)
 -- ============================================================
 INSERT INTO [dbo].[Procedures] ([ProcedureName], [ProcedureType], [Description], [ProcedureLocation])
@@ -265,4 +301,4 @@ VALUES (15.0, 8.0, 12.0, 5.0, 45.0, 5.0, 10.0);
 INSERT INTO [dbo].[Laboratory] ([Name], [Site_ID], [Description])
 VALUES (N'TEST_modelEAU Water Quality Lab', NULL, N'TEST lab — in-house water quality analysis at Université Laval');
 
-PRINT 'Vocabulary seed loaded: 13 units, 17 parameters, 3 procedures, 1 watershed, 1 lab + all fixed vocabulary tables (ValueKind, ChannelKind, DataProvenanceKind, ProcessingKind, SignalInterfaceKind, SignalInterfacePortKind, QualityCode, AnnotationKind, BinKind, CampaignKind, EquipmentEventKind, ControlLoopPortKind, ProcessUnitKind, SampleKind, SampleCollectionKind).';
+PRINT 'Vocabulary seed loaded: 15 units, 21 parameters, 3 procedures, 1 watershed, 1 lab + all fixed vocabulary tables (ValueKind, ChannelKind, DataProvenanceKind, ProcessingKind, SignalInterfaceKind, SignalInterfacePortKind, QualityCode, AnnotationKind, BinKind, CampaignKind, EquipmentEventKind, ControlLoopPortKind, ProcessUnitKind, SampleKind, SampleCollectionKind).';

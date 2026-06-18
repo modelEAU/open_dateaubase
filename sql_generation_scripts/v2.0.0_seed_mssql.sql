@@ -1,6 +1,6 @@
 -- Seed data for schema v2.0.0
 -- Platform: mssql
--- Generated: 2026-06-17 15:21:45 UTC
+-- Generated: 2026-06-18 03:07:54 UTC
 -- AnnotationKind
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (1, N'Fault', N'Sensor or process fault', N'#FF4444');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (2, N'Maintenance', N'Sensor under maintenance', N'#FFA500');
@@ -161,6 +161,8 @@ INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multi
 INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (11, N'-', N'https://qudt.org/vocab/unit/UNITLESS', N'0,0,0,0,0,0,0', 1.0, NULL);
 INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (12, N'm³/h', N'https://qudt.org/vocab/unit/M3-PER-HR', N'3,0,-1,0,0,0,0', 0.000277778, NULL);
 INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (13, N'm', N'https://qudt.org/vocab/unit/M', N'1,0,0,0,0,0,0', 1.0, NULL);
+INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (14, N'Nm³/h', NULL, N'3,0,-1,0,0,0,0', 0.000277778, NULL);
+INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (15, N'%', N'https://qudt.org/vocab/unit/PERCENT', N'0,0,0,0,0,0,0', 0.01, NULL);
 SET IDENTITY_INSERT [dbo].[Unit] OFF;
 -- ValueKind
 SET IDENTITY_INSERT [dbo].[ValueKind] ON;
@@ -189,6 +191,10 @@ INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO
 INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'floc_morphology', 16, N'Activated sludge floc morphology image from inline microscope', NULL, 4, NULL);
 INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Potassium concentration', 17, N'Potassium concentration (K)', NULL, 1, N'http://qudt.org/vocab/quantitykind/MassConcentration');
 INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Light Absorbance', 18, N'Scalar light absorbance measurement', NULL, 1, N'http://qudt.org/vocab/quantitykind/Absorbance');
+INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Nitrite-N concentration', 19, N'Nitrite nitrogen concentration (NO2-N)', NULL, 1, N'http://qudt.org/vocab/quantitykind/MassConcentration');
+INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'NOx-N concentration', 20, N'Total oxidized nitrogen (NO3-N + NO2-N)', NULL, 1, N'http://qudt.org/vocab/quantitykind/MassConcentration');
+INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Air flow', 21, N'Volumetric air/gas flow rate', NULL, 1, N'http://qudt.org/vocab/quantitykind/VolumeFlowRate');
+INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Valve position', 22, N'Control valve analog output position (0-100%)', NULL, 1, NULL);
 SET IDENTITY_INSERT [dbo].[Parameter] OFF;
 -- Procedures
 SET IDENTITY_INSERT [dbo].[Procedures] ON;
@@ -215,3 +221,8 @@ INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (15, 7);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (15, 13);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (17, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (18, 10);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (19, 1);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (20, 1);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (21, 12);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (21, 14);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (22, 15);
