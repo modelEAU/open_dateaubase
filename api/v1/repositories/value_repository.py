@@ -495,8 +495,10 @@ def insert_scalar_values(
 ) -> int:
     """Bulk-insert rows into dbo.Observation + dbo.Value. Returns rows written.
 
-    Uses a temp staging table to capture all inserted Observation_IDs in one
-    round trip instead of 2 queries per row.
+    Uses a temp staging table. Rows with (channel_id, timestamp) already in
+    Observation are deleted from the stage before inserting, making the call
+    idempotent. Safe to call on overlapping windows (concurrent schedulers,
+    manual backfills, etc.).
     """
     if not values:
         return 0
@@ -522,6 +524,27 @@ def insert_scalar_values(
         ],
     )
 
+    # Remove any rows that already exist in Observation so the INSERT below
+    # never hits the unique constraint regardless of the call pattern.
+    cursor.execute(
+        """
+        DELETE s FROM #obs_stage s
+        WHERE EXISTS (
+            SELECT 1 FROM [dbo].[Observation] o
+            WHERE o.[Channel_ID] = ? AND o.[Timestamp] = s.ts AND o.[ValueKind_ID] = 1
+        )
+        """,
+        channel_id,
+    )
+
+    cursor.execute("SELECT row_num FROM #obs_stage ORDER BY row_num")
+    remaining = [row[0] for row in cursor.fetchall()]
+
+    if not remaining:
+        conn.commit()
+        cursor.execute("DROP TABLE #obs_stage")
+        return 0
+
     cursor.execute(
         """
         INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])
@@ -535,13 +558,13 @@ def insert_scalar_values(
     cursor.executemany(
         "INSERT INTO [dbo].[Value] ([Observation_ID], [Value], [QualityCode]) VALUES (?, ?, ?)",
         [
-            (obs_ids[i], values[i]["value"], values[i].get("quality_code"))
-            for i in range(len(values))
+            (obs_ids[j], values[remaining[j]]["value"], values[remaining[j]].get("quality_code"))
+            for j in range(len(obs_ids))
         ],
     )
     conn.commit()
     cursor.execute("DROP TABLE #obs_stage")
-    return len(values)
+    return len(obs_ids)
 
 
 def insert_vector_values(
@@ -568,44 +591,53 @@ def insert_vector_values(
     if len(bin_map) == 0:
         raise ValueError(f"No bins found for axis {binning_axis_id}")
 
-    total_rows = 0
+    # Insert Observations one-by-one (OUTPUT INSERTED needed for IDs), then
+    # bulk-insert all ValueVector rows in a single executemany call.
+    all_vv_rows: list[tuple] = []
     for obs in observations:
         timestamp = obs["timestamp"]
         quality_code = obs.get("quality_code")
         bin_values = obs["bin_values"]
 
-        # Create Observation for this timestamp
         cursor.execute(
             """
+            IF NOT EXISTS (
+                SELECT 1 FROM [dbo].[Observation]
+                WHERE [Channel_ID] = ? AND [Timestamp] = ? AND [ValueKind_ID] = 2
+            )
             INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])
             OUTPUT INSERTED.[Observation_ID]
             VALUES (?, ?, 2)
             """,
             channel_id,
             _utc_naive(timestamp),
+            channel_id,
+            _utc_naive(timestamp),
         )
-        obs_id: int = cursor.fetchone()[0]
+        row = cursor.fetchone()
+        if row is None:
+            continue  # already exists, skip this observation
+        obs_id: int = row[0]
 
-        # Insert one row per bin (inner loop)
         for i, value in enumerate(bin_values):
             bin_id = bin_map.get(i)
             if bin_id is None:
-                continue  # skip extra values silently
-            cursor.execute(
-                """
-                INSERT INTO [dbo].[ValueVector]
-                    ([Observation_ID], [ValueBin_ID], [Value], [QualityCode])
-                VALUES (?, ?, ?, ?)
-                """,
-                obs_id,
-                bin_id,
-                value,
-                quality_code,
-            )
-            total_rows += 1
+                continue
+            all_vv_rows.append((obs_id, bin_id, value, quality_code))
+
+    if all_vv_rows:
+        cursor.fast_executemany = True
+        cursor.executemany(
+            """
+            INSERT INTO [dbo].[ValueVector]
+                ([Observation_ID], [ValueBin_ID], [Value], [QualityCode])
+            VALUES (?, ?, ?, ?)
+            """,
+            all_vv_rows,
+        )
 
     conn.commit()
-    return total_rows
+    return len(all_vv_rows)
 
 
 def insert_matrix_values(
@@ -647,17 +679,26 @@ def insert_matrix_values(
         quality_code = obs.get("quality_code")
         matrix = obs["matrix"]
 
-        # Create Observation for this timestamp
+        # Create Observation for this timestamp, skipping if already exists.
         cursor.execute(
             """
+            IF NOT EXISTS (
+                SELECT 1 FROM [dbo].[Observation]
+                WHERE [Channel_ID] = ? AND [Timestamp] = ? AND [ValueKind_ID] = 3
+            )
             INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])
             OUTPUT INSERTED.[Observation_ID]
             VALUES (?, ?, 3)
             """,
             channel_id,
             _utc_naive(obs["timestamp"]),
+            channel_id,
+            _utc_naive(obs["timestamp"]),
         )
-        obs_id: int = cursor.fetchone()[0]
+        row = cursor.fetchone()
+        if row is None:
+            continue  # already exists, skip
+        obs_id: int = row[0]
 
         for r, row in enumerate(matrix):
             for c, value in enumerate(row):
@@ -699,17 +740,26 @@ def insert_image_value(
 ) -> int:
     """Insert a row into dbo.ValueImage. Returns the new Observation_ID."""
     cursor = conn.cursor()
-    # Step 1: create Observation, get ID
+    # Step 1: create Observation, get ID — skip if already exists
     cursor.execute(
         """
+        IF NOT EXISTS (
+            SELECT 1 FROM [dbo].[Observation]
+            WHERE [Channel_ID] = ? AND [Timestamp] = ? AND [ValueKind_ID] = 4
+        )
         INSERT INTO [dbo].[Observation] ([Channel_ID], [Timestamp], [ValueKind_ID])
         OUTPUT INSERTED.[Observation_ID]
         VALUES (?, ?, 4)
         """,
         channel_id,
         _utc_naive(timestamp),
+        channel_id,
+        _utc_naive(timestamp),
     )
-    obs_id: int = cursor.fetchone()[0]
+    row = cursor.fetchone()
+    if row is None:
+        return -1  # already exists
+    obs_id: int = row[0]
     # Step 2: insert image payload
     cursor.execute(
         """
