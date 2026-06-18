@@ -266,8 +266,8 @@ INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (14, 12)
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (15, 13); -- Level → m
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (16, 11); -- floc_morphology → - (dimensionless)
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (17, 1);  -- Potassium → mg/L
-INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (18, 1);  -- Nitrite-N → mg/L
-INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (19, 1);  -- NOx-N → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (18, 1);  -- Nitrite-N concentration → mg/L
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (19, 1);  -- NOx-N concentration → mg/L
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (20, 14); -- Air flow → Nm³/h
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (21, 15); -- Valve position → %
 
