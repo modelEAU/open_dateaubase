@@ -564,7 +564,15 @@ def _render_time_strip(
 
 
 def _deployment_trace_label(item: dict) -> str:
-    """URI-style label: Campaign › Location / Parameter (Equipment)."""
+    """URI-style label for a sensor channel.
+
+    Deployed:   Campaign › Location / Parameter (Equipment)
+    Undeployed: [undeployed] Parameter (DAS identifier)
+    """
+    if not item.get("is_deployed", True):
+        parameter = item.get("parameter_name") or "?"
+        identifier = item.get("equipment_identifier") or "?"
+        return f"[undeployed] {parameter} ({identifier})"
     campaign = item.get("campaign_name") or "—"
     location = item.get("sampling_point_label") or "?"
     parameter = item.get("parameter_name") or "?"
