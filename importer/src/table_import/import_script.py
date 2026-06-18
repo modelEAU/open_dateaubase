@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 
@@ -114,24 +115,82 @@ def ingest_via_api(
     )
 
 
+# Skip files whose mtime predates the import floor by more than this margin.
+# The margin absorbs clock skew / timezone differences between the file server
+# and the DB watermark so a file that could still hold new rows is never skipped.
+_STALE_FILE_MARGIN_S = 86400.0  # 1 day
+
+# Optional wall-clock budget for a single import run. Set from the
+# IMPORTER_MAX_SECONDS env var at the start of main(); when exceeded, the
+# file-collection loops stop early and the run ingests whatever it has so far
+# (the watermark advances, and the next run resumes). 0/unset = no limit.
+_DEADLINE: float | None = None
+
+
+def _past_deadline() -> bool:
+    return _DEADLINE is not None and time.monotonic() > _DEADLINE
+
+
+def _list_candidate_files(
+    directory: str,
+    extension: str,
+    filename_contains: str | None,
+    floor_ts: float,
+) -> list[str]:
+    """List matching files in ``directory``, skipping ones last modified clearly
+    before ``floor_ts`` (the max of the DB watermark and configured
+    min_timestamp).
+
+    A file whose mtime predates the floor cannot contain rows at/after it — any
+    newer data would have bumped the mtime — so skipping it avoids a needless
+    full read over the (slow) SMB share. One os.scandir pass provides the mtime
+    with no extra round-trips. Files that can't be stat'd are kept. Exact
+    row-level filtering still happens downstream, so this only ever skips reads.
+    """
+    cutoff = floor_ts - _STALE_FILE_MARGIN_S if floor_ts > 0 else 0.0
+    out: list[str] = []
+    with os.scandir(directory) as it:
+        for entry in it:
+            name = entry.name
+            if extension not in name:
+                continue
+            if filename_contains is not None and filename_contains not in name:
+                continue
+            if cutoff > 0:
+                try:
+                    if entry.stat().st_mtime < cutoff:
+                        continue
+                except OSError:
+                    pass  # keep the file if its mtime can't be read
+            out.append(entry.path)
+    return out
+
+
 def _get_file_values(
     variable: config.BaseVariable,
     file_structure,
     file_reader_class: type[DataFile],
     last_unix_ts: float,
+    min_unix_ts: float | None = None,
 ) -> ValueTable:
     """Load all files for a variable and return deduplicated ValueTable."""
-    path = PurePath(variable.directory_path)
-    filepaths = [
-        str(path.joinpath(x))
-        for x in os.listdir(str(path))
-        if file_structure.extension in x
-        and (variable.filename_contains is None or variable.filename_contains in x)
-    ]
+    floor_ts = max(last_unix_ts, min_unix_ts or 0.0)
+    filepaths = _list_candidate_files(
+        str(PurePath(variable.directory_path)),
+        file_structure.extension,
+        variable.filename_contains,
+        floor_ts,
+    )
     # Convert Unix float to naive UTC datetime for DataCombiner compatibility
     last_date = datetime.utcfromtimestamp(last_unix_ts) if last_unix_ts > 0 else None
     combiner = DataCombiner(last_date=last_date)
     for filepath in filepaths:
+        if _past_deadline():
+            print(
+                f"[TIME BUDGET] stopping file scan for {variable.name!r} "
+                f"after {len(combiner.files)} files (IMPORTER_MAX_SECONDS reached)"
+            )
+            break
         file_obj = file_reader_class(
             filepath=filepath,
             file_structure=file_structure,
@@ -154,6 +213,13 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
     print(datetime.now())
     api_conf = settings.api_config
     api_token = os.environ.get("API_SERVICE_TOKEN")
+
+    # Optional wall-clock budget so a slow source (e.g. a large file share) can
+    # never run past the scheduled-task time limit and leave a zombie task:
+    # the file loops stop early, ingest what they have, and the next run resumes.
+    global _DEADLINE
+    _max_seconds = float(os.environ.get("IMPORTER_MAX_SECONDS", "0") or 0)
+    _DEADLINE = (time.monotonic() + _max_seconds) if _max_seconds > 0 else None
 
     # Pre-flight: validate every (parameter_name, destination_unit_name) pair before
     # any data is ingested. Raises ConfigValidationError on first invalid pair.
@@ -225,7 +291,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                 last_ts = last_dt.timestamp() if last_dt is not None else 0.0
 
                 data = _get_file_values(
-                    variable, file_structure, file_reader_class, last_ts
+                    variable, file_structure, file_reader_class, last_ts, min_unix_ts
                 )
                 if data.empty:
                     print(f"No new data for {label}")
@@ -303,7 +369,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                 last_ts = last_dt.timestamp() if last_dt is not None else 0.0
 
                 data = _get_file_values(
-                    variable, tsdb_cfg.tsdb_structure, file_reader_class, last_ts
+                    variable, tsdb_cfg.tsdb_structure, file_reader_class, last_ts, min_unix_ts
                 )
                 if data.empty:
                     print(f"No new data for {label}")
@@ -484,15 +550,23 @@ def _ingest_vector_source(
         last_ts = last_dt.timestamp() if last_dt is not None else 0.0
 
         # 4. Collect observations from all matching files
-        path = PurePath(variable.directory_path)
-        filepaths = [
-            str(path / fname)
-            for fname in os.listdir(str(path))
-            if vec_cfg.file_structure.extension in fname
-        ]
+        floor_ts = max(last_ts, min_unix_ts or 0.0)
+        filepaths = _list_candidate_files(
+            str(PurePath(variable.directory_path)),
+            vec_cfg.file_structure.extension,
+            getattr(variable, "filename_contains", None),
+            floor_ts,
+        )
 
         all_observations: list[dict] = []
         for fp in filepaths:
+            if _past_deadline():
+                print(
+                    f"[TIME BUDGET] stopping vector scan for {variable.name!r} "
+                    f"after {len(all_observations)} new observations "
+                    "(IMPORTER_MAX_SECONDS reached)"
+                )
+                break
             sf = SpectroFile(fp, vec_cfg.file_structure)
             last_date = sf.get_last_date()
             if last_date is not None and last_date.timestamp() <= last_ts:
