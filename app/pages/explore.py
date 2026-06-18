@@ -551,14 +551,12 @@ def _render_time_strip(
         with from_col:
             st.date_input(
                 "From",
-                value=st.session_state.explore_start,
                 key="explore_start",
                 on_change=_on_range_change,
             )
         with to_col:
             st.date_input(
                 "To",
-                value=st.session_state.explore_end,
                 key="explore_end",
                 on_change=_on_range_change,
             )
