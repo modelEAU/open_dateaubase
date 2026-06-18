@@ -3,6 +3,9 @@
 .env.local
 .env.docker
 .env.staging
+
+# Site-specific private config repo (tracked separately in pileaute-config/)
+pileaute-config/
 importer/credentials/
 
 # Python
