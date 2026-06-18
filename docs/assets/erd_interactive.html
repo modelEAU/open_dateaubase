@@ -1238,6 +1238,42 @@
       "group_color": "#6b7280"
     },
     {
+      "id": "ControllerKind",
+      "label": "ControllerKind",
+      "description": "Controlled vocabulary for control loop algorithm classes",
+      "fields": [
+        {
+          "name": "ControllerKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name of the controller algorithm class"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of the controller algorithm"
+        }
+      ],
+      "group_name": "Control Loops",
+      "group_color": "#be123c"
+    },
+    {
       "id": "ControlLoop",
       "label": "ControlLoop",
       "description": "Identity record for a control scheme applied to a process. Describes the controller type and its degradation strategy (FallbackControlLoop_ID chain, or NULL for manual fallback). Temporal configuration (tuning, parameters) lives in ControlLoopApplication. SignalPort membership lives in ControlLoopPort.\n",
@@ -1452,42 +1488,6 @@
       ],
       "group_name": "Uncategorized",
       "group_color": "#6b7280"
-    },
-    {
-      "id": "ControllerKind",
-      "label": "ControllerKind",
-      "description": "Controlled vocabulary for control loop algorithm classes",
-      "fields": [
-        {
-          "name": "ControllerKind_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Human-readable name of the controller algorithm class"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(500)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Explanation of the controller algorithm"
-        }
-      ],
-      "group_name": "Control Loops",
-      "group_color": "#be123c"
     },
     {
       "id": "DASLocationHistory",
@@ -2543,6 +2543,51 @@
       "group_color": "#6b7280"
     },
     {
+      "id": "Laboratory",
+      "label": "Laboratory",
+      "description": "A laboratory where discrete samples are analysed. May be on-site or external.",
+      "fields": [
+        {
+          "name": "Laboratory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the laboratory"
+        },
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Site.Site_ID",
+          "description": "Site where the laboratory is located, if on-site. NULL for external labs."
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Additional information about the laboratory"
+        }
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2"
+    },
+    {
       "id": "LabPanel",
       "label": "LabPanel",
       "description": "Named, reusable bundle of AnalysisSeries to run together in a lab session. Copy-on-use: selecting a panel pre-populates the series list for a new LabExperiment; the resulting experiment is fully independent. Analogous to a clinical lab panel.\n",
@@ -2640,51 +2685,6 @@
       ],
       "group_name": "Uncategorized",
       "group_color": "#6b7280"
-    },
-    {
-      "id": "Laboratory",
-      "label": "Laboratory",
-      "description": "A laboratory where discrete samples are analysed. May be on-site or external.",
-      "fields": [
-        {
-          "name": "Laboratory_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(200)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Name of the laboratory"
-        },
-        {
-          "name": "Site_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Site.Site_ID",
-          "description": "Site where the laboratory is located, if on-site. NULL for external labs."
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(500)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Additional information about the laboratory"
-        }
-      ],
-      "group_name": "Lab",
-      "group_color": "#0891b2"
     },
     {
       "id": "LandUse",
@@ -3137,114 +3137,6 @@
       "group_color": "#475569"
     },
     {
-      "id": "ProcessUnit",
-      "label": "ProcessUnit",
-      "description": "Self-referential, site-scoped hierarchy of functional process locations. Each unit carries a stable P&ID-style Tag unique per site. Used to structure sampling points within process facilities (WWTPs, pilot plants) without breaking field campaigns that rely on free-text SamplingLocation fields.\n",
-      "fields": [
-        {
-          "name": "ProcessUnit_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Primary key for the ProcessUnit"
-        },
-        {
-          "name": "Site_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Site.Site_ID",
-          "description": "Foreign key to Site \u2014 scopes the unit to a single site"
-        },
-        {
-          "name": "Tag",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site."
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(255)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Human-readable name for the process unit"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Optional description of the process unit's role or function"
-        },
-        {
-          "name": "ProcessUnitKind_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "ProcessUnitKind.ProcessUnitKind_ID",
-          "description": "Foreign key to ProcessUnitKind lookup"
-        },
-        {
-          "name": "Parent_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "ProcessUnit.ProcessUnit_ID",
-          "description": "Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree"
-        }
-      ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
-    },
-    {
-      "id": "ProcessUnitKind",
-      "label": "ProcessUnitKind",
-      "description": "Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)",
-      "fields": [
-        {
-          "name": "ProcessUnitKind_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Primary key for the ProcessUnitKind lookup"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Name of the process unit kind (e.g. Reactor, Pipe, Clarifier)"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(300)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Explanation of this process unit kind"
-        }
-      ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
-    },
-    {
       "id": "ProcessingLineage",
       "label": "ProcessingLineage",
       "description": "Junction table that records the input relationships between ProcessingStep rows and Stream rows. Every row is an input edge \u2014 it asserts that a given Stream (a sensor Channel or a lab AnalysisSeries) was consumed as an input by a given ProcessingStep. Together these rows form a directed acyclic graph (DAG) of data transformations. Generalizing inputs to Stream is what lets a lab AnalysisSeries feed a derived Channel (ADR 0004).\nOutput channels are still identified by Channel.ProducedByStep_ID (not stored here). The output of a step is always a Channel (a sensor stream); only the inputs generalize to any Stream.\nExample: an outlier-removal step consumes Stream 10 (raw TSS) as an input; Channel 11 (cleaned TSS) carries ProducedByStep_ID pointing to that step.\n",
@@ -3396,6 +3288,114 @@
       ],
       "group_name": "Campaign & Provenance",
       "group_color": "#d97706"
+    },
+    {
+      "id": "ProcessUnit",
+      "label": "ProcessUnit",
+      "description": "Self-referential, site-scoped hierarchy of functional process locations. Each unit carries a stable P&ID-style Tag unique per site. Used to structure sampling points within process facilities (WWTPs, pilot plants) without breaking field campaigns that rely on free-text SamplingLocation fields.\n",
+      "fields": [
+        {
+          "name": "ProcessUnit_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key for the ProcessUnit"
+        },
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Site.Site_ID",
+          "description": "Foreign key to Site \u2014 scopes the unit to a single site"
+        },
+        {
+          "name": "Tag",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site."
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name for the process unit"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Optional description of the process unit's role or function"
+        },
+        {
+          "name": "ProcessUnitKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ProcessUnitKind.ProcessUnitKind_ID",
+          "description": "Foreign key to ProcessUnitKind lookup"
+        },
+        {
+          "name": "Parent_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ProcessUnit.ProcessUnit_ID",
+          "description": "Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
+    },
+    {
+      "id": "ProcessUnitKind",
+      "label": "ProcessUnitKind",
+      "description": "Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)",
+      "fields": [
+        {
+          "name": "ProcessUnitKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key for the ProcessUnitKind lookup"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the process unit kind (e.g. Reactor, Pipe, Clarifier)"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of this process unit kind"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280"
     },
     {
       "id": "QualityCode",
@@ -5629,6 +5629,13 @@
       "relationship_type": null
     },
     {
+      "from_table": "Laboratory",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "LabPanel",
       "to_table": "Person",
       "from_field": "CreatedByPerson_ID",
@@ -5661,13 +5668,6 @@
       "to_table": "AnalysisSeries",
       "from_field": "AnalysisSeries_ID",
       "to_field": "Stream_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "Laboratory",
-      "to_table": "Site",
-      "from_field": "Site_ID",
-      "to_field": "Site_ID",
       "relationship_type": null
     },
     {
@@ -5727,27 +5727,6 @@
       "relationship_type": null
     },
     {
-      "from_table": "ProcessUnit",
-      "to_table": "Site",
-      "from_field": "Site_ID",
-      "to_field": "Site_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProcessUnit",
-      "to_table": "ProcessUnitKind",
-      "from_field": "ProcessUnitKind_ID",
-      "to_field": "ProcessUnitKind_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProcessUnit",
-      "to_table": "ProcessUnit",
-      "from_field": "Parent_ID",
-      "to_field": "ProcessUnit_ID",
-      "relationship_type": null
-    },
-    {
       "from_table": "ProcessingLineage",
       "to_table": "ProcessingStep",
       "from_field": "ProcessingStep_ID",
@@ -5780,6 +5759,27 @@
       "to_table": "Dataset",
       "from_field": "Dataset_ID",
       "to_field": "Dataset_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "ProcessUnitKind",
+      "from_field": "ProcessUnitKind_ID",
+      "to_field": "ProcessUnitKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "ProcessUnit",
+      "from_field": "Parent_ID",
+      "to_field": "ProcessUnit_ID",
       "relationship_type": null
     },
     {
