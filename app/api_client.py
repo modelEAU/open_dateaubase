@@ -34,7 +34,11 @@ def _get_client() -> httpx.Client:
 
 def _raise_for_status(response: httpx.Response) -> None:
     if response.status_code == 401 and st.session_state.get("access_token"):
-        st.session_state.clear()
+        # Clear only the authentication keys (preserve UI state and the flags
+        # that control dev auto-login) then force the app back to the login flow.
+        st.session_state["access_token"] = None
+        st.session_state["authenticated"] = False
+        st.session_state["user"] = None
         st.error("Session expired. Please log in again.")
         st.rerun()
     if not response.is_success:
