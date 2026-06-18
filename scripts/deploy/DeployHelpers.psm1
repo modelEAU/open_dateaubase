@@ -763,7 +763,7 @@ function Write-ImporterCmd {
 @echo off
 cd /d "$InstallDir"
 $tokenLine
-"$UvExe" run table-import $configFlag "$ImporterConfig" >>%LOG_STDOUT% 2>>%LOG_STDERR%
+"$UvExe" run python -m table_import $configFlag "$ImporterConfig" >>%LOG_STDOUT% 2>>%LOG_STDERR%
 "@
     New-Item -ItemType Directory -Path (Split-Path $OutPath) -Force | Out-Null
     Set-Content -Path $OutPath -Value $cmd -Encoding ASCII
