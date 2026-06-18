@@ -48,8 +48,8 @@ from app.api_client import (
 
 # Provenance inspector lives in its own module (Phase 5 split). Re-exported here
 # so the panel is callable as before and tests can reach the helpers via
-# ``explore.<name>``. The module imports _add_node_to_plot/_inspect_stream from
-# this file lazily, so importing it at module top is cycle-safe.
+# ``explore.<name>``. The panel receives ``_add_node_to_plot`` and
+# ``_inspect_stream`` as callbacks so it never needs to import this page.
 from app.components.explore_provenance import (  # noqa: E402,F401
     PROVENANCE_COLORS,
     DEFAULT_PROVENANCE_COLOR,
@@ -474,8 +474,11 @@ def _render_time_strip(
 ) -> None:
     """Global time range controls: quick-select buttons + From/To date inputs.
 
-    Placed between the active traces list and the visualization area so the
-    spatial relationship with the chart is obvious."""
+    The date inputs are bound to the same session-state keys as the page's
+    active range so quick-select buttons can update them without fighting the
+    widget's own cached value. A pending-range flag is used because Streamlit
+    does not allow setting a widget key after the widget has been drawn.
+    """
 
     def _to_date(ts) -> date | None:
         if ts is None:
@@ -507,20 +510,29 @@ def _render_time_strip(
 
     has_traces = bool(channel_stats or series_stats)
 
+    # Apply any pending quick-select range *before* the date-input widgets are
+    # drawn so they pick up the new value on the next run.
+    pending = st.session_state.get("_tstrip_pending")
+    if pending is not None:
+        st.session_state.explore_start, st.session_state.explore_end = pending
+        del st.session_state["_tstrip_pending"]
+
     with st.container(border=True):
         btn_col1, btn_col2, btn_col3, spacer, from_col, to_col = st.columns(
             [1, 1, 1, 1, 2, 2]
         )
 
-        range_update: tuple[date, date] | None = None
-
         if btn_col1.button("Last 7d", disabled=not has_traces, key="tstrip_7d"):
             end = global_max or date.today()
-            range_update = (end - timedelta(days=7), end)
+            st.session_state._tstrip_pending = (end - timedelta(days=7), end)
+            _invalidate_data_cache()
+            st.rerun()
 
         if btn_col2.button("Last 30d", disabled=not has_traces, key="tstrip_30d"):
             end = global_max or date.today()
-            range_update = (end - timedelta(days=30), end)
+            st.session_state._tstrip_pending = (end - timedelta(days=30), end)
+            _invalidate_data_cache()
+            st.rerun()
 
         if btn_col3.button(
             "All data",
@@ -528,34 +540,26 @@ def _render_time_strip(
             key="tstrip_all",
         ):
             if global_min and global_max:
-                range_update = (global_min, global_max)
+                st.session_state._tstrip_pending = (global_min, global_max)
+                _invalidate_data_cache()
+                st.rerun()
+
+        def _on_range_change() -> None:
+            _invalidate_data_cache()
+            st.rerun()
 
         with from_col:
-            new_start = st.date_input(
+            st.date_input(
                 "From",
-                value=st.session_state.explore_start,
-                key="tstrip_from",
+                key="explore_start",
+                on_change=_on_range_change,
             )
         with to_col:
-            new_end = st.date_input(
+            st.date_input(
                 "To",
-                value=st.session_state.explore_end,
-                key="tstrip_to",
+                key="explore_end",
+                on_change=_on_range_change,
             )
-
-        if range_update is not None:
-            st.session_state.explore_start, st.session_state.explore_end = range_update
-            _invalidate_data_cache()
-            st.rerun()
-
-        if (
-            new_start != st.session_state.explore_start
-            or new_end != st.session_state.explore_end
-        ):
-            st.session_state.explore_start = new_start
-            st.session_state.explore_end = new_end
-            _invalidate_data_cache()
-            st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -1557,46 +1561,18 @@ def _render_sidebar_minimal() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
-# Main page
-# ---------------------------------------------------------------------------
-
-
-def main() -> None:
-    _init_state()
-
-    # Load lookup data once
-    try:
-        equipment = list_equipment_lookup()
-    except APIError as e:
-        st.error(f"Cannot load lookup data: {e.message}")
-        st.stop()
-
-    try:
-        annotation_types = list_annotation_kinds()
-    except APIError:
-        annotation_types = []
-
-    try:
-        event_types = list_equipment_event_kinds()
-    except APIError:
-        event_types = []
-
-    try:
-        series_list = list_analysis_series_lookup()
-    except APIError:
-        series_list = []
-
-    # Deployment traces filtered by the active time window
-    from_dt = datetime.combine(st.session_state.explore_start, datetime.min.time()).isoformat()
-    to_dt = datetime.combine(st.session_state.explore_end, datetime.max.time()).isoformat()
-    try:
-        deployment_traces = list_deployment_traces_lookup(from_dt=from_dt, to_dt=to_dt)
-    except APIError:
-        deployment_traces = []
-
-    _render_sidebar_minimal()
-
+def _render_page_body(
+    deployment_traces: list[dict],
+    series_list: list[dict],
+    equipment: list[dict],
+    annotation_types: list[dict],
+    event_types: list[dict],
+) -> None:
+    """Render the main content area of the Explore page (picker, chips, time
+    strip, and visualization).  When a provenance trail is active, this is
+    placed in the left column of a global two-column layout so the provenance
+    panel can sit as a right-hand sidebar at the page level.
+    """
     # --- Top bar: title + Viz/Extract toggle ---
     _render_top_bar()
 
@@ -1654,20 +1630,65 @@ def main() -> None:
             event_type_options=event_types,
         )
 
-    # --- Visualization area (+ Provenance panel when a stream is inspected) ---
+    # --- Visualization area ---
+    _render_visualization_area(
+        active_channels, channel_meta, annotation_types, equipment, event_types,
+        active_series, series_meta,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main page
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    _init_state()
+
+    # Load lookup data once
+    try:
+        equipment = list_equipment_lookup()
+    except APIError as e:
+        st.error(f"Cannot load lookup data: {e.message}")
+        st.stop()
+
+    try:
+        annotation_types = list_annotation_kinds()
+    except APIError:
+        annotation_types = []
+
+    try:
+        event_types = list_equipment_event_kinds()
+    except APIError:
+        event_types = []
+
+    try:
+        series_list = list_analysis_series_lookup()
+    except APIError:
+        series_list = []
+
+    # Deployment traces filtered by the active time window
+    from_dt = datetime.combine(st.session_state.explore_start, datetime.min.time()).isoformat()
+    to_dt = datetime.combine(st.session_state.explore_end, datetime.max.time()).isoformat()
+    try:
+        deployment_traces = list_deployment_traces_lookup(from_dt=from_dt, to_dt=to_dt)
+    except APIError:
+        deployment_traces = []
+
+    _render_sidebar_minimal()
+
+    # --- Global page layout: provenance panel as a right-hand sidebar ---
     if st.session_state.explore_inspect_trail:
-        viz_col, prov_col = st.columns([7, 3])
-        with viz_col:
-            _render_visualization_area(
-                active_channels, channel_meta, annotation_types, equipment, event_types,
-                active_series, series_meta,
+        body_col, prov_col = st.columns([7, 3])
+        with body_col:
+            _render_page_body(
+                deployment_traces, series_list, equipment, annotation_types, event_types
             )
         with prov_col:
-            _render_provenance_panel()
+            _render_provenance_panel(_add_node_to_plot, _inspect_stream)
     else:
-        _render_visualization_area(
-            active_channels, channel_meta, annotation_types, equipment, event_types,
-            active_series, series_meta,
+        _render_page_body(
+            deployment_traces, series_list, equipment, annotation_types, event_types
         )
 
 

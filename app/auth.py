@@ -12,20 +12,31 @@ def _ensure_auth_state() -> None:
     st.session_state.setdefault("authenticated", False)
     st.session_state.setdefault("access_token", None)
     st.session_state.setdefault("user", None)
+    st.session_state.setdefault("_dev_auto_login_attempted", False)
+    st.session_state.setdefault("_dev_auto_login_disabled", False)
 
-    if os.getenv("APP_DEV_AUTO_LOGIN") == "1" and not st.session_state["authenticated"]:
-        st.session_state["authenticated"] = True
-        # Use the service token so dev-mode requests pass the now-secured API.
-        st.session_state["access_token"] = os.getenv("API_SERVICE_TOKEN", "dev")
-        st.session_state["user"] = {
-            "user_id": 0,
-            "email": os.getenv("APP_DEV_EMAIL", "dev@localhost"),
-            "full_name": os.getenv("APP_DEV_NAME", "Dev User"),
-            "is_active": True,
-            "is_verified": True,
-            "created_at": None,
-            "updated_at": None,
-        }
+    if (
+        os.getenv("APP_DEV_AUTO_LOGIN") == "1"
+        and not st.session_state["authenticated"]
+        and not st.session_state["_dev_auto_login_attempted"]
+        and not st.session_state["_dev_auto_login_disabled"]
+    ):
+        st.session_state["_dev_auto_login_attempted"] = True
+        dev_token = os.getenv("API_SERVICE_TOKEN")
+        if dev_token:
+            st.session_state["authenticated"] = True
+            st.session_state["access_token"] = dev_token
+            st.session_state["user"] = {
+                "user_id": 0,
+                "email": os.getenv("APP_DEV_EMAIL", "dev@localhost"),
+                "full_name": os.getenv("APP_DEV_NAME", "Dev User"),
+                "is_active": True,
+                "is_verified": True,
+                "created_at": None,
+                "updated_at": None,
+            }
+        else:
+            st.session_state["_dev_auto_login_disabled"] = True
 
 
 def is_authenticated() -> bool:
@@ -57,6 +68,9 @@ def logout() -> None:
     st.session_state["authenticated"] = False
     st.session_state["access_token"] = None
     st.session_state["user"] = None
+    # Prevent dev auto-login from immediately re-authenticating the user after
+    # they explicitly sign out.
+    st.session_state["_dev_auto_login_disabled"] = True
     st.rerun()
 
 
@@ -64,6 +78,12 @@ def _complete_auth(auth_response: dict) -> None:
     st.session_state["access_token"] = auth_response["access_token"]
     st.session_state["authenticated"] = True
     st.session_state["user"] = auth_response["user"]
+    # Manual login should be able to start a fresh session even if a previous
+    # dev auto-login attempt failed or was disabled.
+    st.session_state["_dev_auto_login_disabled"] = False
+    # Don't fall back to dev auto-login later in the same session after a real
+    # login; the user has chosen an explicit authentication path.
+    st.session_state["_dev_auto_login_attempted"] = True
 
 
 def _show_auth_page() -> None:

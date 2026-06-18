@@ -201,6 +201,35 @@ class TestGetMe:
                 get_me()
         assert exc_info.value.status_code == 401
 
+    def test_authorized_401_clears_auth_only_and_reruns(self):
+        """A 401 while a token is present should log the user out without wiping
+        the whole session state (e.g. dev auto-login flags and UI selections)."""
+        response = _mock_response(401, {"detail": "Invalid token."})
+        fake_st = MagicMock()
+        fake_st.session_state = {
+            "access_token": "tok",
+            "authenticated": True,
+            "user": {"name": "Bob"},
+            "_dev_auto_login_attempted": True,
+            "_dev_auto_login_disabled": True,
+            "some_ui_state": "preserve-me",
+        }
+        fake_st.rerun.side_effect = RuntimeError("rerun")
+        with (
+            patch("app.api_client.st", fake_st),
+            patch("app.api_client._get_client", return_value=_FakeClient(response)),
+        ):
+            with pytest.raises(RuntimeError, match="rerun"):
+                get_me()
+
+        assert fake_st.session_state["access_token"] is None
+        assert fake_st.session_state["authenticated"] is False
+        assert fake_st.session_state["user"] is None
+        assert fake_st.session_state["_dev_auto_login_attempted"] is True
+        assert fake_st.session_state["_dev_auto_login_disabled"] is True
+        assert fake_st.session_state["some_ui_state"] == "preserve-me"
+        fake_st.error.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # get_audit_logs

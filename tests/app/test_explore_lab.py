@@ -7,6 +7,7 @@ overlay figure contains both a sensor line trace and a lab marker trace.
 from __future__ import annotations
 
 from contextlib import ExitStack
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -426,6 +427,84 @@ def test_lab_annotation_dialog_save_uses_stream_anchored_create_annotation():
     )
     assert "data" in kwargs and isinstance(kwargs["data"], dict), (
         f"expected the annotation payload passed as data=…; got {captured}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Time-range quick-select regression
+# ---------------------------------------------------------------------------
+
+
+def test_last_7d_button_updates_date_inputs():
+    """Regression: clicking 'Last 7d' must update the keyed From/To date inputs
+    so the plot uses the selected range instead of the stale UI values."""
+    with ExitStack() as stack:
+        _patches(stack)
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_channels"] = [5]
+        at.session_state["explore_channel_meta"] = {5: _CHANNEL}
+        at.session_state["explore_active_series"] = [1]
+        at.session_state["explore_series_meta"] = {1: _SERIES[0]}
+        at.run()
+        at.button(key="tstrip_7d").click().run()
+
+    assert not at.exception
+    from_date = at.date_input(key="explore_start").value
+    to_date = at.date_input(key="explore_end").value
+    assert from_date == date(2026, 5, 1), (
+        f"expected From=2026-05-01 after Last 7d, got {from_date}"
+    )
+    assert to_date == date(2026, 5, 8), (
+        f"expected To=2026-05-08 after Last 7d, got {to_date}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Provenance panel layout regression
+# ---------------------------------------------------------------------------
+
+_PROV_GRAPH = {
+    "root_id": 5,
+    "nodes": [
+        {
+            "stream_id": 5,
+            "kind": "channel",
+            "label": "TSS raw",
+            "is_derived": False,
+            "provenance_kind_name": "Sensor",
+            "traits": [],
+            "channel_id": 5,
+            "analysis_series_id": None,
+        },
+    ],
+    "ancestors": [],
+    "descendants": [],
+}
+
+
+def test_provenance_panel_renders_in_global_layout():
+    """When a provenance trail is active, the page should render the chart in
+    the main body and the provenance panel in the right-hand sidebar column
+    without throwing."""
+    with ExitStack() as stack:
+        _patches(stack)
+        stack.enter_context(
+            patch(
+                "app.components.explore_provenance.get_stream_provenance",
+                return_value=_PROV_GRAPH,
+            )
+        )
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_channels"] = [5]
+        at.session_state["explore_channel_meta"] = {5: _CHANNEL}
+        at.session_state["explore_inspect_trail"] = [("channel", 5)]
+        at.run()
+
+    assert not at.exception
+    assert list(at.get("plotly_chart")), "chart should still render in the global layout"
+    headers = [h.value for h in at.subheader]
+    assert any("Provenance" in h for h in headers), (
+        f"provenance panel header not found; got {headers}"
     )
 
 
