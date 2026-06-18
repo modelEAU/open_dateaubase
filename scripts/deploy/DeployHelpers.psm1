@@ -134,7 +134,7 @@ function Invoke-UvSync {
     Write-Step 'Running uv sync (api + app extras; importer workspace member)...'
     Push-Location $InstallDir
     try {
-        & $UvExe sync --extra api --extra app
+        & $UvExe sync --all-packages --extra api --extra app
         if ($LASTEXITCODE -ne 0) { throw "uv sync exited with code $LASTEXITCODE" }
     } finally {
         Pop-Location
@@ -750,11 +750,17 @@ function Write-ImporterCmd {
         [string]$InstallDir,
         [string]$ImporterConfig,
         [string]$OutPath,           # full path for the .cmd file
-        [string]$ApiServiceToken = ''  # bearer token for the secured API
+        [string]$ApiServiceToken = '',  # bearer token for the secured API
+        [int]$MaxSeconds = 0          # importer self-timeout; 0 = no limit
     )
     # The API now requires auth; the importer authenticates with the shared
     # service token, passed via the environment of the Scheduled Task process.
     $tokenLine = if ($ApiServiceToken) { "set `"API_SERVICE_TOKEN=$ApiServiceToken`"" } else { '' }
+
+    # Wall-clock budget so the importer stops gracefully *before* the Scheduled
+    # Task ExecutionTimeLimit force-kills it (which leaves a zombie 'Running'
+    # task). It ingests what it has and the next run resumes.
+    $maxLine = if ($MaxSeconds -gt 0) { "set `"IMPORTER_MAX_SECONDS=$MaxSeconds`"" } else { '' }
 
     # Choose --config (file) or --config-dir (directory) automatically.
     $configFlag = if (Test-Path $ImporterConfig -PathType Container) { '--config-dir' } else { '--config' }
@@ -763,7 +769,8 @@ function Write-ImporterCmd {
 @echo off
 cd /d "$InstallDir"
 $tokenLine
-"$UvExe" run python -m table_import $configFlag "$ImporterConfig" >>%LOG_STDOUT% 2>>%LOG_STDERR%
+$maxLine
+"$UvExe" run --package table-import python -m table_import import $configFlag "$ImporterConfig" >>%LOG_STDOUT% 2>>%LOG_STDERR%
 "@
     New-Item -ItemType Directory -Path (Split-Path $OutPath) -Force | Out-Null
     Set-Content -Path $OutPath -Value $cmd -Encoding ASCII
@@ -881,7 +888,7 @@ function Register-ImporterTask {
         -Trigger   $trigger `
         -Settings  $settings `
         -Principal $principal `
-        -Force | Out-Null
+        -Force -ErrorAction Stop | Out-Null
 
     Write-Step "Scheduled task '$TaskName' registered." -Success
 }
@@ -952,7 +959,7 @@ foreach (`$log in Get-ChildItem `$dir -Filter '*.log') {
         -Trigger   $trigger `
         -Settings  $settings `
         -Principal $principal `
-        -Force | Out-Null
+        -Force -ErrorAction Stop | Out-Null
 
     Write-Step "Log-rotation task '$taskName' registered (daily 02:00)." -Success
 }

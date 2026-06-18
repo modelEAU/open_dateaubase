@@ -166,6 +166,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Registering SYSTEM/Highest scheduled tasks and (re)configuring NSSM services
+# both require an elevated session. Fail fast with a clear message rather than
+# silently skipping the importer task (Register-ScheduledTask -> Access denied).
+$__id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not (New-Object System.Security.Principal.WindowsPrincipal($__id)).IsInRole(
+        [System.Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw "This deploy must run from an elevated PowerShell (Run as administrator). " +
+          "Registering the SYSTEM scheduled task and configuring services requires admin rights."
+}
+
 # ---------------------------------------------------------------------------
 # Bootstrap
 # ---------------------------------------------------------------------------
@@ -383,12 +393,21 @@ if (-not $SkipImporter) {
         Write-Step "API_SERVICE_TOKEN not set in $EnvFile; importer calls will be rejected by the secured API." -Warn
     }
 
+    # Self-timeout one minute before the task's hard ExecutionTimeLimit so a slow
+    # file share can never leave a zombie 'Running' task. Mirror the effective
+    # limit Register-ImporterTask computes (-1 => IntervalMinutes - 1).
+    $effLimitMin = if ($ImporterExecutionTimeLimitMinutes -lt 0) {
+        [Math]::Max(1, $ImporterIntervalMinutes - 1)
+    } else { $ImporterExecutionTimeLimitMinutes }
+    $importerMaxSeconds = [Math]::Max(60, ($effLimitMin * 60) - 60)
+
     Write-ImporterCmd `
         -UvExe         $uvExe `
         -InstallDir    $InstallDir `
         -ImporterConfig $ImporterConfig `
         -OutPath       $CMD_PATH `
-        -ApiServiceToken $importerToken
+        -ApiServiceToken $importerToken `
+        -MaxSeconds    $importerMaxSeconds
 
     Register-ImporterTask `
         -TaskName                    $TASK_IMPORT `
