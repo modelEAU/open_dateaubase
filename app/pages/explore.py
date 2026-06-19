@@ -26,6 +26,7 @@ _project_root = str(Path(__file__).resolve().parent.parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -96,6 +97,7 @@ from app.components.explore_data import (  # noqa: E402,F401
     DEFAULT_QUALITY_COLOR,
     VIZ_MAX_POINTS,
     _VALUE_TYPE_OPTIONS,
+    _local_to_utc_iso,
     _load_timeseries,
     _load_series_timeseries,
     _fetch_series_stats,
@@ -409,6 +411,8 @@ def _flat_scalar_rows(channel_ids: list[int], channel_meta: dict) -> list[dict]:
             continue
         meta = channel_meta.get(ch_id, {})
         label = f"CH-{ch_id} {meta.get('equipment_identifier', '')} {meta.get('parameter_name', '')}".strip()
+        unit = data.get("unit", "")
+        param = data.get("parameter", "")
         for row in data.get("data", []):
             out.append(
                 {
@@ -417,6 +421,8 @@ def _flat_scalar_rows(channel_ids: list[int], channel_meta: dict) -> list[dict]:
                     "timestamp": row.get("timestamp"),
                     "value": row.get("value"),
                     "quality_code": row.get("quality_code"),
+                    "parameter": param,
+                    "unit": unit,
                 }
             )
     return out
@@ -433,6 +439,8 @@ def _flat_series_scalar_rows(series_ids: list[int], series_meta: dict) -> list[d
             f"LAB-{s_id} {meta.get('parameter_name', '')} "
             f"@ {meta.get('sampling_point_label', '')}"
         ).strip()
+        unit = data.get("unit", "")
+        param = data.get("parameter", "")
         for row in data.get("data", []):
             out.append(
                 {
@@ -441,6 +449,8 @@ def _flat_series_scalar_rows(series_ids: list[int], series_meta: dict) -> list[d
                     "timestamp": row.get("timestamp"),
                     "value": row.get("value"),
                     "quality_code": row.get("quality_code"),
+                    "parameter": param,
+                    "unit": unit,
                 }
             )
     return out
@@ -1137,12 +1147,10 @@ def _render_scalar_view(
             key="sensor_ann_chan_sel",
         )
         if st.button("Create Annotation (view range)", key="btn_sensor_ann_range"):
-            start = st.session_state.explore_start
-            end = st.session_state.explore_end
             _annotation_dialog(
                 channel_ids=[sel_ch],
-                start_time=datetime.combine(start, datetime.min.time()).isoformat(),
-                end_time=datetime.combine(end, datetime.max.time()).isoformat(),
+                start_time=_local_to_utc_iso(st.session_state.explore_start),
+                end_time=_local_to_utc_iso(st.session_state.explore_end, end_of_day=True),
                 annotation_types=annotation_types,
             )
 
@@ -1156,13 +1164,11 @@ def _render_scalar_view(
             key="lab_ann_series_sel",
         )
         if st.button("Create Lab Annotation (view range)", key="btn_lab_ann"):
-            start = st.session_state.explore_start
-            end = st.session_state.explore_end
             _annotation_dialog(
                 channel_ids=[],
                 series_ids=[sel_lab],
-                start_time=datetime.combine(start, datetime.min.time()).isoformat(),
-                end_time=datetime.combine(end, datetime.max.time()).isoformat(),
+                start_time=_local_to_utc_iso(st.session_state.explore_start),
+                end_time=_local_to_utc_iso(st.session_state.explore_end, end_of_day=True),
                 annotation_types=annotation_types,
             )
 
@@ -1260,17 +1266,18 @@ def _render_vector_view(
 
     if trace[0] == "channel":
         if st.button("Create Annotation", key="vec_ann_btn"):
-            start = st.session_state.explore_start
-            end = st.session_state.explore_end
             _annotation_dialog(
                 channel_ids=[trace[1]],
-                start_time=datetime.combine(start, datetime.min.time()).isoformat(),
-                end_time=datetime.combine(end, datetime.max.time()).isoformat(),
+                start_time=_local_to_utc_iso(st.session_state.explore_start),
+                end_time=_local_to_utc_iso(st.session_state.explore_end, end_of_day=True),
                 annotation_types=annotation_types,
             )
 
     st.divider()
     df = pd.DataFrame(rows)
+    if data:
+        df["parameter"] = data.get("parameter", "")
+        df["unit"] = data.get("unit", "")
     csv_bytes = df.to_csv(index=False).encode()
     st.download_button(
         "Download CSV",
@@ -1343,6 +1350,9 @@ def _render_matrix_view(
         st.plotly_chart(fig, use_container_width=True, key="matrix_col_chart")
 
     st.divider()
+    if data:
+        df["parameter"] = data.get("parameter", "")
+        df["unit"] = data.get("unit", "")
     csv_bytes = df.to_csv(index=False).encode()
     st.download_button(
         "Download CSV",
@@ -1463,6 +1473,9 @@ def _render_image_view(
         st.caption("Check image thumbnails above to select them for bulk actions.")
 
     img_df = pd.DataFrame(rows)
+    if data:
+        img_df["parameter"] = data.get("parameter", "")
+        img_df["unit"] = data.get("unit", "")
     csv_bytes = img_df.to_csv(index=False).encode()
     st.download_button(
         "Download image list CSV",
@@ -1668,8 +1681,8 @@ def main() -> None:
         series_list = []
 
     # Deployment traces filtered by the active time window
-    from_dt = datetime.combine(st.session_state.explore_start, datetime.min.time()).isoformat()
-    to_dt = datetime.combine(st.session_state.explore_end, datetime.max.time()).isoformat()
+    from_dt = _local_to_utc_iso(st.session_state.explore_start)
+    to_dt = _local_to_utc_iso(st.session_state.explore_end, end_of_day=True)
     try:
         deployment_traces = list_deployment_traces_lookup(from_dt=from_dt, to_dt=to_dt)
     except APIError:
