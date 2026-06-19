@@ -9,7 +9,7 @@ explore.py so callers and tests reach them as ``explore.<name>``.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import streamlit as st
 
@@ -20,6 +20,30 @@ from app.api_client import (
     get_channel_timeseries,
     get_equipment_events,
 )
+
+_LOCAL_TZ = datetime.now().astimezone().tzinfo  # type: ignore[attr-defined]
+
+
+def _local_to_utc_iso(d: date, end_of_day: bool = False) -> str:
+    """Convert a local calendar date to a UTC ISO 8601 string for API queries."""
+    local_dt = datetime.combine(
+        d,
+        datetime.max.time() if end_of_day else datetime.min.time(),
+    ).replace(tzinfo=_LOCAL_TZ)
+    return local_dt.astimezone(timezone.utc).isoformat()
+
+
+def _utc_to_local(ts_str: str | None) -> str:
+    """Convert a naive UTC ISO timestamp string to local ISO string."""
+    if not ts_str:
+        return ""
+    try:
+        utc_dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        if utc_dt.tzinfo is None:
+            utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+        return utc_dt.astimezone(_LOCAL_TZ).isoformat()
+    except (ValueError, TypeError):
+        return ts_str
 
 # ---------------------------------------------------------------------------
 # Value-type constants
@@ -72,9 +96,12 @@ def _load_timeseries(channel_id: int) -> dict | None:
         try:
             data = get_channel_timeseries(
                 channel_id,
-                start=datetime.combine(start, datetime.min.time()).isoformat(),
-                end=datetime.combine(end, datetime.max.time()).isoformat(),
+                start=_local_to_utc_iso(start),
+                end=_local_to_utc_iso(end, end_of_day=True),
             )
+            if data:
+                for row in data.get("data", []):
+                    row["timestamp"] = _utc_to_local(row.get("timestamp"))
             cache[key] = data
         except APIError as e:
             st.error(f"Failed to load channel {channel_id}: {e.message}")
@@ -95,9 +122,13 @@ def _load_series_timeseries(series_id: int) -> dict | None:
         try:
             cache[key] = get_analysis_series_timeseries(
                 series_id,
-                start=datetime.combine(start, datetime.min.time()).isoformat(),
-                end=datetime.combine(end, datetime.max.time()).isoformat(),
+                start=_local_to_utc_iso(start),
+                end=_local_to_utc_iso(end, end_of_day=True),
             )
+            data = cache[key]
+            if data:
+                for row in data.get("data", []):
+                    row["timestamp"] = _utc_to_local(row.get("timestamp"))
         except APIError as e:
             st.error(f"Failed to load series {series_id}: {e.message}")
             return None
@@ -165,8 +196,8 @@ def _api_list_annotations_for_channel(
     import httpx
 
     params = {
-        "from": datetime.combine(start, datetime.min.time()).isoformat(),
-        "to": datetime.combine(end, datetime.max.time()).isoformat(),
+        "from": _local_to_utc_iso(start),
+        "to": _local_to_utc_iso(end, end_of_day=True),
     }
     try:
         with _get_client() as client:
@@ -175,7 +206,12 @@ def _api_list_annotations_for_channel(
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     data = r.json()
-    return data.get("annotations", [])
+    annotations = data.get("annotations", [])
+    for ann in annotations:
+        ann["start_time"] = _utc_to_local(ann.get("start_time"))
+        if ann.get("end_time"):
+            ann["end_time"] = _utc_to_local(ann.get("end_time"))
+    return annotations
 
 
 def _load_series_annotations(series_id: int) -> list[dict]:
@@ -200,8 +236,8 @@ def _api_list_annotations_for_series(
     import httpx
 
     params = {
-        "from": datetime.combine(start, datetime.min.time()).isoformat(),
-        "to": datetime.combine(end, datetime.max.time()).isoformat(),
+        "from": _local_to_utc_iso(start),
+        "to": _local_to_utc_iso(end, end_of_day=True),
     }
     try:
         with _get_client() as client:
@@ -210,7 +246,12 @@ def _api_list_annotations_for_series(
         raise APIError(503, "Cannot reach API")
     _raise_for_status(r)
     data = r.json()
-    return data.get("annotations", [])
+    annotations = data.get("annotations", [])
+    for ann in annotations:
+        ann["start_time"] = _utc_to_local(ann.get("start_time"))
+        if ann.get("end_time"):
+            ann["end_time"] = _utc_to_local(ann.get("end_time"))
+    return annotations
 
 
 def _load_equipment_events(equipment_id: int) -> list[dict]:
@@ -220,11 +261,16 @@ def _load_equipment_events(equipment_id: int) -> list[dict]:
         start = st.session_state.explore_start
         end = st.session_state.explore_end
         try:
-            cache[equipment_id] = get_equipment_events(
+            events = get_equipment_events(
                 equipment_id,
-                from_dt=datetime.combine(start, datetime.min.time()).isoformat(),
-                to_dt=datetime.combine(end, datetime.max.time()).isoformat(),
+                from_dt=_local_to_utc_iso(start),
+                to_dt=_local_to_utc_iso(end, end_of_day=True),
             )
+            for ev in events:
+                ev["start_datetime"] = _utc_to_local(ev.get("start_datetime"))
+                if ev.get("end_datetime"):
+                    ev["end_datetime"] = _utc_to_local(ev.get("end_datetime"))
+            cache[equipment_id] = events
         except APIError:
             cache[equipment_id] = []
     return cache[equipment_id]

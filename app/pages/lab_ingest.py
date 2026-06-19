@@ -7,7 +7,7 @@ Uses the LabIngestRequest / LabImageIngestResponse API.
 from __future__ import annotations
 
 import sys
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from pathlib import Path
 
 _project_root = str(Path(__file__).resolve().parent.parent.parent)
@@ -16,6 +16,28 @@ if _project_root not in sys.path:
 
 import pandas as pd
 import streamlit as st
+
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo  # type: ignore[no-retype]
+
+_KNOWN_TIMEZONES = sorted(zoneinfo.available_timezones())
+
+
+def _lab_timezone_selector(key: str) -> zoneinfo.ZoneInfo:
+    """Render a collapsed timezone selectbox pre-filled with local timezone."""
+    local_tz_name = datetime.now(timezone.utc).astimezone().tzinfo.key  # type: ignore[attr-defined, union-attr]
+    selected_tz_name = st.selectbox(
+        "TZ",
+        options=_KNOWN_TIMEZONES,
+        index=_KNOWN_TIMEZONES.index(local_tz_name) if local_tz_name in _KNOWN_TIMEZONES else _KNOWN_TIMEZONES.index("UTC"),
+        key=key,
+        help="Timezone of the date/time above. Converted to UTC on submit.",
+        label_visibility="collapsed",
+    )
+    st.caption(selected_tz_name)
+    return zoneinfo.ZoneInfo(selected_tz_name)
 
 from app.api_client import (
     APIError,
@@ -104,7 +126,7 @@ _SESSION_DEFAULTS = {
     "experiment_id": None,
     "name": "",
     "campaign_id": None,
-    "datetime": datetime.now(),
+    "datetime": datetime.now(timezone.utc),
     "description": "",
     "created_by_person_id": _default_person_id,
     "series": [],
@@ -270,14 +292,16 @@ def _render_experiment_step() -> None:
             key="lab_exp_name",
         )
 
-        col_c, col_d = st.columns(2)
+        col_c, col_d, col_tz = st.columns([2, 2, 1])
         with col_c:
             d = st.date_input(
-                "Date *", value=sess.get("datetime", datetime.now()), key="lab_exp_date"
+                "Date *", value=sess.get("datetime", datetime.now(timezone.utc)), key="lab_exp_date"
             )
         with col_d:
             t = st.time_input("Time *", value=time(12, 0), key="lab_exp_time")
-        sess["datetime"] = datetime.combine(d, t)
+        with col_tz:
+            lab_source_tz = _lab_timezone_selector(key="lab_exp_tz")
+        sess["datetime"] = datetime.combine(d, t).replace(tzinfo=lab_source_tz).astimezone(timezone.utc)
 
         sess["description"] = st.text_area(
             "Description",
@@ -595,13 +619,20 @@ def _render_sp_sample_section(sess: dict, sample_entry: dict, sp_idx: int) -> No
 
     col_a, col_b = st.columns(2)
     with col_a:
-        start_date = st.date_input("Start date *", value=datetime.now(), key=f"lab_sp_sd_{sp_idx}")
+        start_date = st.date_input("Start date *", value=datetime.now(timezone.utc), key=f"lab_sp_sd_{sp_idx}")
         start_time = st.time_input("Start time *", value=time(12, 0), key=f"lab_sp_st_{sp_idx}")
         sample_start = datetime.combine(start_date, start_time)
+        if selected_tz_name := st.session_state.get("lab_exp_tz"):
+            sample_start = sample_start.replace(tzinfo=zoneinfo.ZoneInfo(selected_tz_name)).astimezone(timezone.utc)
     with col_b:
         end_date = st.date_input("End date (optional)", value=None, key=f"lab_sp_ed_{sp_idx}")
         end_time = st.time_input("End time (optional)", value=None, key=f"lab_sp_et_{sp_idx}")
-        sample_end = datetime.combine(end_date, end_time) if end_date and end_time else None
+        if end_date and end_time:
+            sample_end = datetime.combine(end_date, end_time)
+            if selected_tz_name := st.session_state.get("lab_exp_tz"):
+                sample_end = sample_end.replace(tzinfo=zoneinfo.ZoneInfo(selected_tz_name)).astimezone(timezone.utc)
+        else:
+            sample_end = None
 
     person_opts = [{"id": None, "label": "— none —"}] + [
         {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))} for p in _persons
@@ -881,8 +912,8 @@ def _do_submit(sess: dict) -> None:
     else:
         exp_name = sess.get("name", "")
         payload = {
-            "name": exp_name or f"Lab-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
-            "experiment_datetime": sess.get("datetime", datetime.now()).isoformat(),
+            "name": exp_name or f"Lab-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",
+            "experiment_datetime": sess.get("datetime", datetime.now(timezone.utc)).isoformat(),
             "campaign_id": sess.get("campaign_id"),
             "description": sess.get("description") or None,
             "created_by_person_id": sess.get("created_by_person_id"),

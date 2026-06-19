@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 _project_root = str(Path(__file__).resolve().parent.parent.parent)
@@ -248,7 +248,7 @@ if selected_loop:
                                 "name": "timestamp",
                                 "type": "datetime-local",
                                 "required": True,
-                                "default": datetime.now().isoformat(timespec="seconds"),
+                                "default": datetime.now(timezone.utc).isoformat(),
                             },
                             {"name": "reason", "type": "text", "required": False},
                         ],
@@ -272,7 +272,7 @@ if selected_loop:
                                 "name": "start_timestamp",
                                 "type": "datetime-local",
                                 "required": True,
-                                "default": datetime.now().isoformat(timespec="seconds"),
+                                "default": datetime.now(timezone.utc).isoformat(),
                             },
                             {"name": "comments", "type": "text", "required": False},
                         ],

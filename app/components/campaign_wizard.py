@@ -1772,7 +1772,7 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                     actual_eq_id,
                     {
                         "signal_interface_id": signal_interface_id,
-                        "valid_from": datetime.now().isoformat(),
+                        "valid_from": datetime.now(timezone.utc).isoformat(),
                     },
                 )
             except APIError as e:

@@ -18,6 +18,8 @@ import streamlit as st
 
 from app.api_client import APIError, get_audit_logs
 
+_LOCAL_TZ = datetime.now().astimezone().tzinfo  # type: ignore[attr-defined]
+
 st.title("Audit Log")
 st.caption("Complete history of all actions performed in the system — who did what, and when.")
 
@@ -137,7 +139,7 @@ if not items:
 # Table
 # ---------------------------------------------------------------------------
 hdr = st.columns([2, 2.5, 1.5, 1.8, 1.2])
-hdr[0].markdown("**When (UTC)**")
+hdr[0].markdown("**When (local)**")
 hdr[1].markdown("**Author**")
 hdr[2].markdown("**Action**")
 hdr[3].markdown("**Resource**")
@@ -148,6 +150,10 @@ for entry in items:
     ts: datetime | str = entry["timestamp"]
     if isinstance(ts, str):
         ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    if isinstance(ts, datetime):
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        ts = ts.astimezone(_LOCAL_TZ)
 
     full_name  = entry.get("full_name") or "—"
     email      = entry.get("email") or ""

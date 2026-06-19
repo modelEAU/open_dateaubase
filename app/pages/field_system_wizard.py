@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import streamlit as st
 
@@ -533,7 +533,7 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                         actual_eq_id,
                         {
                             "signal_interface_id": actual_si_id,
-                            "valid_from": datetime.now().isoformat(),
+                            "valid_from": datetime.now(timezone.utc).isoformat(),
                         },
                     )
                 except APIError as e:

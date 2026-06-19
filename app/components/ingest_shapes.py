@@ -21,12 +21,33 @@ from __future__ import annotations
 
 import csv
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from io import StringIO
 from typing import Any, Literal
 
 import pandas as pd
 import streamlit as st
+
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo  # type: ignore[no-retype]
+
+_KNOWN_TIMEZONES = sorted(zoneinfo.available_timezones())
+
+
+def _timezone_selector(key: str, label: str = "CSV timezone", help: str | None = None) -> zoneinfo.ZoneInfo:
+    """Render a timezone selectbox pre-filled with the browser's local timezone.
+    Returns the selected zoneinfo.ZoneInfo for timestamp localization."""
+    local_tz_name = datetime.now(timezone.utc).astimezone().tzinfo.key  # type: ignore[attr-defined, union-attr]
+    selected_tz_name = st.selectbox(
+        label,
+        options=_KNOWN_TIMEZONES,
+        index=_KNOWN_TIMEZONES.index(local_tz_name) if local_tz_name in _KNOWN_TIMEZONES else _KNOWN_TIMEZONES.index("UTC"),
+        key=key,
+        help=help or "Timezone of the timestamps in your data. They will be converted to UTC on submit.",
+    )
+    return zoneinfo.ZoneInfo(selected_tz_name)
 
 from app.api_client import APIError
 
@@ -267,7 +288,7 @@ def scalar_ingest_block(
         errors: list[dict] = []
         if not csv_text.strip():
             return valid_rows, errors
-        csv_text = csv_text.lstrip("﻿")
+        csv_text = csv_text.lstrip("\ufeff")
         try:
             reader = csv.reader(StringIO(csv_text))
             rows = list(reader)
@@ -329,6 +350,12 @@ def scalar_ingest_block(
             st.session_state[errors_key] = parse_errors
             st.session_state[last_raw_key] = scalar_raw_csv
 
+    # Timezone selector for CSV data (entries may be in local time)
+    source_tz = _timezone_selector(
+        key=f"{key_prefix}_csv_timezone",
+        label="CSV timezone",
+    )
+
     if st.session_state.get(parsed_key) or st.session_state.get(errors_key):
         if st.session_state.get(errors_key):
             st.warning(f"{len(st.session_state[errors_key])} rows had parse errors and will be skipped.")
@@ -362,7 +389,7 @@ def scalar_ingest_block(
     ):
         values_payload = [
             {
-                "timestamp": r["timestamp"].isoformat(),
+                "timestamp": r["timestamp"].replace(tzinfo=source_tz).astimezone(timezone.utc).isoformat(),
                 "value": r["value"],
                 "quality_code": r["quality_code"],
             }
@@ -708,6 +735,13 @@ def vector_ingest_block(
             )
 
     st.markdown("---")
+
+    # Timezone selector for CSV data
+    source_tz = _timezone_selector(
+        key=f"{key_prefix}_csv_timezone",
+        label="CSV timezone",
+    )
+
     vector_valid_obs = st.session_state.get(parsed_key, [])
     if vector_ingest_mode == "Tagless (direct-connect)":
         has_required = all(
@@ -733,7 +767,7 @@ def vector_ingest_block(
     ):
         observations_payload = [
             {
-                "timestamp": obs["timestamp"].isoformat(),
+                "timestamp": obs["timestamp"].replace(tzinfo=source_tz).astimezone(timezone.utc).isoformat(),
                 "bin_values": obs["bin_values"],
                 "quality_code": obs["quality_code"],
             }
@@ -1115,6 +1149,12 @@ def matrix_ingest_block(
             )
 
     st.markdown("---")
+
+    source_tz = _timezone_selector(
+        key=f"{key_prefix}_csv_timezone",
+        label="CSV timezone",
+    )
+
     matrix_valid_obs = st.session_state.get(parsed_key, [])
     if matrix_ingest_mode == "Tagless (direct-connect)":
         has_required = all(
@@ -1158,7 +1198,7 @@ def matrix_ingest_block(
     ):
         observations_payload = [
             {
-                "timestamp": obs["timestamp"].isoformat(),
+                "timestamp": obs["timestamp"].replace(tzinfo=source_tz).astimezone(timezone.utc).isoformat(),
                 "matrix": obs["matrix"],
                 "quality_code": obs["quality_code"],
             }
@@ -1329,7 +1369,16 @@ def image_ingest_block(
             img_date = st.date_input("Measurement date", key=f"{key_prefix}_date")
         with col2:
             img_time = st.time_input("Measurement time", key=f"{key_prefix}_time")
-        img_timestamp = datetime.combine(img_date, img_time)
+        col_tz1, col_tz2 = st.columns([1, 3])
+        with col_tz1:
+            img_source_tz = _timezone_selector(
+                key=f"{key_prefix}_timezone",
+                label="Timezone",
+                help="Timezone of the measurement time above. It will be converted to UTC on submit.",
+            )
+            img_timestamp = datetime.combine(img_date, img_time).replace(tzinfo=img_source_tz).astimezone(timezone.utc)
+        with col_tz2:
+            st.caption(" ")  # spacer
 
     with st.container(border=True):
         st.subheader("Image File")
