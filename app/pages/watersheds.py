@@ -24,7 +24,7 @@ from app.api_client import (
     upsert_land_use,
 )
 from app.auth import require_auth
-from app.components.geo_utils import maybe_prefill_area, validate_geojson
+from app.components.geo_utils import maybe_prefill_area, normalize_geojson_for_folium, validate_geojson
 
 require_auth()
 
@@ -44,7 +44,7 @@ st.title("Watersheds")
 def _render_map(geojson_data: dict | None, center: tuple[float, float] = (45.5, -73.6)) -> None:
     m = folium.Map(location=center, zoom_start=10, tiles="OpenStreetMap")
     if geojson_data:
-        gj = folium.GeoJson(geojson_data, name="Watershed boundary")
+        gj = folium.GeoJson(normalize_geojson_for_folium(geojson_data), name="Watershed boundary")
         gj.add_to(m)
     st_folium(m, height=350, use_container_width=True)
 

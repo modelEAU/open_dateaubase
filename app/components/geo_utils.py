@@ -113,6 +113,17 @@ def maybe_prefill_area(
     return True
 
 
+def geojson_bounds(geojson: dict[str, Any]) -> list[list[float]] | None:
+    """Return [[south, west], [north, east]] bounds, or None if no geometry."""
+    from shapely.ops import unary_union
+
+    geoms = [shape(g) for g in _iter_polygon_geoms(geojson)]
+    if not geoms:
+        return None
+    b = unary_union(geoms).bounds  # (minx, miny, maxx, maxy)
+    return [[b[1], b[0]], [b[3], b[2]]]
+
+
 def geojson_area_ha(geojson: dict[str, Any]) -> float:
     """Return the total geodesic surface area in hectares (WGS-84).
 
@@ -129,3 +140,39 @@ def geojson_area_ha(geojson: dict[str, Any]) -> float:
         area_m2, _ = _GEOD.geometry_area_perimeter(shp)
         total_m2 += abs(area_m2)
     return total_m2 / 10_000.0  # m² → ha
+
+
+def normalize_geojson_for_folium(geojson: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a GeoJSON dict so folium renders it without errors.
+
+    Folium's default ``setStyle`` callback accesses
+    ``feature.properties.style``, which fails when a bare Feature with
+    ``null`` properties is passed (e.g. no ``"style"`` key). The handler
+    also assumes a FeatureCollection.
+
+    This helper ensures the data is always a FeatureCollection whose
+    features each have a ``style`` property.
+    """
+    top = geojson.get("type")
+    if top == "FeatureCollection":
+        features = geojson.get("features", [])
+    elif top == "Feature":
+        features = [geojson]
+    elif top in ALLOWED_GEOM_TYPES:
+        features = [{"type": "Feature", "properties": {}, "geometry": geojson}]
+    else:
+        return geojson
+
+    normalized_features: list[dict[str, Any]] = []
+    for f in features:
+        props = f.get("properties")
+        if props is None:
+            props = {}
+        normalized_features.append(
+            {**f, "properties": {**props, "style": props.get("style", {})}}
+        )
+
+    return {
+        "type": "FeatureCollection",
+        "features": normalized_features,
+    }

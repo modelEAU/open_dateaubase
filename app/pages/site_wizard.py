@@ -19,7 +19,7 @@ from app.api_client import (
     list_site_kinds,
     list_watersheds,
 )
-from app.components.geo_utils import maybe_prefill_area, validate_geojson
+from app.components.geo_utils import geojson_area_ha, geojson_bounds, normalize_geojson_for_folium, validate_geojson
 from app.components.location_picker import render_location_picker
 from app.components.wizard_helpers import (
     clear_wizard,
@@ -35,11 +35,48 @@ def _validate_ws_geojson(raw: str) -> tuple[dict | None, str | None]:
     return validate_geojson(raw)
 
 
+def _on_ws_geojson_upload() -> None:
+    # ponytail: callback runs pre-rerun so session_state writes are safe here
+    uploaded = st.session_state.get(f"{_WIZ}_ws_new_geojson_upload")
+    geojson_key = f"{_WIZ}_ws_new_geojson"
+    err_key = f"{_WIZ}_ws_new_geojson_error"
+    sentinel_key = f"{_WIZ}_ws_new_geojson_area_sentinel"
+    area_key = f"{_WIZ}_ws_new_surface_area"
+
+    if uploaded is None:
+        st.session_state.pop(geojson_key, None)
+        st.session_state.pop(err_key, None)
+        return
+
+    raw = uploaded.read().decode("utf-8")
+    parsed, err = _validate_ws_geojson(raw)
+    if err or parsed is None:
+        st.session_state[err_key] = err
+        st.session_state.pop(geojson_key, None)
+        return
+
+    st.session_state.pop(err_key, None)
+    st.session_state[geojson_key] = raw
+
+    file_id = getattr(uploaded, "file_id", None) or (uploaded.name, uploaded.size)
+    if st.session_state.get(sentinel_key) != file_id:
+        try:
+            st.session_state[area_key] = round(geojson_area_ha(parsed), 2)
+            st.session_state[sentinel_key] = file_id
+        except Exception:
+            pass
+
+
 def _render_ws_map(geojson_data: dict | None) -> None:
-    m = folium.Map(location=[45.5, -73.6], zoom_start=10, tiles="OpenStreetMap")
+    bounds = geojson_bounds(geojson_data) if geojson_data else None
+    if bounds:
+        center = [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2]
+        m = folium.Map(location=center, zoom_start=16, tiles="OpenStreetMap")
+    else:
+        m = folium.Map(location=[45.5, -73.6], zoom_start=10, tiles="OpenStreetMap")
     if geojson_data:
-        folium.GeoJson(geojson_data, name="Watershed boundary").add_to(m)
-    st_folium(m, height=300, use_container_width=True)
+        folium.GeoJson(normalize_geojson_for_folium(geojson_data), name="Watershed boundary").add_to(m)
+    st_folium(m, height=400, use_container_width=True, returned_objects=[])
 
 
 _WIZ = "site_wiz"
@@ -124,6 +161,19 @@ def _step_site(lookups: dict) -> None:
     elif ws_mode == "Create new":
         st.text_input("Watershed name *", key=f"{_WIZ}_ws_new_name")
         st.text_area("Description", key=f"{_WIZ}_ws_new_description")
+        st.caption("Boundary (optional)")
+        uploaded = st.file_uploader(
+            "Upload GeoJSON boundary",
+            type=["geojson", "json"],
+            key=f"{_WIZ}_ws_new_geojson_upload",
+            on_change=_on_ws_geojson_upload,
+            help="Must contain only Polygon or MultiPolygon geometries.",
+        )
+        if uploaded is not None:
+            if err := st.session_state.get(f"{_WIZ}_ws_new_geojson_error"):
+                st.error(err)
+            else:
+                st.success("GeoJSON validated.")
         st.number_input(
             "Surface area (ha)",
             min_value=0.0,
@@ -132,28 +182,6 @@ def _step_site(lookups: dict) -> None:
         )
         st.number_input("Concentration time (min)", min_value=0, step=1, key=f"{_WIZ}_ws_new_concentration_time")
         st.number_input("Impervious surface (%)", min_value=0.0, max_value=100.0, key=f"{_WIZ}_ws_new_impervious_surface")
-        st.caption("Boundary (optional)")
-        uploaded = st.file_uploader(
-            "Upload GeoJSON boundary",
-            type=["geojson", "json"],
-            key=f"{_WIZ}_ws_new_geojson_upload",
-            help="Must contain only Polygon or MultiPolygon geometries.",
-        )
-        if uploaded is not None:
-            raw = uploaded.read().decode("utf-8")
-            parsed, geojson_err = _validate_ws_geojson(raw)
-            if geojson_err:
-                st.error(geojson_err)
-            else:
-                st.session_state[f"{_WIZ}_ws_new_geojson"] = raw
-                st.success("GeoJSON validated.")
-                if parsed and maybe_prefill_area(
-                    uploaded,
-                    parsed,
-                    target_key=f"{_WIZ}_ws_new_surface_area",
-                    sentinel_key=f"{_WIZ}_ws_new_geojson_area_sentinel",
-                ):
-                    st.rerun()
         if st.session_state.get(f"{_WIZ}_ws_new_geojson"):
             _render_ws_map(json.loads(st.session_state[f"{_WIZ}_ws_new_geojson"]))
 
