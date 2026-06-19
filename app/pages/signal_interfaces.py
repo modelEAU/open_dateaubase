@@ -24,6 +24,7 @@ from app.api_client import (
     update_signal_interface,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.id_format import humanize_id_columns
 
 
 st.title("Signal Interfaces")
@@ -167,7 +168,7 @@ selected_interface = None
 if interfaces:
     df = pd.DataFrame(interfaces)
     selected_indices = st.dataframe(
-        df,
+        humanize_id_columns(df, pk_field="signal_interface_id"),
         use_container_width=True,
         on_select="rerun",
         selection_mode="single-row",
@@ -258,7 +259,7 @@ if selected_interface:
             ports = []
 
         if ports:
-            st.dataframe(pd.DataFrame(ports), use_container_width=True)
+            st.dataframe(humanize_id_columns(pd.DataFrame(ports)), use_container_width=True)
         else:
             st.info("No ports configured for this interface.")
 
@@ -288,7 +289,7 @@ if selected_interface:
         try:
             channels = list_channels_for_interface(si_id)
             if channels:
-                st.dataframe(pd.DataFrame(channels), use_container_width=True)
+                st.dataframe(humanize_id_columns(pd.DataFrame(channels)), use_container_width=True)
             else:
                 st.info("No channels configured for this interface.")
         except APIError as e:

@@ -27,6 +27,7 @@ from app.api_client import (
     patch_campaign,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.id_format import humanize_id_columns
 
 
 @st.dialog("Add Deployment")
@@ -258,7 +259,7 @@ if "selected_campaign_id" not in st.session_state:
 if filtered_campaigns:
     df = pd.DataFrame(filtered_campaigns)
     selected_indices = st.dataframe(
-        df,
+        humanize_id_columns(df, pk_field="campaign_id"),
         use_container_width=True,
         on_select="rerun",
         selection_mode="single-row",
@@ -356,7 +357,7 @@ if selected_campaign is not None:
         if deployments:
             deploy_df = pd.DataFrame(deployments)
             deploy_selection = st.dataframe(
-                deploy_df,
+                humanize_id_columns(deploy_df),
                 use_container_width=True,
                 on_select="rerun",
                 selection_mode="single-row",

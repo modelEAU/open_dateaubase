@@ -182,6 +182,9 @@ if not items:
 
 import pandas as pd
 
+from app.components.id_format import humanize_id_columns
+
+id_to_name = {w["watershed_id"]: w["name"] for w in items}
 df = pd.DataFrame(
     [
         {
@@ -190,7 +193,7 @@ df = pd.DataFrame(
             "Surface (ha)": w["surface_area"],
             "Conc. time (min)": w["concentration_time"],
             "Impervious (%)": w["impervious_surface"],
-            "Parent ID": w["parent_watershed_id"],
+            "parent_watershed_id": w["parent_watershed_id"],
             "Has boundary": w["geometry_geojson"] is not None,
         }
         for w in items
@@ -198,7 +201,7 @@ df = pd.DataFrame(
 ).sort_values("ID").reset_index(drop=True)
 
 sel = st.dataframe(
-    df,
+    humanize_id_columns(df, resolvers={"parent_watershed_id": id_to_name}),
     use_container_width=True,
     on_select="rerun",
     selection_mode="single-row",

@@ -28,6 +28,7 @@ from app.api_client import (
     retune_control_loop,
 )
 from app.components.form_dialog import create_form_dialog
+from app.components.id_format import humanize_id_columns
 
 
 st.title("Control Loops")
@@ -141,7 +142,7 @@ if "selected_loop_id" not in st.session_state:
 if loops:
     df = pd.DataFrame(loops)
     selected_indices = st.dataframe(
-        df,
+        humanize_id_columns(df, pk_field="control_loop_id"),
         use_container_width=True,
         on_select="rerun",
         selection_mode="single-row",
@@ -219,7 +220,8 @@ if selected_loop:
             loop_ports = list_control_loop_ports(selected_loop["control_loop_id"])
             if loop_ports and "items" in loop_ports and loop_ports["items"]:
                 st.dataframe(
-                    pd.DataFrame(loop_ports["items"]), use_container_width=True
+                    humanize_id_columns(pd.DataFrame(loop_ports["items"])),
+                    use_container_width=True,
                 )
             else:
                 st.info("No ports assigned to this control loop.")

@@ -25,6 +25,7 @@ from app.api_client import (
 )
 from app.api_client import list_site_sampling_locations
 from app.components.crud_form import render_form_field
+from app.components.id_format import humanize_id_columns
 from app.components.location_picker import render_location_picker, _clear_location_state
 
 
@@ -261,7 +262,7 @@ def _render_table() -> None:
     if sites:
         df = pd.DataFrame(sites)
         selected_indices = st.dataframe(
-            df,
+            humanize_id_columns(df, pk_field="id"),
             use_container_width=True,
             on_select="rerun",
             selection_mode="single-row",

@@ -24,6 +24,7 @@ from app.api_client import (
     update_annotation,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.id_format import humanize_id_columns
 
 
 
@@ -153,7 +154,7 @@ if "selected_annotation_id" not in st.session_state:
 if annotations:
     df = pd.DataFrame(annotations)
     selected_indices = st.dataframe(
-        df,
+        humanize_id_columns(df, pk_field="annotation_id"),
         use_container_width=True,
         on_select="rerun",
         selection_mode="single-row",

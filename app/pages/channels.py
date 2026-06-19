@@ -23,6 +23,7 @@ from app.api_client import (
     update_channel,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.id_format import humanize_id_columns
 
 
 st.title("Channels")
@@ -238,7 +239,7 @@ if channels:
             lambda t: ", ".join(t) if isinstance(t, (list, tuple)) else t
         )
     selected_indices = st.dataframe(
-        df,
+        humanize_id_columns(df, pk_field="channel_id"),
         use_container_width=True,
         on_select="rerun",
         selection_mode="single-row",

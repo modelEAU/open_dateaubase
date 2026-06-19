@@ -23,6 +23,7 @@ import streamlit as st
 import app.api_client as _api
 from app.api_client import APIError
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.id_format import humanize_id_columns
 
 
 def render_crud_page(
@@ -86,7 +87,7 @@ def render_crud_page(
     if items:
         df = pd.DataFrame(items).sort_values(pk_field).reset_index(drop=True)
         sel = st.dataframe(
-            df,
+            humanize_id_columns(df, pk_field=pk_field),
             use_container_width=True,
             on_select="rerun",
             selection_mode="single-row",

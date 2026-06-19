@@ -28,6 +28,7 @@ from app.api_client import (
     patch_lab_panel,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.id_format import humanize_id_columns
 from app.components.series_picker import render_series_picker
 
 st.title("Lab Panels")
@@ -156,7 +157,7 @@ if _panels:
         ]
     )
     selection = st.dataframe(
-        df,
+        humanize_id_columns(df, pk_field="lab_panel_id"),
         use_container_width=True,
         on_select="rerun",
         selection_mode="single-row",
