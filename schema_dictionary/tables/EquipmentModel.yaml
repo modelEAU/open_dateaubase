@@ -31,8 +31,8 @@ table:
       description: "Name of the manufacturer"
     - name: ManualLocation
       logical_type: string
-      max_length: 100
+      max_length: 1000
       nullable: true
-      description: "Location where the manual is stored"
+      description: "Location where the manual is stored (e.g. a SharePoint URL)"
 
   primary_key: [EquipmentModel_ID]

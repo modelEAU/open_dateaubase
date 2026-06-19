@@ -582,7 +582,7 @@ Stores detailed, non-redundant specifications for a specific sensor or instrumen
 | Method | NVARCHAR(100) | - |  | <span id="Method"></span>Method behind the equipment | - |
 | Functions | NVARCHAR(MAX) | - |  | <span id="Functions"></span>Description of the functions of the equipment | - |
 | Manufacturer | NVARCHAR(100) | - |  | <span id="Manufacturer"></span>Name of the manufacturer | - |
-| ManualLocation | NVARCHAR(100) | - |  | <span id="ManualLocation"></span>Location where the manual is stored | - |
+| ManualLocation | NVARCHAR(1000) | - |  | <span id="ManualLocation"></span>Location where the manual is stored (e.g. a SharePoint URL) | - |
 
 <span id="EquipmentModelHasParameter"></span>
 

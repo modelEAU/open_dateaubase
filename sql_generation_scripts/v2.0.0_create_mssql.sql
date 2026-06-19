@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.0.0
 -- Platform: mssql
--- Generated: 2026-06-18 03:07:54 UTC
+-- Generated: 2026-06-19 19:22:17 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -72,7 +72,7 @@ CREATE TABLE [dbo].[EquipmentModel] (
     [Method] NVARCHAR(100),
     [Functions] NVARCHAR(MAX),
     [Manufacturer] NVARCHAR(100),
-    [ManualLocation] NVARCHAR(100),
+    [ManualLocation] NVARCHAR(1000),
     CONSTRAINT [PK_EquipmentModel] PRIMARY KEY ([EquipmentModel_ID])
 );
 
