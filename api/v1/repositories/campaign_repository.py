@@ -259,20 +259,18 @@ def list_campaign_deployments(conn: pyodbc.Connection, campaign_id: int) -> list
         SELECT
             ce.[Equipment_ID],
             e.[Identifier] AS equipment_identifier,
-            csl.[SamplingPoint_ID],
+            elh.[SamplingPoint_ID],
             sp.[SamplingPoint] AS sampling_point_name,
-            ei.[Installation_ID],
-            ei.[InstalledDate]
+            ce.[Equipment_ID] AS installation_id,
+            elh.[ValidFrom] AS installed_date
         FROM [dbo].[CampaignEquipment] ce
         JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ce.[Equipment_ID]
-        LEFT JOIN [dbo].[CampaignSamplingLocation] csl
-            ON csl.[Campaign_ID] = ce.[Campaign_ID]
+        LEFT JOIN [dbo].[EquipmentLocationHistory] elh
+            ON elh.[Equipment_ID] = ce.[Equipment_ID]
+            AND elh.[Campaign_ID] = ce.[Campaign_ID]
+            AND elh.[ValidTo] IS NULL
         LEFT JOIN [dbo].[SamplingPoint] sp
-            ON sp.[SamplingPoint_ID] = csl.[SamplingPoint_ID]
-        LEFT JOIN [dbo].[EquipmentInstallation] ei
-            ON ei.[Equipment_ID] = ce.[Equipment_ID]
-            AND ei.[SamplingPoint_ID] = csl.[SamplingPoint_ID]
-            AND ei.[Campaign_ID] = ce.[Campaign_ID]
+            ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
         WHERE ce.[Campaign_ID] = ?
         """,
         campaign_id,
@@ -374,20 +372,28 @@ def delete_campaign_deployment(
     conn: pyodbc.Connection,
     campaign_id: int,
     equipment_id: int,
-    sampling_point_id: int,
+    sampling_point_id: int | None,
 ) -> None:
-    """Delete a deployment: remove from EquipmentInstallation, CampaignEquipment,
-    and CampaignSamplingLocation atomically."""
+    """Reverse a deployment created by :func:`create_campaign_deployment`.
+
+    In one transaction:
+      1. Delete the active (``ValidTo IS NULL``) ``EquipmentLocationHistory`` row
+         tagged with this campaign for the equipment (the physical placement that
+         create opened). EquipmentInstallation was dropped — placement lives here.
+      2. Delete the ``CampaignEquipment`` link.
+      3. Delete the ``CampaignSamplingLocation`` link **only if** no other equipment
+         remains placed at that sampling point under this campaign (the link is
+         campaign-level and shared across deployments).
+    """
     cursor = conn.cursor()
 
     cursor.execute(
         """
-        DELETE FROM [dbo].[EquipmentInstallation]
-        WHERE [Campaign_ID] = ? AND [Equipment_ID] = ? AND [SamplingPoint_ID] = ?
+        DELETE FROM [dbo].[EquipmentLocationHistory]
+        WHERE [Campaign_ID] = ? AND [Equipment_ID] = ? AND [ValidTo] IS NULL
         """,
         campaign_id,
         equipment_id,
-        sampling_point_id,
     )
 
     cursor.execute(
@@ -399,14 +405,23 @@ def delete_campaign_deployment(
         equipment_id,
     )
 
-    cursor.execute(
-        """
-        DELETE FROM [dbo].[CampaignSamplingLocation]
-        WHERE [Campaign_ID] = ? AND [SamplingPoint_ID] = ?
-        """,
-        campaign_id,
-        sampling_point_id,
-    )
+    if sampling_point_id is not None:
+        cursor.execute(
+            """
+            DELETE FROM [dbo].[CampaignSamplingLocation]
+            WHERE [Campaign_ID] = ? AND [SamplingPoint_ID] = ?
+            AND NOT EXISTS (
+                SELECT 1 FROM [dbo].[EquipmentLocationHistory] elh
+                WHERE elh.[Campaign_ID] = ?
+                  AND elh.[SamplingPoint_ID] = ?
+                  AND elh.[ValidTo] IS NULL
+            )
+            """,
+            campaign_id,
+            sampling_point_id,
+            campaign_id,
+            sampling_point_id,
+        )
 
     conn.commit()
 
@@ -416,19 +431,32 @@ def delete_campaign_deployment_by_installation(
     campaign_id: int,
     installation_id: int,
 ) -> bool:
+    """Delete a deployment by its handle. ``installation_id`` is the Equipment_ID
+    (what :func:`create_campaign_deployment` returns). Returns False if the
+    equipment is not deployed in this campaign."""
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT [Equipment_ID], [SamplingPoint_ID]
-        FROM [dbo].[EquipmentInstallation]
-        WHERE [EquipmentInstallation_ID] = ? AND [Campaign_ID] = ?
+        SELECT 1 FROM [dbo].[CampaignEquipment]
+        WHERE [Campaign_ID] = ? AND [Equipment_ID] = ?
         """,
-        installation_id,
         campaign_id,
+        installation_id,
+    )
+    if cursor.fetchone() is None:
+        return False
+
+    # Resolve the active campaign placement to know which SP link to clean up.
+    cursor.execute(
+        """
+        SELECT [SamplingPoint_ID]
+        FROM [dbo].[EquipmentLocationHistory]
+        WHERE [Campaign_ID] = ? AND [Equipment_ID] = ? AND [ValidTo] IS NULL
+        """,
+        campaign_id,
+        installation_id,
     )
     row = cursor.fetchone()
-    if row is None:
-        return False
-    equipment_id, sampling_point_id = row
-    delete_campaign_deployment(conn, campaign_id, equipment_id, sampling_point_id)
+    sampling_point_id = row[0] if row else None
+    delete_campaign_deployment(conn, campaign_id, installation_id, sampling_point_id)
     return True
