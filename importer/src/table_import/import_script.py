@@ -279,6 +279,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                         data_provenance_id=variable.data_provenance_id,
                         processing_degree_id=variable.processing_degree_id,
                         signal_interface_name=file_cfg.signal_interface_name,
+                        wiring_valid_from=api_conf.min_timestamp,
                     )
                 for w in warnings:
                     print(f"[WARNING] {label}: {w}")
@@ -357,6 +358,7 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
                         data_provenance_id=variable.data_provenance_id,
                         processing_degree_id=variable.processing_degree_id,
                         signal_interface_name=tsdb_cfg.signal_interface_name,
+                        wiring_valid_from=api_conf.min_timestamp,
                     )
                 for w in warnings:
                     print(f"[WARNING] {label}: {w}")
@@ -537,6 +539,7 @@ def _ingest_vector_source(
                 processing_degree_id=variable.processing_degree_id,
                 value_type_id=2,
                 signal_interface_name=vec_cfg.signal_interface_name,
+                wiring_valid_from=api_conf.min_timestamp,
             )
         for w in ch_warnings:
             print(f"[WARNING] {label}: {w}")
@@ -668,6 +671,7 @@ def _ingest_image_source(
                 processing_degree_id=variable.processing_degree_id,
                 value_type_id=4,
                 signal_interface_name=img_cfg.signal_interface_name,
+                wiring_valid_from=api_conf.min_timestamp,
             )
         for w in warnings:
             print(f"[WARNING] {label}: {w}")

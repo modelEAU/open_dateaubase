@@ -386,6 +386,10 @@ class TaglessSensorChannelResolveRequest(BaseModel):
     unit_name: str
     data_provenance_kind_id: int = 1
     value_kind_id: int = 1
+    # Backdate a newly-opened EquipmentWiringHistory row to this timestamp (e.g.
+    # the importer's min_timestamp floor) so location/equipment views cover the
+    # data that will be ingested, rather than starting at the resolve moment.
+    wiring_valid_from: datetime | None = None
 
 
 class ChannelResolveResponse(BaseModel):

@@ -15,6 +15,7 @@ Tests run without a live database using dependency_overrides and patch.
 from __future__ import annotations
 
 import contextlib
+from datetime import datetime
 from unittest.mock import patch
 
 import pytest
@@ -291,7 +292,10 @@ class TestHappyPath:
             resp = client.post("/api/v1/ingest/sensor-tagless", json=_VALID_PAYLOAD)
 
         assert resp.status_code == 201
-        mock_history.assert_called_once_with(mock_conn, 20, 30, None)
+        # wiring is backdated to the batch's earliest observation timestamp
+        mock_history.assert_called_once_with(
+            mock_conn, 20, 30, None, valid_from=datetime(2024, 1, 1, 0, 0, 0)
+        )
 
     def test_equipment_wiring_not_opened_on_existing_wiring(self, client, mock_conn):
         """open_equipment_wiring_history must NOT be called when active wiring already exists."""

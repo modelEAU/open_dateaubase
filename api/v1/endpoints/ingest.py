@@ -160,6 +160,12 @@ def _resolve_tag_inputs(
     )
 
 
+def _min_timestamp(values) -> datetime | None:
+    """Earliest ``.timestamp`` across a list of value items, or None if empty."""
+    times = [v.timestamp for v in values if getattr(v, "timestamp", None) is not None]
+    return min(times) if times else None
+
+
 def _resolve_tagless_inputs(
     conn,
     das_name: str,
@@ -167,6 +173,7 @@ def _resolve_tagless_inputs(
     parameter_name: str,
     unit_name: str,
     strict: bool = False,
+    wiring_valid_from: datetime | None = None,
 ) -> tuple[int, str, int, int, list[str]]:
     """Validate names and resolve tagless ingest inputs to IDs.
 
@@ -174,6 +181,10 @@ def _resolve_tagless_inputs(
 
     Raises HTTP 422 for unrecognised parameter_name or unit_name — before any DB writes.
     When strict=True, also raises 422 for unknown DAS or Equipment instead of auto-creating.
+
+    ``wiring_valid_from`` backdates a newly-opened EquipmentWiringHistory row to the
+    batch's earliest observation timestamp, so location/equipment resolution covers
+    the data being ingested rather than starting at the ingest moment.
     """
     # --- Validation-only lookups first (no writes) ---
     param_id = signal_interface_repository.find_parameter_by_name(conn, parameter_name)
@@ -235,6 +246,13 @@ def _resolve_tagless_inputs(
     signal_interface_id: int | None = None
     if wiring is not None:
         signal_interface_id = wiring[0]
+        # Wiring already exists (e.g. opened during a prior resolve at ingest
+        # time). If this batch carries earlier observations, backdate the active
+        # wiring so location/equipment views cover them.
+        if wiring_valid_from is not None:
+            signal_interface_repository.lower_equipment_wiring_valid_from(
+                conn, equip_id, wiring_valid_from
+            )
 
     signal_interface_created = False
     if signal_interface_id is None:
@@ -253,9 +271,10 @@ def _resolve_tagless_inputs(
             )
             logger.warning(msg)
             collected_warnings.append(msg)
-        # Open wiring history so provenance is recorded at ingest time.
+        # Open wiring history so provenance is recorded, backdated to the batch's
+        # earliest observation so location/equipment views resolve historical data.
         signal_interface_repository.open_equipment_wiring_history(
-            conn, equip_id, signal_interface_id, None
+            conn, equip_id, signal_interface_id, None, valid_from=wiring_valid_from
         )
 
     synthetic_tag = signal_interface_repository.generate_tagless_tagname(
@@ -513,6 +532,7 @@ def resolve_channel_tagless(
         equipment_name=data.equipment_name,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
+        wiring_valid_from=data.wiring_valid_from,
     )
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
@@ -637,6 +657,7 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
         strict=data.strict,
+        wiring_valid_from=_min_timestamp(data.values),
     )
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
@@ -978,6 +999,7 @@ def ingest_sensor_vector_tagless(data: TaglessVectorSensorIngestRequest, conn=De
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
         strict=data.strict,
+        wiring_valid_from=_min_timestamp(data.observations),
     )
 
     channel_id = ingestion_repository.find_or_create_sensor_metadata(
@@ -1139,6 +1161,7 @@ def ingest_sensor_image(
             equipment_name=equipment_name,
             parameter_name=parameter_name,
             unit_name=unit_name,
+            wiring_valid_from=ts,
         )
         channel_kind_id = (
             signal_interface_repository.find_channel_kind_by_name(conn, "value") or 1

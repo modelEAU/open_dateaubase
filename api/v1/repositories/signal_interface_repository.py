@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 import pyodbc
 
@@ -286,8 +287,15 @@ def open_equipment_wiring_history(
     equipment_id: int,
     signal_interface_id: int,
     signal_interface_port_id: int | None,
+    valid_from: datetime | None = None,
 ) -> int:
-    """Insert an EquipmentWiringHistory row with ValidFrom=now (UTC) and ValidTo=NULL.
+    """Insert an EquipmentWiringHistory row with ValidTo=NULL.
+
+    ``valid_from`` backdates the wiring's effective start. Pass the batch's
+    earliest observation timestamp so the wiring covers the data being ingested;
+    otherwise location/equipment resolution views (which require
+    ``wiring.ValidFrom <= observation.Timestamp``) return NULL for any data that
+    predates the ingest moment. Defaults to now (UTC) when not supplied.
 
     Returns ``EquipmentWiringHistory_ID``.
     """
@@ -296,16 +304,39 @@ def open_equipment_wiring_history(
         "INSERT INTO [dbo].[EquipmentWiringHistory]"
         "    ([Equipment_ID], [SignalInterface_ID], [SignalInterfacePort_ID], [ValidFrom])"
         " OUTPUT INSERTED.[EquipmentWiringHistory_ID]"
-        " VALUES (?, ?, ?, SYSUTCDATETIME())",
+        " VALUES (?, ?, ?, COALESCE(?, SYSUTCDATETIME()))",
         equipment_id,
         signal_interface_id,
         signal_interface_port_id,
+        valid_from,
     )
     _row = cursor.fetchone()
     assert _row is not None
     new_id: int = _row[0]
     conn.commit()
     return new_id
+
+
+def lower_equipment_wiring_valid_from(
+    conn: pyodbc.Connection,
+    equipment_id: int,
+    valid_from: datetime,
+) -> None:
+    """Backdate the active wiring's ValidFrom to *valid_from* if it is currently
+    later. Only ever moves ValidFrom earlier, so repeated batches converge on the
+    equipment's earliest observation. No-op when the active row already starts at
+    or before *valid_from*.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE [dbo].[EquipmentWiringHistory]"
+        " SET [ValidFrom] = ?"
+        " WHERE [Equipment_ID] = ? AND [ValidTo] IS NULL AND [ValidFrom] > ?",
+        valid_from,
+        equipment_id,
+        valid_from,
+    )
+    conn.commit()
 
 
 # ---------------------------------------------------------------------------

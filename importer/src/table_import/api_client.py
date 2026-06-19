@@ -120,8 +120,14 @@ class DateaubaseClient:
         processing_degree_id: int = 1,
         value_type_id: int = 1,
         signal_interface_name: str | None = None,
+        wiring_valid_from: str | None = None,
     ) -> tuple[int, list[str]]:
-        """POST /api/v1/ingest/resolve-channel-tagless → (channel_id, warnings)."""
+        """POST /api/v1/ingest/resolve-channel-tagless → (channel_id, warnings).
+
+        ``wiring_valid_from`` (ISO timestamp) backdates a newly-opened wiring row
+        so location/equipment views cover the data about to be ingested. Pass the
+        source's min_timestamp floor.
+        """
         body: dict[str, Any] = {
             "das_name": das_name,
             "equipment_name": equipment_name,
@@ -133,6 +139,8 @@ class DateaubaseClient:
         }
         if signal_interface_name is not None:
             body["signal_interface_name"] = signal_interface_name
+        if wiring_valid_from is not None:
+            body["wiring_valid_from"] = wiring_valid_from
         payload = self._post("/api/v1/ingest/resolve-channel-tagless", body)
         return payload["channel_id"], payload.get("warnings", [])
 
