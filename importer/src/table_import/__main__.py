@@ -1,4 +1,5 @@
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -7,6 +8,9 @@ from table_import.import_script import (
     read_config_from_file,
     read_configs_from_dir,
 )
+from table_import.logging_config import configure_logging
+
+logger = logging.getLogger("table_import")
 
 
 def _cmd_import(args: argparse.Namespace) -> None:
@@ -93,12 +97,22 @@ def cli() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "import":
-        _cmd_import(args)
-    elif args.command == "l5x":
-        _cmd_l5x(args)
-    else:
-        parser.print_help()
+    configure_logging()
+
+    try:
+        if args.command == "import":
+            _cmd_import(args)
+        elif args.command == "l5x":
+            _cmd_l5x(args)
+        else:
+            parser.print_help()
+            sys.exit(1)
+    except SystemExit:
+        raise  # argparse / explicit exits already carry their own code
+    except Exception:
+        # Leave one structured error record (with traceback) and exit non-zero
+        # so a failed scheduled run is visible in OpenObserve, not silent.
+        logger.exception("import run failed")
         sys.exit(1)
 
 
