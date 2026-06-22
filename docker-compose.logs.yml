@@ -4,10 +4,18 @@
 # Run alongside the main stack:
 #   docker compose -f docker-compose.yml -f docker-compose.logs.yml up
 # Then open http://localhost:5080 and log in with ZO_ROOT_USER_* (defaults below).
+# Cap per-container log files (json-file's default is unbounded).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
 services:
   openobserve:
     image: openobserve/openobserve:latest
     container_name: open_dateaubase_openobserve
+    logging: *default-logging
     environment:
       ZO_ROOT_USER_EMAIL: "${LOGVIEWER_USER:-admin@open_dateaubase.local}"
       ZO_ROOT_USER_PASSWORD: "${LOGVIEWER_PASSWORD:-Complexpass#123}"
@@ -22,6 +30,7 @@ services:
   vector:
     image: timberio/vector:latest-debian
     container_name: open_dateaubase_vector
+    logging: *default-logging
     depends_on:
       - openobserve
     environment:

@@ -9,6 +9,14 @@ data_dir = "/var/lib/vector"
 type = "docker_logs"
 # Only collect this stack's containers (names are open_dateaubase_*).
 include_containers = ["open_dateaubase"]
+# ...but never the log store or the shipper themselves (each ingestion line would
+# get re-ingested in a feedback loop), nor MSSQL (extremely chatty, not app signal).
+# These three were the bulk of the ~1GB/5days volume.
+exclude_containers = [
+  "open_dateaubase_openobserve",
+  "open_dateaubase_vector",
+  "open_dateaubase_db",
+]
 
 [transforms.tag]
 type = "remap"
