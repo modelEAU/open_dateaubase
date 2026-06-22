@@ -8,9 +8,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .config import settings
+from .logging_config import configure_logging
 from .observability import RequestTimingMiddleware
 from .v1.errors import EntityNotFoundError
 from .v1.router import router as v1_router
+
+configure_logging()
 
 # Create upload directories on startup
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
