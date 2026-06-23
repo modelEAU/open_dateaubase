@@ -44,6 +44,7 @@ def _campaign():
 def _overview():
     return {
         "watershed": {"id": 1, "name": "Rivière St-Pierre"},
+        "sampling_points": [{"id": 1, "name": "Inlet", "lat": 45.45, "lon": -73.57, "role": "Inlet"}],
         "data_acquisition_systems": [{"id": 1, "name": "CommCube-A", "kind": "Logger", "valid_from": None}],
         "equipment": [{
             "equipment_id": 12, "identifier": "EXO2 #A12", "model": "YSI EXO2",

@@ -68,6 +68,7 @@ class CampaignOverviewOut(BaseModel):
 
     campaign: CampaignOut
     watershed: dict | None
+    sampling_points: list[dict]
     data_acquisition_systems: list[dict]
     equipment: list[dict]
     lab_series: list[dict]

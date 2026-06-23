@@ -493,6 +493,23 @@ def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
     row = cur.fetchone()
     watershed = {"id": row[0], "name": row[1]} if row and row[0] is not None else None
 
+    # --- Sampling points monitored (the "sites surveilled") ---------------
+    cur.execute(
+        """
+        SELECT sp.[SamplingPoint_ID], sp.[SamplingPoint],
+               sp.[LatitudeWGS84], sp.[LongitudeWGS84], csl.[Role]
+        FROM [dbo].[CampaignSamplingLocation] csl
+        JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = csl.[SamplingPoint_ID]
+        WHERE csl.[Campaign_ID] = ?
+        ORDER BY sp.[SamplingPoint]
+        """,
+        campaign_id,
+    )
+    sampling_points = [
+        {"id": r[0], "name": r[1], "lat": r[2], "lon": r[3], "role": r[4]}
+        for r in cur.fetchall()
+    ]
+
     # --- Data acquisition systems deployed in this campaign ---------------
     cur.execute(
         """
@@ -650,6 +667,7 @@ def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
 
     return {
         "watershed": watershed,
+        "sampling_points": sampling_points,
         "data_acquisition_systems": das,
         "equipment": equipment,
         "lab_series": lab_series,

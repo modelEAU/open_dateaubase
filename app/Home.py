@@ -80,6 +80,9 @@ pg = st.navigation(
             st.Page(str(_pages / "explore.py"), title="Visualize Data", icon="📊"),
             st.Page(str(_pages / "equipment_move.py"), title="Move a sensor", icon="➡️"),
         ],
+        "Reports": [
+            st.Page(str(_pages / "campaign_story.py"), title="Campaign Story", icon="📖"),
+        ],
         "Workflows": [
             st.Page(str(_pages / "site_wizard.py"), title="1. New Site Wizard", icon="🏭"),
             st.Page(str(_pages / "field_system_wizard.py"), title="2. New Field System Wizard", icon="📡"),
