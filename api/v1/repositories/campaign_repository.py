@@ -633,7 +633,8 @@ def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
     # ports with diverging freshness.
     cur.execute(
         """
-        SELECT c.[Stream_ID], p.[Parameter] AS label, MAX(o.[Timestamp]) AS last_point
+        SELECT c.[Stream_ID], p.[Parameter] AS label,
+               MIN(o.[Timestamp]) AS first_point, MAX(o.[Timestamp]) AS last_point
         FROM [dbo].[Channel] c
         LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = c.[Parameter_ID]
         JOIN [dbo].[EquipmentWiringHistory] ewh
@@ -646,12 +647,14 @@ def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
         campaign_id,
     )
     freshness = [
-        {"stream_id": r[0], "kind": "sensor", "label": r[1], "last_point": r[2]}
+        {"stream_id": r[0], "kind": "sensor", "label": r[1],
+         "first_point": r[2], "last_point": r[3]}
         for r in cur.fetchall()
     ]
     cur.execute(
         """
-        SELECT a.[Stream_ID], a.[Name] AS label, MAX(o.[Timestamp]) AS last_point
+        SELECT a.[Stream_ID], a.[Name] AS label,
+               MIN(o.[Timestamp]) AS first_point, MAX(o.[Timestamp]) AS last_point
         FROM [dbo].[AnalysisSeries] a
         LEFT JOIN [dbo].[LabAnalysis] la ON la.[AnalysisSeries_ID] = a.[Stream_ID]
         LEFT JOIN [dbo].[Observation] o ON o.[LabAnalysis_ID] = la.[LabAnalysis_ID]
@@ -661,7 +664,8 @@ def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
         campaign_id,
     )
     freshness += [
-        {"stream_id": r[0], "kind": "lab", "label": r[1], "last_point": r[2]}
+        {"stream_id": r[0], "kind": "lab", "label": r[1],
+         "first_point": r[2], "last_point": r[3]}
         for r in cur.fetchall()
     ]
 

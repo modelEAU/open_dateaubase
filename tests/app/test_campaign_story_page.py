@@ -46,8 +46,10 @@ _OVERVIEW = {
     "annotations": [{"id": 1, "kind": "Fault", "color": "#DC2626", "title": "Lamp failure",
                      "comment": "Spectro offline", "start_time": "2026-06-18T00:00:00", "end_time": None}],
     "freshness": [
-        {"stream_id": 101, "kind": "sensor", "label": "pH", "last_point": "2026-06-22T08:40:00"},
-        {"stream_id": 481, "kind": "lab", "label": "COD at Inlet", "last_point": "2026-06-19T14:10:00"},
+        {"stream_id": 101, "kind": "sensor", "label": "pH",
+         "first_point": "2026-01-06T00:00:00", "last_point": "2026-06-22T08:40:00"},
+        {"stream_id": 481, "kind": "lab", "label": "COD at Inlet",
+         "first_point": "2026-02-01T09:00:00", "last_point": "2026-06-19T14:10:00"},
     ],
 }
 

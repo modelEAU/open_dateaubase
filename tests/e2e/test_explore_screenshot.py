@@ -26,8 +26,8 @@ SCREENSHOT_ANN_PATH = Path("/tmp/explore_all_annotations.png")
 # ---------------------------------------------------------------------------
 
 def _open_picker(page: "Page") -> None:
-    """Ensure the 🔍 Add traces expander is open."""
-    expander = page.locator("[data-testid='stExpander']").filter(has_text="Add traces")
+    """Ensure the 🔍 Add streams expander is open."""
+    expander = page.locator("[data-testid='stExpander']").filter(has_text="Add streams")
     arrow = expander.locator("text=keyboard_arrow_right")
     if arrow.count():
         expander.first.click()
@@ -44,7 +44,7 @@ def _setup_both_traces(page: "Page", app_url: str) -> None:
     """Navigate to /explore, add one sensor trace and one lab (COD at Influent) trace."""
     page.set_viewport_size({"width": 1280, "height": 1800})
     page.goto(f"{app_url}/explore", wait_until="networkidle")
-    page.wait_for_selector("text=Add traces", timeout=30_000)
+    page.wait_for_selector("text=Add streams", timeout=30_000)
     page.wait_for_timeout(2_000)
 
     _open_picker(page)

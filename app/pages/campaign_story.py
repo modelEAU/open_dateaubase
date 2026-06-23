@@ -34,14 +34,36 @@ _MAX_PLOT_CHANNELS = 12  # chart-noise ceiling; lab series added on top
 _MAX_PLOT_SERIES = 8
 
 
-def _to_date(v, fallback: date) -> date:
-    """Parse an ISO timestamp/date to a date; fall back when missing/unparseable."""
+def _parse_date(v) -> date | None:
+    """Parse an ISO timestamp/date to a date; None when missing/unparseable."""
     if not v:
-        return fallback
+        return None
     try:
         return datetime.fromisoformat(str(v).replace("Z", "+00:00")).date()
     except ValueError:
-        return fallback
+        return None
+
+
+def _to_date(v, fallback: date) -> date:
+    """Parse to a date, falling back when missing/unparseable."""
+    return _parse_date(v) or fallback
+
+
+def _plot_window(overview: dict, campaign: dict) -> tuple[date, date]:
+    """Time window for the combined plot: span the streams' actual data so
+    sparse or out-of-period series still appear; fall back to the campaign span."""
+    pts = [
+        d
+        for f in overview["freshness"]
+        for d in (_parse_date(f.get("first_point")), _parse_date(f.get("last_point")))
+        if d
+    ]
+    if pts:
+        return min(pts), max(pts) + timedelta(days=1)
+    return (
+        _to_date(campaign.get("start_date"), date.today() - timedelta(days=365)),
+        _to_date(campaign.get("end_date"), date.today()),
+    )
 
 
 def _seed_explore_state(start: date, end: date) -> None:
@@ -207,9 +229,8 @@ with st.container(border=True):
 
     if active_channels or active_series:
         # The reused Explore builder reads its time window + caches from session
-        # state; seed them to this campaign's span (data is fetched within it).
-        win_start = _to_date(camp.get("start_date"), date.today() - timedelta(days=365))
-        win_end = _to_date(camp.get("end_date"), date.today())
+        # state; seed them to the streams' actual data span so series show.
+        win_start, win_end = _plot_window(ov, camp)
         _seed_explore_state(win_start, win_end)
         fig, _ = _build_scalar_figure(
             active_channels, channel_meta, "viz", active_series, series_meta
