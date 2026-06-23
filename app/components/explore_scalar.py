@@ -24,6 +24,22 @@ from app.components.explore_data import (
 )
 
 
+def _ann_hover(ann: dict) -> str:
+    """Build the hover tooltip text for an annotation overlay marker."""
+    kind = (ann.get("type", {}) or {}).get("name") or "Annotation"
+    title = ann.get("title") or ""
+    comment = ann.get("comment") or ""
+    start = ann.get("start_time") or ""
+    end = ann.get("end_time")
+    span = f"{start} → {end}" if end else start
+    parts = [f"<b>{kind}</b>" + (f": {title}" if title else "")]
+    if comment:
+        parts.append(comment)
+    if span:
+        parts.append(f"<i>{span}</i>")
+    return "<br>".join(parts)
+
+
 def _build_scalar_figure(
     active_channels: list[int],
     channel_meta: dict[int, dict],
@@ -144,6 +160,8 @@ def _build_scalar_figure(
                 font=dict(size=11, color=ann_color),
                 bgcolor="rgba(0,0,0,0.55)",
                 borderpad=2,
+                hovertext=_ann_hover(ann),
+                captureevents=True,
             )
 
         # Equipment event overlays — deduplicated per equipment
@@ -288,6 +306,8 @@ def _build_scalar_figure(
                 font=dict(size=11, color=ann_color),
                 bgcolor="rgba(0,0,0,0.55)",
                 borderpad=2,
+                hovertext=_ann_hover(ann),
+                captureevents=True,
             )
 
     y_labels: list[str] = []
