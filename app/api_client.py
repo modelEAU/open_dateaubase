@@ -271,6 +271,12 @@ def list_campaign_deployments(campaign_id: int) -> list[dict]:
     return _request("GET", f"/campaigns/{campaign_id}/deployments")
 
 
+def get_campaign_overview(campaign_id: int) -> dict:
+    """Read-only Campaign Story aggregate (watershed, DAS, equipment+status,
+    lab series/panels, annotations, per-stream freshness)."""
+    return _request("GET", f"/campaigns/{campaign_id}/overview")
+
+
 def create_campaign_deployment(campaign_id: int, data: dict) -> dict:
     """Create a deployment (equipment + sampling point) for a campaign."""
     return _request("POST", f"/campaigns/{campaign_id}/deployments", json=data)

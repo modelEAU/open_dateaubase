@@ -460,3 +460,200 @@ def delete_campaign_deployment_by_installation(
     sampling_point_id = row[0] if row else None
     delete_campaign_deployment(conn, campaign_id, installation_id, sampling_point_id)
     return True
+
+
+# ---------------------------------------------------------------------------
+# Campaign Story overview — read-only aggregate for the Campaign Story page.
+# Each block is an independent, simple query (mirrors get_campaign_context's
+# style) so the SQL stays legible and individually verifiable.
+# ---------------------------------------------------------------------------
+
+
+def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
+    """Assemble the read-only story data for a campaign in one round-trip.
+
+    Returns watershed, data acquisition systems, deployed equipment (with a
+    coarse DB-backed status), lab series, lab panels, campaign-scoped
+    annotations, and per-stream freshness (last data point). The combined plot
+    is fed separately by the existing per-channel timeseries loaders.
+    """
+    cur = conn.cursor()
+
+    # --- Watershed (via the campaign's site) ------------------------------
+    cur.execute(
+        """
+        SELECT w.[Watershed_ID], w.[Name]
+        FROM [dbo].[Campaign] c
+        JOIN [dbo].[Site] s ON s.[Site_ID] = c.[Site_ID]
+        LEFT JOIN [dbo].[Watershed] w ON w.[Watershed_ID] = s.[Watershed_ID]
+        WHERE c.[Campaign_ID] = ?
+        """,
+        campaign_id,
+    )
+    row = cur.fetchone()
+    watershed = {"id": row[0], "name": row[1]} if row and row[0] is not None else None
+
+    # --- Data acquisition systems deployed in this campaign ---------------
+    cur.execute(
+        """
+        SELECT DISTINCT das.[DataAcquisitionSystem_ID], das.[Name],
+               dk.[Name] AS kind, dlh.[ValidFrom]
+        FROM [dbo].[DASLocationHistory] dlh
+        JOIN [dbo].[DataAcquisitionSystem] das
+            ON das.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
+        LEFT JOIN [dbo].[DataAcquisitionSystemKind] dk
+            ON dk.[DataAcquisitionSystemKind_ID] = das.[DataAcquisitionSystemKind_ID]
+        WHERE dlh.[Campaign_ID] = ?
+        ORDER BY das.[Name]
+        """,
+        campaign_id,
+    )
+    das = [
+        {"id": r[0], "name": r[1], "kind": r[2], "valid_from": r[3]}
+        for r in cur.fetchall()
+    ]
+
+    # --- Equipment deployed, with a coarse status -------------------------
+    # Status is DB-backed (not a guess): an ongoing, non-instantaneous
+    # EquipmentEvent => that event kind; else IsActive => in service.
+    cur.execute(
+        """
+        SELECT
+            e.[Equipment_ID], e.[Identifier], em.[EquipmentModel] AS model,
+            ce.[Role], sp.[SamplingPoint] AS location, e.[IsActive],
+            (SELECT TOP 1 eek.[Name]
+             FROM [dbo].[EquipmentEvent] ev
+             JOIN [dbo].[EquipmentEventKind] eek
+                 ON eek.[EquipmentEventKind_ID] = ev.[EquipmentEventKind_ID]
+             WHERE ev.[Equipment_ID] = e.[Equipment_ID]
+               AND ev.[EventDateTimeEnd] IS NULL
+               AND ev.[IsInstantaneous] = 0
+             ORDER BY ev.[EventDateTimeStart] DESC) AS ongoing_event
+        FROM [dbo].[CampaignEquipment] ce
+        JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ce.[Equipment_ID]
+        LEFT JOIN [dbo].[EquipmentModel] em ON em.[EquipmentModel_ID] = e.[EquipmentModel_ID]
+        LEFT JOIN [dbo].[EquipmentLocationHistory] elh
+            ON elh.[Equipment_ID] = e.[Equipment_ID]
+            AND elh.[Campaign_ID] = ce.[Campaign_ID] AND elh.[ValidTo] IS NULL
+        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+        WHERE ce.[Campaign_ID] = ?
+        ORDER BY e.[Identifier]
+        """,
+        campaign_id,
+    )
+    equipment = [
+        {
+            "equipment_id": r[0], "identifier": r[1], "model": r[2], "role": r[3],
+            "location": r[4], "is_active": bool(r[5]), "ongoing_event": r[6],
+        }
+        for r in cur.fetchall()
+    ]
+
+    # --- Lab series scoped to this campaign -------------------------------
+    cur.execute(
+        """
+        SELECT a.[Stream_ID], a.[Name], p.[Parameter], u.[Unit], vk.[Name] AS value_kind,
+               sp.[SamplingPoint] AS location
+        FROM [dbo].[AnalysisSeries] a
+        LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = a.[Parameter_ID]
+        LEFT JOIN [dbo].[Unit] u ON u.[Unit_ID] = a.[Unit_ID]
+        LEFT JOIN [dbo].[ValueKind] vk ON vk.[ValueKind_ID] = a.[ValueKind_ID]
+        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = a.[SamplingPoint_ID]
+        WHERE a.[Campaign_ID] = ?
+        ORDER BY a.[Name]
+        """,
+        campaign_id,
+    )
+    lab_series = [
+        {
+            "stream_id": r[0], "name": r[1], "parameter_name": r[2], "unit_name": r[3],
+            "value_kind_name": r[4], "sampling_point_label": r[5],
+        }
+        for r in cur.fetchall()
+    ]
+
+    # --- Lab panels used by this campaign's experiments -------------------
+    cur.execute(
+        """
+        SELECT DISTINCT lp.[LabPanel_ID], lp.[Name],
+               (SELECT COUNT(*) FROM [dbo].[LabPanelSeries] lps
+                WHERE lps.[LabPanel_ID] = lp.[LabPanel_ID]) AS series_count
+        FROM [dbo].[LabExperiment] le
+        JOIN [dbo].[LabPanel] lp ON lp.[LabPanel_ID] = le.[LabPanel_ID]
+        WHERE le.[Campaign_ID] = ?
+        ORDER BY lp.[Name]
+        """,
+        campaign_id,
+    )
+    lab_panels = [
+        {"id": r[0], "name": r[1], "series_count": r[2]} for r in cur.fetchall()
+    ]
+
+    # --- Annotations attached to this campaign ----------------------------
+    cur.execute(
+        """
+        SELECT a.[Annotation_ID], ak.[Name] AS kind, ak.[Color], a.[Title],
+               a.[Comment], a.[StartTime], a.[EndTime]
+        FROM [dbo].[Annotation] a
+        LEFT JOIN [dbo].[AnnotationKind] ak ON ak.[AnnotationKind_ID] = a.[AnnotationKind_ID]
+        WHERE a.[Campaign_ID] = ?
+        ORDER BY a.[StartTime] DESC
+        """,
+        campaign_id,
+    )
+    annotations = [
+        {
+            "id": r[0], "kind": r[1], "color": r[2], "title": r[3],
+            "comment": r[4], "start_time": r[5], "end_time": r[6],
+        }
+        for r in cur.fetchall()
+    ]
+
+    # --- Freshness: last data point per stream (sensor + lab) -------------
+    # ponytail: wiring match on SignalInterface_ID + active row only — good
+    # enough for "last point"; the precise port disambiguation that list_channels
+    # does is not needed here. Upgrade if a campaign reuses one interface across
+    # ports with diverging freshness.
+    cur.execute(
+        """
+        SELECT c.[Stream_ID], p.[Parameter] AS label, MAX(o.[Timestamp]) AS last_point
+        FROM [dbo].[Channel] c
+        LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = c.[Parameter_ID]
+        JOIN [dbo].[EquipmentWiringHistory] ewh
+            ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID] AND ewh.[ValidTo] IS NULL
+        JOIN [dbo].[CampaignEquipment] ce
+            ON ce.[Equipment_ID] = ewh.[Equipment_ID] AND ce.[Campaign_ID] = ?
+        LEFT JOIN [dbo].[Observation] o ON o.[Channel_ID] = c.[Stream_ID]
+        GROUP BY c.[Stream_ID], p.[Parameter]
+        """,
+        campaign_id,
+    )
+    freshness = [
+        {"stream_id": r[0], "kind": "sensor", "label": r[1], "last_point": r[2]}
+        for r in cur.fetchall()
+    ]
+    cur.execute(
+        """
+        SELECT a.[Stream_ID], a.[Name] AS label, MAX(o.[Timestamp]) AS last_point
+        FROM [dbo].[AnalysisSeries] a
+        LEFT JOIN [dbo].[LabAnalysis] la ON la.[AnalysisSeries_ID] = a.[Stream_ID]
+        LEFT JOIN [dbo].[Observation] o ON o.[LabAnalysis_ID] = la.[LabAnalysis_ID]
+        WHERE a.[Campaign_ID] = ?
+        GROUP BY a.[Stream_ID], a.[Name]
+        """,
+        campaign_id,
+    )
+    freshness += [
+        {"stream_id": r[0], "kind": "lab", "label": r[1], "last_point": r[2]}
+        for r in cur.fetchall()
+    ]
+
+    return {
+        "watershed": watershed,
+        "data_acquisition_systems": das,
+        "equipment": equipment,
+        "lab_series": lab_series,
+        "lab_panels": lab_panels,
+        "annotations": annotations,
+        "freshness": freshness,
+    }

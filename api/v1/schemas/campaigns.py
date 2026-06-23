@@ -63,6 +63,19 @@ class CampaignContextOut(BaseModel):
     time_range_end: datetime | None
 
 
+class CampaignOverviewOut(BaseModel):
+    """Read-only Campaign Story aggregate (see campaign_repository.get_campaign_overview)."""
+
+    campaign: CampaignOut
+    watershed: dict | None
+    data_acquisition_systems: list[dict]
+    equipment: list[dict]
+    lab_series: list[dict]
+    lab_panels: list[dict]
+    annotations: list[dict]
+    freshness: list[dict]
+
+
 class DeploymentOut(BaseModel):
     """A deployment pairs equipment with a sampling point for a campaign."""
 

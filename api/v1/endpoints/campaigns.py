@@ -11,6 +11,7 @@ from ..schemas.campaigns import (
     CampaignContextOut,
     CampaignIn,
     CampaignOut,
+    CampaignOverviewOut,
     CampaignPatch,
     CampaignKindOut,
     DeploymentCreateIn,
@@ -125,6 +126,17 @@ def get_campaign_context(campaign_id: int, conn=Depends(get_db)):
         )
     context = campaign_repository.get_campaign_context(conn, campaign_id)
     return CampaignContextOut(campaign=campaign, **context)
+
+
+@router.get("/{campaign_id}/overview", response_model=CampaignOverviewOut)
+def get_campaign_overview(campaign_id: int, conn=Depends(get_db)):
+    """Read-only Campaign Story aggregate: watershed, DAS, equipment+status,
+    lab series/panels, campaign annotations, and per-stream freshness."""
+    campaign = campaign_repository.get_campaign_by_id(conn, campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
+    overview = campaign_repository.get_campaign_overview(conn, campaign_id)
+    return CampaignOverviewOut(campaign=campaign, **overview)
 
 
 @router.get("/{campaign_id}/deployments", response_model=list[DeploymentOut])
