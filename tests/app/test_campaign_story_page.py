@@ -69,6 +69,18 @@ def test_page_renders_without_error():
     assert not at.exception
 
 
+def test_plot_seeds_explore_session_state():
+    # Regression: the reused Explore figure builder reads explore_start/_end and
+    # the per-entity caches from session state. The page must seed them or the
+    # plot raises AttributeError (caught only in the live browser, not by mocking
+    # the builder). Guards that the seeding ran on the plot path.
+    at = _run()
+    assert at.session_state["explore_start"] is not None
+    assert at.session_state["explore_end"] is not None
+    for cache in ("explore_data", "explore_annotations", "explore_eq_events"):
+        assert cache in at.session_state
+
+
 def test_story_surfaces_key_facts():
     at = _run()
     blob = " ".join(m.value for m in at.markdown)

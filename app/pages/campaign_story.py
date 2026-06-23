@@ -10,6 +10,7 @@ campaign annotation log.
 from __future__ import annotations
 
 import sys
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 _project_root = str(Path(__file__).resolve().parent.parent.parent)
@@ -31,6 +32,32 @@ from app.components.explore_scalar import _build_scalar_figure
 
 _MAX_PLOT_CHANNELS = 12  # chart-noise ceiling; lab series added on top
 _MAX_PLOT_SERIES = 8
+
+
+def _to_date(v, fallback: date) -> date:
+    """Parse an ISO timestamp/date to a date; fall back when missing/unparseable."""
+    if not v:
+        return fallback
+    try:
+        return datetime.fromisoformat(str(v).replace("Z", "+00:00")).date()
+    except ValueError:
+        return fallback
+
+
+def _seed_explore_state(start: date, end: date) -> None:
+    """Seed the session-state keys the reused Explore figure builder reads.
+
+    ``_build_scalar_figure`` pulls data through explore_data's loaders, which
+    read a time window and per-entity caches from session state. This page isn't
+    Explore, so it must provide them; the window is the campaign's own span.
+    """
+    st.session_state["explore_start"] = start
+    st.session_state["explore_end"] = end
+    for cache in (
+        "explore_data", "explore_annotations", "explore_series_annotations",
+        "explore_eq_events", "explore_series_stats", "explore_channel_stats",
+    ):
+        st.session_state.setdefault(cache, {})
 
 
 def _status_badge(e: dict) -> tuple[str, str, bool]:
@@ -179,6 +206,11 @@ with st.container(border=True):
     }
 
     if active_channels or active_series:
+        # The reused Explore builder reads its time window + caches from session
+        # state; seed them to this campaign's span (data is fetched within it).
+        win_start = _to_date(camp.get("start_date"), date.today() - timedelta(days=365))
+        win_end = _to_date(camp.get("end_date"), date.today())
+        _seed_explore_state(win_start, win_end)
         fig, _ = _build_scalar_figure(
             active_channels, channel_meta, "viz", active_series, series_meta
         )
