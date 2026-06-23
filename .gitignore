@@ -64,3 +64,5 @@ tools
 # Local L5X exploration artifacts
 out/
 *.L5X
+# Agent scratch/planning
+.tasks/

@@ -1,0 +1,10 @@
+# datEAUbase app theme — "Data-Dense Dashboard" design system.
+# Native Streamlit theming so every page inherits the look at once.
+# Full tokens + usage rules: docs/design-system.md
+[theme]
+base = "light"
+primaryColor = "#1E40AF"          # blue — primary actions, links, active nav
+backgroundColor = "#F8FAFC"       # app canvas (very light slate)
+secondaryBackgroundColor = "#FFFFFF"  # cards, inputs, sidebar (white on canvas)
+textColor = "#0F172A"             # slate-900 body text (>=4.5:1 on both)
+font = "sans serif"
