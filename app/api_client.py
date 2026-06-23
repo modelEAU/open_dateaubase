@@ -189,6 +189,12 @@ def get_equipment(equipment_id: int) -> dict:
     return _request("GET", f"/equipment/{equipment_id}")
 
 
+def get_equipment_story(equipment_id: int) -> dict:
+    """Read-only Equipment Story aggregate (campaigns, location history, events,
+    streams produced, annotations)."""
+    return _request("GET", f"/equipment/{equipment_id}/story")
+
+
 def create_equipment(data: dict) -> dict:
     return _request("POST", "/equipment", json=data)
 

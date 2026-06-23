@@ -142,3 +142,14 @@ class EquipmentModelProcedureOut(BaseModel):
     model_id: int
     procedure_id: int
     procedure_name: str | None = None
+
+
+class EquipmentStoryOut(BaseModel):
+    """Read-only Equipment Story aggregate (see equipment_repository.get_equipment_story)."""
+
+    equipment: dict
+    campaigns: list[dict]
+    location_history: list[dict]
+    events: list[dict]
+    streams: list[dict]
+    annotations: list[dict]

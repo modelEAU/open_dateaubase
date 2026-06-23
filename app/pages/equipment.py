@@ -150,3 +150,9 @@ with col3:
     if st.button("🗑️ Delete", disabled=selected_item is None, type="secondary"):
         if selected_item:
             handle_delete_equipment(selected_item["equipment_id"])
+
+# Deep-link the selected row into the Equipment Story report.
+if selected_item:
+    if st.button("📖 View story", help="Open this equipment's lifetime story"):
+        st.session_state["equipment_story_target"] = selected_item["equipment_id"]
+        st.switch_page("pages/equipment_story.py")

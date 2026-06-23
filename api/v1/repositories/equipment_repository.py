@@ -690,3 +690,153 @@ def remove_model_procedure(conn: pyodbc.Connection, model_id: int, procedure_id:
     )
     conn.commit()
     return cursor.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# Equipment Story overview — read-only aggregate for the Equipment Story page.
+# ---------------------------------------------------------------------------
+
+
+def get_equipment_story(conn: pyodbc.Connection, equipment_id: int) -> dict | None:
+    """Assemble the lifetime story for one piece of equipment.
+
+    Returns basics (+ current location, in-service flag), the campaigns it has
+    been part of, its full location history, lifecycle events, the streams it
+    has produced (via wiring), and annotations on those streams. Returns None
+    when the equipment does not exist.
+    """
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT e.[Equipment_ID], e.[Identifier], e.[SerialNumber], em.[EquipmentModel],
+               em.[Manufacturer], e.[Owner], e.[PurchaseDate], e.[IsActive],
+               sp.[SamplingPoint] AS current_location
+        FROM [dbo].[Equipment] e
+        LEFT JOIN [dbo].[EquipmentModel] em ON em.[EquipmentModel_ID] = e.[EquipmentModel_ID]
+        LEFT JOIN [dbo].[EquipmentLocationHistory] elh
+            ON elh.[Equipment_ID] = e.[Equipment_ID] AND elh.[ValidTo] IS NULL
+        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+        WHERE e.[Equipment_ID] = ?
+        """,
+        equipment_id,
+    )
+    r = cur.fetchone()
+    if r is None:
+        return None
+    equipment = {
+        "equipment_id": r[0], "identifier": r[1], "serial_number": r[2], "model": r[3],
+        "manufacturer": r[4], "owner": r[5],
+        "purchase_date": str(r[6]) if r[6] else None,
+        "is_active": bool(r[7]), "current_location": r[8],
+    }
+
+    # --- Campaigns it has been part of ------------------------------------
+    cur.execute(
+        """
+        SELECT c.[Campaign_ID], c.[Name], ck.[Name] AS kind, ce.[Role],
+               c.[CampaignStartDateTime], c.[CampaignEndDateTime]
+        FROM [dbo].[CampaignEquipment] ce
+        JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = ce.[Campaign_ID]
+        LEFT JOIN [dbo].[CampaignKind] ck ON ck.[CampaignKind_ID] = c.[CampaignKind_ID]
+        WHERE ce.[Equipment_ID] = ?
+        ORDER BY c.[CampaignStartDateTime] DESC
+        """,
+        equipment_id,
+    )
+    campaigns = [
+        {"id": x[0], "name": x[1], "kind": x[2], "role": x[3],
+         "start": x[4], "end": x[5]}
+        for x in cur.fetchall()
+    ]
+
+    # --- Location history -------------------------------------------------
+    cur.execute(
+        """
+        SELECT sp.[SamplingPoint], elh.[ValidFrom], elh.[ValidTo],
+               c.[Name] AS campaign, elh.[Notes]
+        FROM [dbo].[EquipmentLocationHistory] elh
+        JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+        LEFT JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = elh.[Campaign_ID]
+        WHERE elh.[Equipment_ID] = ?
+        ORDER BY elh.[ValidFrom] DESC
+        """,
+        equipment_id,
+    )
+    locations = [
+        {"location": x[0], "valid_from": x[1], "valid_to": x[2],
+         "campaign": x[3], "notes": x[4]}
+        for x in cur.fetchall()
+    ]
+
+    # --- Lifecycle events -------------------------------------------------
+    cur.execute(
+        """
+        SELECT ev.[EquipmentEvent_ID], eek.[Name], ev.[EventDateTimeStart],
+               ev.[EventDateTimeEnd], ev.[IsInstantaneous], ev.[Notes]
+        FROM [dbo].[EquipmentEvent] ev
+        LEFT JOIN [dbo].[EquipmentEventKind] eek
+            ON eek.[EquipmentEventKind_ID] = ev.[EquipmentEventKind_ID]
+        WHERE ev.[Equipment_ID] = ?
+        ORDER BY ev.[EventDateTimeStart] DESC
+        """,
+        equipment_id,
+    )
+    events = [
+        {"id": x[0], "kind": x[1], "start": x[2], "end": x[3],
+         "instantaneous": bool(x[4]), "notes": x[5]}
+        for x in cur.fetchall()
+    ]
+
+    # --- Streams produced (channels wired to this equipment) --------------
+    # ponytail: wiring match on SignalInterface_ID only — assumes one equipment
+    # per interface (the common case). Tighten to port if interfaces are shared.
+    cur.execute(
+        """
+        SELECT DISTINCT c.[Stream_ID], p.[Parameter], u.[Unit], ck.[Name] AS channel_kind,
+               (SELECT COUNT(*) FROM [dbo].[Observation] o WHERE o.[Channel_ID] = c.[Stream_ID]) AS points
+        FROM [dbo].[EquipmentWiringHistory] ewh
+        JOIN [dbo].[Channel] c ON c.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+        LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = c.[Parameter_ID]
+        LEFT JOIN [dbo].[Unit] u ON u.[Unit_ID] = c.[Unit_ID]
+        LEFT JOIN [dbo].[ChannelKind] ck ON ck.[ChannelKind_ID] = c.[ChannelKind_ID]
+        WHERE ewh.[Equipment_ID] = ?
+        ORDER BY p.[Parameter]
+        """,
+        equipment_id,
+    )
+    streams = [
+        {"stream_id": x[0], "parameter_name": x[1], "unit_name": x[2],
+         "channel_kind": x[3], "point_count": x[4]}
+        for x in cur.fetchall()
+    ]
+
+    # --- Annotations on this equipment's streams --------------------------
+    cur.execute(
+        """
+        SELECT DISTINCT a.[Annotation_ID], ak.[Name], ak.[Color], a.[Title],
+               a.[Comment], a.[StartTime], a.[EndTime], p.[Parameter] AS anchor
+        FROM [dbo].[Annotation] a
+        JOIN [dbo].[Channel] c ON c.[Stream_ID] = a.[Stream_ID]
+        JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+        LEFT JOIN [dbo].[AnnotationKind] ak ON ak.[AnnotationKind_ID] = a.[AnnotationKind_ID]
+        LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = c.[Parameter_ID]
+        WHERE ewh.[Equipment_ID] = ?
+        ORDER BY a.[StartTime] DESC
+        """,
+        equipment_id,
+    )
+    annotations = [
+        {"id": x[0], "kind": x[1], "color": x[2], "title": x[3], "comment": x[4],
+         "start_time": x[5], "end_time": x[6], "anchor": x[7]}
+        for x in cur.fetchall()
+    ]
+
+    return {
+        "equipment": equipment,
+        "campaigns": campaigns,
+        "location_history": locations,
+        "events": events,
+        "streams": streams,
+        "annotations": annotations,
+    }

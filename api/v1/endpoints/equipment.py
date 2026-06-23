@@ -21,6 +21,7 @@ from ..schemas.equipment import (
     EquipmentModelProcedureOut,
     EquipmentOut,
     EquipmentPatch,
+    EquipmentStoryOut,
     EquipmentModelLookupOut,
     EquipmentEventKindOut,
     EquipmentEventCreate,
@@ -199,6 +200,18 @@ def get_equipment(equipment_id: int, conn=Depends(get_db)):
             status_code=404, detail=f"Equipment {equipment_id} not found."
         )
     return equip
+
+
+@router.get("/{equipment_id}/story", response_model=EquipmentStoryOut)
+def get_equipment_story(equipment_id: int, conn=Depends(get_db)):
+    """Read-only Equipment Story aggregate: campaigns, location history, events,
+    streams produced, and annotations on those streams."""
+    story = equipment_repository.get_equipment_story(conn, equipment_id)
+    if story is None:
+        raise HTTPException(
+            status_code=404, detail=f"Equipment {equipment_id} not found."
+        )
+    return story
 
 
 @router.get("/{equipment_id}/lifecycle", response_model=EquipmentLifecycleOut)
