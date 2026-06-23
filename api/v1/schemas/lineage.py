@@ -103,3 +103,12 @@ class ProvenanceGraphOut(BaseModel):
     descendants: list[ProvenanceStepOut]
 
 
+
+
+class StreamStoryOut(BaseModel):
+    """Read-only Stream Story summary (see channel_repository.get_stream_story)."""
+
+    stream_id: int
+    record: dict
+    location_history: list[dict]
+    annotations: list[dict]

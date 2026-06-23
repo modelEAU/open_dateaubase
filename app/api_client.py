@@ -482,6 +482,12 @@ def get_channel_stats(channel_id: int) -> dict:
     return _request("GET", f"/timeseries/{channel_id}/stats")
 
 
+def get_stream_story(stream_id: int) -> dict:
+    """Read-only Stream Story summary (what it records, data span, where it has
+    been, annotations) for the Explore stream-story panel."""
+    return _request("GET", f"/lineage/streams/{stream_id}/story")
+
+
 def get_stream_provenance(stream_id: int) -> dict:
     """Fetch the resolved provenance graph rooted at a Stream (sensor channel or
     lab series): nodes (with labels, provenance kind, traits) plus ancestor and

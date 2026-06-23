@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
+from fastapi import HTTPException
+
 from api.database import get_db
+from ..repositories import channel_repository
 from ..schemas.lineage import (
     LineageTreeOut,
     ProcessingStepCreate,
     ProcessingStepOut,
     ProvenanceGraphOut,
+    StreamStoryOut,
 )
 from ..services import lineage_service
 
@@ -79,5 +83,15 @@ def get_stream_provenance(stream_id: int, conn=Depends(get_db)):
     Data Explorer's Provenance panel needs only one round trip.
     """
     return lineage_service.resolved_provenance(conn, stream_id)
+
+
+@router.get("/streams/{stream_id}/story", response_model=StreamStoryOut)
+def get_stream_story(stream_id: int, conn=Depends(get_db)):
+    """Read-only Stream Story summary: what the stream records, its data span,
+    where it has been, and its annotations. Powers the Explore stream-story panel."""
+    story = channel_repository.get_stream_story(conn, stream_id)
+    if story is None:
+        raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found.")
+    return story
 
 

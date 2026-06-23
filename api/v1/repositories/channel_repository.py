@@ -405,3 +405,121 @@ def get_channel_ids_for_equipment(
         equipment_id,
     )
     return [row[0] for row in cursor.fetchall()]
+
+
+# ---------------------------------------------------------------------------
+# Stream Story — read-only "what is this stream" summary for the Explore page.
+# Works for both Stream subtypes: a sensor Channel or a lab AnalysisSeries.
+# ---------------------------------------------------------------------------
+
+
+def get_stream_story(conn: pyodbc.Connection, stream_id: int) -> dict | None:
+    """Summarise one stream: what it records, its data span, where it has been,
+    and the annotations on it. Returns None if the stream id is unknown."""
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT p.[Parameter], u.[Unit], vk.[Name] AS value_kind, c.[TagName]
+        FROM [dbo].[Channel] c
+        LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = c.[Parameter_ID]
+        LEFT JOIN [dbo].[Unit] u ON u.[Unit_ID] = c.[Unit_ID]
+        LEFT JOIN [dbo].[ValueKind] vk ON vk.[ValueKind_ID] = c.[ValueKind_ID]
+        WHERE c.[Stream_ID] = ?
+        """,
+        stream_id,
+    )
+    row = cur.fetchone()
+    if row is not None:
+        kind = "sensor"
+        record = {
+            "kind": kind, "parameter_name": row[0], "unit_name": row[1],
+            "value_kind_name": row[2], "label": row[3],
+        }
+        cur.execute(
+            "SELECT MIN(o.[Timestamp]), MAX(o.[Timestamp]), COUNT(*) "
+            "FROM [dbo].[Observation] o WHERE o.[Channel_ID] = ?",
+            stream_id,
+        )
+        srow = cur.fetchone()
+        # Location history via the producing equipment's installations.
+        cur.execute(
+            """
+            SELECT DISTINCT sp.[SamplingPoint], elh.[ValidFrom], elh.[ValidTo],
+                   e.[Identifier]
+            FROM [dbo].[Channel] c
+            JOIN [dbo].[EquipmentWiringHistory] ewh
+                ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+            JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]
+            JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = e.[Equipment_ID]
+            JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+            WHERE c.[Stream_ID] = ?
+            ORDER BY elh.[ValidFrom] DESC
+            """,
+            stream_id,
+        )
+        locations = [
+            {"location": x[0], "valid_from": x[1], "valid_to": x[2], "equipment": x[3]}
+            for x in cur.fetchall()
+        ]
+    else:
+        cur.execute(
+            """
+            SELECT p.[Parameter], u.[Unit], vk.[Name] AS value_kind, a.[Name],
+                   sp.[SamplingPoint]
+            FROM [dbo].[AnalysisSeries] a
+            LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = a.[Parameter_ID]
+            LEFT JOIN [dbo].[Unit] u ON u.[Unit_ID] = a.[Unit_ID]
+            LEFT JOIN [dbo].[ValueKind] vk ON vk.[ValueKind_ID] = a.[ValueKind_ID]
+            LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = a.[SamplingPoint_ID]
+            WHERE a.[Stream_ID] = ?
+            """,
+            stream_id,
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        record = {
+            "kind": "lab", "parameter_name": row[0], "unit_name": row[1],
+            "value_kind_name": row[2], "label": row[3],
+        }
+        cur.execute(
+            """
+            SELECT MIN(o.[Timestamp]), MAX(o.[Timestamp]), COUNT(*)
+            FROM [dbo].[Observation] o
+            JOIN [dbo].[LabAnalysis] la ON la.[LabAnalysis_ID] = o.[LabAnalysis_ID]
+            WHERE la.[AnalysisSeries_ID] = ?
+            """,
+            stream_id,
+        )
+        srow = cur.fetchone()
+        # A lab series has a single, explicit origin (its sampling point).
+        locations = (
+            [{"location": row[4], "valid_from": None, "valid_to": None, "equipment": None}]
+            if row[4]
+            else []
+        )
+
+    record["first_point"] = srow[0] if srow else None
+    record["last_point"] = srow[1] if srow else None
+    record["point_count"] = (srow[2] if srow else 0) or 0
+
+    cur.execute(
+        """
+        SELECT a.[Annotation_ID], ak.[Name], ak.[Color], a.[Title], a.[Comment],
+               a.[StartTime], a.[EndTime]
+        FROM [dbo].[Annotation] a
+        LEFT JOIN [dbo].[AnnotationKind] ak ON ak.[AnnotationKind_ID] = a.[AnnotationKind_ID]
+        WHERE a.[Stream_ID] = ?
+        ORDER BY a.[StartTime] DESC
+        """,
+        stream_id,
+    )
+    annotations = [
+        {"id": x[0], "kind": x[1], "color": x[2], "title": x[3], "comment": x[4],
+         "start_time": x[5], "end_time": x[6]}
+        for x in cur.fetchall()
+    ]
+
+    return {"stream_id": stream_id, "record": record,
+            "location_history": locations, "annotations": annotations}

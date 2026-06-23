@@ -45,7 +45,9 @@ from app.api_client import (
     list_analysis_series_lookup,
     list_deployment_traces_lookup,
     get_analysis_series_thumbnail,
+    get_stream_story,
 )
+from app.components import entity_story as story
 
 # Provenance inspector lives in its own module (Phase 5 split). Re-exported here
 # so the panel is callable as before and tests can reach the helpers via
@@ -1000,6 +1002,57 @@ def _inspect_stream(kind: str, stream_id: int) -> None:
     st.rerun()
 
 
+def _render_stream_story_panel() -> None:
+    """Stream Story — the additive narrative for the currently-inspected stream.
+
+    The provenance DAG and time-series history already live in Explore; this
+    panel adds what the stream records, where it has been, its freshness, and
+    its annotation log, reusing the shared entity_story components.
+    """
+    trail = st.session_state.explore_inspect_trail
+    if not trail:
+        return
+    _, stream_id = trail[-1]
+    try:
+        s = get_stream_story(stream_id)
+    except APIError:
+        return
+
+    story.inject()
+    rec = s["record"]
+    title = rec.get("parameter_name") or rec.get("label") or f"Stream {stream_id}"
+    with st.expander(f"📖 Stream Story — {title}", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("#### What it records")
+            kind_label = "Sensor channel" if rec.get("kind") == "sensor" else "Lab series"
+            last = rec.get("last_point")
+            st.markdown(
+                f"- **Parameter:** {rec.get('parameter_name') or '—'}\n"
+                f"- **Unit / shape:** {rec.get('unit_name') or '—'} · "
+                f"{rec.get('value_kind_name') or '—'}\n"
+                f"- **Kind:** {kind_label}\n"
+                f"- **First point:** {rec.get('first_point') or '—'}\n"
+                f"- **Last point:** {last or '—'} ({story.relative_age(last)})\n"
+                f"- **Total points:** {rec.get('point_count', 0)}"
+            )
+        with c2:
+            st.markdown("#### Where it's been")
+            locs = s["location_history"]
+            if locs:
+                for loc in locs:
+                    span = str(loc.get("valid_from") or "")[:10]
+                    span += f" → {str(loc.get('valid_to'))[:10]}" if loc.get("valid_to") else " → now"
+                    eq = f" · {loc['equipment']}" if loc.get("equipment") else ""
+                    st.markdown(f"- **{loc.get('location') or '?'}** "
+                                f"<span class='deau-stale'>{span}{eq}</span>",
+                                unsafe_allow_html=True)
+            else:
+                st.caption("No location history.")
+        st.markdown(f"#### Annotations on this stream · {len(s['annotations'])}")
+        story.annotation_feed(s["annotations"])
+
+
 # ---------------------------------------------------------------------------
 # Visualization renderers (unchanged logic, reorganized into functions)
 # ---------------------------------------------------------------------------
@@ -1703,6 +1756,9 @@ def main() -> None:
         _render_page_body(
             deployment_traces, series_list, equipment, annotation_types, event_types
         )
+
+    # Stream Story — additive narrative panel for the inspected stream.
+    _render_stream_story_panel()
 
 
 def _in_streamlit_run() -> bool:
