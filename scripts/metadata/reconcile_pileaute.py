@@ -314,10 +314,28 @@ def create_process_units() -> dict[str, int]:
     return tag_to_id
 
 
+# Sampling locations discovered during plant commissioning that are not in the
+# reviewed Step 3 workbook. (code, description, process_unit_tag)
+EXTRA_SAMPLING_LOCATIONS = [
+    ("PST_IN", "Primary clarifier influent", "PST"),
+]
+
+
 def create_sampling_locations(pu_map: dict[str, int]) -> None:
     coords = _legacy_coords()
     existing = {sp["name"] for sp in get_list(f"/sites/{SITE_ID}/sampling-locations")}
     created = skipped = 0
+    for code, desc, pu_tag in EXTRA_SAMPLING_LOCATIONS:
+        if code in existing:
+            skipped += 1
+            continue
+        lat, lon = coords.get(code, (None, None))
+        post(f"/sites/{SITE_ID}/sampling-locations", {
+            "name": code, "description": desc, "latitude": lat, "longitude": lon,
+            "process_unit_id": pu_map.get(pu_tag) if pu_tag else None,
+        }, code)
+        existing.add(code)
+        created += 1
     for row in _step3_rows("SamplingLocations"):
         code = str(row.get("Code") or "").strip()
         if not code or (str(row.get("Create?") or "").strip().lower() not in ("yes", "y", "true")):

@@ -16,6 +16,7 @@ Usage:
 
 from __future__ import annotations
 
+import re
 import sys
 import json
 import argparse
@@ -65,6 +66,23 @@ def get_list(path: str) -> list:
     return d.get("items", d) if isinstance(d, dict) else d
 
 
+def cell(v) -> str:
+    """Trim a cell; treat blank and the 'x' marker (no signal / not deployed) as empty."""
+    if v is None:
+        return ""
+    s = str(v).strip()
+    return "" if s.lower() == "x" else s
+
+
+def placeholder_ident(si_name: str) -> str:
+    """Synthesize a placeholder equipment identifier for a tagged SCADA interface
+    that has no real equipment recorded, so the channel becomes positionable.
+    '[PCL_001]AIT_241_EU' -> 'pilEAUte_AIT_241_EU'."""
+    t = re.sub(r"^\[[^\]]*\]", "", str(si_name or ""))
+    t = re.sub(r"[^0-9A-Za-z]+", "_", t).strip("_")
+    return f"pilEAUte_{t}"
+
+
 def norm_dt(v) -> str:
     if isinstance(v, dt.datetime):
         return v.replace(tzinfo=dt.timezone.utc).isoformat()
@@ -91,7 +109,7 @@ def main():
     header = [str(c.value).strip() if c.value is not None else "" for c in ws[1]]
     col = {h: i for i, h in enumerate(header)}
 
-    planned = skipped = errors = 0
+    planned = skipped = errors = placeholders = 0
     for r in ws.iter_rows(min_row=2, values_only=True):
         def g(name):
             i = col.get(name)
@@ -99,17 +117,29 @@ def main():
 
         si_id = g("SignalInterfaceID")
         si_name = g("SignalInterface")
-        ident = (str(g("EquipmentIdentifier")).strip() if g("EquipmentIdentifier") else "")
-        sp_code = (str(g("SamplingLocation")).strip() if g("SamplingLocation") else "")
-        model_str = (str(g("EquipmentModel")).strip() if g("EquipmentModel") else "")
-        serial = (str(g("SerialNumber")).strip() if g("SerialNumber") else None)
+        ident_ws = cell(g("EquipmentIdentifier"))
+        sp_code = cell(g("SamplingLocation"))
+        model_str = cell(g("EquipmentModel"))
+        serial = cell(g("SerialNumber")) or None
         valid_from = norm_dt(g("DeployFrom"))
-        notes = (str(g("Notes")).strip() if g("Notes") else None)
+        notes = cell(g("Notes")) or None
 
-        if not sp_code or not ident:
-            skipped += 1
+        deploying = bool(sp_code)
+
+        # Equipment identity: the worksheet value (monEAU placeholder already wired)
+        # or, for a tagged SCADA tag the user located but left equipment-less, a
+        # synthesized placeholder so the channel becomes positionable (Option A).
+        is_placeholder = False
+        if ident_ws:
+            ident = ident_ws
+        elif deploying:
+            ident = placeholder_ident(si_name)
+            is_placeholder = True
+        else:
+            skipped += 1            # not deployed and no equipment recorded -> nothing to do
             continue
-        if sp_code not in sp_by_code:
+
+        if deploying and sp_code not in sp_by_code:
             print(f"  ! {si_name}: unknown SamplingLocation {sp_code!r} -> skip")
             errors += 1
             continue
@@ -121,14 +151,21 @@ def main():
                 errors += 1
                 continue
 
-        sp_id = sp_by_code[sp_code]
-        action = f"{ident} -> {sp_code}" + (f" [{model_str}]" if model_str else "")
+        if not deploying and not model_str and not serial:
+            skipped += 1            # existing equipment, nothing new to record
+            continue
+
+        tag = " +placeholder" if is_placeholder else ""
+        dest = sp_code if deploying else "(not deployed)"
+        action = f"{ident}{tag} -> {dest}" + (f" [{model_str}]" if model_str else "")
         if not args.apply:
             print(f"  [plan] {action}")
             planned += 1
+            if is_placeholder:
+                placeholders += 1
             continue
 
-        # 3. find-or-create equipment, patch model+serial
+        # find-or-create equipment, patch model+serial
         eq_id = equip_by_id.get(ident)
         if eq_id is None:
             st, res = api("POST", "/equipment",
@@ -139,6 +176,8 @@ def main():
                 continue
             eq_id = res["equipment_id"]
             equip_by_id[ident] = eq_id
+            if is_placeholder:
+                placeholders += 1
         else:
             patch = {}
             if model_id is not None:
@@ -148,32 +187,33 @@ def main():
             if patch:
                 api("PATCH", f"/equipment/{eq_id}", patch)
 
-        # 4. wire to the signal interface (409 = already wired -> ok)
-        st, res = api("POST", f"/equipment/{eq_id}/register-interface",
-                      {"signal_interface_id": si_id, "valid_from": valid_from})
-        if st >= 400 and st != 409:
-            print(f"  ! {ident}: register-interface failed {st}: {res}")
-            errors += 1
-            continue
+        if deploying:
+            # wire to the signal interface (409 = already wired -> ok)
+            st, res = api("POST", f"/equipment/{eq_id}/register-interface",
+                          {"signal_interface_id": si_id, "valid_from": valid_from})
+            if st >= 400 and st != 409:
+                print(f"  ! {ident}: register-interface failed {st}: {res}")
+                errors += 1
+                continue
 
-        # 5. deploy under the campaign (400 = already deployed -> ok)
-        st, res = api("POST", f"/campaigns/{CAMPAIGN_ID}/deployments",
-                      {"equipment_id": eq_id, "sampling_point_id": sp_id,
-                       "valid_from": valid_from, "notes": notes})
-        if st >= 400 and st != 400:
-            print(f"  ! {ident}: deployment failed {st}: {res}")
-            errors += 1
-            continue
-        if st == 400 and isinstance(res, dict) and "already deployed" not in str(res.get("detail", "")):
-            print(f"  ! {ident}: deployment 400: {res}")
-            errors += 1
-            continue
+            # deploy under the campaign (400 = already deployed -> ok)
+            st, res = api("POST", f"/campaigns/{CAMPAIGN_ID}/deployments",
+                          {"equipment_id": eq_id, "sampling_point_id": sp_by_code[sp_code],
+                           "valid_from": valid_from, "notes": notes})
+            if st >= 400 and st != 400:
+                print(f"  ! {ident}: deployment failed {st}: {res}")
+                errors += 1
+                continue
+            if st == 400 and isinstance(res, dict) and "already deployed" not in str(res.get("detail", "")):
+                print(f"  ! {ident}: deployment 400: {res}")
+                errors += 1
+                continue
 
         print(f"  [done] {action}")
         planned += 1
 
     verb = "applied" if args.apply else "planned"
-    print(f"\n{verb}: {planned} | skipped (blank): {skipped} | errors: {errors}")
+    print(f"\n{verb}: {planned} | skipped: {skipped} | errors: {errors} | placeholders: {placeholders}")
     if not args.apply:
         print("Re-run with --apply to write.")
 
