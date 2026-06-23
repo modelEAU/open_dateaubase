@@ -606,22 +606,41 @@ def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
         {"id": r[0], "name": r[1], "series_count": r[2]} for r in cur.fetchall()
     ]
 
-    # --- Annotations attached to this campaign ----------------------------
+    # --- Annotations relevant to this campaign ----------------------------
+    # Either explicitly tagged with the campaign, OR anchored to a stream that
+    # belongs to it (a lab series scoped to the campaign, or a sensor channel
+    # wired to campaign equipment). The stream arm is what makes the log match
+    # the annotations overlaid on the combined plot — annotations carry a
+    # Stream_ID but often no Campaign_ID. ``anchor`` labels the stream.
     cur.execute(
         """
         SELECT a.[Annotation_ID], ak.[Name] AS kind, ak.[Color], a.[Title],
-               a.[Comment], a.[StartTime], a.[EndTime]
+               a.[Comment], a.[StartTime], a.[EndTime],
+               COALESCE(labseries.[Name], p.[Parameter]) AS anchor
         FROM [dbo].[Annotation] a
         LEFT JOIN [dbo].[AnnotationKind] ak ON ak.[AnnotationKind_ID] = a.[AnnotationKind_ID]
+        LEFT JOIN [dbo].[AnalysisSeries] labseries ON labseries.[Stream_ID] = a.[Stream_ID]
+        LEFT JOIN [dbo].[Channel] ch ON ch.[Stream_ID] = a.[Stream_ID]
+        LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = ch.[Parameter_ID]
         WHERE a.[Campaign_ID] = ?
+           OR a.[Stream_ID] IN (
+                SELECT s.[Stream_ID] FROM [dbo].[AnalysisSeries] s WHERE s.[Campaign_ID] = ?
+                UNION
+                SELECT c.[Stream_ID]
+                FROM [dbo].[Channel] c
+                JOIN [dbo].[EquipmentWiringHistory] ewh
+                    ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID] AND ewh.[ValidTo] IS NULL
+                JOIN [dbo].[CampaignEquipment] ce
+                    ON ce.[Equipment_ID] = ewh.[Equipment_ID] AND ce.[Campaign_ID] = ?
+           )
         ORDER BY a.[StartTime] DESC
         """,
-        campaign_id,
+        campaign_id, campaign_id, campaign_id,
     )
     annotations = [
         {
             "id": r[0], "kind": r[1], "color": r[2], "title": r[3],
-            "comment": r[4], "start_time": r[5], "end_time": r[6],
+            "comment": r[4], "start_time": r[5], "end_time": r[6], "anchor": r[7],
         }
         for r in cur.fetchall()
     ]

@@ -59,6 +59,7 @@ def _overview():
         "annotations": [{
             "id": 1, "kind": "Fault", "color": "#DC2626", "title": "Lamp failure",
             "comment": "Spectro offline", "start_time": "2026-06-18T00:00:00", "end_time": None,
+            "anchor": "TEST_ COD at Influent",
         }],
         "freshness": [
             {"stream_id": 101, "kind": "sensor", "label": "pH",

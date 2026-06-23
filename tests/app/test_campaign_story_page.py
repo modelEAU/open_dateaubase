@@ -44,7 +44,8 @@ _OVERVIEW = {
                     "unit_name": "mg/L", "value_kind_name": "Scalar", "sampling_point_label": "Inlet"}],
     "lab_panels": [{"id": 1, "name": "Winter influent panel", "series_count": 3}],
     "annotations": [{"id": 1, "kind": "Fault", "color": "#DC2626", "title": "Lamp failure",
-                     "comment": "Spectro offline", "start_time": "2026-06-18T00:00:00", "end_time": None}],
+                     "comment": "Spectro offline", "start_time": "2026-06-18T00:00:00", "end_time": None,
+                     "anchor": "TEST_ COD at Influent"}],
     "freshness": [
         {"stream_id": 101, "kind": "sensor", "label": "pH",
          "first_point": "2026-01-06T00:00:00", "last_point": "2026-06-22T08:40:00"},
