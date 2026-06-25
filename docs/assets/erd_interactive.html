@@ -12,8 +12,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.1/joint.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/graphlib/2.1.8/graphlib.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
+
     <!-- Styling -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.1/joint.min.css" />
@@ -340,6 +339,19 @@
 <body>
 
     <div class="toolbar">
+        <select id="groupFilter" class="tool-btn" onchange="applyFilter()" title="Show only one thematic group">
+<option value="">All tables</option>
+<option value="site_facility">Site & Facility</option>
+<option value="equipment">Field System & Equipment</option>
+<option value="signal_channel">Streams & Channels</option>
+<option value="observations">Observations & Values</option>
+<option value="lab">Lab</option>
+<option value="campaign_provenance">Campaigns & Provenance</option>
+<option value="annotations">Annotations</option>
+<option value="control_loops">Control Loops</option>
+<option value="reference">Reference & Vocabulary</option>
+<option value="system">System & Audit</option>
+        </select>
         <button class="tool-btn primary" onclick="autoLayout()">Auto Layout</button>
         <button class="tool-btn" onclick="zoomIn()">+</button>
         <button class="tool-btn" onclick="zoomOut()">-</button>
@@ -355,14 +367,15 @@
         </div>
         <div id="legend-body">
 <div class="legend-item"><span class="legend-dot" style="background:#2563eb"></span><span class="legend-label">Site & Facility</span></div>
-<div class="legend-item"><span class="legend-dot" style="background:#059669"></span><span class="legend-label">Equipment & Instruments</span></div>
-<div class="legend-item"><span class="legend-dot" style="background:#7c3aed"></span><span class="legend-label">Signal / Channel</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#059669"></span><span class="legend-label">Field System & Equipment</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#7c3aed"></span><span class="legend-label">Streams & Channels</span></div>
 <div class="legend-item"><span class="legend-dot" style="background:#dc2626"></span><span class="legend-label">Observations & Values</span></div>
 <div class="legend-item"><span class="legend-dot" style="background:#0891b2"></span><span class="legend-label">Lab</span></div>
-<div class="legend-item"><span class="legend-dot" style="background:#d97706"></span><span class="legend-label">Campaign & Provenance</span></div>
-<div class="legend-item"><span class="legend-dot" style="background:#4d7c0f"></span><span class="legend-label">Annotations</span></div>
-<div class="legend-item"><span class="legend-dot" style="background:#be123c"></span><span class="legend-label">Control Loops</span></div>
-<div class="legend-item"><span class="legend-dot" style="background:#475569"></span><span class="legend-label">Lookup / Reference</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#ea580c"></span><span class="legend-label">Campaigns & Provenance</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#65a30d"></span><span class="legend-label">Annotations</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#db2777"></span><span class="legend-label">Control Loops</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#64748b"></span><span class="legend-label">Reference & Vocabulary</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#334155"></span><span class="legend-label">System & Audit</span></div>
 <div class="legend-item"><span class="legend-dot" style="background:#0284c7"></span><span class="legend-label">Views</span></div>
         </div>
     </div>
@@ -460,8 +473,9 @@
           "description": "Free-text notes about this analysis series"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "AnalysisSeriesAxis",
@@ -496,8 +510,9 @@
           "description": "References the binning axis for this role"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "Annotation",
@@ -623,7 +638,8 @@
         }
       ],
       "group_name": "Annotations",
-      "group_color": "#4d7c0f"
+      "group_color": "#65a30d",
+      "group_key": "annotations"
     },
     {
       "id": "AnnotationKind",
@@ -667,8 +683,9 @@
           "description": "Hex color code for UI rendering, e.g. '#FF6B6B'"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Annotations",
+      "group_color": "#65a30d",
+      "group_key": "annotations"
     },
     {
       "id": "AuditLog",
@@ -739,8 +756,9 @@
           "description": "UTC timestamp when the action occurred"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "System & Audit",
+      "group_color": "#334155",
+      "group_key": "system"
     },
     {
       "id": "BinKind",
@@ -775,8 +793,9 @@
           "description": "Explanation of what this bin kind means"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "Campaign",
@@ -856,8 +875,9 @@
           "description": "Person responsible for running the campaign"
         }
       ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
+      "group_name": "Campaigns & Provenance",
+      "group_color": "#ea580c",
+      "group_key": "campaign_provenance"
     },
     {
       "id": "CampaignEquipment",
@@ -892,8 +912,9 @@
           "description": "Role of this equipment in the campaign (e.g., 'Primary sensor', 'Auto-sampler')"
         }
       ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
+      "group_name": "Campaigns & Provenance",
+      "group_color": "#ea580c",
+      "group_key": "campaign_provenance"
     },
     {
       "id": "CampaignKind",
@@ -928,8 +949,9 @@
           "description": "Explanation of this campaign kind"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Campaigns & Provenance",
+      "group_color": "#ea580c",
+      "group_key": "campaign_provenance"
     },
     {
       "id": "CampaignSamplingLocation",
@@ -964,8 +986,9 @@
           "description": "Role of this location in the campaign (e.g., 'Inlet', 'Reference')"
         }
       ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
+      "group_name": "Campaigns & Provenance",
+      "group_color": "#ea580c",
+      "group_key": "campaign_provenance"
     },
     {
       "id": "Channel",
@@ -1072,8 +1095,9 @@
           "description": "Unit of measurement for values stored in this channel (e.g. mg/L, NTU). Set at channel creation via the ingestion pipeline and treated as immutable thereafter \u2014 a unit change requires a new Channel row.\n"
         }
       ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "ChannelAxis",
@@ -1108,8 +1132,9 @@
           "description": "References the binning axis for this role"
         }
       ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "ChannelKind",
@@ -1144,8 +1169,9 @@
           "description": "Explanation of what this channel kind means"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "ChannelPortHistory",
@@ -1207,8 +1233,9 @@
           "description": "Free-text description of the gating discipline (e.g. 'TresCON round-robin slot 2', 'selected when DigitalIn3 high').\n"
         }
       ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "ChannelTrait",
@@ -1234,44 +1261,9 @@
           "description": "An operation that is part of this Channel's accumulated trait set"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
-    },
-    {
-      "id": "ControllerKind",
-      "label": "ControllerKind",
-      "description": "Controlled vocabulary for control loop algorithm classes",
-      "fields": [
-        {
-          "name": "ControllerKind_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Human-readable name of the controller algorithm class"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(500)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Explanation of the controller algorithm"
-        }
-      ],
-      "group_name": "Control Loops",
-      "group_color": "#be123c"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "ControlLoop",
@@ -1334,7 +1326,8 @@
         }
       ],
       "group_name": "Control Loops",
-      "group_color": "#be123c"
+      "group_color": "#db2777",
+      "group_key": "control_loops"
     },
     {
       "id": "ControlLoopApplication",
@@ -1406,7 +1399,8 @@
         }
       ],
       "group_name": "Control Loops",
-      "group_color": "#be123c"
+      "group_color": "#db2777",
+      "group_key": "control_loops"
     },
     {
       "id": "ControlLoopPort",
@@ -1451,7 +1445,8 @@
         }
       ],
       "group_name": "Control Loops",
-      "group_color": "#be123c"
+      "group_color": "#db2777",
+      "group_key": "control_loops"
     },
     {
       "id": "ControlLoopPortKind",
@@ -1486,8 +1481,46 @@
           "description": "Explanation of the kind within a control loop"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Control Loops",
+      "group_color": "#db2777",
+      "group_key": "control_loops"
+    },
+    {
+      "id": "ControllerKind",
+      "label": "ControllerKind",
+      "description": "Controlled vocabulary for control loop algorithm classes",
+      "fields": [
+        {
+          "name": "ControllerKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name of the controller algorithm class"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of the controller algorithm"
+        }
+      ],
+      "group_name": "Control Loops",
+      "group_color": "#db2777",
+      "group_key": "control_loops"
     },
     {
       "id": "DASLocationHistory",
@@ -1558,8 +1591,9 @@
           "description": "Free-text notes about the deployment or move"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "DataAcquisitionSystem",
@@ -1630,8 +1664,9 @@
           "description": "Free-text notes about this DAS"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "DataAcquisitionSystemKind",
@@ -1666,8 +1701,9 @@
           "description": "Explanation of what this category of Data Acquisition System represents"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "DataProvenanceKind",
@@ -1702,8 +1738,9 @@
           "description": "Explanation of how data with this provenance was produced"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Campaigns & Provenance",
+      "group_color": "#ea580c",
+      "group_key": "campaign_provenance"
     },
     {
       "id": "Dataset",
@@ -1765,8 +1802,9 @@
           "description": "Person who created this dataset. NULL for automated pipelines."
         }
       ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "DatasetChannel",
@@ -1792,8 +1830,9 @@
           "description": "The channel (signal in metEAUdata terms) included in this dataset"
         }
       ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "Equipment",
@@ -1873,8 +1912,9 @@
           "description": "Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability.\n"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "EquipmentEvent",
@@ -1963,8 +2003,9 @@
           "description": "Free-text notes about the event"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "EquipmentEventKind",
@@ -1999,8 +2040,9 @@
           "description": "Explanation of what this kind of equipment event involves"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "EquipmentLocationHistory",
@@ -2071,8 +2113,9 @@
           "description": "Free-text notes about the deployment or relocation"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "EquipmentModel",
@@ -2134,8 +2177,9 @@
           "description": "Location where the manual is stored (e.g. a SharePoint URL)"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "EquipmentModelHasParameter",
@@ -2161,8 +2205,9 @@
           "description": "Link to the Parameter table"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "EquipmentModelHasProcedures",
@@ -2188,8 +2233,9 @@
           "description": "Link to the Procedures table"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "EquipmentWiringHistory",
@@ -2260,8 +2306,9 @@
           "description": "Free-text notes (reason for rewire, calibration context)"
         }
       ],
-      "group_name": "Equipment & Instruments",
-      "group_color": "#059669"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "HydrologicalCharacteristics",
@@ -2333,7 +2380,8 @@
         }
       ],
       "group_name": "Site & Facility",
-      "group_color": "#2563eb"
+      "group_color": "#2563eb",
+      "group_key": "site_facility"
     },
     {
       "id": "LabAnalysis",
@@ -2468,7 +2516,8 @@
         }
       ],
       "group_name": "Lab",
-      "group_color": "#0891b2"
+      "group_color": "#0891b2",
+      "group_key": "lab"
     },
     {
       "id": "LabExperiment",
@@ -2539,53 +2588,9 @@
           "description": "LabPanel this experiment was derived from, if any. NULL for experiments created from scratch."
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
-    },
-    {
-      "id": "Laboratory",
-      "label": "Laboratory",
-      "description": "A laboratory where discrete samples are analysed. May be on-site or external.",
-      "fields": [
-        {
-          "name": "Laboratory_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(200)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Name of the laboratory"
-        },
-        {
-          "name": "Site_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Site.Site_ID",
-          "description": "Site where the laboratory is located, if on-site. NULL for external labs."
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(500)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Additional information about the laboratory"
-        }
-      ],
       "group_name": "Lab",
-      "group_color": "#0891b2"
+      "group_color": "#0891b2",
+      "group_key": "lab"
     },
     {
       "id": "LabPanel",
@@ -2656,8 +2661,9 @@
           "description": "When this panel was created (UTC)"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Lab",
+      "group_color": "#0891b2",
+      "group_key": "lab"
     },
     {
       "id": "LabPanelSeries",
@@ -2683,8 +2689,55 @@
           "description": "References an analysis series to include in the panel"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Lab",
+      "group_color": "#0891b2",
+      "group_key": "lab"
+    },
+    {
+      "id": "Laboratory",
+      "label": "Laboratory",
+      "description": "A laboratory where discrete samples are analysed. May be on-site or external.",
+      "fields": [
+        {
+          "name": "Laboratory_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the laboratory"
+        },
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Site.Site_ID",
+          "description": "Site where the laboratory is located, if on-site. NULL for external labs."
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Additional information about the laboratory"
+        }
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2",
+      "group_key": "lab"
     },
     {
       "id": "LandUse",
@@ -2765,7 +2818,8 @@
         }
       ],
       "group_name": "Site & Facility",
-      "group_color": "#2563eb"
+      "group_color": "#2563eb",
+      "group_key": "site_facility"
     },
     {
       "id": "Observation",
@@ -2819,7 +2873,8 @@
         }
       ],
       "group_name": "Observations & Values",
-      "group_color": "#dc2626"
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "OperationKind",
@@ -2854,8 +2909,9 @@
           "description": "Explanation of what this operation does"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Campaigns & Provenance",
+      "group_color": "#ea580c",
+      "group_key": "campaign_provenance"
     },
     {
       "id": "Parameter",
@@ -2917,8 +2973,9 @@
           "description": "QUDT quantity kind IRI; used at build time to populate ParameterHasUnit. NULL = no physical quantity kind (status codes, images, spectra)."
         }
       ],
-      "group_name": "Lookup / Reference",
-      "group_color": "#475569"
+      "group_name": "Reference & Vocabulary",
+      "group_color": "#64748b",
+      "group_key": "reference"
     },
     {
       "id": "ParameterHasUnit",
@@ -2944,8 +3001,9 @@
           "description": "Link to Unit"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Reference & Vocabulary",
+      "group_color": "#64748b",
+      "group_key": "reference"
     },
     {
       "id": "Person",
@@ -3043,8 +3101,9 @@
           "description": "Personal or organisation website URL"
         }
       ],
-      "group_name": "Lookup / Reference",
-      "group_color": "#475569"
+      "group_name": "Reference & Vocabulary",
+      "group_color": "#64748b",
+      "group_key": "reference"
     },
     {
       "id": "ProcedureKind",
@@ -3079,8 +3138,9 @@
           "description": "Explanation of this procedure kind"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Reference & Vocabulary",
+      "group_color": "#64748b",
+      "group_key": "reference"
     },
     {
       "id": "Procedures",
@@ -3133,8 +3193,119 @@
           "description": "Where is the procedure stored (URL)"
         }
       ],
-      "group_name": "Lookup / Reference",
-      "group_color": "#475569"
+      "group_name": "Reference & Vocabulary",
+      "group_color": "#64748b",
+      "group_key": "reference"
+    },
+    {
+      "id": "ProcessUnit",
+      "label": "ProcessUnit",
+      "description": "Self-referential, site-scoped hierarchy of functional process locations. Each unit carries a stable P&ID-style Tag unique per site. Used to structure sampling points within process facilities (WWTPs, pilot plants) without breaking field campaigns that rely on free-text SamplingLocation fields.\n",
+      "fields": [
+        {
+          "name": "ProcessUnit_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key for the ProcessUnit"
+        },
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "Site.Site_ID",
+          "description": "Foreign key to Site \u2014 scopes the unit to a single site"
+        },
+        {
+          "name": "Tag",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site."
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(255)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name for the process unit"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Optional description of the process unit's role or function"
+        },
+        {
+          "name": "ProcessUnitKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ProcessUnitKind.ProcessUnitKind_ID",
+          "description": "Foreign key to ProcessUnitKind lookup"
+        },
+        {
+          "name": "Parent_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ProcessUnit.ProcessUnit_ID",
+          "description": "Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree"
+        }
+      ],
+      "group_name": "Site & Facility",
+      "group_color": "#2563eb",
+      "group_key": "site_facility"
+    },
+    {
+      "id": "ProcessUnitKind",
+      "label": "ProcessUnitKind",
+      "description": "Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)",
+      "fields": [
+        {
+          "name": "ProcessUnitKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key for the ProcessUnitKind lookup"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the process unit kind (e.g. Reactor, Pipe, Clarifier)"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of this process unit kind"
+        }
+      ],
+      "group_name": "Site & Facility",
+      "group_color": "#2563eb",
+      "group_key": "site_facility"
     },
     {
       "id": "ProcessingLineage",
@@ -3187,8 +3358,9 @@
           "description": "End of the data slice that was consumed or produced by this step (UTC). NULL means the slice is open-ended (ongoing online processing).\n"
         }
       ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
+      "group_name": "Campaigns & Provenance",
+      "group_color": "#ea580c",
+      "group_key": "campaign_provenance"
     },
     {
       "id": "ProcessingStep",
@@ -3286,116 +3458,9 @@
           "description": "The Dataset this processing step belongs to. NULL for steps that operate on a single channel without a named analysis context. Required for multivariate steps that consume or produce multiple channels.\n"
         }
       ],
-      "group_name": "Campaign & Provenance",
-      "group_color": "#d97706"
-    },
-    {
-      "id": "ProcessUnit",
-      "label": "ProcessUnit",
-      "description": "Self-referential, site-scoped hierarchy of functional process locations. Each unit carries a stable P&ID-style Tag unique per site. Used to structure sampling points within process facilities (WWTPs, pilot plants) without breaking field campaigns that rely on free-text SamplingLocation fields.\n",
-      "fields": [
-        {
-          "name": "ProcessUnit_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Primary key for the ProcessUnit"
-        },
-        {
-          "name": "Site_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Site.Site_ID",
-          "description": "Foreign key to Site \u2014 scopes the unit to a single site"
-        },
-        {
-          "name": "Tag",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site."
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(255)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Human-readable name for the process unit"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Optional description of the process unit's role or function"
-        },
-        {
-          "name": "ProcessUnitKind_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "ProcessUnitKind.ProcessUnitKind_ID",
-          "description": "Foreign key to ProcessUnitKind lookup"
-        },
-        {
-          "name": "Parent_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "ProcessUnit.ProcessUnit_ID",
-          "description": "Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree"
-        }
-      ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
-    },
-    {
-      "id": "ProcessUnitKind",
-      "label": "ProcessUnitKind",
-      "description": "Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)",
-      "fields": [
-        {
-          "name": "ProcessUnitKind_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Primary key for the ProcessUnitKind lookup"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Name of the process unit kind (e.g. Reactor, Pipe, Clarifier)"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(300)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Explanation of this process unit kind"
-        }
-      ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Campaigns & Provenance",
+      "group_color": "#ea580c",
+      "group_key": "campaign_provenance"
     },
     {
       "id": "QualityCode",
@@ -3439,8 +3504,9 @@
           "description": "Whether a value carrying this code should be included in analysis. true = value is fit for use; false = value must be excluded or treated specially.\n"
         }
       ],
-      "group_name": "Lookup / Reference",
-      "group_color": "#475569"
+      "group_name": "Reference & Vocabulary",
+      "group_color": "#64748b",
+      "group_key": "reference"
     },
     {
       "id": "ReviewStatus",
@@ -3475,8 +3541,9 @@
           "description": "Explanation of what this review status means"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Lab",
+      "group_color": "#0891b2",
+      "group_key": "lab"
     },
     {
       "id": "Sample",
@@ -3584,7 +3651,8 @@
         }
       ],
       "group_name": "Lab",
-      "group_color": "#0891b2"
+      "group_color": "#0891b2",
+      "group_key": "lab"
     },
     {
       "id": "SampleCollectionKind",
@@ -3619,8 +3687,9 @@
           "description": "Explanation of the collection kind"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Lab",
+      "group_color": "#0891b2",
+      "group_key": "lab"
     },
     {
       "id": "SampleKind",
@@ -3655,8 +3724,9 @@
           "description": "Explanation of what this sample kind represents"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Lab",
+      "group_color": "#0891b2",
+      "group_key": "lab"
     },
     {
       "id": "SamplingPoint",
@@ -3764,7 +3834,8 @@
         }
       ],
       "group_name": "Site & Facility",
-      "group_color": "#2563eb"
+      "group_color": "#2563eb",
+      "group_key": "site_facility"
     },
     {
       "id": "SchemaVersion",
@@ -3817,8 +3888,9 @@
           "description": "Filename of the migration script that was applied"
         }
       ],
-      "group_name": "Lookup / Reference",
-      "group_color": "#475569"
+      "group_name": "System & Audit",
+      "group_color": "#334155",
+      "group_key": "system"
     },
     {
       "id": "SignalInterface",
@@ -3898,8 +3970,9 @@
           "description": "Whether this interface is currently in service"
         }
       ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "SignalInterfacePort",
@@ -3952,8 +4025,9 @@
           "description": "Whether this port is currently in use"
         }
       ],
-      "group_name": "Signal / Channel",
-      "group_color": "#7c3aed"
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
     },
     {
       "id": "Site",
@@ -4079,7 +4153,8 @@
         }
       ],
       "group_name": "Site & Facility",
-      "group_color": "#2563eb"
+      "group_color": "#2563eb",
+      "group_key": "site_facility"
     },
     {
       "id": "SiteKind",
@@ -4114,8 +4189,9 @@
           "description": "Detailed description of the site kind"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Site & Facility",
+      "group_color": "#2563eb",
+      "group_key": "site_facility"
     },
     {
       "id": "Stream",
@@ -4141,8 +4217,9 @@
           "description": "Discriminator identifying the stream subtype (Sensor=Channel, Lab=AnalysisSeries). Enables fast \"sensor vs lab\" filtering without joining to the subtype tables.\n"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "StreamKind",
@@ -4177,8 +4254,9 @@
           "description": "Explanation of what this stream kind means"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Streams & Channels",
+      "group_color": "#7c3aed",
+      "group_key": "signal_channel"
     },
     {
       "id": "Unit",
@@ -4240,8 +4318,9 @@
           "description": "Add this after applying SI_Multiplier (e.g. 273.15 for \u00b0C \u2192 K). NULL treated as 0."
         }
       ],
-      "group_name": "Lookup / Reference",
-      "group_color": "#475569"
+      "group_name": "Reference & Vocabulary",
+      "group_color": "#64748b",
+      "group_key": "reference"
     },
     {
       "id": "UserAccount",
@@ -4321,8 +4400,9 @@
           "description": "UTC timestamp of the last profile update"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "System & Audit",
+      "group_color": "#334155",
+      "group_key": "system"
     },
     {
       "id": "Value",
@@ -4358,7 +4438,8 @@
         }
       ],
       "group_name": "Observations & Values",
-      "group_color": "#dc2626"
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "ValueBin",
@@ -4421,7 +4502,8 @@
         }
       ],
       "group_name": "Observations & Values",
-      "group_color": "#dc2626"
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "ValueBinningAxis",
@@ -4484,7 +4566,8 @@
         }
       ],
       "group_name": "Observations & Values",
-      "group_color": "#dc2626"
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "ValueImage",
@@ -4583,7 +4666,8 @@
         }
       ],
       "group_name": "Observations & Values",
-      "group_color": "#dc2626"
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "ValueKind",
@@ -4618,8 +4702,9 @@
           "description": "Explanation of what this value kind represents structurally"
         }
       ],
-      "group_name": "Uncategorized",
-      "group_color": "#6b7280"
+      "group_name": "Observations & Values",
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "ValueMatrix",
@@ -4673,7 +4758,8 @@
         }
       ],
       "group_name": "Observations & Values",
-      "group_color": "#dc2626"
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "ValueVector",
@@ -4718,7 +4804,8 @@
         }
       ],
       "group_name": "Observations & Values",
-      "group_color": "#dc2626"
+      "group_color": "#dc2626",
+      "group_key": "observations"
     },
     {
       "id": "Watershed",
@@ -4799,7 +4886,8 @@
         }
       ],
       "group_name": "Site & Facility",
-      "group_color": "#2563eb"
+      "group_color": "#2563eb",
+      "group_key": "site_facility"
     }
   ],
   "views": [
@@ -5629,13 +5717,6 @@
       "relationship_type": null
     },
     {
-      "from_table": "Laboratory",
-      "to_table": "Site",
-      "from_field": "Site_ID",
-      "to_field": "Site_ID",
-      "relationship_type": null
-    },
-    {
       "from_table": "LabPanel",
       "to_table": "Person",
       "from_field": "CreatedByPerson_ID",
@@ -5668,6 +5749,13 @@
       "to_table": "AnalysisSeries",
       "from_field": "AnalysisSeries_ID",
       "to_field": "Stream_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Laboratory",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
       "relationship_type": null
     },
     {
@@ -5727,6 +5815,27 @@
       "relationship_type": null
     },
     {
+      "from_table": "ProcessUnit",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "ProcessUnitKind",
+      "from_field": "ProcessUnitKind_ID",
+      "to_field": "ProcessUnitKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "ProcessUnit",
+      "from_field": "Parent_ID",
+      "to_field": "ProcessUnit_ID",
+      "relationship_type": null
+    },
+    {
       "from_table": "ProcessingLineage",
       "to_table": "ProcessingStep",
       "from_field": "ProcessingStep_ID",
@@ -5759,27 +5868,6 @@
       "to_table": "Dataset",
       "from_field": "Dataset_ID",
       "to_field": "Dataset_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProcessUnit",
-      "to_table": "Site",
-      "from_field": "Site_ID",
-      "to_field": "Site_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProcessUnit",
-      "to_table": "ProcessUnitKind",
-      "from_field": "ProcessUnitKind_ID",
-      "to_field": "ProcessUnitKind_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "ProcessUnit",
-      "to_table": "ProcessUnit",
-      "from_field": "Parent_ID",
-      "to_field": "ProcessUnit_ID",
       "relationship_type": null
     },
     {
@@ -5973,12 +6061,12 @@
     },
     {
       "key": "equipment",
-      "name": "Equipment & Instruments",
+      "name": "Field System & Equipment",
       "color": "#059669"
     },
     {
       "key": "signal_channel",
-      "name": "Signal / Channel",
+      "name": "Streams & Channels",
       "color": "#7c3aed"
     },
     {
@@ -5993,23 +6081,28 @@
     },
     {
       "key": "campaign_provenance",
-      "name": "Campaign & Provenance",
-      "color": "#d97706"
+      "name": "Campaigns & Provenance",
+      "color": "#ea580c"
     },
     {
       "key": "annotations",
       "name": "Annotations",
-      "color": "#4d7c0f"
+      "color": "#65a30d"
     },
     {
       "key": "control_loops",
       "name": "Control Loops",
-      "color": "#be123c"
+      "color": "#db2777"
     },
     {
       "key": "reference",
-      "name": "Lookup / Reference",
-      "color": "#475569"
+      "name": "Reference & Vocabulary",
+      "color": "#64748b"
+    },
+    {
+      "key": "system",
+      "name": "System & Audit",
+      "color": "#334155"
     }
   ],
   "settings": {
@@ -6161,11 +6254,13 @@
             defaultConnector: { name: 'rounded' }
         });
 
-        // --- Build Graph ---
+        // --- Build Graph (optionally filtered to one thematic group) ---
+        function buildGraph(filterKey) {
         const tableElements = {};
+        const includeTable = function(t) { return !filterKey || t.group_key === filterKey; };
 
         // 1. Create Nodes
-        erdData.tables.forEach(table => {
+        erdData.tables.filter(includeTable).forEach(table => {
             // Dynamic Width Calculation
             // Estimate text width: Label vs (Fields Name + Type)
             let maxChars = table.label.length;
@@ -6199,7 +6294,8 @@
 
         // 1b. Create View Nodes (with distinct styling)
         const viewElements = {};
-        erdData.views.forEach(view => {
+        // Views are global (not grouped); hide them when a single group is selected
+        erdData.views.filter(function() { return !filterKey; }).forEach(view => {
             // Dynamic Width Calculation
             let maxChars = view.label.length;
             view.columns.forEach(col => {
@@ -6306,6 +6402,19 @@
                 link.addTo(graph);
             }
         });
+        }  // end buildGraph
+
+        // Initial build: all tables
+        buildGraph(null);
+
+        // Rebuild the graph for the selected thematic group (subset view)
+        function applyFilter() {
+            const sel = document.getElementById('groupFilter');
+            const key = sel && sel.value ? sel.value : null;
+            graph.clear();          // removes cells; ElementView.remove() cleans up the HTML divs
+            buildGraph(key);
+            setTimeout(autoLayout, 50);
+        }
 
         // --- Auto Layout (dagre-based, no dependency on joint.layout.DirectedGraph) ---
         function autoLayout() {
@@ -6560,97 +6669,86 @@
         function zoomIn() { currentScale += 0.1; paper.scale(currentScale); }
         function zoomOut() { currentScale -= 0.1; paper.scale(currentScale); }
 
+        // Rasterize the exported SVG to PNG via a canvas (no html2canvas; the
+        // SVG is built from the data model so it is independent of pan/zoom).
         function exportPNG() {
             closeSidebar();
+            const svg = buildExportSvg();
+            if (!svg) { alert('Nothing to export.'); return; }
 
-            const bbox = graph.getBBox();
-            if (!bbox || bbox.width === 0) {
-                alert('Nothing to export.');
-                return;
-            }
+            const w = Number(svg.getAttribute('width'));
+            const h = Number(svg.getAttribute('height'));
+            const svgStr = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+                new XMLSerializer().serializeToString(svg);
+            const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' }));
 
-            const padding = 50;
-            const width = Math.ceil(bbox.width + padding * 2);
-            const height = Math.ceil(bbox.height + padding * 2);
-
-            const originalTransform = paper.translate();
-            const originalScale = paper.scale();
-            const paperElement = document.getElementById('paper');
-            const oldOverflow = paperElement.style.overflow;
-
-            // Reset view so all content fits exactly in [0, width] x [0, height]
-            paper.scale(1, 1);
-            paper.translate(padding - bbox.x, padding - bbox.y);
-
-            // Temporarily allow overflow so html2canvas can read all positioned children
-            paperElement.style.overflow = 'visible';
-
-            // Wait two animation frames for CSS transforms to flush before capture
-            requestAnimationFrame(function() {
-                requestAnimationFrame(function() {
-                    html2canvas(paperElement, {
-                        backgroundColor: '#f0f2f5',
-                        width: width,
-                        height: height,
-                        x: 0,
-                        y: 0,
-                        scrollX: 0,
-                        scrollY: 0,
-                        useCORS: true,
-                        allowTaint: true,
-                        scale: 1
-                    }).then(function(canvas) {
-                        canvas.toBlob(function(blob) {
-                            const url = URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.download = 'dateaubase_erd.png';
-                            link.href = url;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                            URL.revokeObjectURL(url);
-                        });
-                        paperElement.style.overflow = oldOverflow;
-                        paper.translate(originalTransform.tx, originalTransform.ty);
-                        paper.scale(originalScale.sx, originalScale.sy);
-                    }).catch(function(err) {
-                        console.error('PNG export error:', err);
-                        alert('PNG export failed. See console for details.');
-                        paperElement.style.overflow = oldOverflow;
-                        paper.translate(originalTransform.tx, originalTransform.ty);
-                        paper.scale(originalScale.sx, originalScale.sy);
-                    });
-                });
-            });
+            const img = new Image();
+            img.onload = function() {
+                const scale = 2; // hi-dpi raster
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.ceil(w * scale);
+                canvas.height = Math.ceil(h * scale);
+                const ctx = canvas.getContext('2d');
+                // No fill — keep the PNG background transparent.
+                ctx.setTransform(scale, 0, 0, scale, 0, 0);
+                ctx.drawImage(img, 0, 0, w, h);
+                URL.revokeObjectURL(url);
+                canvas.toBlob(function(blob) { downloadBlob(blob, 'dateaubase_erd.png'); });
+            };
+            img.onerror = function() {
+                URL.revokeObjectURL(url);
+                alert('PNG export failed. See console for details.');
+            };
+            img.src = url;
         }
 
-        function exportSVG() {
-            closeSidebar();
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
 
+        // Build a self-contained SVG of the current graph, entirely in model
+        // coordinates. Independent of the live paper pan/zoom, so exports are
+        // never the empty squashed boxes the old paper.svg clone produced.
+        function buildExportSvg() {
             const bbox = graph.getBBox();
-            if (!bbox || bbox.width === 0) {
-                alert('Nothing to export.');
-                return;
-            }
+            if (!bbox || bbox.width === 0) return null;
 
             const padding = 50;
             const NS = 'http://www.w3.org/2000/svg';
+            const W = bbox.width + padding * 2;
+            const H = bbox.height + padding * 2;
 
-            // Start fresh SVG (clone paper SVG for relationship lines)
-            const svgClone = paper.svg.cloneNode(true);
-            svgClone.setAttribute('xmlns', NS);
-            svgClone.setAttribute('viewBox', `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + padding * 2} ${bbox.height + padding * 2}`);
-            svgClone.setAttribute('width', String(bbox.width + padding * 2));
-            svgClone.setAttribute('height', String(bbox.height + padding * 2));
+            const svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('xmlns', NS);
+            svg.setAttribute('viewBox', `${bbox.x - padding} ${bbox.y - padding} ${W} ${H}`);
+            svg.setAttribute('width', String(W));
+            svg.setAttribute('height', String(H));
+            // Transparent background (no background rect) so figures drop onto
+            // any slide; tables keep their own white/colored fills.
 
-            // Background
-            const bg = document.createElementNS(NS, 'rect');
-            bg.setAttribute('x', String(bbox.x - padding));
-            bg.setAttribute('y', String(bbox.y - padding));
-            bg.setAttribute('width', String(bbox.width + padding * 2));
-            bg.setAttribute('height', String(bbox.height + padding * 2));
-            bg.setAttribute('fill', '#f0f2f5');
-            svgClone.insertBefore(bg, svgClone.firstChild);
+            // Relationship links: use the live link view's serialized connection,
+            // whose path data is already in model coordinates.
+            const linksG = document.createElementNS(NS, 'g');
+            graph.getLinks().forEach(function(link) {
+                const lv = link.findView(paper);
+                if (!lv || typeof lv.getSerializedConnection !== 'function') return;
+                const d = lv.getSerializedConnection();
+                if (!d) return;
+                const path = document.createElementNS(NS, 'path');
+                path.setAttribute('d', d);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', '#94a3b8');
+                path.setAttribute('stroke-width', '1.5');
+                linksG.appendChild(path);
+            });
+            svg.appendChild(linksG);
 
             // Helper: create SVG text element
             function svgText(x, y, txt, opts) {
@@ -6666,7 +6764,7 @@
                 return t;
             }
 
-            // Render each table/view as native SVG
+            // Render each table/view as native SVG (drawn on top of the links)
             graph.getElements().forEach(function(model) {
                 const isView = model.get('isView');
                 const data = isView ? model.get('viewData') : model.get('tableData');
@@ -6769,22 +6867,21 @@
                     }));
                 });
 
-                svgClone.appendChild(g);
+                svg.appendChild(g);
             });
 
-            const serializer = new XMLSerializer();
-            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(svgClone);
-            const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.download = 'dateaubase_erd.svg';
-            link.href = url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            return svg;
         }
-        
+
+        function exportSVG() {
+            closeSidebar();
+            const svg = buildExportSvg();
+            if (!svg) { alert('Nothing to export.'); return; }
+            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+                new XMLSerializer().serializeToString(svg);
+            downloadBlob(new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' }), 'dateaubase_erd.svg');
+        }
+
         // --- Sidebar Logic ---
         function showFieldDetails(fieldJson, tableName, event) {
             event.stopPropagation(); // Prevent paper blank click from closing sidebar

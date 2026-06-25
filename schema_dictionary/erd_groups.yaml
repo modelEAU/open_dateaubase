@@ -1,6 +1,9 @@
 # ERD Thematic Group Configuration
 # Table names must match PascalCase YAML filenames in schema_dictionary/tables/
-# Tables not listed here are placed in the 'Uncategorized' group
+# Tables not listed here are placed in the 'Uncategorized' group.
+# Every controlled-vocabulary "*Kind" table is grouped with its domain so each
+# theme reads as a self-contained slice; purely cross-cutting lookups live in
+# the Reference group, and infrastructure tables in System & Audit.
 
 groups:
   site_facility:
@@ -8,38 +11,47 @@ groups:
     color: "#2563eb"
     tables:
       - Site
+      - SiteKind
       - SamplingPoint
+      - ProcessUnit
+      - ProcessUnitKind
       - Watershed
       - HydrologicalCharacteristics
       - LandUse
 
   equipment:
-    name: Equipment & Instruments
+    name: Field System & Equipment
     color: "#059669"
     tables:
+      - DataAcquisitionSystem
+      - DataAcquisitionSystemKind
+      - DASLocationHistory
+      - SignalInterface
+      - SignalInterfacePort
       - Equipment
       - EquipmentModel
       - EquipmentModelHasParameter
       - EquipmentModelHasProcedures
       - EquipmentEvent
-      - EquipmentEventType
-      - EquipmentWiringHistory
+      - EquipmentEventKind
       - EquipmentLocationHistory
-      - DataAcquisitionSystem
-      - DataAcquisitionSystemKind
+      - EquipmentWiringHistory
 
   signal_channel:
-    name: Signal / Channel
+    name: Streams & Channels
     color: "#7c3aed"
     tables:
-      - SignalInterface
-      - SignalInterfacePort
+      - Stream
+      - StreamKind
       - Channel
+      - ChannelKind
       - ChannelAxis
+      - ChannelTrait
       - ChannelPortHistory
-      - ChannelRole
-      - ProcessingDegree
-      - ValueType
+      - AnalysisSeries
+      - AnalysisSeriesAxis
+      - Dataset
+      - DatasetChannel
 
   observations:
     name: Observations & Values
@@ -52,59 +64,72 @@ groups:
       - ValueImage
       - ValueBin
       - ValueBinningAxis
+      - ValueKind
+      - BinKind
 
   lab:
     name: Lab
     color: "#0891b2"
     tables:
-      - LabAnalysis
-      - LabValue
-      - Sample
-      - SampleType
-      - SampleMethod
       - Laboratory
+      - LabExperiment
+      - LabAnalysis
+      - LabPanel
+      - LabPanelSeries
+      - Sample
+      - SampleKind
+      - SampleCollectionKind
+      - ReviewStatus
 
   campaign_provenance:
-    name: Campaign & Provenance
-    color: "#d97706"
+    name: Campaigns & Provenance
+    color: "#ea580c"
     tables:
       - Campaign
-      - CampaignType
+      - CampaignKind
       - CampaignEquipment
       - CampaignSamplingLocation
-      - DataProvenance
-      - Dataset
-      - DatasetChannel
+      - DataProvenanceKind
       - ProcessingStep
       - ProcessingLineage
+      - OperationKind
 
   annotations:
     name: Annotations
-    color: "#4d7c0f"
+    color: "#65a30d"
     tables:
       - Annotation
-      - AnnotationType
+      - AnnotationKind
 
   control_loops:
     name: Control Loops
-    color: "#be123c"
+    color: "#db2777"
     tables:
       - ControlLoop
-      - ControlLoopPort
-      - ControlLoopPortRole
       - ControlLoopApplication
+      - ControlLoopPort
+      - ControlLoopPortKind
       - ControllerKind
 
   reference:
-    name: Lookup / Reference
-    color: "#475569"
+    name: Reference & Vocabulary
+    color: "#64748b"
     tables:
-      - Unit
       - Parameter
+      - ParameterHasUnit
+      - Unit
       - Person
-      - QualityCode
       - Procedures
+      - ProcedureKind
+      - QualityCode
+
+  system:
+    name: System & Audit
+    color: "#334155"
+    tables:
       - SchemaVersion
+      - AuditLog
+      - UserAccount
 
 # Global settings
 settings:

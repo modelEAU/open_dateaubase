@@ -462,6 +462,7 @@ def generate_erd_data(
         group = table_to_group.get(t.id.lower(), None)
         d["group_name"] = group["name"] if group else default_group_name
         d["group_color"] = group["color"] if group else default_color
+        d["group_key"] = group["key"] if group else None
         tables_out.append(d)
 
     # Annotate views with group info
@@ -568,6 +569,14 @@ def _generate_jointjs_html(
             f"</div>\n"
         )
 
+    # Build group filter <option>s for the subset selector
+    group_options_html = '<option value="">All tables</option>\n'
+    if groups_config:
+        for grp in groups_config.get("groups", []):
+            group_options_html += (
+                f'<option value="{grp["key"]}">{grp["name"]}</option>\n'
+            )
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -582,8 +591,7 @@ def _generate_jointjs_html(
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.1/joint.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/graphlib/2.1.8/graphlib.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
+
     <!-- Styling -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.1/joint.min.css" />
@@ -910,6 +918,8 @@ def _generate_jointjs_html(
 <body>
 
     <div class="toolbar">
+        <select id="groupFilter" class="tool-btn" onchange="applyFilter()" title="Show only one thematic group">
+{group_options_html}        </select>
         <button class="tool-btn primary" onclick="autoLayout()">Auto Layout</button>
         <button class="tool-btn" onclick="zoomIn()">+</button>
         <button class="tool-btn" onclick="zoomOut()">-</button>
@@ -1083,11 +1093,13 @@ def _generate_jointjs_html(
             defaultConnector: {{ name: 'rounded' }}
         }});
 
-        // --- Build Graph ---
+        // --- Build Graph (optionally filtered to one thematic group) ---
+        function buildGraph(filterKey) {{
         const tableElements = {{}};
+        const includeTable = function(t) {{ return !filterKey || t.group_key === filterKey; }};
 
         // 1. Create Nodes
-        erdData.tables.forEach(table => {{
+        erdData.tables.filter(includeTable).forEach(table => {{
             // Dynamic Width Calculation
             // Estimate text width: Label vs (Fields Name + Type)
             let maxChars = table.label.length;
@@ -1121,7 +1133,8 @@ def _generate_jointjs_html(
 
         // 1b. Create View Nodes (with distinct styling)
         const viewElements = {{}};
-        erdData.views.forEach(view => {{
+        // Views are global (not grouped); hide them when a single group is selected
+        erdData.views.filter(function() {{ return !filterKey; }}).forEach(view => {{
             // Dynamic Width Calculation
             let maxChars = view.label.length;
             view.columns.forEach(col => {{
@@ -1228,6 +1241,19 @@ def _generate_jointjs_html(
                 link.addTo(graph);
             }}
         }});
+        }}  // end buildGraph
+
+        // Initial build: all tables
+        buildGraph(null);
+
+        // Rebuild the graph for the selected thematic group (subset view)
+        function applyFilter() {{
+            const sel = document.getElementById('groupFilter');
+            const key = sel && sel.value ? sel.value : null;
+            graph.clear();          // removes cells; ElementView.remove() cleans up the HTML divs
+            buildGraph(key);
+            setTimeout(autoLayout, 50);
+        }}
 
         // --- Auto Layout (dagre-based, no dependency on joint.layout.DirectedGraph) ---
         function autoLayout() {{
@@ -1482,97 +1508,86 @@ def _generate_jointjs_html(
         function zoomIn() {{ currentScale += 0.1; paper.scale(currentScale); }}
         function zoomOut() {{ currentScale -= 0.1; paper.scale(currentScale); }}
 
+        // Rasterize the exported SVG to PNG via a canvas (no html2canvas; the
+        // SVG is built from the data model so it is independent of pan/zoom).
         function exportPNG() {{
             closeSidebar();
+            const svg = buildExportSvg();
+            if (!svg) {{ alert('Nothing to export.'); return; }}
 
-            const bbox = graph.getBBox();
-            if (!bbox || bbox.width === 0) {{
-                alert('Nothing to export.');
-                return;
-            }}
+            const w = Number(svg.getAttribute('width'));
+            const h = Number(svg.getAttribute('height'));
+            const svgStr = '<?xml version="1.0" encoding="UTF-8"?>\\n' +
+                new XMLSerializer().serializeToString(svg);
+            const url = URL.createObjectURL(new Blob([svgStr], {{ type: 'image/svg+xml;charset=utf-8' }}));
 
-            const padding = 50;
-            const width = Math.ceil(bbox.width + padding * 2);
-            const height = Math.ceil(bbox.height + padding * 2);
-
-            const originalTransform = paper.translate();
-            const originalScale = paper.scale();
-            const paperElement = document.getElementById('paper');
-            const oldOverflow = paperElement.style.overflow;
-
-            // Reset view so all content fits exactly in [0, width] x [0, height]
-            paper.scale(1, 1);
-            paper.translate(padding - bbox.x, padding - bbox.y);
-
-            // Temporarily allow overflow so html2canvas can read all positioned children
-            paperElement.style.overflow = 'visible';
-
-            // Wait two animation frames for CSS transforms to flush before capture
-            requestAnimationFrame(function() {{
-                requestAnimationFrame(function() {{
-                    html2canvas(paperElement, {{
-                        backgroundColor: '#f0f2f5',
-                        width: width,
-                        height: height,
-                        x: 0,
-                        y: 0,
-                        scrollX: 0,
-                        scrollY: 0,
-                        useCORS: true,
-                        allowTaint: true,
-                        scale: 1
-                    }}).then(function(canvas) {{
-                        canvas.toBlob(function(blob) {{
-                            const url = URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.download = 'dateaubase_erd.png';
-                            link.href = url;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                            URL.revokeObjectURL(url);
-                        }});
-                        paperElement.style.overflow = oldOverflow;
-                        paper.translate(originalTransform.tx, originalTransform.ty);
-                        paper.scale(originalScale.sx, originalScale.sy);
-                    }}).catch(function(err) {{
-                        console.error('PNG export error:', err);
-                        alert('PNG export failed. See console for details.');
-                        paperElement.style.overflow = oldOverflow;
-                        paper.translate(originalTransform.tx, originalTransform.ty);
-                        paper.scale(originalScale.sx, originalScale.sy);
-                    }});
-                }});
-            }});
+            const img = new Image();
+            img.onload = function() {{
+                const scale = 2; // hi-dpi raster
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.ceil(w * scale);
+                canvas.height = Math.ceil(h * scale);
+                const ctx = canvas.getContext('2d');
+                // No fill — keep the PNG background transparent.
+                ctx.setTransform(scale, 0, 0, scale, 0, 0);
+                ctx.drawImage(img, 0, 0, w, h);
+                URL.revokeObjectURL(url);
+                canvas.toBlob(function(blob) {{ downloadBlob(blob, 'dateaubase_erd.png'); }});
+            }};
+            img.onerror = function() {{
+                URL.revokeObjectURL(url);
+                alert('PNG export failed. See console for details.');
+            }};
+            img.src = url;
         }}
 
-        function exportSVG() {{
-            closeSidebar();
+        function downloadBlob(blob, filename) {{
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }}
 
+        // Build a self-contained SVG of the current graph, entirely in model
+        // coordinates. Independent of the live paper pan/zoom, so exports are
+        // never the empty squashed boxes the old paper.svg clone produced.
+        function buildExportSvg() {{
             const bbox = graph.getBBox();
-            if (!bbox || bbox.width === 0) {{
-                alert('Nothing to export.');
-                return;
-            }}
+            if (!bbox || bbox.width === 0) return null;
 
             const padding = 50;
             const NS = 'http://www.w3.org/2000/svg';
+            const W = bbox.width + padding * 2;
+            const H = bbox.height + padding * 2;
 
-            // Start fresh SVG (clone paper SVG for relationship lines)
-            const svgClone = paper.svg.cloneNode(true);
-            svgClone.setAttribute('xmlns', NS);
-            svgClone.setAttribute('viewBox', `${{bbox.x - padding}} ${{bbox.y - padding}} ${{bbox.width + padding * 2}} ${{bbox.height + padding * 2}}`);
-            svgClone.setAttribute('width', String(bbox.width + padding * 2));
-            svgClone.setAttribute('height', String(bbox.height + padding * 2));
+            const svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('xmlns', NS);
+            svg.setAttribute('viewBox', `${{bbox.x - padding}} ${{bbox.y - padding}} ${{W}} ${{H}}`);
+            svg.setAttribute('width', String(W));
+            svg.setAttribute('height', String(H));
+            // Transparent background (no background rect) so figures drop onto
+            // any slide; tables keep their own white/colored fills.
 
-            // Background
-            const bg = document.createElementNS(NS, 'rect');
-            bg.setAttribute('x', String(bbox.x - padding));
-            bg.setAttribute('y', String(bbox.y - padding));
-            bg.setAttribute('width', String(bbox.width + padding * 2));
-            bg.setAttribute('height', String(bbox.height + padding * 2));
-            bg.setAttribute('fill', '#f0f2f5');
-            svgClone.insertBefore(bg, svgClone.firstChild);
+            // Relationship links: use the live link view's serialized connection,
+            // whose path data is already in model coordinates.
+            const linksG = document.createElementNS(NS, 'g');
+            graph.getLinks().forEach(function(link) {{
+                const lv = link.findView(paper);
+                if (!lv || typeof lv.getSerializedConnection !== 'function') return;
+                const d = lv.getSerializedConnection();
+                if (!d) return;
+                const path = document.createElementNS(NS, 'path');
+                path.setAttribute('d', d);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', '#94a3b8');
+                path.setAttribute('stroke-width', '1.5');
+                linksG.appendChild(path);
+            }});
+            svg.appendChild(linksG);
 
             // Helper: create SVG text element
             function svgText(x, y, txt, opts) {{
@@ -1588,7 +1603,7 @@ def _generate_jointjs_html(
                 return t;
             }}
 
-            // Render each table/view as native SVG
+            // Render each table/view as native SVG (drawn on top of the links)
             graph.getElements().forEach(function(model) {{
                 const isView = model.get('isView');
                 const data = isView ? model.get('viewData') : model.get('tableData');
@@ -1691,22 +1706,21 @@ def _generate_jointjs_html(
                     }}));
                 }});
 
-                svgClone.appendChild(g);
+                svg.appendChild(g);
             }});
 
-            const serializer = new XMLSerializer();
-            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\\n' + serializer.serializeToString(svgClone);
-            const blob = new Blob([svgString], {{ type: 'image/svg+xml;charset=utf-8' }});
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.download = 'dateaubase_erd.svg';
-            link.href = url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            return svg;
         }}
-        
+
+        function exportSVG() {{
+            closeSidebar();
+            const svg = buildExportSvg();
+            if (!svg) {{ alert('Nothing to export.'); return; }}
+            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\\n' +
+                new XMLSerializer().serializeToString(svg);
+            downloadBlob(new Blob([svgString], {{ type: 'image/svg+xml;charset=utf-8' }}), 'dateaubase_erd.svg');
+        }}
+
         // --- Sidebar Logic ---
         function showFieldDetails(fieldJson, tableName, event) {{
             event.stopPropagation(); // Prevent paper blank click from closing sidebar
