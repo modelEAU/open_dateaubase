@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -18,6 +19,8 @@ from legacy.generate_dictionary_reference import (
     parse_parts_json,
     generate_value_sets_markdown,
 )
+
+from api.main import app as _fastapi_app
 
 
 def _read_schema_version(schema_dir: Path) -> str:
@@ -44,12 +47,22 @@ def _copy_assets(assets_dir: Path) -> None:
         print("Warning: mkdocs_gen_files not available, skipping asset copy.")
 
 
+def _generate_openapi(api_dir: Path) -> None:
+    """Export FastAPI's OpenAPI spec so MkDocs can render it."""
+    api_dir.mkdir(parents=True, exist_ok=True)
+    spec = _fastapi_app.openapi()
+    spec_path = api_dir / "openapi.json"
+    spec_path.write_text(json.dumps(spec, indent=2), encoding="utf-8")
+    print(f"Generated OpenAPI spec: {spec_path}")
+
+
 def on_pre_build(config):
     """MkDocs hook: generate all docs from YAML schema before the build."""
     project_root = Path(config["config_file_path"]).parent
     docs_dir = Path(config["docs_dir"])
     output_path = docs_dir / "reference"
     assets_path = docs_dir / "assets"
+    api_path = output_path / "api"
     sql_path = project_root / "sql_generation_scripts"
     json_path = project_root / "src" / "open_dateaubase" / "dictionary.json"
 
@@ -75,6 +88,9 @@ def on_pre_build(config):
     value_sets_md = generate_value_sets_markdown(parts_data)
     (output_path / "valuesets.md").write_text(value_sets_md, encoding="utf-8")
     print(f"Generated value sets: {output_path / 'valuesets.md'}")
+
+    # OpenAPI spec — exported from FastAPI without a running database
+    _generate_openapi(api_path)
 
     # Copy ERD asset into MkDocs virtual filesystem
     _copy_assets(assets_path)

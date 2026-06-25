@@ -74,5 +74,6 @@ members = ["importer"]
 
 [dependency-groups]
 dev = [
+    "mkdocs-swagger-ui-tag>=0.8.0",
     "types-pyyaml>=6.0.12.20260408",
 ]
