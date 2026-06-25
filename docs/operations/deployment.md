@@ -36,7 +36,7 @@ which means staging and production are isolated from each other.
 Any derived value can be overridden with its explicit flag (`-DatabaseName`,
 `-LogDir`, `-EnvFile`, `-ApiPort`, `-AppPort`, `-ProxyPort`).
 
-The profile table lives in one place — [`scripts/deploy/EnvironmentProfiles.psm1`](../../scripts/deploy/EnvironmentProfiles.psm1).
+The profile table lives in one place — `scripts/deploy/EnvironmentProfiles.psm1`.
 Add a tier (e.g. a `dev` tier allowed to load seed data) there and in the
 `ValidateSet` attributes of the deploy scripts.
 
@@ -179,7 +179,7 @@ If you deployed with `-WithBackupJobs`, SQL Server Agent runs four jobs automati
 
 Backup files land in `<BackupDir>\<DatabaseName>\{full,diff,log}\`.
 
-**To verify the jobs are healthy**, run [`scripts/maintenance/03_verify_backup_jobs.sql`](../../scripts/maintenance/03_verify_backup_jobs.sql)
+**To verify the jobs are healthy**, run `scripts/maintenance/03_verify_backup_jobs.sql`
 in SSMS — it shows job status, last run outcome, and next scheduled runs.
 
 **To restore to a point in time**, use SSMS → Tasks → Restore → Timeline.

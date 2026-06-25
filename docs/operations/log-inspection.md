@@ -52,7 +52,7 @@ To pin your own credentials, set both keys in the environment's `.env` file
 OpenObserve is configured with `ZO_COMPACT_DATA_RETENTION_DAYS=30`, so data older
 than 30 days is compacted away automatically and disk self-manages. Change the
 window by editing the `ZO_COMPACT_DATA_RETENTION_DAYS` value in the Step 10 block
-of [`Deploy-OpenDateaubase.ps1`](../../scripts/deploy/Deploy-OpenDateaubase.ps1)
+of `scripts/deploy/Deploy-OpenDateaubase.ps1`
 and re-running the deploy.
 
 ## Skipping the viewer
@@ -100,4 +100,4 @@ Open `http://localhost:5080` and log in with the `ZO_ROOT_USER_*` credentials
 API, then confirm the `open_dateaubase` stream fills with searchable lines tagged
 `environment=docker` and a `service` derived from each container name. The dev
 pipeline config is
-[`scripts/deploy/vector/vector.docker.toml`](../../scripts/deploy/vector/vector.docker.toml).
+`scripts/deploy/vector/vector.docker.toml`.

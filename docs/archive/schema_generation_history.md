@@ -7,7 +7,7 @@
 
     As of Phase 0, the single source of truth is the YAML files in
     `schema_dictionary/tables/`. The tooling is `python -m tools.schema_migrate`.
-    See [Schema Dictionary Format](schema_dictionary_format.md) and
+    See [Schema Dictionary Format](../architecture/schema_dictionary_format.md) and
     [Contributing to the Schema Dictionary](../contributing/dictionary.md) for current workflows.
 
 *Produced as part of Phase 0 (Foundation — Migration Infrastructure)*

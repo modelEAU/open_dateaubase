@@ -2,6 +2,8 @@
 
 This repo contains the reference implementation of the dat*EAU*base relational database and data model for use in water resource recovery facilities (WRRFs). The purpose of dat*EAU*base is to allow WRRF data to be stored *along with their context* to ensure that they are correctly interpreted in data mining, modelling and decision support activities. The data model is described in [Plana et al. (2019)](https://iwaponline.com/wqrj/article/54/1/1/64706/Towards-a-water-quality-database-for-raw-and).
 
+📖 **[Read the documentation](https://modelEAU.github.io/open_dateaubase/)** — tutorials, how-to guides, API reference, and schema docs.
+
 ## Quick Start (Docker)
 
 Run the full stack (database + API + web app) with a single command:

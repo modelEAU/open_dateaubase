@@ -23,16 +23,30 @@ theme:
 plugins:
   - search
   - markdown-exec
+  - swagger-ui-tag:
+      docExpansion: list
+      filter: true
+      tryItOutEnabled: false
+      validatorUrl: none
 hooks:
   - docs/hooks/call_orchestrator.py
 
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
-  - Contributing:
-    - The Dictionary: contributing/dictionary.md
-    - Schema Dictionary Format: architecture/schema_dictionary_format.md
+  - Tutorials:
+    - Getting Started: getting-started.md
+    - Your First Campaign: tutorials/first_campaign.md
+    - Lab Panels and Results: tutorials/lab_panel_and_results.md
+    - Explore Your Data: tutorials/explore_your_data.md
+  - How-to guides:
+    - Add a Site and Field System: how-to/add_a_site_and_field_system.md
+    - Authenticate with the API: how-to/authenticate_with_the_api.md
+    - Ingest Sensor CSV: how-to/ingest_sensor_csv.md
+    - Ingest Lab Results: how-to/ingest_lab_results.md
+    - Move or Swap a Sensor: operations/equipment_move_checklist.md
+    - Share a Campaign Story: how-to/share_a_campaign_story.md
   - Reference:
+    - API Reference: reference/api/index.md
     - Schema: reference/schema.md
     - Tables: reference/tables.md
     - Views: reference/views.md
@@ -41,7 +55,7 @@ nav:
     - ERD Diagram: reference/erd.md
     - Inserting Data: reference/inserting_data.md
     - Sample Data & Queries: reference/sample_data.md
-  - Architecture:
+  - Explanation:
     - Campaigns and Provenance: architecture/campaigns_and_provenance.md
     - Ingestion Routing: architecture/ingestion_routing.md
     - Lab data: architecture/lab_data.md
@@ -49,8 +63,32 @@ nav:
     - Sensor Lifecycle: architecture/sensor_lifecycle.md
     - Sub-Signal Grouping: architecture/sub_signals.md
     - Control Loop Modelling: architecture/control_loop.md
-  - Operations:
-    - Moving a sensor: operations/equipment_move_checklist.md
+    - Campaign Workflow: explanation/campaign_workflow.md
+  - Contributing:
+    - Writing Documentation: contributing/docs.md
+    - The Dictionary: contributing/dictionary.md
+    - Schema Dictionary Format: architecture/schema_dictionary_format.md
+  - Appendix:
+    - Design System: design-system.md
+    - Architecture notes:
+      - Annotations: architecture/annotations.md
+      - Sensor Status: architecture/sensor_status.md
+    - Decision records:
+      - "ADR 0001: Lab Trace X-Axis": adr/0001-lab-trace-x-axis.md
+      - "ADR 0002: Lab Observation Timestamp": adr/0002-lab-observation-timestamp-sample-time.md
+      - "ADR 0003: Exclusive Arc Polymorphism": adr/0003-exclusive-arc-for-sensor-lab-polymorphism.md
+      - "ADR 0004: Stream Supertype": adr/0004-stream-supertype-replaces-trace-xor.md
+      - "ADR 0005: Processing Kind Split": adr/0005-processing-kind-split.md
+    - Operations:
+      - Deployment: operations/deployment.md
+      - Docker Deployment: operations/docker-deployment.md
+      - Equipment Swap Procedure: operations/equipment-swap-procedure.md
+      - Log Inspection: operations/log-inspection.md
+      - SCADA Import Script: operations/scada-import-script.md
+      - Sensor Relocation SOP: operations/sensor-relocation-sop.md
+    - Archive:
+      - Schema Generation History: archive/schema_generation_history.md
+
 markdown_extensions:
   - admonition
   - codehilite

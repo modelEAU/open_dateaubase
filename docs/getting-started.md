@@ -221,7 +221,7 @@ scalar_file_configs:
 
 The importer resolves the `Parameter` and `Unit` from the database by name — these must exist before running. The `DataAcquisitionSystem`, `SignalPort`, and `Channel` rows are created automatically on first import.
 
-For vector (spectral) data or image ingest, see the example configs in `importer/configs/` and the [Ingestion Routing](../architecture/ingestion_routing.md) architecture guide.
+For vector (spectral) data or image ingest, see the example configs in `importer/configs/` and the [Ingestion Routing](architecture/ingestion_routing.md) architecture guide.
 
 ---
 
@@ -282,8 +282,8 @@ docker compose logs api
 
 ## Next steps
 
-- [Inserting Data](../reference/inserting_data.md) — step-by-step walkthroughs for each value type via the API
-- [Ingestion Routing](../architecture/ingestion_routing.md) — how Channel resolution and auto-create work
-- [Campaigns and Provenance](../architecture/campaigns_and_provenance.md) — query patterns for filtering by campaign
-- [Sensor Lifecycle](../architecture/sensor_lifecycle.md) — calibration events, equipment history, sensor swaps
-- [The Dictionary](../contributing/dictionary.md) — how to add new parameters, units, and vocabulary terms
+- [Inserting Data](reference/inserting_data.md) — step-by-step walkthroughs for each value type via the API
+- [Ingestion Routing](architecture/ingestion_routing.md) — how Channel resolution and auto-create work
+- [Campaigns and Provenance](architecture/campaigns_and_provenance.md) — query patterns for filtering by campaign
+- [Sensor Lifecycle](architecture/sensor_lifecycle.md) — calibration events, equipment history, sensor swaps
+- [The Dictionary](contributing/dictionary.md) — how to add new parameters, units, and vocabulary terms

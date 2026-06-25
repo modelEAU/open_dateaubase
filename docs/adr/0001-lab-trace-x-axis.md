@@ -16,7 +16,7 @@ built; reversing the anchor lets lab reads reuse the sensor read functions.
 ## Context
 
 The Data Explorer plots **Traces** — a Trace is either a sensor **Channel** or
-a lab **AnalysisSeries** (see [CONTEXT.md](../../CONTEXT.md)). A key goal is to
+a lab **AnalysisSeries** (see `CONTEXT.md` in the repository root). A key goal is to
 overlay a lab AnalysisSeries against a sensor Channel for the same parameter
 (e.g. lab TSS points on top of an online TSS sensor line) so they can be
 compared on a shared time axis.
