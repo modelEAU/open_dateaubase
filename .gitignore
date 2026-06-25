@@ -66,3 +66,4 @@ out/
 *.L5X
 # Agent scratch/planning
 .tasks/
+.planning
