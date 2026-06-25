@@ -42,3 +42,8 @@ jobs:
             /tmp/yaml_sql \
             mssql \
             $(python -c "import yaml; print(yaml.safe_load(open('schema_dictionary/version.yaml'))['schema_version'])")
+
+      - name: Build docs (strict)
+        # --strict fails on broken internal links. The build needs no database:
+        # the docs hook only calls FastAPI's app.openapi(), which never touches the DB.
+        run: uv run mkdocs build --strict
