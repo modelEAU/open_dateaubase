@@ -15,15 +15,13 @@ from app.api_client import (
     list_equipment_models,
     update_equipment_model,
 )
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
-from app.components.schema_registry import load_table
-
-_schema = load_table("EquipmentModel")
 
 render_crud_page(
     title="Equipment Models",
     pk_field="model_id",  # API uses model_id, not equipment_model_id
-    form_fields=_schema.build_form_fields(),
+    form_fields=get_form_fields("equipment_model"),
     list_fn=list_equipment_models,
     create_fn=create_equipment_model,
     update_fn=update_equipment_model,

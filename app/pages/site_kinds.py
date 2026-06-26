@@ -15,15 +15,13 @@ from app.api_client import (
     list_site_kinds,
     update_site_kind,
 )
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
-from app.components.schema_registry import load_table
-
-_schema = load_table("SiteKind")
 
 render_crud_page(
     title="Site Kinds",
     pk_field="id",
-    form_fields=_schema.build_form_fields(),
+    form_fields=get_form_fields("site_kind"),
     list_fn=list_site_kinds,
     create_fn=create_site_kind,
     update_fn=update_site_kind,

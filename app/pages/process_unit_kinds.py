@@ -16,6 +16,7 @@ from app.api_client import (
     update_process_unit_type,
 )
 from app.auth import require_auth
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
 
 require_auth()
@@ -23,10 +24,7 @@ require_auth()
 render_crud_page(
     title="Process Unit Types",
     pk_field="process_unit_kind_id",
-    form_fields=[
-        {"name": "name", "type": "text", "required": True, "label": "Name", "help": "Name of the process unit type"},
-        {"name": "description", "type": "textarea", "required": False, "label": "Description", "help": "Explanation of the process unit type"},
-    ],
+    form_fields=get_form_fields("process_unit_kind"),
     list_fn=list_process_unit_types,
     create_fn=create_process_unit_type,
     update_fn=update_process_unit_type,

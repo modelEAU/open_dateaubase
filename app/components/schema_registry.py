@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -72,11 +73,26 @@ class TableMeta:
         """Columns to include in create/edit forms (excludes PK identity columns)."""
         return [c for c in self.columns if not (c.is_pk and c.is_identity)]
 
-    def build_form_fields(self) -> list[dict]:
-        """Return a form_fields list compatible with form_dialog and generic_crud."""
+    def build_form_fields(
+        self,
+        *,
+        exclude: Collection[str] = frozenset(),
+        overrides: dict[str, dict] | None = None,
+    ) -> list[dict]:
+        """Return a form_fields list compatible with form_dialog and generic_crud.
+
+        ``exclude``   drops columns by their snake_case field name (e.g. columns
+                      the API deliberately doesn't accept for editing).
+        ``overrides`` patches a field's entry, keyed by the original snake_case
+                      field name. Use to rename a field to the API's name
+                      (``{"name": "model_id"}``), fix an ``options_fn``, or swap
+                      the widget. Keys naming a non-column are ignored here but
+                      are flagged by the form-coverage test.
+        """
+        overrides = overrides or {}
         fields = []
         for col in self.form_columns():
-            if col.is_pk:
+            if col.is_pk or col.field in exclude:
                 continue
             entry: dict = {
                 "name": col.field,
@@ -87,6 +103,8 @@ class TableMeta:
             }
             if col.fk_lookup_fn:
                 entry["options_fn"] = col.fk_lookup_fn
+            if col.field in overrides:
+                entry.update(overrides[col.field])
             fields.append(entry)
         return fields
 

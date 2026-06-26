@@ -22,6 +22,7 @@ from app.api_client import (
     list_sites,
     update_process_unit,
 )
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
 
 st.set_page_config(page_title="Process Units", layout="wide")
@@ -69,53 +70,21 @@ except APIError:
 # CRUD page
 # ---------------------------------------------------------------------------
 
-form_fields = [
-    {
-        "name": "site_id",
-        "label": "Site",
-        "type": "select",
-        "required": True,
-        "options": [{"id": s["id"], "label": s["name"]} for s in sites_list],
-        "help": "Foreign key to Site — scopes the unit to a single site",
-    },
-    {
-        "name": "tag",
-        "label": "P&ID Tag",
-        "type": "text",
-        "required": True,
-        "help": "Stable functional identifier (e.g. R-210, BioLine1, 10-PL-102). Unique per site.",
-    },
-    {
-        "name": "name",
-        "label": "Name",
-        "type": "text",
-        "required": True,
-        "help": "Human-readable name for the process unit",
-    },
-    {
-        "name": "process_unit_kind_id",
-        "label": "Type",
-        "type": "select",
-        "required": False,
-        "options": type_options,
-        "help": "Foreign key to ProcessUnitKind lookup",
-    },
-    {
-        "name": "parent_id",
-        "label": "Parent unit",
-        "type": "select",
-        "required": False,
-        "options": parent_options,
-        "help": "Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree",
-    },
-    {
-        "name": "description",
-        "label": "Description",
-        "type": "textarea",
-        "required": False,
-        "help": "Optional description of the process unit's role or function",
-    },
-]
+# Schema-derived fields (names guarded by test_form_coverage against
+# ProcessUnitIn), with the FK selects wired to site-scoped option lists.
+_site_scoped_options = {
+    "site_id": [{"id": s["id"], "label": s["name"]} for s in sites_list],
+    "process_unit_kind_id": type_options,
+    "parent_id": parent_options,
+}
+form_fields = []
+for _f in get_form_fields("process_unit"):
+    _f = dict(_f)
+    if _f["name"] in _site_scoped_options:
+        _f.pop("options_fn", None)
+        _f["type"] = "select"
+        _f["options"] = _site_scoped_options[_f["name"]]
+    form_fields.append(_f)
 
 render_crud_page(
     title="Process Units",

@@ -16,6 +16,7 @@ from app.api_client import (
     update_equipment_event_kind,
 )
 from app.auth import require_auth
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
 
 require_auth()
@@ -23,9 +24,7 @@ require_auth()
 render_crud_page(
     title="Equipment Event Types",
     pk_field="event_type_id",
-    form_fields=[
-        {"name": "name", "type": "text", "required": True, "label": "Name", "help": "Name of the event type"},
-    ],
+    form_fields=get_form_fields("equipment_event_kind"),
     list_fn=list_equipment_event_kinds,
     create_fn=create_equipment_event_kind,
     update_fn=update_equipment_event_kind,

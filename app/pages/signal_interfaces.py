@@ -24,6 +24,7 @@ from app.api_client import (
     update_signal_interface,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
 
 
@@ -39,6 +40,22 @@ except APIError as e:
 
 # Prepare dropdown options
 das_options = [{"id": d["das_id"], "label": d["name"]} for d in das_lookup]
+
+
+def _interface_fields() -> list[dict]:
+    """Schema-derived fields (names guarded against SignalInterfaceIn), with the
+    DAS FK wired to a live dropdown. Replaces the old hand-written list that sent
+    ``das_id`` — a name the API ignored, silently dropping the DAS link."""
+    fields = []
+    for f in get_form_fields("signal_interface"):
+        f = dict(f)
+        if f["name"] == "data_acquisition_system_id":
+            f.pop("options_fn", None)
+            f["type"] = "select"
+            f["options"] = das_options
+            f["label"] = "Data Acquisition System"
+        fields.append(f)
+    return fields
 
 # Filter section
 st.markdown("### Filters")
@@ -117,44 +134,7 @@ col1, col2, col3 = st.columns([1, 1, 8])
 with col1:
     if st.button("➕ New", type="primary"):
         create_form_dialog(
-            fields=[
-                {
-                    "name": "name",
-                    "label": "Name",
-                    "type": "text",
-                    "required": True,
-                    "help": "Human-readable unique name of this interface (e.g. 'hedi_plc', 'sc1000_primary')",
-                },
-                {
-                    "name": "das_id",
-                    "label": "Data Acquisition System",
-                    "type": "select",
-                    "required": True,
-                    "options": das_options,
-                    "help": "The DAS that reads data from this interface",
-                },
-                {
-                    "name": "serial_number",
-                    "label": "Serial Number",
-                    "type": "text",
-                    "required": False,
-                    "help": "Serial number if known",
-                },
-                {
-                    "name": "manufacturer",
-                    "label": "Manufacturer",
-                    "type": "text",
-                    "required": False,
-                    "help": "Manufacturer (e.g. 'Rockwell', 'Hach', 'WTW')",
-                },
-                {
-                    "name": "model",
-                    "label": "Model",
-                    "type": "text",
-                    "required": False,
-                    "help": "Model designation (e.g. 'Logix5000', 'SC1000', 'TresCON')",
-                },
-            ],
+            fields=_interface_fields(),
             on_submit=lambda data: handle_create(data),
             title="Create New Signal Interface",
         )
@@ -191,44 +171,7 @@ with col2:
         if selected_interface:
             edit_form_dialog(
                 item_data=selected_interface,
-                fields=[
-                    {
-                        "name": "name",
-                        "label": "Name",
-                        "type": "text",
-                        "required": True,
-                        "help": "Human-readable unique name of this interface (e.g. 'hedi_plc', 'sc1000_primary')",
-                    },
-                    {
-                        "name": "das_id",
-                        "label": "Data Acquisition System",
-                        "type": "select",
-                        "required": True,
-                        "options": das_options,
-                        "help": "The DAS that reads data from this interface",
-                    },
-                    {
-                        "name": "serial_number",
-                        "label": "Serial Number",
-                        "type": "text",
-                        "required": False,
-                        "help": "Serial number if known",
-                    },
-                    {
-                        "name": "manufacturer",
-                        "label": "Manufacturer",
-                        "type": "text",
-                        "required": False,
-                        "help": "Manufacturer (e.g. 'Rockwell', 'Hach', 'WTW')",
-                    },
-                    {
-                        "name": "model",
-                        "label": "Model",
-                        "type": "text",
-                        "required": False,
-                        "help": "Model designation (e.g. 'Logix5000', 'SC1000', 'TresCON')",
-                    },
-                ],
+                fields=_interface_fields(),
                 on_submit=lambda data: handle_update(
                     selected_interface["signal_interface_id"], data
                 ),

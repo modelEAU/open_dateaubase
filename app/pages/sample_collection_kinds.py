@@ -15,15 +15,13 @@ from app.api_client import (
     list_sample_collection_kinds,
     update_sample_collection_kind,
 )
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
-from app.components.schema_registry import load_table
-
-_schema = load_table("SampleCollectionKind")
 
 render_crud_page(
     title="Sample Methods",
     pk_field="sample_collection_kind_id",
-    form_fields=_schema.build_form_fields(),
+    form_fields=get_form_fields("sample_collection_kind"),
     list_fn=list_sample_collection_kinds,
     create_fn=create_sample_collection_kind,
     update_fn=update_sample_collection_kind,

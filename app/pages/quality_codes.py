@@ -15,15 +15,13 @@ from app.api_client import (
     list_quality_codes,
     update_quality_code,
 )
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
-from app.components.schema_registry import load_table
-
-_schema = load_table("QualityCode")
 
 render_crud_page(
     title="Quality Codes",
     pk_field="quality_code_id",
-    form_fields=_schema.build_form_fields(),
+    form_fields=get_form_fields("quality_code"),
     list_fn=list_quality_codes,
     create_fn=create_quality_code,
     update_fn=update_quality_code,

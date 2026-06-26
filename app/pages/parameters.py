@@ -17,27 +17,23 @@ from app.api_client import (
     create_parameter,
     delete_parameter,
     list_parameters_full,
-    list_units_lookup,
     update_parameter,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
 
 
 
 st.title("Parameters")
 
-# Load parameters and units for dropdown
+# Load parameters
 try:
     with st.spinner("Loading..."):
         parameters = list_parameters_full()
-        units = list_units_lookup()
 except APIError as e:
     st.error(f"Cannot load data: {e.message}")
     st.stop()
-
-# Prepare unit options for dropdown
-unit_options = [{"id": u["unit_id"], "label": u["unit"]} for u in units]
 
 
 # Handler functions
@@ -70,16 +66,9 @@ def handle_delete_parameter(param_id: int) -> None:
         st.error(f"Failed to delete parameter: {e.message}")
 
 
-_FORM_FIELDS = [
-    {"name": "parameter", "type": "text", "required": True},
-    {
-        "name": "unit_id",
-        "type": "select",
-        "required": False,
-        "options": unit_options,
-    },
-    {"name": "description", "type": "textarea", "required": False},
-]
+# Schema-derived; field names guarded by test_form_coverage against ParameterIn.
+# (Units are managed via the ParameterHasUnit junction, not this form.)
+_FORM_FIELDS = get_form_fields("parameter")
 
 # Action buttons
 col1, col2, col3 = st.columns([1, 1, 8])

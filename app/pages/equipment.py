@@ -21,6 +21,7 @@ from app.api_client import (
     patch_equipment,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
 
 
@@ -46,6 +47,20 @@ model_options = [
     {"id": m["model_id"], "label": f"{m['manufacturer']} - {m['model_name']}"}
     for m in models
 ]
+
+
+def _equipment_fields() -> list[dict]:
+    """Schema-derived fields (names guarded against EquipmentIn), with the model
+    FK wired to a live dropdown."""
+    fields = []
+    for f in get_form_fields("equipment"):
+        f = dict(f)
+        if f["name"] == "model_id":
+            f.pop("options_fn", None)
+            f["type"] = "select"
+            f["options"] = model_options
+        fields.append(f)
+    return fields
 
 
 # Handler functions
@@ -83,18 +98,7 @@ col1, col2, col3 = st.columns([1, 1, 8])
 with col1:
     if st.button("➕ New", type="primary"):
         create_form_dialog(
-            fields=[
-                {"name": "identifier", "type": "text", "required": True},
-                {"name": "serial_number", "type": "text", "required": False},
-                {
-                    "name": "model_id",
-                    "type": "select",
-                    "required": False,
-                    "options": model_options,
-                },
-                {"name": "owner", "type": "text", "required": False},
-                {"name": "purchase_date", "type": "date", "required": False},
-            ],
+            fields=_equipment_fields(),
             on_submit=lambda data: handle_create_equipment(data),
             title="Create New Equipment",
         )
@@ -128,18 +132,7 @@ with col2:
         if selected_item:
             edit_form_dialog(
                 item_data=selected_item,
-                fields=[
-                    {"name": "identifier", "type": "text", "required": True},
-                    {"name": "serial_number", "type": "text", "required": False},
-                    {
-                        "name": "model_id",
-                        "type": "select",
-                        "required": False,
-                        "options": model_options,
-                    },
-                    {"name": "owner", "type": "text", "required": False},
-                    {"name": "purchase_date", "type": "date", "required": False},
-                ],
+                fields=_equipment_fields(),
                 on_submit=lambda data: handle_patch_equipment(
                     selected_item["equipment_id"], data
                 ),
