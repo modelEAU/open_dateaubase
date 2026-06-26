@@ -673,6 +673,19 @@ def delete_laboratory(laboratory_id: int) -> None:
     return _request("DELETE", f"/ingest/lookup/laboratories/{laboratory_id}")
 
 
+# --- generic read-only table browser (introspection) -----------------------
+
+
+def list_db_tables() -> list[dict]:
+    """Return browsable database tables as [{'name': ...}, ...]."""
+    return _request("GET", "/admin/tables")
+
+
+def read_db_table(table: str, limit: int = 200) -> dict:
+    """Return {table, columns, rows, row_count, truncated} for one table."""
+    return _request("GET", f"/admin/tables/{table}", params={"limit": limit})
+
+
 def list_procedures_lookup() -> list[dict]:
     """Return procedures list for dropdowns."""
     return _request("GET", "/ingest/lookup/procedures")

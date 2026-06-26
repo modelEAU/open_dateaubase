@@ -109,6 +109,11 @@ class TableMeta:
         return fields
 
 
+def list_tables() -> list[str]:
+    """Return all table names defined in the YAML schema dictionary, sorted."""
+    return sorted(p.stem for p in _SCHEMA_DIR.glob("*.yaml"))
+
+
 def load_table(table_name: str) -> TableMeta:
     """Load and parse a YAML table definition into a TableMeta."""
     yaml_path = _SCHEMA_DIR / f"{table_name}.yaml"

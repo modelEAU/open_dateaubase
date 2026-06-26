@@ -45,6 +45,7 @@ from .endpoints.process_units import (
 from .endpoints.vocab import router as vocab_router
 from .endpoints.convert import router as convert_router
 from .endpoints.deployment_traces import router as deployment_traces_router
+from .endpoints.admin_browse import router as admin_browse_router
 
 router = APIRouter()
 
@@ -124,6 +125,9 @@ protected.include_router(vocab_router, prefix="/vocab", tags=["vocabulary"])
 protected.include_router(convert_router, tags=["conversion"])
 protected.include_router(
     deployment_traces_router, prefix="/deployment-traces", tags=["deployment-traces"]
+)
+protected.include_router(
+    admin_browse_router, prefix="/admin/tables", tags=["admin-browse"]
 )
 
 # Mount the public and protected groups onto the v1 router.
