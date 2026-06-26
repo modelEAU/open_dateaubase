@@ -120,6 +120,12 @@ class SiteKindIn(BaseModel):
     description: str | None = None
 
 
+class LaboratoryIn(BaseModel):
+    name: str
+    site_id: int | None = None
+    description: str | None = None
+
+
 class QualityCodeOut(BaseModel):
     quality_code_id: int
     name: str

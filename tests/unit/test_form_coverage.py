@@ -25,11 +25,13 @@ from app.components.form_specs import FORM_FIELD_BUILDERS, get_form_fields
 from app.components.schema_registry import load_table
 
 # Request schemas (the contract the forms post to).
+from api.v1.endpoints.persons import PersonIn
 from api.v1.schemas.channel import ChannelIn, ParameterIn
 from api.v1.schemas.equipment import EquipmentIn, EquipmentModelIn
 from api.v1.schemas.metadata import (
     CampaignKindIn,
     EquipmentEventKindIn,
+    LaboratoryIn,
     ProcedureIn,
     ProcedureKindIn,
     ProcessUnitKindIn,
@@ -58,6 +60,8 @@ ENTITY_SCHEMA = {
     "parameter": ParameterIn,
     "channel": ChannelIn,
     "equipment": EquipmentIn,
+    "laboratory": LaboratoryIn,
+    "person": PersonIn,
 }
 
 
@@ -114,8 +118,6 @@ PENDING_PAGES: dict[str, str] = {
     "lab_panels.py": "LabPanelCreateRequest with series_ids; wizard-like",
     "operation_kinds.py": "seed-only vocab; no create request schema",
     "bin_kinds.py": "seed-only vocab; no create request schema",
-    "persons.py": "dict-body endpoint; no typed request schema",
-    "laboratories.py": "dict-body endpoint; no typed request schema",
     "annotation_kinds.py": "AnnotationKindIn not yet mapped",
     "units.py": "api_client.create_unit narrows payload to {unit}; needs api_client fix too",
     "binning_axes.py": "ValueBinningAxisIn with nested bins editor",

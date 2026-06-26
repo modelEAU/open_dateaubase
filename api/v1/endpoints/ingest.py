@@ -46,6 +46,7 @@ from ..schemas.ingestion import (
     TaglessVectorSensorIngestRequest,
     VectorSensorIngestRequest,
 )
+from ..schemas.metadata import LaboratoryIn
 from ..services import lineage_service
 
 logger = logging.getLogger(__name__)
@@ -341,26 +342,24 @@ def get_laboratories_lookup(conn=Depends(get_db)):
 
 
 @router.post("/lookup/laboratories", status_code=201)
-def create_laboratory(body: dict, conn=Depends(get_db)):
+def create_laboratory(body: LaboratoryIn, conn=Depends(get_db)):
     """Create a new laboratory."""
-    name = (body.get("name") or "").strip()
+    name = (body.name or "").strip()
     if not name:
         raise HTTPException(status_code=422, detail="name field is required")
-    site_id = body.get("site_id") or None
-    description = body.get("description") or None
-    return lookup_repository.insert_laboratory(conn, name, site_id, description)
+    return lookup_repository.insert_laboratory(
+        conn, name, body.site_id or None, body.description or None
+    )
 
 
 @router.put("/lookup/laboratories/{laboratory_id}")
-def update_laboratory(laboratory_id: int, body: dict, conn=Depends(get_db)):
+def update_laboratory(laboratory_id: int, body: LaboratoryIn, conn=Depends(get_db)):
     """Update a laboratory."""
-    name = (body.get("name") or "").strip()
+    name = (body.name or "").strip()
     if not name:
         raise HTTPException(status_code=422, detail="name field is required")
-    site_id = body.get("site_id") or None
-    description = body.get("description") or None
     updated = lookup_repository.update_laboratory(
-        conn, laboratory_id, name, site_id, description
+        conn, laboratory_id, name, body.site_id or None, body.description or None
     )
     if updated is None:
         raise HTTPException(

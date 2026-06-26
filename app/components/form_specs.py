@@ -51,6 +51,8 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
     "process_unit": _yaml("ProcessUnit"),
     "equipment_model": _yaml("EquipmentModel"),
     "signal_interface": _yaml("SignalInterface"),
+    "laboratory": _yaml("Laboratory"),
+    "person": _yaml("Person"),
     # --- need exclude: YAML has columns the API won't accept ----------------
     # ParameterIn = {parameter, description, envo_iri}; ValueKind_ID and the
     # QUDT IRI are populated at build time, not via the edit form.

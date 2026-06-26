@@ -15,15 +15,13 @@ from app.api_client import (
     list_laboratories_lookup,
     update_laboratory,
 )
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
-from app.components.schema_registry import load_table
-
-_schema = load_table("Laboratory")
 
 render_crud_page(
     title="Laboratories",
     pk_field="laboratory_id",
-    form_fields=_schema.build_form_fields(),
+    form_fields=get_form_fields("laboratory"),
     list_fn=list_laboratories_lookup,
     create_fn=create_laboratory,
     update_fn=update_laboratory,

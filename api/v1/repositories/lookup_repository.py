@@ -408,7 +408,8 @@ def get_all_persons(conn: pyodbc.Connection) -> list[dict]:
     """Return all persons with full fields."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Person_ID], [FirstName], [LastName], [Email], [Role], [Company], [Phone]"
+        "SELECT [Person_ID], [FirstName], [LastName], [Company], [Role],"
+        " [AssignedFunctions], [Email], [Phone], [Linkedin], [Website]"
         " FROM [dbo].[Person] ORDER BY [LastName], [FirstName]"
     )
     return [
@@ -416,10 +417,13 @@ def get_all_persons(conn: pyodbc.Connection) -> list[dict]:
             "person_id": row[0],
             "first_name": row[1],
             "last_name": row[2],
-            "email": row[3],
+            "company": row[3],
             "role": row[4],
-            "company": row[5],
-            "phone": row[6],
+            "assigned_functions": row[5],
+            "email": row[6],
+            "phone": row[7],
+            "linkedin": row[8],
+            "website": row[9],
         }
         for row in cursor.fetchall()
     ]
