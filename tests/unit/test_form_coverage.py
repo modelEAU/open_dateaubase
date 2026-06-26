@@ -29,7 +29,7 @@ from api.v1.endpoints.annotations import AnnotationKindIn
 from api.v1.endpoints.persons import PersonIn
 from api.v1.schemas.annotations import AnnotationCreate
 from api.v1.schemas.campaigns import CampaignIn
-from api.v1.schemas.channel import ChannelIn, ParameterIn
+from api.v1.schemas.channel import ChannelIn, ParameterIn, UnitIn
 from api.v1.schemas.control_loop import ControlLoopCreateRequest
 from api.v1.schemas.equipment import EquipmentIn, EquipmentModelIn
 from api.v1.schemas.ingestion import LabPanelCreateRequest
@@ -47,7 +47,7 @@ from api.v1.schemas.metadata import (
     SiteKindIn,
 )
 from api.v1.schemas.process_unit import ProcessUnitIn
-from api.v1.schemas.signal_interface import SignalInterfaceIn
+from api.v1.schemas.signal_interface import DasCreateIn, SignalInterfaceIn
 
 # entity slug -> request schema whose fields the form must cover exactly.
 ENTITY_SCHEMA = {
@@ -74,6 +74,8 @@ ENTITY_SCHEMA = {
     "annotation": AnnotationCreate,
     "control_loop": ControlLoopCreateRequest,
     "lab_panel": LabPanelCreateRequest,
+    "unit": UnitIn,
+    "das": DasCreateIn,
 }
 
 # Schema fields a form may legitimately omit, with the reason. These are set by
@@ -129,10 +131,8 @@ PENDING_PAGES: dict[str, str] = {
     "sites.py": "hand-built st.form + location_picker; kept custom by design decision",
     "watersheds.py": "hand-built st.form; kept custom by design decision",
     "binning_axes.py": "hand-built st.form with nested bins editor; kept custom by design decision",
-    "data_acquisition_systems.py": "DAS API extension pending (manufacturer/model/parent)",
     "operation_kinds.py": "seed-only vocab; no create request schema",
     "bin_kinds.py": "seed-only vocab; no create request schema",
-    "units.py": "Unit API extension pending (typed UnitIn + si factors)",
 }
 
 

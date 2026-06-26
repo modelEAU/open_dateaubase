@@ -46,6 +46,7 @@ from ..schemas.ingestion import (
     TaglessVectorSensorIngestRequest,
     VectorSensorIngestRequest,
 )
+from ..schemas.channel import UnitIn
 from ..schemas.metadata import LaboratoryIn
 from ..services import lineage_service
 
@@ -297,31 +298,35 @@ def get_units_lookup(conn=Depends(get_db)):
 
 
 @router.post("/lookup/units", status_code=201)
-def create_unit(body: dict, conn=Depends(get_db)):
+def create_unit(body: UnitIn, conn=Depends(get_db)):
     """Create a new unit."""
-    unit_name = (body.get("unit") or "").strip()
+    unit_name = (body.unit or "").strip()
     if not unit_name:
         raise HTTPException(status_code=422, detail="unit field is required")
     return lookup_repository.insert_unit(
         conn,
         unit_name,
-        qudt_iri=body.get("qudt_iri"),
-        unit_vector=body.get("unit_vector"),
+        qudt_iri=body.qudt_iri,
+        unit_vector=body.unit_vector,
+        si_multiplier=body.si_multiplier,
+        si_offset=body.si_offset,
     )
 
 
 @router.put("/lookup/units/{unit_id}")
-def update_unit(unit_id: int, body: dict, conn=Depends(get_db)):
+def update_unit(unit_id: int, body: UnitIn, conn=Depends(get_db)):
     """Update a unit."""
-    unit_name = (body.get("unit") or "").strip()
+    unit_name = (body.unit or "").strip()
     if not unit_name:
         raise HTTPException(status_code=422, detail="unit field is required")
     updated = lookup_repository.update_unit(
         conn,
         unit_id,
         unit_name,
-        qudt_iri=body.get("qudt_iri"),
-        unit_vector=body.get("unit_vector"),
+        qudt_iri=body.qudt_iri,
+        unit_vector=body.unit_vector,
+        si_multiplier=body.si_multiplier,
+        si_offset=body.si_offset,
     )
     if updated is None:
         raise HTTPException(status_code=404, detail=f"Unit {unit_id} not found.")

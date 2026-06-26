@@ -164,33 +164,68 @@ def get_units_lookup(conn: pyodbc.Connection) -> list[dict]:
     ]
 
 
-def insert_unit(conn: pyodbc.Connection, unit: str, qudt_iri: str | None = None, unit_vector: str | None = None) -> dict:
+def insert_unit(
+    conn: pyodbc.Connection,
+    unit: str,
+    qudt_iri: str | None = None,
+    unit_vector: str | None = None,
+    si_multiplier: float | None = None,
+    si_offset: float | None = None,
+) -> dict:
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO [dbo].[Unit] ([Unit], [QUDT_IRI], [UnitVector]) VALUES (?, ?, ?)",
+        "INSERT INTO [dbo].[Unit] ([Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset])"
+        " VALUES (?, ?, ?, ?, ?)",
         unit,
         qudt_iri,
         unit_vector,
+        si_multiplier,
+        si_offset,
     )
     cursor.execute("SELECT @@IDENTITY")
     new_id = int(cursor.fetchone()[0])
     conn.commit()
-    return {"unit_id": new_id, "unit": unit, "qudt_iri": qudt_iri, "unit_vector": unit_vector}
+    return {
+        "unit_id": new_id,
+        "unit": unit,
+        "qudt_iri": qudt_iri,
+        "unit_vector": unit_vector,
+        "si_multiplier": si_multiplier,
+        "si_offset": si_offset,
+    }
 
 
-def update_unit(conn: pyodbc.Connection, unit_id: int, unit: str, qudt_iri: str | None = None, unit_vector: str | None = None) -> dict | None:
+def update_unit(
+    conn: pyodbc.Connection,
+    unit_id: int,
+    unit: str,
+    qudt_iri: str | None = None,
+    unit_vector: str | None = None,
+    si_multiplier: float | None = None,
+    si_offset: float | None = None,
+) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE [dbo].[Unit] SET [Unit]=?, [QUDT_IRI]=?, [UnitVector]=? WHERE [Unit_ID]=?",
+        "UPDATE [dbo].[Unit] SET [Unit]=?, [QUDT_IRI]=?, [UnitVector]=?,"
+        " [SI_Multiplier]=?, [SI_Offset]=? WHERE [Unit_ID]=?",
         unit,
         qudt_iri,
         unit_vector,
+        si_multiplier,
+        si_offset,
         unit_id,
     )
     conn.commit()
     if cursor.rowcount == 0:
         return None
-    return {"unit_id": unit_id, "unit": unit, "qudt_iri": qudt_iri, "unit_vector": unit_vector}
+    return {
+        "unit_id": unit_id,
+        "unit": unit,
+        "qudt_iri": qudt_iri,
+        "unit_vector": unit_vector,
+        "si_multiplier": si_multiplier,
+        "si_offset": si_offset,
+    }
 
 
 def delete_unit(conn: pyodbc.Connection, unit_id: int) -> bool:

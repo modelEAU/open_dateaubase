@@ -378,19 +378,27 @@ def insert_das(
     name: str,
     description: str | None = None,
     das_kind_id: int | None = None,
+    manufacturer: str | None = None,
+    model: str | None = None,
+    parent_system_id: int | None = None,
 ) -> dict:
     """Create a new DataAcquisitionSystem row and return a dict with all fields."""
     cursor = conn.cursor()
     try:
         cursor.execute(
             "INSERT INTO [dbo].[DataAcquisitionSystem]"
-            "    ([Name], [Description], [DataAcquisitionSystemKind_ID])"
+            "    ([Name], [Description], [DataAcquisitionSystemKind_ID],"
+            "     [Manufacturer], [Model], [ParentSystem_ID])"
             " OUTPUT INSERTED.[DataAcquisitionSystem_ID], INSERTED.[Name],"
-            "        INSERTED.[Description], INSERTED.[DataAcquisitionSystemKind_ID]"
-            " VALUES (?, ?, ?)",
+            "        INSERTED.[Description], INSERTED.[DataAcquisitionSystemKind_ID],"
+            "        INSERTED.[Manufacturer], INSERTED.[Model], INSERTED.[ParentSystem_ID]"
+            " VALUES (?, ?, ?, ?, ?, ?)",
             name.strip(),
             description,
             das_kind_id,
+            manufacturer,
+            model,
+            parent_system_id,
         )
         row = cursor.fetchone()
         assert row is not None
@@ -400,6 +408,9 @@ def insert_das(
             "name": row[1],
             "description": row[2],
             "das_kind_id": row[3],
+            "manufacturer": row[4],
+            "model": row[5],
+            "parent_system_id": row[6],
             "das_kind_name": None,
         }
     except Exception:
@@ -413,19 +424,27 @@ def update_das(
     name: str,
     description: str | None,
     das_kind_id: int | None = None,
+    manufacturer: str | None = None,
+    model: str | None = None,
+    parent_system_id: int | None = None,
 ) -> dict | None:
     """Update a DataAcquisitionSystem row and return a dict with all fields, or None if not found."""
     cursor = conn.cursor()
     try:
         cursor.execute(
             "UPDATE [dbo].[DataAcquisitionSystem]"
-            " SET [Name]=?, [Description]=?, [DataAcquisitionSystemKind_ID]=?"
+            " SET [Name]=?, [Description]=?, [DataAcquisitionSystemKind_ID]=?,"
+            "     [Manufacturer]=?, [Model]=?, [ParentSystem_ID]=?"
             " OUTPUT INSERTED.[DataAcquisitionSystem_ID], INSERTED.[Name],"
-            "        INSERTED.[Description], INSERTED.[DataAcquisitionSystemKind_ID]"
+            "        INSERTED.[Description], INSERTED.[DataAcquisitionSystemKind_ID],"
+            "        INSERTED.[Manufacturer], INSERTED.[Model], INSERTED.[ParentSystem_ID]"
             " WHERE [DataAcquisitionSystem_ID]=?",
             name.strip(),
             description,
             das_kind_id,
+            manufacturer,
+            model,
+            parent_system_id,
             das_id,
         )
         row = cursor.fetchone()
@@ -437,6 +456,9 @@ def update_das(
             "name": row[1],
             "description": row[2],
             "das_kind_id": row[3],
+            "manufacturer": row[4],
+            "model": row[5],
+            "parent_system_id": row[6],
             "das_kind_name": None,
         }
     except Exception:

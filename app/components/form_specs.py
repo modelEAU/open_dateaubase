@@ -61,6 +61,17 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
     "laboratory": _yaml("Laboratory"),
     "person": _yaml("Person"),
     "annotation_kind": _yaml("AnnotationKind"),
+    "unit": _yaml("Unit"),
+    # DasCreateIn renames the kind FK; manufacturer/model/parent are persisted too.
+    "das": _yaml(
+        "DataAcquisitionSystem",
+        overrides={
+            "data_acquisition_system_kind_id": {
+                "name": "das_kind_id",
+                "options_fn": "list_das_kinds",
+            }
+        },
+    ),
     # ChannelIn carries no unit (a channel's unit follows its parameter);
     # produced_by_step_id is included (manual link to a derived channel's step).
     "channel": _yaml("Channel", exclude={"unit_id"}),

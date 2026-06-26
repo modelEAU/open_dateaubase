@@ -10,18 +10,16 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from app.api_client import create_unit, delete_unit, list_units_lookup, update_unit
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
-from app.components.schema_registry import load_table
-
-_schema = load_table("Unit")
 
 render_crud_page(
     title="Units",
     pk_field="unit_id",
-    form_fields=_schema.build_form_fields(),
+    form_fields=get_form_fields("unit"),
     list_fn=list_units_lookup,
-    create_fn=lambda data: create_unit(data["unit"]),
-    update_fn=lambda pk, data: update_unit(pk, data["unit"]),
+    create_fn=create_unit,
+    update_fn=update_unit,
     delete_fn=delete_unit,
     label_field="unit",
 )

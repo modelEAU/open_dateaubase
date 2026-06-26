@@ -92,6 +92,8 @@ class UnitIn(BaseModel):
     unit: str
     qudt_iri: str | None = None
     unit_vector: str | None = None
+    si_multiplier: float | None = None
+    si_offset: float | None = None
 
 
 class ChannelKindLookupOut(BaseModel):

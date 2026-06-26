@@ -141,7 +141,13 @@ def create_das(body: DasCreateIn, conn=Depends(get_db)):
     """Create a new DataAcquisitionSystem."""
     try:
         row = signal_interface_repository.insert_das(
-            conn, body.name, body.description, body.das_kind_id
+            conn,
+            body.name,
+            body.description,
+            body.das_kind_id,
+            body.manufacturer,
+            body.model,
+            body.parent_system_id,
         )
     except pyodbc.IntegrityError as exc:
         raise HTTPException(
@@ -155,7 +161,14 @@ def create_das(body: DasCreateIn, conn=Depends(get_db)):
 def update_das(das_id: int, body: DasUpdateIn, conn=Depends(get_db)):
     """Update a DataAcquisitionSystem."""
     row = signal_interface_repository.update_das(
-        conn, das_id, body.name, body.description, body.das_kind_id
+        conn,
+        das_id,
+        body.name,
+        body.description,
+        body.das_kind_id,
+        body.manufacturer,
+        body.model,
+        body.parent_system_id,
     )
     if row is None:
         raise HTTPException(status_code=404, detail=f"DataAcquisitionSystem {das_id} not found.")

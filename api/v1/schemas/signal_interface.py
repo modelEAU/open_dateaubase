@@ -209,6 +209,9 @@ class DasOut(BaseModel):
     description: str | None = None
     das_kind_id: int | None = None
     das_kind_name: str | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    parent_system_id: int | None = None
 
 
 class DasLookupOut(BaseModel):
@@ -220,12 +223,18 @@ class DasCreateIn(BaseModel):
     name: str
     description: str | None = None
     das_kind_id: int | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    parent_system_id: int | None = None
 
 
 class DasUpdateIn(BaseModel):
     name: str
     description: str | None = None
     das_kind_id: int | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    parent_system_id: int | None = None
 
 
 class SignalInterfacePortCreateIn(BaseModel):

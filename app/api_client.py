@@ -643,13 +643,13 @@ def list_units_lookup() -> list[dict]:
     return _request("GET", "/ingest/lookup/units")
 
 
-def create_unit(unit: str) -> dict:
-    """Create a new unit and return it."""
-    return _request("POST", "/ingest/lookup/units", json={"unit": unit})
+def create_unit(data: dict) -> dict:
+    """Create a new unit (UnitIn: unit, qudt_iri, unit_vector, si_multiplier, si_offset)."""
+    return _request("POST", "/ingest/lookup/units", json=data)
 
 
-def update_unit(unit_id: int, unit: str) -> dict:
-    return _request("PUT", f"/ingest/lookup/units/{unit_id}", json={"unit": unit})
+def update_unit(unit_id: int, data: dict) -> dict:
+    return _request("PUT", f"/ingest/lookup/units/{unit_id}", json=data)
 
 
 def delete_unit(unit_id: int) -> None:
