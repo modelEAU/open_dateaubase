@@ -22,12 +22,14 @@ from app.api_client import (
     list_equipment_lookup,
     list_lab_panels,
     list_parameters_lookup,
+    list_persons_lookup,
     list_sample_collection_kinds,
     list_sampling_points_lookup,
     list_units_lookup,
     patch_lab_panel,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
 from app.components.series_picker import render_series_picker
 
@@ -63,6 +65,10 @@ _eq_options = [{"id": None, "label": "— none —"}] + [
     for e in _equipment
 ]
 
+_person_options = [{"id": None, "label": "— none —"}] + [
+    {"id": p["person_id"], "label": p["label"]} for p in list_persons_lookup()
+]
+
 _series_render_fn = lambda ctx: render_series_picker(
     ctx,
     series_list=_all_series,
@@ -72,29 +78,17 @@ _series_render_fn = lambda ctx: render_series_picker(
     units=_units,
 )
 
+# Names guarded against LabPanelCreateRequest; widgets/options overlaid here.
+_PANEL_OVERLAYS = {
+    "name": {"label": "Panel name"},
+    "description": {"label": "Description"},
+    "created_by_person_id": {"options": _person_options, "label": "Created by"},
+    "default_sample_collection_kind_id": {"options": _ck_options, "label": "Default collection kind"},
+    "default_sample_equipment_id": {"options": _eq_options, "label": "Default equipment"},
+    "series_ids": {"label": "AnalysisSeries", "render_fn": _series_render_fn},
+}
 _fields = [
-    {"name": "name", "type": "text", "required": True, "label": "Panel name"},
-    {"name": "description", "type": "textarea", "required": False, "label": "Description"},
-    {
-        "name": "default_sample_collection_kind_id",
-        "type": "select",
-        "required": False,
-        "label": "Default collection kind",
-        "options": _ck_options,
-    },
-    {
-        "name": "default_sample_equipment_id",
-        "type": "select",
-        "required": False,
-        "label": "Default equipment",
-        "options": _eq_options,
-    },
-    {
-        "name": "series_ids",
-        "required": True,
-        "label": "AnalysisSeries",
-        "render_fn": _series_render_fn,
-    },
+    {**f, **_PANEL_OVERLAYS.get(f["name"], {})} for f in get_form_fields("lab_panel")
 ]
 
 

@@ -28,6 +28,7 @@ from app.api_client import (
     retune_control_loop,
 )
 from app.components.form_dialog import create_form_dialog
+from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
 
 
@@ -114,22 +115,14 @@ with col1:
             {"id": k["controller_kind_id"], "label": k["name"]}
             for k in controller_kinds
         ]
+        _loop_fields = []
+        for f in get_form_fields("control_loop"):
+            f = dict(f)
+            if f["name"] == "controller_kind_id":
+                f["options"] = kind_options
+            _loop_fields.append(f)
         create_form_dialog(
-            fields=[
-                {"name": "name", "type": "text", "required": True},
-                {"name": "description", "type": "text", "required": False},
-                {
-                    "name": "controller_kind_id",
-                    "type": "select",
-                    "required": True,
-                    "options": kind_options,
-                },
-                {
-                    "name": "fallback_control_loop_id",
-                    "type": "number",
-                    "required": False,
-                },
-            ],
+            fields=_loop_fields,
             on_submit=lambda data: handle_create_loop(data),
             title="Create New Control Loop",
         )

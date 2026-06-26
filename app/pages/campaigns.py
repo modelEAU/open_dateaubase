@@ -22,11 +22,13 @@ from app.api_client import (
     list_campaigns,
     list_campaign_kinds,
     list_equipment_lookup,
+    list_persons_lookup,
     list_sampling_points_lookup,
     list_sites_lookup,
     patch_campaign,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
 
 
@@ -143,6 +145,32 @@ site_options = [{"id": s["site_id"], "label": s["name"]} for s in sites]
 type_options = [
     {"id": t["campaign_kind_id"], "label": t["name"]} for t in campaign_types
 ]
+try:
+    _persons = list_persons_lookup()
+except APIError:
+    _persons = []
+person_options = [{"id": p["person_id"], "label": p["label"]} for p in _persons]
+
+# Shared field list (names guarded against CampaignIn), with FK dropdowns wired.
+_CAMPAIGN_OVERLAYS = {
+    "name": {"label": "Name", "help": "Human-readable name for the campaign"},
+    "campaign_kind_id": {"options": type_options, "label": "Campaign Kind",
+        "help": "Kind of campaign (Experiment, Operations, Commissioning)"},
+    "site_id": {"options": site_options, "label": "Site",
+        "help": "Site where the campaign is conducted"},
+    "description": {"label": "Description", "help": "Objectives and scope"},
+    "start_date": {"label": "Start Date", "help": "Date the campaign began"},
+    "end_date": {"label": "End Date", "help": "Date the campaign ended; blank if ongoing"},
+    "responsible_person_id": {"options": person_options, "label": "Responsible Person",
+        "help": "Person accountable for the campaign"},
+}
+
+
+def _campaign_fields() -> list[dict]:
+    return [
+        {**f, **_CAMPAIGN_OVERLAYS.get(f["name"], {})}
+        for f in get_form_fields("campaign")
+    ]
 
 # Site filter for list view
 site_filter_col, _ = st.columns([2, 8])
@@ -201,52 +229,7 @@ col1, col2, col3 = st.columns([1, 1, 8])
 with col1:
     if st.button("➕ New", type="primary"):
         create_form_dialog(
-            fields=[
-                {
-                    "name": "name",
-                    "label": "Name",
-                    "type": "text",
-                    "required": True,
-                    "help": "Human-readable name for the campaign",
-                },
-                {
-                    "name": "campaign_kind_id",
-                    "label": "Campaign Kind",
-                    "type": "select",
-                    "required": True,
-                    "options": type_options,
-                    "help": "Kind of campaign (Experiment, Operations, Commissioning)",
-                },
-                {
-                    "name": "site_id",
-                    "label": "Site",
-                    "type": "select",
-                    "required": True,
-                    "options": site_options,
-                    "help": "Site where the campaign is conducted",
-                },
-                {
-                    "name": "description",
-                    "label": "Description",
-                    "type": "textarea",
-                    "required": False,
-                    "help": "Detailed description of the campaign objectives and scope",
-                },
-                {
-                    "name": "start_date",
-                    "label": "Start Date",
-                    "type": "date",
-                    "required": False,
-                    "help": "Date the campaign began",
-                },
-                {
-                    "name": "end_date",
-                    "label": "End Date",
-                    "type": "date",
-                    "required": False,
-                    "help": "Date the campaign ended; leave blank if ongoing",
-                },
-            ],
+            fields=_campaign_fields(),
             on_submit=lambda data: handle_create_campaign(data),
             title="Create New Campaign",
         )
@@ -280,52 +263,7 @@ with col2:
         if selected_campaign:
             edit_form_dialog(
                 item_data=selected_campaign,
-                fields=[
-                    {
-                        "name": "name",
-                        "label": "Name",
-                        "type": "text",
-                        "required": True,
-                        "help": "Human-readable name for the campaign",
-                    },
-                    {
-                        "name": "campaign_kind_id",
-                        "label": "Campaign Kind",
-                        "type": "select",
-                        "required": True,
-                        "options": type_options,
-                        "help": "Kind of campaign (Experiment, Operations, Commissioning)",
-                    },
-                    {
-                        "name": "site_id",
-                        "label": "Site",
-                        "type": "select",
-                        "required": True,
-                        "options": site_options,
-                        "help": "Site where the campaign is conducted",
-                    },
-                    {
-                        "name": "description",
-                        "label": "Description",
-                        "type": "textarea",
-                        "required": False,
-                        "help": "Detailed description of the campaign objectives and scope",
-                    },
-                    {
-                        "name": "start_date",
-                        "label": "Start Date",
-                        "type": "date",
-                        "required": False,
-                        "help": "Date the campaign began",
-                    },
-                    {
-                        "name": "end_date",
-                        "label": "End Date",
-                        "type": "date",
-                        "required": False,
-                        "help": "Date the campaign ended; leave blank if ongoing",
-                    },
-                ],
+                fields=_campaign_fields(),
                 on_submit=lambda data: handle_patch_campaign(
                     selected_campaign["campaign_id"], data
                 ),

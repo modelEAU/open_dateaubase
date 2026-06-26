@@ -25,9 +25,14 @@ from app.components.form_specs import FORM_FIELD_BUILDERS, get_form_fields
 from app.components.schema_registry import load_table
 
 # Request schemas (the contract the forms post to).
+from api.v1.endpoints.annotations import AnnotationKindIn
 from api.v1.endpoints.persons import PersonIn
+from api.v1.schemas.annotations import AnnotationCreate
+from api.v1.schemas.campaigns import CampaignIn
 from api.v1.schemas.channel import ChannelIn, ParameterIn
+from api.v1.schemas.control_loop import ControlLoopCreateRequest
 from api.v1.schemas.equipment import EquipmentIn, EquipmentModelIn
+from api.v1.schemas.ingestion import LabPanelCreateRequest
 from api.v1.schemas.metadata import (
     CampaignKindIn,
     EquipmentEventKindIn,
@@ -37,6 +42,7 @@ from api.v1.schemas.metadata import (
     ProcessUnitKindIn,
     QualityCodeIn,
     SampleCollectionKindIn,
+    SamplingLocationIn,
     SampleKindIn,
     SiteKindIn,
 )
@@ -62,6 +68,18 @@ ENTITY_SCHEMA = {
     "equipment": EquipmentIn,
     "laboratory": LaboratoryIn,
     "person": PersonIn,
+    "annotation_kind": AnnotationKindIn,
+    "campaign": CampaignIn,
+    "sampling_location": SamplingLocationIn,
+    "annotation": AnnotationCreate,
+    "control_loop": ControlLoopCreateRequest,
+    "lab_panel": LabPanelCreateRequest,
+}
+
+# Schema fields a form may legitimately omit, with the reason. These are set by
+# the server or the page out-of-band rather than collected as a form field.
+EXCEPTIONS: dict[str, dict[str, str]] = {
+    "annotation": {"observation_id": "set server-side from the anchor (UI channel_id)"},
 }
 
 
@@ -70,7 +88,8 @@ def test_form_fields_match_request_schema(entity: str) -> None:
     """The form's field names equal the endpoint's request-schema field names."""
     form_names = {f["name"] for f in get_form_fields(entity)}
     schema_names = set(ENTITY_SCHEMA[entity].model_fields)
-    missing = schema_names - form_names
+    allowed_absent = set(EXCEPTIONS.get(entity, {}))
+    missing = schema_names - form_names - allowed_absent
     extra = form_names - schema_names
     assert not missing, f"{entity}: form is missing API fields {sorted(missing)}"
     assert not extra, f"{entity}: form has fields the API ignores {sorted(extra)}"
@@ -107,20 +126,13 @@ _FORM_BUILDERS = ("create_form_dialog", "edit_form_dialog", "render_crud_page", 
 # Pages that build a form but are not yet routed through form_specs.
 # Each must be migrated; the entry documents why it isn't covered yet.
 PENDING_PAGES: dict[str, str] = {
-    "campaigns.py": "custom multi-dialog page; CampaignIn date-field rename pending",
-    "channels.py": "custom page with many site-scoped FKs; migrate to get_form_fields('channel')",
-    "sites.py": "custom location_picker widget; SiteIn name divergence",
-    "sampling_locations.py": "custom location widget; SamplingLocationIn name divergence",
-    "watersheds.py": "custom page; WatershedIn geometry_geojson rename",
-    "data_acquisition_systems.py": "ambiguous DasCreateIn variant; needs endpoint confirmation",
-    "control_loops.py": "multi-dialog (loop/port/application); separate request schemas",
-    "annotations.py": "anchored annotations (channel/series); AnnotationCreate special",
-    "lab_panels.py": "LabPanelCreateRequest with series_ids; wizard-like",
+    "sites.py": "hand-built st.form + location_picker; kept custom by design decision",
+    "watersheds.py": "hand-built st.form; kept custom by design decision",
+    "binning_axes.py": "hand-built st.form with nested bins editor; kept custom by design decision",
+    "data_acquisition_systems.py": "DAS API extension pending (manufacturer/model/parent)",
     "operation_kinds.py": "seed-only vocab; no create request schema",
     "bin_kinds.py": "seed-only vocab; no create request schema",
-    "annotation_kinds.py": "AnnotationKindIn not yet mapped",
-    "units.py": "api_client.create_unit narrows payload to {unit}; needs api_client fix too",
-    "binning_axes.py": "ValueBinningAxisIn with nested bins editor",
+    "units.py": "Unit API extension pending (typed UnitIn + si factors)",
 }
 
 

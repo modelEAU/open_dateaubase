@@ -15,15 +15,13 @@ from app.api_client import (
     list_annotation_kinds,
     update_annotation_kind,
 )
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
-from app.components.schema_registry import load_table
-
-_schema = load_table("AnnotationKind")
 
 render_crud_page(
     title="Annotation Types",
     pk_field="id",  # AnnotationKindResponse uses "id"
-    form_fields=_schema.build_form_fields(),
+    form_fields=get_form_fields("annotation_kind"),
     list_fn=list_annotation_kinds,
     create_fn=create_annotation_kind,
     update_fn=update_annotation_kind,

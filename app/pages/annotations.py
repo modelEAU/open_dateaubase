@@ -24,6 +24,7 @@ from app.api_client import (
     update_annotation,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
 
 
@@ -108,40 +109,21 @@ def handle_delete_annotation(annotation_id: int) -> None:
         st.error(f"Failed to delete annotation: {e.message}")
 
 
+# channel_id is the UI anchor (popped to stream_id on submit); the rest are the
+# AnnotationCreate contract minus observation_id (set server-side from the anchor).
+def _annotation_fields() -> list[dict]:
+    return [
+        {"name": "channel_id", "type": "select", "required": True, "options": channel_options},
+        *get_form_fields("annotation"),
+    ]
+
+
 # Action buttons
 col1, col2, col3 = st.columns([1, 1, 8])
 with col1:
     if st.button("➕ New", type="primary"):
         create_form_dialog(
-            fields=[
-                {
-                    "name": "channel_id",
-                    "type": "select",
-                    "required": True,
-                    "options": channel_options,
-                },
-                {"name": "annotation_type", "type": "text", "required": False},
-                {"name": "start_time", "type": "datetime", "required": True},
-                {"name": "end_time", "type": "datetime", "required": False},
-                {"name": "title", "type": "text", "required": False},
-                {"name": "comment", "type": "textarea", "required": False},
-                {
-                    "name": "campaign_id",
-                    "type": "number",
-                    "required": False,
-                },
-                {
-                    "name": "equipment_event_id",
-                    "type": "number",
-                    "required": False,
-                },
-                {
-                    "name": "author_person_id",
-                    "type": "number",
-                    "required": False,
-                    "help": "Enter person ID manually (auth integration pending)",
-                },
-            ],
+            fields=_annotation_fields(),
             on_submit=lambda data: handle_create_annotation(data),
             title="Create New Annotation",
         )
@@ -175,35 +157,7 @@ with col2:
         if selected_item:
             edit_form_dialog(
                 item_data=selected_item,
-                fields=[
-                    {
-                        "name": "channel_id",
-                        "type": "select",
-                        "required": True,
-                        "options": channel_options,
-                    },
-                    {"name": "annotation_type", "type": "text", "required": False},
-                    {"name": "start_time", "type": "datetime", "required": True},
-                    {"name": "end_time", "type": "datetime", "required": False},
-                    {"name": "title", "type": "text", "required": False},
-                    {"name": "comment", "type": "textarea", "required": False},
-                    {
-                        "name": "campaign_id",
-                        "type": "number",
-                        "required": False,
-                    },
-                    {
-                        "name": "equipment_event_id",
-                        "type": "number",
-                        "required": False,
-                    },
-                    {
-                        "name": "author_person_id",
-                        "type": "number",
-                        "required": False,
-                        "help": "Enter person ID manually (auth integration pending)",
-                    },
-                ],
+                fields=_annotation_fields(),
                 on_submit=lambda data: handle_update_annotation(
                     selected_item["annotation_id"], data
                 ),

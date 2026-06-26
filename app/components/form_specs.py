@@ -34,6 +34,13 @@ def _yaml(
     return lambda: load_table(table).build_form_fields(exclude=exclude, overrides=overrides)
 
 
+def _explicit(fields: list[dict]) -> Callable[[], list[dict]]:
+    """For entities whose API request schema diverges too far from the YAML to
+    derive (renamed date fields, anchor-derived ids, non-column list inputs).
+    Field names are still verified against the request schema by the test."""
+    return lambda: [dict(f) for f in fields]
+
+
 # entity slug -> builder returning a form_fields list whose names match the
 # corresponding api/v1/schemas request model (verified by test_form_coverage).
 FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
@@ -53,6 +60,69 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
     "signal_interface": _yaml("SignalInterface"),
     "laboratory": _yaml("Laboratory"),
     "person": _yaml("Person"),
+    "annotation_kind": _yaml("AnnotationKind"),
+    # ChannelIn carries no unit (a channel's unit follows its parameter);
+    # produced_by_step_id is included (manual link to a derived channel's step).
+    "channel": _yaml("Channel", exclude={"unit_id"}),
+    # --- explicit: API schema diverges from YAML too far to derive -----------
+    # CampaignIn renames the YAML *DateTime columns to start_date/end_date.
+    "campaign": _explicit(
+        [
+            {"name": "name", "type": "text", "required": True},
+            {"name": "campaign_kind_id", "type": "select", "required": True},
+            {"name": "site_id", "type": "select", "required": True},
+            {"name": "description", "type": "textarea", "required": False},
+            {"name": "start_date", "type": "date", "required": False},
+            {"name": "end_date", "type": "date", "required": False},
+            {"name": "responsible_person_id", "type": "select", "required": False},
+        ]
+    ),
+    # SamplingLocationIn; site_id is a UI-only scope field added by the page.
+    "sampling_location": _explicit(
+        [
+            {"name": "name", "type": "text", "required": True},
+            {"name": "description", "type": "textarea", "required": False},
+            {"name": "latitude", "type": "number", "required": False},
+            {"name": "longitude", "type": "number", "required": False},
+            {"name": "process_unit_id", "type": "select", "required": False},
+        ]
+    ),
+    # AnnotationCreate minus observation_id (set server-side from the anchor;
+    # the page collects the anchor via a UI-only channel_id field).
+    "annotation": _explicit(
+        [
+            {"name": "annotation_type", "type": "text", "required": False},
+            {"name": "start_time", "type": "datetime", "required": True},
+            {"name": "end_time", "type": "datetime", "required": False},
+            {"name": "title", "type": "text", "required": False},
+            {"name": "comment", "type": "textarea", "required": False},
+            {"name": "campaign_id", "type": "number", "required": False},
+            {"name": "equipment_event_id", "type": "number", "required": False},
+            {"name": "author_person_id", "type": "number", "required": False},
+        ]
+    ),
+    # ControlLoopCreateRequest (the loop entity itself; port/application dialogs
+    # on the page are separate workflow actions with their own schemas).
+    "control_loop": _explicit(
+        [
+            {"name": "name", "type": "text", "required": True},
+            {"name": "controller_kind_id", "type": "select", "required": True},
+            {"name": "fallback_control_loop_id", "type": "number", "required": False},
+            {"name": "algorithm_reference", "type": "text", "required": False},
+            {"name": "description", "type": "textarea", "required": False},
+        ]
+    ),
+    # LabPanelCreateRequest; series_ids is a non-column list driven by series_picker.
+    "lab_panel": _explicit(
+        [
+            {"name": "name", "type": "text", "required": True},
+            {"name": "description", "type": "textarea", "required": False},
+            {"name": "created_by_person_id", "type": "select", "required": False},
+            {"name": "default_sample_collection_kind_id", "type": "select", "required": False},
+            {"name": "default_sample_equipment_id", "type": "select", "required": False},
+            {"name": "series_ids", "type": "multiselect", "required": True},
+        ]
+    ),
     # --- need exclude: YAML has columns the API won't accept ----------------
     # ParameterIn = {parameter, description, envo_iri}; ValueKind_ID and the
     # QUDT IRI are populated at build time, not via the edit form.

@@ -23,6 +23,7 @@ from app.api_client import (
     update_channel,
 )
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
+from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
 
 
@@ -151,68 +152,35 @@ def handle_delete_channel(channel_id: int) -> None:
         st.error(f"Failed to delete channel: {e.message}")
 
 
-# Form field definitions (shared between create and edit)
-_FORM_FIELDS = [
-    {
-        "name": "signal_interface_id",
-        "label": "Signal Interface",
-        "type": "select",
-        "required": True,
-        "options": signal_interface_options,
+# Form field definitions (shared between create and edit). Names come from
+# form_specs (guarded against ChannelIn); widgets/options overlaid here.
+_OVERLAYS = {
+    "signal_interface_id": {
+        "type": "select", "options": signal_interface_options, "label": "Signal Interface",
         "help": "The SignalInterface (PLC, SCADA, basestation, ...) that publishes this tag",
     },
-    {
-        "name": "signal_interface_port_id",
-        "label": "Signal Interface Port",
-        "type": "number",
-        "required": False,
-        "help": "Current physical port (if known) this Channel is gated through",
-    },
-    {
-        "name": "tag_name",
-        "label": "Tag Name",
-        "type": "text",
-        "required": True,
-        "help": "Tag string as published by the SignalInterface (case-preserved)",
-    },
-    {
-        "name": "parent_channel_id",
-        "label": "Parent Channel",
-        "type": "number",
-        "required": False,
-        "help": "For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent Value Channel",
-    },
-    {
-        "name": "channel_kind_id",
-        "label": "Channel Kind",
-        "type": "select",
-        "required": False,
-        "options": channel_role_options,
-        "help": "Kind of information this Channel carries (Value, Status, Alarm, Uncertainty)",
-    },
-    {
-        "name": "parameter_id",
-        "label": "Parameter",
-        "type": "select",
-        "required": False,
-        "options": parameter_options,
-        "help": "Measured analyte or parameter (e.g. TSS, pH)",
-    },
-    {
-        "name": "data_provenance_id",
-        "label": "Data Provenance",
-        "type": "number",
-        "required": False,
-        "help": "How this data was produced (Sensor, Laboratory, Manual Entry, ...)",
-    },
-    {
-        "name": "value_kind_id",
-        "label": "Value Kind",
-        "type": "number",
-        "required": False,
-        "help": "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)",
-    },
-]
+    "signal_interface_port_id": {"type": "number", "label": "Signal Interface Port",
+        "help": "Current physical port (if known) this Channel is gated through"},
+    "tag_name": {"label": "Tag Name", "help": "Tag string as published by the SignalInterface"},
+    "parent_channel_id": {"type": "number", "label": "Parent Channel",
+        "help": "For sub-signal Channels, points to the parent Value Channel"},
+    "channel_kind_id": {"type": "select", "options": channel_role_options, "label": "Channel Kind",
+        "help": "Kind of information this Channel carries (Value, Status, Alarm, Uncertainty)"},
+    "parameter_id": {"type": "select", "options": parameter_options, "label": "Parameter",
+        "help": "Measured analyte or parameter (e.g. TSS, pH)"},
+    "data_provenance_kind_id": {"type": "number", "label": "Data Provenance",
+        "help": "How this data was produced (Sensor, Laboratory, Manual Entry, ...)"},
+    "produced_by_step_id": {"type": "number", "label": "Produced By Step",
+        "help": "Processing step that produced this channel (for derived channels)"},
+    "value_kind_id": {"type": "number", "label": "Value Kind",
+        "help": "Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image)"},
+}
+_FORM_FIELDS = []
+for _f in get_form_fields("channel"):
+    _f = dict(_f)
+    _f.pop("options_fn", None)
+    _f.update(_OVERLAYS.get(_f["name"], {}))
+    _FORM_FIELDS.append(_f)
 
 # Action buttons
 col1, col2, col3 = st.columns([1, 1, 8])

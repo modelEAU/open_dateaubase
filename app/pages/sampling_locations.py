@@ -20,6 +20,7 @@ from app.api_client import (
     list_sites_lookup,
     update_sampling_location,
 )
+from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
 
 st.set_page_config(page_title="Sampling Locations", layout="wide")
@@ -68,6 +69,15 @@ selected_pu_id: int | None = pu_options_map.get(selected_pu_label)  # type: igno
 site_form_options = [{"id": s["id"], "label": s["name"]} for s in sites_list]
 pu_form_options = [{"id": u["id"], "label": f"{u['tag']} — {u['name']}"} for u in pu_candidates]
 
+# site_id is a UI-only scope field (popped in _create); the rest are the
+# SamplingLocationIn contract, sourced from form_specs and wired to live options.
+_overlays = {
+    "name": {"label": "Name", "help": 'e.g. "Inlet", "Outlet", "Effluent"'},
+    "description": {"label": "Description"},
+    "process_unit_id": {"options": pu_form_options, "label": "Process Unit"},
+    "latitude": {"label": "Latitude (WGS84)"},
+    "longitude": {"label": "Longitude (WGS84)"},
+}
 form_fields = [
     {
         "name": "site_id",
@@ -77,43 +87,10 @@ form_fields = [
         "options": site_form_options,
         "help": "Site this sampling location belongs to",
     },
-    {
-        "name": "name",
-        "label": "Name",
-        "type": "text",
-        "required": True,
-        "help": 'Name of the sampling location, e.g. "Inlet", "Outlet", "Effluent"',
-    },
-    {
-        "name": "description",
-        "label": "Description",
-        "type": "textarea",
-        "required": False,
-        "help": "Optional description of the sampling location",
-    },
-    {
-        "name": "process_unit_id",
-        "label": "Process Unit",
-        "type": "select",
-        "required": False,
-        "options": pu_form_options,
-        "help": "Process unit this sampling location is associated with",
-    },
-    {
-        "name": "latitude",
-        "label": "Latitude (WGS84)",
-        "type": "number",
-        "required": False,
-        "help": "Geographic latitude in decimal degrees",
-    },
-    {
-        "name": "longitude",
-        "label": "Longitude (WGS84)",
-        "type": "number",
-        "required": False,
-        "help": "Geographic longitude in decimal degrees",
-    },
 ]
+for _f in get_form_fields("sampling_location"):
+    _f = {**_f, **_overlays.get(_f["name"], {})}
+    form_fields.append(_f)
 
 
 def _create(data: dict) -> dict:
