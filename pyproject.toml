@@ -47,6 +47,7 @@ app = [
     "streamlit-searchbox>=0.1.24",
     "shapely>=2.0",
     "pyproj>=3.6",
+    "tzlocal>=5.0",
 ]
 
 [tool.pytest.ini_options]

@@ -27,6 +27,7 @@ from typing import Any, Literal
 
 import pandas as pd
 import streamlit as st
+import tzlocal
 
 try:
     import zoneinfo
@@ -39,7 +40,7 @@ _KNOWN_TIMEZONES = sorted(zoneinfo.available_timezones())
 def _timezone_selector(key: str, label: str = "CSV timezone", help: str | None = None) -> zoneinfo.ZoneInfo:
     """Render a timezone selectbox pre-filled with the browser's local timezone.
     Returns the selected zoneinfo.ZoneInfo for timestamp localization."""
-    local_tz_name = datetime.now(timezone.utc).astimezone().tzinfo.key  # type: ignore[attr-defined, union-attr]
+    local_tz_name = tzlocal.get_localzone_name() or "UTC"
     selected_tz_name = st.selectbox(
         label,
         options=_KNOWN_TIMEZONES,

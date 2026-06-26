@@ -16,6 +16,7 @@ if _project_root not in sys.path:
 
 import pandas as pd
 import streamlit as st
+import tzlocal
 
 try:
     import zoneinfo
@@ -27,7 +28,7 @@ _KNOWN_TIMEZONES = sorted(zoneinfo.available_timezones())
 
 def _lab_timezone_selector(key: str) -> zoneinfo.ZoneInfo:
     """Render a collapsed timezone selectbox pre-filled with local timezone."""
-    local_tz_name = datetime.now(timezone.utc).astimezone().tzinfo.key  # type: ignore[attr-defined, union-attr]
+    local_tz_name = tzlocal.get_localzone_name() or "UTC"
     selected_tz_name = st.selectbox(
         "TZ",
         options=_KNOWN_TIMEZONES,
