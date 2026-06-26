@@ -122,5 +122,15 @@ services:
       - api
     restart: unless-stopped
 
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile.docs
+    container_name: open_dateaubase_docs
+    logging: *default-logging
+    ports:
+      - "8002:8000"          # no proxy in compose; docs served directly on :8002
+    restart: unless-stopped
+
 volumes:
   mssql_data:

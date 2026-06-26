@@ -78,6 +78,9 @@
 .PARAMETER SkipProxy
     Do not deploy/update the nginx proxy service.
 
+.PARAMETER SkipDocs
+    Do not deploy/update the MkDocs documentation service (served at /docs/).
+
 .PARAMETER SkipLogViewer
     Do not deploy/update the OpenObserve log viewer + Vector log shipper services.
 
@@ -150,6 +153,7 @@ param(
     [string]$ApiPort         = '',
     [string]$AppPort         = '',
     [string]$ProxyPort       = '',
+    [string]$DocsPort        = '',
     [string]$LogViewerPort   = '',
 
     [string]$ServiceUser     = 'LocalSystem',
@@ -159,6 +163,7 @@ param(
     [switch]$SkipApp,
     [switch]$SkipImporter,
     [switch]$SkipProxy,
+    [switch]$SkipDocs,
     [switch]$SkipLogViewer,
     [switch]$Uninstall
 )
@@ -193,6 +198,7 @@ if ([string]::IsNullOrWhiteSpace($EnvFile))   { $EnvFile   = Join-Path $InstallD
 if ([string]::IsNullOrWhiteSpace($ApiPort))       { $ApiPort       = $envProfile.ApiPort }
 if ([string]::IsNullOrWhiteSpace($AppPort))       { $AppPort       = $envProfile.AppPort }
 if ([string]::IsNullOrWhiteSpace($ProxyPort))     { $ProxyPort     = $envProfile.ProxyPort }
+if ([string]::IsNullOrWhiteSpace($DocsPort))      { $DocsPort      = $envProfile.DocsPort }
 if ([string]::IsNullOrWhiteSpace($LogViewerPort)) { $LogViewerPort = $envProfile.LogViewerPort }
 
 # The .env file is only required when deploying the API (it carries DB_*).
@@ -214,6 +220,7 @@ if (-not $Uninstall -and -not $SkipImporter) {
 # never collide on a shared host.
 $SVC_API        = "OpenDateaubase-$tag-API"
 $SVC_APP        = "OpenDateaubase-$tag-App"
+$SVC_DOCS       = "OpenDateaubase-$tag-Docs"
 $SVC_PROXY      = "OpenDateaubase-$tag-Proxy"
 $SVC_LOGVIEW    = "OpenDateaubase-$tag-LogViewer"
 $SVC_LOGSHIP    = "OpenDateaubase-$tag-LogShip"
@@ -252,6 +259,7 @@ if ($Uninstall) {
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_LOGSHIP
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_LOGVIEW
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_PROXY
+        Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_DOCS
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_APP
         Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_API
     }
@@ -374,6 +382,30 @@ if (-not $SkipApp) {
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_APP
     # Streamlit can take a moment to bind; give it a softer check
     Write-Step "Streamlit app started (access via http://localhost:$AppPort once proxy is up)." -Success
+}
+
+# ---------------------------------------------------------------------------
+# Step 8b: Deploy MkDocs documentation service
+# ---------------------------------------------------------------------------
+
+if (-not $SkipDocs) {
+    Write-Step 'Deploying docs service (mkdocs serve)...'
+
+    Install-NssmService `
+        -NssmExe         $nssmExe `
+        -ServiceName     $SVC_DOCS `
+        -Application     $uvExe `
+        -AppParameters   "run mkdocs serve --dev-addr 127.0.0.1:$DocsPort" `
+        -AppDirectory    $InstallDir `
+        -DisplayName     "open_datEAUbase Docs ($tag)" `
+        -Description     "MkDocs documentation site for open_datEAUbase ($Environment; localhost:$DocsPort behind nginx /docs/)" `
+        -StdoutLog       (Join-Path $LogDir 'docs\stdout.log') `
+        -StderrLog       (Join-Path $LogDir 'docs\stderr.log') `
+        -ServiceUser     $ServiceUser `
+        -ServicePassword $ServicePassword
+
+    Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_DOCS
+    Write-Step "Docs service started (access via http://localhost:$ProxyPort/docs/ once proxy is up)." -Success
 }
 
 # ---------------------------------------------------------------------------
@@ -567,6 +599,7 @@ if (-not $SkipProxy) {
         -AppPort       $AppPort `
         -ProxyPort     $ProxyPort `
         -LogDir        $LogDir `
+        -DocsPort      $(if (-not $SkipDocs) { $DocsPort } else { '' }) `
         -LogViewerPort $(if (-not $SkipLogViewer) { $LogViewerPort } else { '' })
 
     Install-NssmService `
@@ -609,6 +642,10 @@ if (-not $SkipApp) {
     $s = Get-Service $SVC_APP -ErrorAction SilentlyContinue
     $rows += [pscustomobject]@{ Component='App';      Type='Windows Service';     Name=$SVC_APP;     Status=${s}?.Status; URL="http://localhost:$AppPort/" }
 }
+if (-not $SkipDocs) {
+    $s = Get-Service $SVC_DOCS -ErrorAction SilentlyContinue
+    $rows += [pscustomobject]@{ Component='Docs';     Type='Windows Service';     Name=$SVC_DOCS;    Status=${s}?.Status; URL="http://localhost:$ProxyPort/docs/" }
+}
 if (-not $SkipProxy) {
     $s = Get-Service $SVC_PROXY -ErrorAction SilentlyContinue
     $rows += [pscustomobject]@{ Component='Proxy';    Type='Windows Service';     Name=$SVC_PROXY;   Status=${s}?.Status; URL="http://localhost:$ProxyPort/" }
@@ -635,6 +672,9 @@ if (-not $SkipLogViewer) {
 if (-not $SkipProxy) {
     Write-Host ''
     Write-Host "  Open in browser: http://$(hostname)/" -ForegroundColor Green
+    if (-not $SkipDocs) {
+        Write-Host "  Documentation  : http://$(hostname)/docs/" -ForegroundColor Green
+    }
     if (-not $SkipLogViewer) {
         Write-Host "  Inspect logs   : http://$(hostname)/logs/" -ForegroundColor Green
     }

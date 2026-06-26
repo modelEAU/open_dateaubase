@@ -1,0 +1,48 @@
+# MkDocs documentation site. The build hook (docs/hooks/call_orchestrator.py)
+# imports api.main + scripts/ + schema_dictionary/, so this image needs the same
+# API/ODBC environment as Dockerfile.api — it just runs mkdocs instead of uvicorn.
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+# OS deps + MSSQL ODBC 18 (same as the API image; the hook imports api.main).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates gcc g++ \
+    unixodbc unixodbc-dev gnupg \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+    | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+ && curl -fsSL https://packages.microsoft.com/config/debian/12/prod.list \
+    | tee /etc/apt/sources.list.d/microsoft-prod.list > /dev/null \
+ && apt-get update \
+ && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir uv
+
+# Dependency files first for layer caching
+COPY pyproject.toml uv.lock ./
+COPY src/ ./src/
+COPY importer/pyproject.toml ./importer/pyproject.toml
+
+# --extra api: hook imports api.main. Default dev group pulls mkdocs-swagger-ui-tag.
+RUN uv sync --package open-dateaubase --extra api
+
+# Everything the docs build reads at runtime
+COPY api/ ./api/
+COPY scripts/ ./scripts/
+COPY schema_dictionary/ ./schema_dictionary/
+COPY docs/ ./docs/
+COPY mkdocs.yml ./
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+EXPOSE 8000
+
+# ponytail: dev server (live-reloads doc edits) is fine for an internal docs site.
+# Swap to `mkdocs build` + a static server if the file-watcher's CPU ever matters.
+CMD ["uv", "run", "mkdocs", "serve", "--dev-addr", "0.0.0.0:8000"]

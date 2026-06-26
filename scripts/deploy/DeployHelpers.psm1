@@ -377,10 +377,31 @@ function Write-NginxConf {
         [string]$AppPort,
         [string]$ProxyPort,
         [string]$LogDir,
-        [string]$LogViewerPort = ''
+        [string]$LogViewerPort = '',
+        [string]$DocsPort = ''
     )
     # nginx requires forward slashes in paths
     $logDirFwd = $LogDir.Replace('\', '/')
+
+    # Optional MkDocs site (mkdocs serve), exposed under /docs/. The trailing
+    # slash on proxy_pass strips the /docs/ prefix because mkdocs serves at root.
+    # WebSocket headers cover mkdocs' livereload; the site renders fine regardless.
+    $docsBlock = ''
+    if ($DocsPort) {
+        $docsBlock = @"
+
+        # MkDocs documentation site
+        location = /docs { return 301 /docs/; }
+        location /docs/ {
+            proxy_pass         http://127.0.0.1:$DocsPort/;
+            proxy_http_version 1.1;
+            proxy_set_header   Upgrade `$http_upgrade;
+            proxy_set_header   Connection "upgrade";
+            proxy_set_header   Host `$host;
+            proxy_set_header   X-Real-IP `$remote_addr;
+        }
+"@
+    }
 
     # Optional OpenObserve log viewer block, exposed under /logs/ (set via
     # ZO_BASE_URI=/logs on the service). Uses the same WebSocket-upgrade headers
@@ -454,6 +475,7 @@ http {
             proxy_set_header Host `$host;
             proxy_set_header X-Real-IP `$remote_addr;
         }
+$docsBlock
 $logViewerBlock
     }
 }
