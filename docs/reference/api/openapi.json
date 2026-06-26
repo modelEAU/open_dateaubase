@@ -7177,9 +7177,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
+                "$ref": "#/components/schemas/UnitIn"
               }
             }
           }
@@ -7246,9 +7244,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
+                "$ref": "#/components/schemas/UnitIn"
               }
             }
           }
@@ -7402,9 +7398,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
+                "$ref": "#/components/schemas/LaboratoryIn"
               }
             }
           }
@@ -7471,9 +7465,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
+                "$ref": "#/components/schemas/LaboratoryIn"
               }
             }
           }
@@ -16077,6 +16069,129 @@
         }
       }
     },
+    "/api/v1/admin/tables": {
+      "get": {
+        "tags": [
+          "admin-browse"
+        ],
+        "summary": "List Browsable Tables",
+        "operationId": "list_browsable_tables_api_v1_admin_tables_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TableInfo"
+                  },
+                  "title": "Response List Browsable Tables Api V1 Admin Tables Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tables/{table}": {
+      "get": {
+        "tags": [
+          "admin-browse"
+        ],
+        "summary": "Read Table",
+        "operationId": "read_table_api_v1_admin_tables__table__get",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Table"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableData"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "tags": [
@@ -19202,6 +19317,39 @@
               }
             ],
             "title": "Das Kind Id"
+          },
+          "manufacturer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_system_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent System Id"
           }
         },
         "type": "object",
@@ -19300,6 +19448,39 @@
               }
             ],
             "title": "Das Kind Name"
+          },
+          "manufacturer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_system_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent System Id"
           }
         },
         "type": "object",
@@ -19337,6 +19518,39 @@
               }
             ],
             "title": "Das Kind Id"
+          },
+          "manufacturer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_system_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent System Id"
           }
         },
         "type": "object",
@@ -21578,6 +21792,41 @@
         "title": "LabPanelSeriesAddRequest",
         "description": "Request to add a series to an existing panel."
       },
+      "LaboratoryIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "LaboratoryIn"
+      },
       "LandUseIn": {
         "properties": {
           "commercial": {
@@ -22343,7 +22592,7 @@
             ],
             "title": "Last Name"
           },
-          "email": {
+          "company": {
             "anyOf": [
               {
                 "type": "string"
@@ -22352,7 +22601,7 @@
                 "type": "null"
               }
             ],
-            "title": "Email"
+            "title": "Company"
           },
           "role": {
             "anyOf": [
@@ -22365,7 +22614,7 @@
             ],
             "title": "Role"
           },
-          "company": {
+          "assigned_functions": {
             "anyOf": [
               {
                 "type": "string"
@@ -22374,7 +22623,18 @@
                 "type": "null"
               }
             ],
-            "title": "Company"
+            "title": "Assigned Functions"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "phone": {
             "anyOf": [
@@ -22386,6 +22646,28 @@
               }
             ],
             "title": "Phone"
+          },
+          "linkedin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linkedin"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
           }
         },
         "type": "object",
@@ -22437,7 +22719,7 @@
             ],
             "title": "Last Name"
           },
-          "email": {
+          "company": {
             "anyOf": [
               {
                 "type": "string"
@@ -22446,7 +22728,7 @@
                 "type": "null"
               }
             ],
-            "title": "Email"
+            "title": "Company"
           },
           "role": {
             "anyOf": [
@@ -22459,7 +22741,7 @@
             ],
             "title": "Role"
           },
-          "company": {
+          "assigned_functions": {
             "anyOf": [
               {
                 "type": "string"
@@ -22468,7 +22750,18 @@
                 "type": "null"
               }
             ],
-            "title": "Company"
+            "title": "Assigned Functions"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "phone": {
             "anyOf": [
@@ -22480,6 +22773,28 @@
               }
             ],
             "title": "Phone"
+          },
+          "linkedin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linkedin"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
           }
         },
         "type": "object",
@@ -25206,6 +25521,59 @@
         "title": "StreamStoryOut",
         "description": "Read-only Stream Story summary (see channel_repository.get_stream_story)."
       },
+      "TableData": {
+        "properties": {
+          "table": {
+            "type": "string",
+            "title": "Table"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "row_count": {
+            "type": "integer",
+            "title": "Row Count"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "table",
+          "columns",
+          "rows",
+          "row_count",
+          "truncated"
+        ],
+        "title": "TableData"
+      },
+      "TableInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TableInfo"
+      },
       "TaglessSensorChannelResolveRequest": {
         "properties": {
           "das_name": {
@@ -25545,6 +25913,63 @@
         ],
         "title": "TimeseriesOut",
         "description": "Uniform time series response regardless of underlying value table."
+      },
+      "UnitIn": {
+        "properties": {
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "qudt_iri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qudt Iri"
+          },
+          "unit_vector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Vector"
+          },
+          "si_multiplier": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Si Multiplier"
+          },
+          "si_offset": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Si Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unit"
+        ],
+        "title": "UnitIn"
       },
       "UnitOut": {
         "properties": {
