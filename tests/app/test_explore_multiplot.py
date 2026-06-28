@@ -99,3 +99,25 @@ def test_per_chip_move_control_reassigns_stream():
         assert at.session_state["explore_plot_of"]["ch:6"] == 2
         assert at.session_state["explore_plot_of"]["ch:5"] == 1
         assert not at.exception
+
+
+def test_delete_plot_badge_reassigns_its_streams_to_first_plot():
+    with ExitStack() as stack:
+        _patches(stack)
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_start"] = date(2026, 5, 1)
+        at.session_state["explore_end"] = date(2026, 5, 8)
+        at.session_state["explore_active_channels"] = [5, 6]
+        at.session_state["explore_channel_meta"] = {5: _DT5, 6: _DT6}
+        at.session_state["explore_plots"] = [1, 2]
+        at.session_state["explore_next_plot_id"] = 3
+        at.session_state["explore_plot_of"] = {"ch:5": 1, "ch:6": 2}
+        at.run()
+
+        # Delete Plot 2 via its badge ✕ — the plot is removed and its stream
+        # (CH-6) falls back to the first remaining plot (not deleted).
+        at.button(key="delplot_2").click().run()
+        assert at.session_state["explore_plots"] == [1]
+        assert at.session_state["explore_plot_of"]["ch:6"] == 1
+        assert 6 in at.session_state["explore_active_channels"]
+        assert not at.exception

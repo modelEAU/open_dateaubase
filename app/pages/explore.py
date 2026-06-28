@@ -213,6 +213,52 @@ def _add_plot() -> int:
     return pid
 
 
+def _delete_plot(plot_id: int) -> None:
+    """Delete a plot. Its streams are not removed — they fall back to the first
+    remaining plot (each stream keeps its own ✕ for actual removal). Never
+    deletes the last plot."""
+    plots = st.session_state.explore_plots
+    if plot_id not in plots or len(plots) <= 1:
+        return
+    plots.remove(plot_id)
+    fallback = plots[0]
+    for k, v in list(st.session_state.explore_plot_of.items()):
+        if v == plot_id:
+            st.session_state.explore_plot_of[k] = fallback
+    if st.session_state.explore_target_plot == plot_id:
+        st.session_state.explore_target_plot = fallback
+
+
+def _render_plot_badges() -> None:
+    """Plot-management zone: one badge per plot (click to make it the target for
+    new streams; ✕ to delete it) plus an Add-plot control."""
+    plots = st.session_state.explore_plots
+    target = st.session_state.explore_target_plot
+    st.caption("**Plots** — click a badge to send new streams there, ✕ to delete")
+    cols = st.columns(len(plots) + 1)
+    for i, pid in enumerate(plots):
+        is_target = pid == target
+        sel_col, del_col = cols[i].columns([3, 1])
+        if sel_col.button(
+            f"{'🎯 ' if is_target else ''}Plot {pid}",
+            key=f"seltgt_{pid}",
+            type="primary" if is_target else "secondary",
+            help="Send newly added streams to this plot",
+            use_container_width=True,
+        ):
+            st.session_state.explore_target_plot = pid
+            st.rerun()
+        if del_col.button(
+            "✕", key=f"delplot_{pid}", disabled=len(plots) <= 1,
+            help=f"Delete Plot {pid}",
+        ):
+            _delete_plot(pid)
+            st.rerun()
+    if cols[-1].button("➕ Add plot", key="btn_add_plot", use_container_width=True):
+        _add_plot()
+        st.rerun()
+
+
 def _streams_in_plot(
     plot_id: int, active_channels: list[int], active_series: list[int]
 ) -> tuple[list[int], list[int]]:
@@ -1196,10 +1242,22 @@ def _render_scalar_view(
     lab_pts = sel["lab_pts"]
     selected_pts = sensor_pts + lab_pts
 
-    if sensor_pts or lab_pts:
+    if selected_pts:
         n_streams = len({s["id"] for s in sensor_pts}) + len({s["id"] for s in lab_pts})
         st.markdown(
-            f"**{len(selected_pts)} points selected** across {n_streams} streams."
+            f"**{len(selected_pts)} points selected** across {n_streams} stream(s)."
+        )
+        sel_rows = [
+            {"Stream": f"CH-{p['id']}", "Kind": "sensor",
+             "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
+            for p in sensor_pts
+        ] + [
+            {"Stream": f"LAB-{p['id']}", "Kind": "lab",
+             "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
+            for p in lab_pts
+        ]
+        st.dataframe(
+            pd.DataFrame(sel_rows), use_container_width=True, hide_index=True
         )
 
     if sensor_pts:
@@ -1214,12 +1272,15 @@ def _render_scalar_view(
             single_sensor_obs_id = sensor_pts[0].get("obs_id")
             single_sensor_val = sensor_pts[0].get("y")
 
+        # Annotate ONLY the streams that have selected points, scoped to the
+        # selected points' time span (not the plotted view range).
+        sensor_sel_ids = sorted({p["id"] for p in sensor_pts})
         col1, col2 = st.columns(2)
         with col1:
-            btn_label = "Create Annotation (point)" if single_sensor_obs_id else "Create Annotation"
+            btn_label = "Annotate selected point" if single_sensor_obs_id else "Annotate selected points"
             if st.button(btn_label, type="primary", key=f"btn_sensor_ann{suffix}"):
                 _annotation_dialog(
-                    channel_ids=scalar_channels,
+                    channel_ids=sensor_sel_ids,
                     start_time=str(t_start_sel) if t_start_sel else None,
                     end_time=str(t_end_sel) if t_end_sel else None,
                     annotation_types=annotation_types,
@@ -1249,8 +1310,8 @@ def _render_scalar_view(
             single_lab_val = lab_pts[0].get("y")
 
         lab_btn_label = (
-            "Create Lab Annotation (point)" if single_lab_obs_id
-            else "Create Lab Annotation (range)"
+            "Annotate selected lab point" if single_lab_obs_id
+            else "Annotate selected lab points"
         )
         if st.button(lab_btn_label, type="primary", key=f"btn_lab_ann_pt{suffix}"):
             _annotation_dialog(
@@ -1267,44 +1328,8 @@ def _render_scalar_view(
         st.caption(
             "Use the brush tool (top-right of the chart) to box / lasso-select "
             "points, then annotate or flag them. Scroll or drag the bottom slider "
-            "to zoom."
+            "to zoom. Annotations apply to the selected points, not the view range."
         )
-
-    # Sensor channel annotation — range over the current view window.
-    if scalar_channels and annotation_types:
-        sel_ch = st.selectbox(
-            "Annotate sensor channel (range)",
-            options=scalar_channels,
-            format_func=lambda ch: f"CH-{ch}: "
-            f"{channel_meta.get(ch, {}).get('parameter_name', '?')} "
-            f"({channel_meta.get(ch, {}).get('equipment_identifier', '?')})",
-            key=f"sensor_ann_chan_sel{suffix}",
-        )
-        if st.button("Create Annotation (view range)", key=f"btn_sensor_ann_range{suffix}"):
-            _annotation_dialog(
-                channel_ids=[sel_ch],
-                start_time=_local_to_utc_iso(st.session_state.explore_start),
-                end_time=_local_to_utc_iso(st.session_state.explore_end, end_of_day=True),
-                annotation_types=annotation_types,
-            )
-
-    # Lab AnalysisSeries annotation — range over the current view window.
-    if scalar_series and annotation_types:
-        sel_lab = st.selectbox(
-            "Annotate lab series (range)",
-            options=scalar_series,
-            format_func=lambda s: f"LAB-{s}: "
-            f"{series_meta.get(s, {}).get('name') or series_meta.get(s, {}).get('parameter_name', '?')}",
-            key=f"lab_ann_series_sel{suffix}",
-        )
-        if st.button("Create Lab Annotation (view range)", key=f"btn_lab_ann{suffix}"):
-            _annotation_dialog(
-                channel_ids=[],
-                series_ids=[sel_lab],
-                start_time=_local_to_utc_iso(st.session_state.explore_start),
-                end_time=_local_to_utc_iso(st.session_state.explore_end, end_of_day=True),
-                annotation_types=annotation_types,
-            )
 
     # Annotations & events summary table
     if overlay_rows:
@@ -1663,24 +1688,11 @@ def _render_visualization_area(
 
     # --- Scalar multi-plot workspace ---
     if scalar_present or len(plots) > 1:
-        hdr_col, add_col = st.columns([6, 2])
-        hdr_col.subheader(f"Plots ({len(plots)})")
-        if add_col.button("➕ Add plot", key="btn_add_plot"):
-            _add_plot()
-            st.rerun()
-
+        _render_plot_badges()
         for plot_id in plots:
             p_chans, p_sers = _streams_in_plot(plot_id, active_channels, active_series)
             with st.container(border=True):
-                is_target = st.session_state.explore_target_plot == plot_id
-                title_col, tgt_col = st.columns([6, 2])
-                suffix = "  ·  ⬇ new streams land here" if is_target else ""
-                title_col.markdown(f"**Plot {plot_id}**{suffix}")
-                if len(plots) > 1 and not is_target:
-                    if tgt_col.button("Add here", key=f"tgt_{plot_id}",
-                                      help="Send newly added streams to this plot"):
-                        st.session_state.explore_target_plot = plot_id
-                        st.rerun()
+                st.markdown(f"**Plot {plot_id}**")
                 _render_scalar_view(
                     p_chans, channel_meta, annotation_types, equipment, event_types,
                     p_sers, series_meta, suffix=f"_p{plot_id}",

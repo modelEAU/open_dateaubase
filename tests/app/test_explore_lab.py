@@ -217,8 +217,11 @@ def test_lab_annotation_dialog_is_homogeneous_no_quality_flag_tab():
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [1]
         at.session_state["explore_series_meta"] = {1: _SERIES[0]}
+        # Brush-select the lab point so the selection-based annotate button appears
+        # (annotations are now selection-driven, not view-range).
+        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 0, "dataIndex": [0]}]
         at.run()
-        at.button(key="btn_lab_ann_p1").click().run()
+        at.button(key="btn_lab_ann_pt_p1").click().run()
         assert not at.exception
         lab_tab_labels = [lbl for t in at.tabs for lbl in (t.label or "",)]
         assert "Quality Flag" not in lab_tab_labels, (
