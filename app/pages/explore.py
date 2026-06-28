@@ -556,21 +556,23 @@ def _render_time_strip(
                 _invalidate_data_cache()
                 st.rerun()
 
-        def _on_range_change() -> None:
-            _invalidate_data_cache()
-            st.rerun()
-
+        # On a real range change we must drop annotation/event caches (those are
+        # keyed by id, not range); the timeseries cache is range-keyed so it
+        # refreshes on its own. The callback ONLY clears the cache — it must not
+        # call st.rerun() (Streamlit reruns automatically after the widget
+        # change, and a rerun *inside* a callback races the widget commit and is
+        # what made the date snap back to its default).
         with from_col:
             st.date_input(
                 "From",
                 key="explore_start",
-                on_change=_on_range_change,
+                on_change=_invalidate_data_cache,
             )
         with to_col:
             st.date_input(
                 "To",
                 key="explore_end",
-                on_change=_on_range_change,
+                on_change=_invalidate_data_cache,
             )
 
 
@@ -732,7 +734,9 @@ def _add_channel_to_plot(node: dict, *, rerun: bool = True) -> bool:
     active.append(ch_id)
     st.session_state.explore_channel_meta[ch_id] = node
     _fetch_channel_stats(ch_id, node)
-    _invalidate_data_cache()
+    # No cache wipe: the data cache is keyed by (channel, start, end), so adding
+    # a stream can't stale the others. The new stream loads lazily on render;
+    # already-plotted streams stay cached (no full reload, no slow refetch).
     if rerun:
         st.rerun()
     return True
@@ -748,7 +752,8 @@ def _add_series_to_plot(node: dict, *, rerun: bool = True) -> bool:
     active.append(s_id)
     st.session_state.explore_series_meta[s_id] = node
     _fetch_series_stats(s_id)
-    _invalidate_data_cache()
+    # No cache wipe — see _add_channel_to_plot. The cache is range-keyed, so the
+    # new series loads lazily while already-plotted streams stay cached.
     if rerun:
         st.rerun()
     return True
