@@ -557,7 +557,7 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
 
     Resolves (or creates) the Channel via the UNIQUE stream identity:
     (das_name, tag, parameter_name, data_provenance_kind_id, processing_degree).
-    DAS and SignalPort are auto-created with a warning on first encounter.
+    DAS and SignalInterface are auto-created with a warning on first encounter.
     Unrecognised parameter_name or unit_name returns 422 before any DB write.
     """
     (
@@ -636,11 +636,11 @@ def ingest_sensor(data: SensorIngestRequest, conn=Depends(get_db)):
 def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)):
     """Ingest raw sensor measurements from a direct-connect station (no SCADA tag).
 
-    A synthetic SignalPort tag is auto-generated as
+    A synthetic SignalInterface tag is auto-generated as
     ``"{equipment_name}/{parameter_name}"`` (lowercased, trimmed) — deterministic
     and stable across repeated runs.
 
-    On first ingest a SignalPortEquipmentHistory row is opened immediately so
+    On first ingest an EquipmentWiringHistory row is opened immediately so
     provenance is recorded from the start.  Subsequent ingests for the same
     (DAS, equipment_name, parameter_name) are idempotent.
 

@@ -312,28 +312,30 @@ def get_equipment_installations(
     from_dt: datetime | None,
     to_dt: datetime | None,
 ) -> list[dict]:
+    # F4: EquipmentInstallation table was dropped; location history now lives in
+    # EquipmentLocationHistory (ValidFrom/ValidTo temporal rows).
     params: list = [equipment_id]
-    where = "WHERE ei.[Equipment_ID] = ?"
+    where = "WHERE elh.[Equipment_ID] = ?"
     if from_dt:
-        where += " AND (ei.[RemovedDate] IS NULL OR ei.[RemovedDate] >= ?)"
+        where += " AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] >= ?)"
         params.append(from_dt)
     if to_dt:
-        where += " AND ei.[InstalledDate] <= ?"
+        where += " AND elh.[ValidFrom] <= ?"
         params.append(to_dt)
 
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT ei.[Installation_ID], ei.[SamplingPoint_ID],
+        SELECT elh.[EquipmentLocationHistory_ID], elh.[SamplingPoint_ID],
                sp.[SamplingPoint] AS LocationName,
-               ei.[InstalledDate], ei.[RemovedDate],
-               ei.[Campaign_ID], c.[Name] AS CampaignName,
-               ei.[Notes]
-        FROM [dbo].[EquipmentInstallation] ei
-        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = ei.[SamplingPoint_ID]
-        LEFT JOIN [dbo].[Campaign]        c  ON c.[Campaign_ID]        = ei.[Campaign_ID]
+               elh.[ValidFrom], elh.[ValidTo],
+               elh.[Campaign_ID], c.[Name] AS CampaignName,
+               elh.[Notes]
+        FROM [dbo].[EquipmentLocationHistory] elh
+        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+        LEFT JOIN [dbo].[Campaign]        c  ON c.[Campaign_ID]        = elh.[Campaign_ID]
         {where}
-        ORDER BY ei.[InstalledDate]
+        ORDER BY elh.[ValidFrom]
         """,
         *params,
     )

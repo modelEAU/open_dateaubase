@@ -897,50 +897,6 @@ def find_signal_port_type_by_name(conn: pyodbc.Connection, name: str) -> int | N
     return find_channel_kind_by_name(conn, name)
 
 
-def find_or_create_signal_port(
-    conn: pyodbc.Connection,
-    das_id: int,
-    tag: str,
-    signal_port_type_id: int,
-) -> tuple[int, bool]:
-    """Deprecated stub."""
-    raise NotImplementedError(
-        "find_or_create_signal_port is deprecated. Use find_or_create_signal_interface_port."
-    )
-
-
-def find_signal_port_by_tag(
-    conn: pyodbc.Connection, das_id: int, tag: str
-) -> int | None:
-    """Deprecated stub."""
-    raise NotImplementedError(
-        "find_signal_port_by_tag is deprecated. SignalPort table has been removed."
-    )
-
-
-def set_parent_port(conn: pyodbc.Connection, port_id: int, parent_port_id: int) -> None:
-    """Deprecated stub."""
-    raise NotImplementedError(
-        "set_parent_port is deprecated. Use ParentChannel_ID on Channel instead."
-    )
-
-
-def open_port_equipment_history(
-    conn: pyodbc.Connection, port_id: int, equipment_id: int
-) -> int:
-    """Deprecated stub."""
-    raise NotImplementedError(
-        "open_port_equipment_history is deprecated. Use open_equipment_wiring_history."
-    )
-
-
-def deactivate_signal_port(conn: pyodbc.Connection, signal_port_id: int) -> bool:
-    """Deprecated stub."""
-    raise NotImplementedError(
-        "deactivate_signal_port is deprecated. SignalPort table has been removed."
-    )
-
-
 def generate_tagless_tag(equipment_identifier: str, parameter_name: str) -> str:
     """Deprecated alias for generate_tagless_tagname."""
     return generate_tagless_tagname(equipment_identifier, parameter_name)

@@ -79,6 +79,19 @@ def rewire_equipment(
 
     The swap is atomic within a single transaction.
     """
+    # F8: reject a rewire to the interface+port already active — no churn row.
+    active = get_active_wiring_for_equipment(conn, equipment_id)
+    if (
+        active is not None
+        and active["signal_interface_id"] == new_signal_interface_id
+        and active["signal_interface_port_id"] == new_signal_interface_port_id
+    ):
+        raise ValueError(
+            f"Equipment {equipment_id} is already wired to SignalInterface "
+            f"{new_signal_interface_id} (port {new_signal_interface_port_id}); "
+            "nothing to rewire."
+        )
+
     cursor = conn.cursor()
     closed_id: int | None = None
 
@@ -272,6 +285,14 @@ def relocate_equipment(
     ``start_time`` is required and must equal the physical move time.
     ``campaign_id`` is required by the schema (Campaign_ID NOT NULL).
     """
+    # F8: reject a relocate to the SamplingPoint already active — no churn row.
+    active = get_active_location_for_equipment(conn, equipment_id)
+    if active is not None and active["sampling_point_id"] == new_sampling_point_id:
+        raise ValueError(
+            f"Equipment {equipment_id} is already located at SamplingPoint "
+            f"{new_sampling_point_id}; nothing to relocate."
+        )
+
     cursor = conn.cursor()
     closed_id: int | None = None
 
@@ -462,6 +483,14 @@ def deploy_das(
 
     The swap is atomic within a single transaction.
     """
+    # F8: reject a redeploy to the Site already active — no churn row.
+    active = get_active_das_deployment(conn, das_id)
+    if active is not None and active["site_id"] == site_id:
+        raise ValueError(
+            f"DAS {das_id} is already deployed at Site {site_id}; "
+            "nothing to redeploy."
+        )
+
     cursor = conn.cursor()
     closed_id: int | None = None
 
