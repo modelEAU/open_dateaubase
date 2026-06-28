@@ -185,7 +185,6 @@ def test_lab_series_annotation_renders_overlay():
         at.run()
 
     assert not at.exception
-    assert list(at.get("plotly_chart")), "no scalar chart rendered"
     # The overlay summary table lists the lab annotation anchored to LAB-1.
     overlay_tables = [
         df.value for df in at.dataframe
@@ -228,9 +227,19 @@ def test_lab_annotation_dialog_is_homogeneous_no_quality_flag_tab():
         )
 
 
+def _scalar_view_rendered(at) -> bool:
+    """Proxy for 'the scalar ECharts view rendered'. The st_echarts component is
+    not introspectable as an AppTest element, so we key off the mode caption that
+    _render_scalar_view emits right above the chart."""
+    return any(
+        (c.value or "").startswith(("Visualization mode", "Extraction mode"))
+        for c in at.caption
+    )
+
+
 def test_page_renders_with_active_traces_of_both_sources():
-    """With one sensor channel and one lab series active, the page renders the
-    scalar overlay without error (a plotly chart is produced)."""
+    """With one sensor channel and one lab series active, the scalar overlay
+    view renders without error."""
     with ExitStack() as stack:
         _patches(stack)
         at = AppTest.from_file(HARNESS)
@@ -241,7 +250,7 @@ def test_page_renders_with_active_traces_of_both_sources():
         at.run()
 
     assert not at.exception
-    assert list(at.get("plotly_chart")), "no scalar chart rendered"
+    assert _scalar_view_rendered(at), "scalar view did not render"
 
 
 # ---------------------------------------------------------------------------
@@ -258,18 +267,11 @@ _SERIES_TS_WITH_OBS = {
     ],
 }
 
-# Simulated Plotly chart selection event for a single lab marker click.
-# customdata format: ["lab", series_id, observation_id]
-_LAB_PT_SELECTION = {
-    "selection": {
-        "points": [{
-            "curve_number": 0,
-            "x": "2026-05-01T00:00:00",
-            "y": 11.0,
-            "customdata": ["lab", 1, 42],
-        }]
-    }
-}
+# Simulated ECharts brushSelected return for a single lab marker brush.
+# Shape: list of {seriesIndex, dataIndex[]} (what BRUSH_SELECTED_JS returns).
+# With only the lab series active it is ECharts seriesIndex 0; dataIndex 0 is the
+# first lab point (observation_id 42). resolve_brush_selection maps it back.
+_LAB_PT_SELECTION = [{"seriesIndex": 0, "dataIndex": [0]}]
 
 
 def test_lab_point_selection_shows_pin_button():
@@ -501,7 +503,7 @@ def test_provenance_panel_renders_in_global_layout():
         at.run()
 
     assert not at.exception
-    assert list(at.get("plotly_chart")), "chart should still render in the global layout"
+    assert _scalar_view_rendered(at), "chart should still render in the global layout"
     headers = [h.value for h in at.subheader]
     assert any("Provenance" in h for h in headers), (
         f"provenance panel header not found; got {headers}"

@@ -28,7 +28,6 @@ if _project_root not in sys.path:
 
 
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
 from app.api_client import (
@@ -81,7 +80,13 @@ from app.components.explore_matrix import (  # noqa: F401
     _build_matrix_slice_line,
 )
 from app.components.explore_scalar import _build_scalar_figure  # noqa: F401
+from app.components.explore_echarts import (  # noqa: F401
+    BRUSH_SELECTED_JS,
+    build_scalar_echarts_option,
+    resolve_brush_selection,
+)
 from app.components.explore_image import _image_viewer_dialog  # noqa: F401
+from streamlit_echarts import st_echarts
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +137,6 @@ def _init_state() -> None:
         "explore_annotations": {},  # channel_id → list[dict]
         "explore_series_annotations": {},  # analysis_series_id → list[dict]
         "explore_eq_events": {},  # equipment_id → list[dict]
-        "explore_selected_points": {},  # Plotly selection result
         "explore_channel_stats": {},     # channel_id -> stats dict (cached)
         "explore_selected_images": [],  # list[str] timestamps
         "explore_image_detail_ch": None,
@@ -1097,37 +1101,32 @@ def _render_scalar_view(
     else:
         st.caption("Extraction mode — full raw data displayed.")
 
-    fig, overlay_rows = _build_scalar_figure(
+    option, series_index_map, overlay_rows = build_scalar_echarts_option(
         scalar_channels, channel_meta, mode, scalar_series, series_meta
     )
-    selection = st.plotly_chart(
-        fig,
-        use_container_width=True,
-        on_select="rerun",
-        selection_mode=["points", "box", "lasso"],
+    # ECharts canvas chart: native dataZoom (slider + scroll/pinch) for zoom, and
+    # the toolbox brush (rect / polygon / lineX) for point selection. The JS
+    # handler returns the brushed (seriesIndex, dataIndex) list; we map it back
+    # to stream/observation identity in Python (resolve_brush_selection).
+    brush_payload = st_echarts(
+        options=option,
+        events={"brushSelected": BRUSH_SELECTED_JS},
+        height="480px",
         key="scalar_chart",
     )
-    st.session_state.explore_selected_points = selection
-
-    # Split selected points into sensor vs lab using the customdata type tag.
-    # customdata format: ["sensor", ch_id, obs_id] or ["lab", s_id, obs_id]
-    selected = selection.get("selection", {}) if selection else {}
-    selected_pts = selected.get("points", [])
-
-    def _cd(pt: dict) -> list:
-        return pt.get("customdata") or []
-
-    sensor_pts = [p for p in selected_pts if _cd(p) and _cd(p)[0] == "sensor"]
-    lab_pts = [p for p in selected_pts if _cd(p) and _cd(p)[0] == "lab"]
+    sel = resolve_brush_selection(brush_payload, series_index_map)
+    sensor_pts = sel["sensor_pts"]
+    lab_pts = sel["lab_pts"]
+    selected_pts = sensor_pts + lab_pts
 
     if sensor_pts or lab_pts:
+        n_streams = len({s["id"] for s in sensor_pts}) + len({s["id"] for s in lab_pts})
         st.markdown(
-            f"**{len(selected_pts)} points selected** across "
-            f"{len({p.get('curve_number') for p in selected_pts})} streams."
+            f"**{len(selected_pts)} points selected** across {n_streams} streams."
         )
 
     if sensor_pts:
-        sel_times = [p.get("x") for p in sensor_pts if p.get("x")]
+        sel_times = [p["x"] for p in sensor_pts if p.get("x")]
         t_start_sel = min(sel_times) if sel_times else None
         t_end_sel = max(sel_times) if sel_times else None
 
@@ -1135,8 +1134,7 @@ def _render_scalar_view(
         single_sensor_obs_id: int | None = None
         single_sensor_val: float | None = None
         if len(sensor_pts) == 1:
-            cd = _cd(sensor_pts[0])
-            single_sensor_obs_id = cd[2] if len(cd) > 2 else None
+            single_sensor_obs_id = sensor_pts[0].get("obs_id")
             single_sensor_val = sensor_pts[0].get("y")
 
         col1, col2 = st.columns(2)
@@ -1159,21 +1157,18 @@ def _render_scalar_view(
                 st.rerun()  # dialog check runs before visualization area in script order
 
     if lab_pts:
-        lab_times = [p.get("x") for p in lab_pts if p.get("x")]
+        lab_times = [p["x"] for p in lab_pts if p.get("x")]
         t_lab_start = min(lab_times) if lab_times else None
         t_lab_end = max(lab_times) if lab_times else None
 
         # Group by series to support multi-series box selections
-        lab_series_ids: list[int] = list(dict.fromkeys(
-            _cd(p)[1] for p in lab_pts if len(_cd(p)) > 1
-        ))
+        lab_series_ids: list[int] = list(dict.fromkeys(p["id"] for p in lab_pts))
 
         # Single lab point → pin to exact replicate observation
         single_lab_obs_id: int | None = None
         single_lab_val: float | None = None
         if len(lab_pts) == 1:
-            cd = _cd(lab_pts[0])
-            single_lab_obs_id = cd[2] if len(cd) > 2 else None
+            single_lab_obs_id = lab_pts[0].get("obs_id")
             single_lab_val = lab_pts[0].get("y")
 
         lab_btn_label = (
@@ -1192,7 +1187,11 @@ def _render_scalar_view(
             )
 
     if not selected_pts:
-        st.caption("Use box or lasso selection on the chart to select points.")
+        st.caption(
+            "Use the brush tool (top-right of the chart) to box / lasso-select "
+            "points, then annotate or flag them. Scroll or drag the bottom slider "
+            "to zoom."
+        )
 
     # Sensor channel annotation — range over the current view window.
     if scalar_channels and annotation_types:

@@ -1,0 +1,108 @@
+"""Unit tests for the ECharts scalar builder + brush-selection resolver.
+
+These cover the decision-bearing logic of the Explore scalar rewrite. The
+``st_echarts`` component round-trip itself needs a browser and is verified
+separately; everything here is pure.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import patch
+
+from app.components import explore_echarts as ee
+
+_MOD = "app.components.explore_echarts"
+
+_CH_META = {
+    5: {"value_kind_id": 1, "equipment_identifier": "EQ5", "parameter_name": "TSS",
+        "unit_name": "mg/L", "equipment_id": 5},
+}
+_S_META = {
+    1: {"analysis_series_id": 1, "name": "TSS@Eff", "parameter_name": "TSS",
+        "sampling_point_label": "Effluent", "unit_name": "mg/L", "value_kind_id": 1},
+}
+_CH_TS = {"data": [
+    {"timestamp": "2026-05-02T00:00:00", "value": 10.0, "quality_code": 1, "observation_id": 901},
+    {"timestamp": "2026-05-03T00:00:00", "value": 12.0, "quality_code": 2, "observation_id": 902},
+]}
+_S_TS = {"data": [
+    {"timestamp": "2026-05-01T00:00:00", "value": 11.0, "quality_code": 1, "observation_id": 701},
+    {"timestamp": "2026-05-08T00:00:00", "value": 13.0, "quality_code": 1, "observation_id": 702},
+]}
+
+
+def _build(**overrides):
+    loaders = {
+        "_load_timeseries": _CH_TS,
+        "_load_series_timeseries": _S_TS,
+        "_load_annotations": [],
+        "_load_series_annotations": [],
+        "_load_equipment_events": [],
+    }
+    loaders.update(overrides)
+    with (
+        patch(f"{_MOD}._load_timeseries", return_value=loaders["_load_timeseries"]),
+        patch(f"{_MOD}._load_series_timeseries", return_value=loaders["_load_series_timeseries"]),
+        patch(f"{_MOD}._load_annotations", return_value=loaders["_load_annotations"]),
+        patch(f"{_MOD}._load_series_annotations", return_value=loaders["_load_series_annotations"]),
+        patch(f"{_MOD}._load_equipment_events", return_value=loaders["_load_equipment_events"]),
+    ):
+        return ee.build_scalar_echarts_option(
+            [5], _CH_META, "extract", [1], _S_META
+        )
+
+
+def test_option_has_line_and_scatter_with_zoom_and_brush():
+    option, smap, _ = _build()
+    types = [s["type"] for s in option["series"]]
+    assert types == ["line", "scatter"], types
+    # dataZoom slider + inside, and a brush config (the UX wins)
+    assert {z["type"] for z in option["dataZoom"]} == {"inside", "slider"}
+    assert "brush" in option and option["xAxis"]["type"] == "time"
+    # series_index_map aligns with series order and carries identity
+    assert smap[0]["kind"] == "sensor" and smap[0]["id"] == 5
+    assert smap[1]["kind"] == "lab" and smap[1]["id"] == 1
+    assert [p["obs_id"] for p in smap[0]["points"]] == [901, 902]
+    assert [p["obs_id"] for p in smap[1]["points"]] == [701, 702]
+
+
+def test_quality_code_drives_per_point_color():
+    option, _, _ = _build()
+    line = option["series"][0]
+    # first point qc=1 (accepted/green), second qc=2 (suspect/orange)
+    assert line["data"][0]["itemStyle"]["color"] == ee.QUALITY_COLORS[1]
+    assert line["data"][1]["itemStyle"]["color"] == ee.QUALITY_COLORS[2]
+
+
+def test_annotation_and_event_overlays_become_markareas_and_rows():
+    ann = [{"start_time": "2026-05-02T00:00:00", "end_time": "2026-05-02T06:00:00",
+            "type": {"name": "Fault", "color": "#DC2626"}, "title": "Lamp", "comment": "x"}]
+    ev = [{"start_datetime": "2026-05-03T00:00:00", "end_datetime": None,
+           "event_type_name": "Calibration", "notes": "annual"}]
+    option, _, rows = _build(_load_annotations=ann, _load_equipment_events=ev)
+    line = option["series"][0]
+    # both overlays decorate the sensor series
+    assert len(line["markArea"]["data"]) == 2
+    assert {r["kind"] for r in rows} == {"Annotation", "Equipment Event"}
+    assert any(r["category"] == "Fault" for r in rows)
+    assert any(r["category"] == "Calibration" for r in rows)
+
+
+def test_resolve_brush_selection_maps_indices_to_observations():
+    _, smap, _ = _build()
+    payload = [
+        {"seriesIndex": 0, "dataIndex": [1]},      # sensor 2nd point -> obs 902
+        {"seriesIndex": 1, "dataIndex": [0, 1]},   # both lab points
+    ]
+    sel = ee.resolve_brush_selection(payload, smap)
+    assert [p["obs_id"] for p in sel["sensor_pts"]] == [902]
+    assert sel["sensor_pts"][0]["id"] == 5 and sel["sensor_pts"][0]["y"] == 12.0
+    assert [p["obs_id"] for p in sel["lab_pts"]] == [701, 702]
+
+
+def test_resolve_brush_selection_handles_none_and_bad_indices():
+    _, smap, _ = _build()
+    assert ee.resolve_brush_selection(None, smap) == {"sensor_pts": [], "lab_pts": []}
+    # out-of-range seriesIndex / dataIndex are ignored, not raised
+    bad = [{"seriesIndex": 99, "dataIndex": [0]}, {"seriesIndex": 0, "dataIndex": [50]}]
+    assert ee.resolve_brush_selection(bad, smap) == {"sensor_pts": [], "lab_pts": []}
