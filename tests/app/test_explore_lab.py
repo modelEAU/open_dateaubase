@@ -218,7 +218,7 @@ def test_lab_annotation_dialog_is_homogeneous_no_quality_flag_tab():
         at.session_state["explore_active_series"] = [1]
         at.session_state["explore_series_meta"] = {1: _SERIES[0]}
         at.run()
-        at.button(key="btn_lab_ann").click().run()
+        at.button(key="btn_lab_ann_p1").click().run()
         assert not at.exception
         lab_tab_labels = [lbl for t in at.tabs for lbl in (t.label or "",)]
         assert "Quality Flag" not in lab_tab_labels, (
@@ -294,12 +294,12 @@ def test_lab_point_selection_shows_pin_button():
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [1]
         at.session_state["explore_series_meta"] = {1: _SERIES[0]}
-        at.session_state["scalar_chart"] = _LAB_PT_SELECTION
+        at.session_state["scalar_chart_p1"] = _LAB_PT_SELECTION
         at.run()
 
     assert not at.exception
     btn_keys = [b.key for b in at.button]
-    assert "btn_lab_ann_pt" in btn_keys, (
+    assert "btn_lab_ann_pt_p1" in btn_keys, (
         f"'Create Lab Annotation (point)' button (key=btn_lab_ann_pt) not found; "
         f"got buttons: {btn_keys}"
     )
@@ -324,10 +324,10 @@ def test_lab_point_pin_dialog_shows_observation_info():
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [1]
         at.session_state["explore_series_meta"] = {1: _SERIES[0]}
-        at.session_state["scalar_chart"] = _LAB_PT_SELECTION
+        at.session_state["scalar_chart_p1"] = _LAB_PT_SELECTION
         at.run()
         # Click the point-pin button to open the dialog
-        at.button(key="btn_lab_ann_pt").click().run()
+        at.button(key="btn_lab_ann_pt_p1").click().run()
 
     assert not at.exception
     info_texts = [i.value for i in at.info]
@@ -365,9 +365,9 @@ def test_lab_point_pin_dialog_called_with_observation_id():
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [1]
         at.session_state["explore_series_meta"] = {1: _SERIES[0]}
-        at.session_state["scalar_chart"] = _LAB_PT_SELECTION
+        at.session_state["scalar_chart_p1"] = _LAB_PT_SELECTION
         at.run()
-        at.button(key="btn_lab_ann_pt").click().run()
+        at.button(key="btn_lab_ann_pt_p1").click().run()
 
     assert not at.exception
     assert captured, "expected _annotation_dialog to have been called"

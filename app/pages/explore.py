@@ -130,6 +130,12 @@ def _init_state() -> None:
         "explore_active_series": [],    # list[int] analysis_series_id (lab Traces)
         "explore_series_meta": {},      # series_id -> AnalysisSeries dict
         "explore_series_stats": {},     # series_id -> stats dict (cached)
+        # Multi-plot workspace: streams stay in the canonical active_* lists; this
+        # layer just groups them across one or more scalar plots.
+        "explore_plots": [1],           # ordered list of plot ids
+        "explore_next_plot_id": 2,      # next id handed out by "+ Add plot"
+        "explore_plot_of": {},          # "ch:<id>" / "s:<id>" -> plot id
+        "explore_target_plot": 1,       # plot new streams are added to
         "explore_start": date.today() - timedelta(days=30),
         "explore_end": date.today(),
         "explore_mode": "viz",
@@ -175,6 +181,61 @@ def _channel_label(ch: dict) -> str:
     param = ch.get("parameter_name") or f"P-{ch.get('parameter_id', '?')}"
     vtype = ch.get("value_type_name") or VALUE_TYPE_NAMES.get(ch.get("value_kind_id"), "?")
     return f"CH-{ch['channel_id']}: {eq} / {param} [{vtype}]"
+
+
+# ---------------------------------------------------------------------------
+# Multi-plot workspace helpers (scalar plots only)
+# ---------------------------------------------------------------------------
+
+
+def _stream_key(kind: str, sid: int) -> str:
+    """Assignment-map key for a stream. kind is "ch" (sensor) or "s" (lab)."""
+    return f"{kind}:{sid}"
+
+
+def _plot_of(kind: str, sid: int) -> int:
+    """Plot a stream is assigned to (defaults to the first plot)."""
+    plots = st.session_state.explore_plots
+    default = plots[0] if plots else 1
+    return st.session_state.explore_plot_of.get(_stream_key(kind, sid), default)
+
+
+def _assign_stream_to_plot(kind: str, sid: int, plot_id: int) -> None:
+    st.session_state.explore_plot_of[_stream_key(kind, sid)] = plot_id
+
+
+def _add_plot() -> int:
+    """Append a new empty plot and make it the target for new streams."""
+    pid = st.session_state.explore_next_plot_id
+    st.session_state.explore_plots.append(pid)
+    st.session_state.explore_next_plot_id = pid + 1
+    st.session_state.explore_target_plot = pid
+    return pid
+
+
+def _streams_in_plot(
+    plot_id: int, active_channels: list[int], active_series: list[int]
+) -> tuple[list[int], list[int]]:
+    chans = [c for c in active_channels if _plot_of("ch", c) == plot_id]
+    sers = [s for s in active_series if _plot_of("s", s) == plot_id]
+    return chans, sers
+
+
+def _plot_move_control(col, kind: str, sid: int) -> None:
+    """Per-chip selectbox to move a stream to another plot (only when >1 plot)."""
+    plots = st.session_state.explore_plots
+    if len(plots) <= 1:
+        return
+    current = _plot_of(kind, sid)
+    labels = {f"Plot {p}": p for p in plots}
+    cur_label = next((l for l, v in labels.items() if v == current), list(labels)[0])
+    sel = col.selectbox(
+        "Plot", list(labels), index=list(labels).index(cur_label),
+        key=f"move_{kind}_{sid}", label_visibility="collapsed",
+    )
+    if labels[sel] != current:
+        _assign_stream_to_plot(kind, sid, labels[sel])
+        st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -737,6 +798,7 @@ def _add_channel_to_plot(node: dict, *, rerun: bool = True) -> bool:
         return False
     active.append(ch_id)
     st.session_state.explore_channel_meta[ch_id] = node
+    _assign_stream_to_plot("ch", ch_id, st.session_state.explore_target_plot)
     _fetch_channel_stats(ch_id, node)
     # No cache wipe: the data cache is keyed by (channel, start, end), so adding
     # a stream can't stale the others. The new stream loads lazily on render;
@@ -755,6 +817,7 @@ def _add_series_to_plot(node: dict, *, rerun: bool = True) -> bool:
         return False
     active.append(s_id)
     st.session_state.explore_series_meta[s_id] = node
+    _assign_stream_to_plot("s", s_id, st.session_state.explore_target_plot)
     _fetch_series_stats(s_id)
     # No cache wipe — see _add_channel_to_plot. The cache is range-keyed, so the
     # new series loads lazily while already-plotted streams stay cached.
@@ -926,11 +989,14 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
         return
 
     to_remove: list[int] = []
+    multi = len(st.session_state.explore_plots) > 1
 
-    cols = st.columns([5, 2, 2, 1, 1])
+    cols = st.columns([4, 2, 2, 2, 1, 1])
     cols[0].caption("**Stream**")
     cols[1].caption("**First value**")
     cols[2].caption("**Last value**")
+    if multi:
+        cols[3].caption("**Plot**")
 
     for ch_id in active:
         meta = channel_meta.get(ch_id, {})
@@ -943,10 +1009,13 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
         max_str = str(max_ts)[:10] if max_ts else "—"
 
         with st.container(border=True):
-            name_col, min_col, max_col, insp_col, rm_col = st.columns([5, 2, 2, 1, 1])
+            name_col, min_col, max_col, plot_col, insp_col, rm_col = st.columns(
+                [4, 2, 2, 2, 1, 1]
+            )
             name_col.markdown(label)
             min_col.markdown(min_str)
             max_col.markdown(max_str)
+            _plot_move_control(plot_col, "ch", ch_id)
             if insp_col.button("🔬", key=f"insp_{ch_id}", help="Inspect provenance"):
                 _inspect_stream("channel", ch_id)
             if rm_col.button("✕", key=f"rm_{ch_id}", help="Remove stream"):
@@ -956,6 +1025,7 @@ def _render_active_chips(channel_meta: dict[int, dict]) -> None:
         st.session_state.explore_active_channels.remove(ch_id)
         st.session_state.explore_channel_meta.pop(ch_id, None)
         st.session_state.explore_channel_stats.pop(ch_id, None)
+        st.session_state.explore_plot_of.pop(_stream_key("ch", ch_id), None)
         _invalidate_data_cache()
         st.rerun()
 
@@ -979,10 +1049,13 @@ def _render_series_chips(series_meta: dict[int, dict]) -> None:
         max_str = str(max_ts)[:10] if max_ts else "—"
 
         with st.container(border=True):
-            name_col, min_col, max_col, insp_col, rm_col = st.columns([5, 2, 2, 1, 1])
+            name_col, min_col, max_col, plot_col, insp_col, rm_col = st.columns(
+                [4, 2, 2, 2, 1, 1]
+            )
             name_col.markdown(label)
             min_col.markdown(min_str)
             max_col.markdown(max_str)
+            _plot_move_control(plot_col, "s", s_id)
             if insp_col.button("🔬", key=f"s_insp_{s_id}", help="Inspect provenance"):
                 _inspect_stream("series", s_id)
             if rm_col.button("✕", key=f"s_rm_{s_id}", help="Remove series"):
@@ -992,6 +1065,7 @@ def _render_series_chips(series_meta: dict[int, dict]) -> None:
         st.session_state.explore_active_series.remove(s_id)
         st.session_state.explore_series_meta.pop(s_id, None)
         st.session_state.explore_series_stats.pop(s_id, None)
+        st.session_state.explore_plot_of.pop(_stream_key("s", s_id), None)
         _invalidate_data_cache()
         st.rerun()
 
@@ -1075,7 +1149,10 @@ def _render_scalar_view(
     event_types: list[dict],
     active_series: list[int] | None = None,
     series_meta: dict[int, dict] | None = None,
+    suffix: str = "",
 ) -> None:
+    # ``suffix`` namespaces every widget key so this view can be rendered once
+    # per plot (multi-plot workspace) without colliding Streamlit keys.
     active_series = active_series or []
     series_meta = series_meta or {}
     scalar_channels = [
@@ -1112,7 +1189,7 @@ def _render_scalar_view(
         options=option,
         events={"brushSelected": BRUSH_SELECTED_JS},
         height="480px",
-        key="scalar_chart",
+        key=f"scalar_chart{suffix}",
     )
     sel = resolve_brush_selection(brush_payload, series_index_map)
     sensor_pts = sel["sensor_pts"]
@@ -1140,7 +1217,7 @@ def _render_scalar_view(
         col1, col2 = st.columns(2)
         with col1:
             btn_label = "Create Annotation (point)" if single_sensor_obs_id else "Create Annotation"
-            if st.button(btn_label, type="primary", key="btn_sensor_ann"):
+            if st.button(btn_label, type="primary", key=f"btn_sensor_ann{suffix}"):
                 _annotation_dialog(
                     channel_ids=scalar_channels,
                     start_time=str(t_start_sel) if t_start_sel else None,
@@ -1150,7 +1227,7 @@ def _render_scalar_view(
                     point_value=single_sensor_val,
                 )
         with col2:
-            if st.button("Tag Equipment Event", key="btn_eq_event"):
+            if st.button("Tag Equipment Event", key=f"btn_eq_event{suffix}"):
                 st.session_state._show_event_dialog = True
                 st.session_state._ann_start = str(t_start_sel)
                 st.session_state._ann_end = str(t_end_sel)
@@ -1175,7 +1252,7 @@ def _render_scalar_view(
             "Create Lab Annotation (point)" if single_lab_obs_id
             else "Create Lab Annotation (range)"
         )
-        if st.button(lab_btn_label, type="primary", key="btn_lab_ann_pt"):
+        if st.button(lab_btn_label, type="primary", key=f"btn_lab_ann_pt{suffix}"):
             _annotation_dialog(
                 channel_ids=[],
                 series_ids=lab_series_ids,
@@ -1201,9 +1278,9 @@ def _render_scalar_view(
             format_func=lambda ch: f"CH-{ch}: "
             f"{channel_meta.get(ch, {}).get('parameter_name', '?')} "
             f"({channel_meta.get(ch, {}).get('equipment_identifier', '?')})",
-            key="sensor_ann_chan_sel",
+            key=f"sensor_ann_chan_sel{suffix}",
         )
-        if st.button("Create Annotation (view range)", key="btn_sensor_ann_range"):
+        if st.button("Create Annotation (view range)", key=f"btn_sensor_ann_range{suffix}"):
             _annotation_dialog(
                 channel_ids=[sel_ch],
                 start_time=_local_to_utc_iso(st.session_state.explore_start),
@@ -1218,9 +1295,9 @@ def _render_scalar_view(
             options=scalar_series,
             format_func=lambda s: f"LAB-{s}: "
             f"{series_meta.get(s, {}).get('name') or series_meta.get(s, {}).get('parameter_name', '?')}",
-            key="lab_ann_series_sel",
+            key=f"lab_ann_series_sel{suffix}",
         )
-        if st.button("Create Lab Annotation (view range)", key="btn_lab_ann"):
+        if st.button("Create Lab Annotation (view range)", key=f"btn_lab_ann{suffix}"):
             _annotation_dialog(
                 channel_ids=[],
                 series_ids=[sel_lab],
@@ -1259,6 +1336,7 @@ def _render_scalar_view(
             data=csv_bytes,
             file_name="explore_scalar.csv",
             mime="text/csv",
+            key=f"dl_scalar{suffix}",
         )
 
 
@@ -1556,8 +1634,12 @@ def _render_visualization_area(
     active_series: list[int] | None = None,
     series_meta: dict[int, dict] | None = None,
 ) -> None:
-    """Show visualization tabs only for value types present across active Traces
-    (sensor channels + lab series). Sensor and lab overlay within each type."""
+    """Render the visualization area.
+
+    Scalar streams render in a multi-plot workspace — one ECharts chart per plot,
+    grouped by each stream's plot assignment (see _streams_in_plot). Vector /
+    matrix / image are single-stream pickers, so they render once over all active
+    streams (multi-plot adds nothing there)."""
     active_series = active_series or []
     series_meta = series_meta or {}
 
@@ -1568,24 +1650,53 @@ def _render_visualization_area(
         )
         return
 
-    # Determine which value types are represented across both sources
-    types_present: list[int] = []
-    for ch_id in active_channels:
-        vt = channel_meta.get(ch_id, {}).get("value_kind_id")
-        if vt is not None and vt not in types_present:
-            types_present.append(vt)
-    for s_id in active_series:
-        vt = series_meta.get(s_id, {}).get("value_kind_id")
-        if vt is not None and vt not in types_present:
-            types_present.append(vt)
-    # Preserve natural order scalar < vector < matrix < image
-    types_present.sort()
+    def _is_scalar(vt) -> bool:
+        return vt in (None, VALUE_TYPE_SCALAR)
+
+    scalar_present = any(
+        _is_scalar(channel_meta.get(c, {}).get("value_kind_id")) for c in active_channels
+    ) or any(
+        _is_scalar(series_meta.get(s, {}).get("value_kind_id")) for s in active_series
+    )
+
+    plots = st.session_state.explore_plots
+
+    # --- Scalar multi-plot workspace ---
+    if scalar_present or len(plots) > 1:
+        hdr_col, add_col = st.columns([6, 2])
+        hdr_col.subheader(f"Plots ({len(plots)})")
+        if add_col.button("➕ Add plot", key="btn_add_plot"):
+            _add_plot()
+            st.rerun()
+
+        for plot_id in plots:
+            p_chans, p_sers = _streams_in_plot(plot_id, active_channels, active_series)
+            with st.container(border=True):
+                is_target = st.session_state.explore_target_plot == plot_id
+                title_col, tgt_col = st.columns([6, 2])
+                suffix = "  ·  ⬇ new streams land here" if is_target else ""
+                title_col.markdown(f"**Plot {plot_id}**{suffix}")
+                if len(plots) > 1 and not is_target:
+                    if tgt_col.button("Add here", key=f"tgt_{plot_id}",
+                                      help="Send newly added streams to this plot"):
+                        st.session_state.explore_target_plot = plot_id
+                        st.rerun()
+                _render_scalar_view(
+                    p_chans, channel_meta, annotation_types, equipment, event_types,
+                    p_sers, series_meta, suffix=f"_p{plot_id}",
+                )
+
+    # --- Non-scalar views (vector / matrix / image), once over all streams ---
+    non_scalar = [VALUE_TYPE_VECTOR, VALUE_TYPE_MATRIX, VALUE_TYPE_IMAGE]
+    types_present = [
+        vt for vt in non_scalar
+        if any(channel_meta.get(c, {}).get("value_kind_id") == vt for c in active_channels)
+        or any(series_meta.get(s, {}).get("value_kind_id") == vt for s in active_series)
+    ]
+    if not types_present:
+        return
 
     render_map = {
-        VALUE_TYPE_SCALAR: lambda: _render_scalar_view(
-            active_channels, channel_meta, annotation_types, equipment, event_types,
-            active_series, series_meta,
-        ),
         VALUE_TYPE_VECTOR: lambda: _render_vector_view(
             active_channels, channel_meta, annotation_types, active_series, series_meta
         ),
@@ -1598,18 +1709,10 @@ def _render_visualization_area(
         ),
     }
 
-    if len(types_present) == 0:
-        # Channel meta not fully loaded yet — fall back to trying all types
-        for fn in render_map.values():
-            fn()
-        return
-
     if len(types_present) == 1:
-        # Single type: no tabs needed
         render_map[types_present[0]]()
         return
 
-    # Multiple types: show only relevant tabs
     tab_names = [VALUE_TYPE_NAMES[vt] for vt in types_present]
     tabs = st.tabs(tab_names)
     for tab, vt in zip(tabs, types_present):
