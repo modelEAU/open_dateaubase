@@ -13,8 +13,6 @@ _CAMPAIGN_SELECT = """
         c.[Campaign_ID],
         c.[CampaignKind_ID],
         ct.[Name],
-        c.[Site_ID],
-        s.[Name]            AS SiteName,
         c.[Name],
         c.[Description],
         c.[CampaignStartDateTime],
@@ -23,24 +21,42 @@ _CAMPAIGN_SELECT = """
         CONCAT(p.[FirstName], ' ', p.[LastName]) AS ResponsiblePersonName
     FROM [dbo].[Campaign] c
     LEFT JOIN [dbo].[CampaignKind] ct ON ct.[CampaignKind_ID] = c.[CampaignKind_ID]
-    LEFT JOIN [dbo].[Site]         s  ON s.[Site_ID]          = c.[Site_ID]
     LEFT JOIN [dbo].[Person]       p  ON p.[Person_ID]        = c.[ResponsiblePerson_ID]
 """
 
+# A campaign's sites are derived from its sampling-location membership
+# (CampaignSamplingLocation → SamplingPoint.Site); campaigns are multi-site.
+_CAMPAIGN_SITES_SQL = """
+    SELECT DISTINCT s.[Site_ID], s.[Name]
+    FROM [dbo].[CampaignSamplingLocation] csl
+    JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = csl.[SamplingPoint_ID]
+    JOIN [dbo].[Site]          s  ON s.[Site_ID]           = sp.[Site_ID]
+    WHERE csl.[Campaign_ID] = ?
+    ORDER BY s.[Name]
+"""
 
-def _row_to_dict(row) -> dict:
+
+def _campaign_sites(conn: pyodbc.Connection, campaign_id: int) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(_CAMPAIGN_SITES_SQL, campaign_id)
+    return [
+        {"site_id": r[0], "site_name": r[1]} for r in cursor.fetchall()
+    ]
+
+
+def _row_to_dict(row, sites: list[dict]) -> dict:
     return {
         "campaign_id": row[0],
         "campaign_kind_id": row[1],
         "campaign_kind_name": row[2],
-        "site_id": row[3],
-        "site_name": row[4],
-        "name": row[5],
-        "description": row[6],
-        "start_date": row[7],
-        "end_date": row[8],
-        "responsible_person_id": row[9],
-        "responsible_person_name": row[10],
+        "name": row[3],
+        "description": row[4],
+        "start_date": row[5],
+        "end_date": row[6],
+        "responsible_person_id": row[7],
+        "responsible_person_name": row[8],
+        "site_ids": [s["site_id"] for s in sites],
+        "site_names": [s["site_name"] for s in sites],
     }
 
 
@@ -53,7 +69,11 @@ def list_campaigns(
     where_parts = []
     params = []
     if site_id is not None:
-        where_parts.append("c.[Site_ID] = ?")
+        where_parts.append(
+            "EXISTS (SELECT 1 FROM [dbo].[CampaignSamplingLocation] csl"
+            " JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = csl.[SamplingPoint_ID]"
+            " WHERE csl.[Campaign_ID] = c.[Campaign_ID] AND sp.[Site_ID] = ?)"
+        )
         params.append(site_id)
     if campaign_kind_id is not None:
         where_parts.append("c.[CampaignKind_ID] = ?")
@@ -64,26 +84,26 @@ def list_campaigns(
     cursor.execute(
         _CAMPAIGN_SELECT + where_clause + " ORDER BY c.[Campaign_ID]", *params
     )
-    return [_row_to_dict(row) for row in cursor.fetchall()]
+    rows = cursor.fetchall()
+    return [_row_to_dict(row, _campaign_sites(conn, row[0])) for row in rows]
 
 
 def get_campaign_by_id(conn: pyodbc.Connection, campaign_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(_CAMPAIGN_SELECT + " WHERE c.[Campaign_ID] = ?", campaign_id)
     row = cursor.fetchone()
-    return _row_to_dict(row) if row else None
+    return _row_to_dict(row, _campaign_sites(conn, row[0])) if row else None
 
 
 def insert_campaign(conn: pyodbc.Connection, data: dict) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO [dbo].[Campaign]"
-        " ([Name], [CampaignKind_ID], [Site_ID], [Description],"
+        " ([Name], [CampaignKind_ID], [Description],"
         " [CampaignStartDateTime], [CampaignEndDateTime], [ResponsiblePerson_ID])"
-        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        " VALUES (?, ?, ?, ?, ?, ?)",
         data.get("name"),
         data.get("campaign_kind_id"),
-        data.get("site_id"),
         data.get("description"),
         data.get("start_date"),
         data.get("end_date"),
@@ -103,12 +123,11 @@ def update_campaign(
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE [dbo].[Campaign]"
-        " SET [Name]=?, [CampaignKind_ID]=?, [Site_ID]=?, [Description]=?,"
+        " SET [Name]=?, [CampaignKind_ID]=?, [Description]=?,"
         " [CampaignStartDateTime]=?, [CampaignEndDateTime]=?, [ResponsiblePerson_ID]=?"
         " WHERE [Campaign_ID]=?",
         data.get("name"),
         data.get("campaign_kind_id"),
-        data.get("site_id"),
         data.get("description"),
         data.get("start_date"),
         data.get("end_date"),
@@ -143,9 +162,6 @@ def patch_campaign(
     if "campaign_kind_id" in data:
         fields.append("[CampaignKind_ID]=?")
         values.append(data.get("campaign_kind_id"))
-    if "site_id" in data:
-        fields.append("[Site_ID]=?")
-        values.append(data.get("site_id"))
     if "description" in data:
         fields.append("[Description]=?")
         values.append(data.get("description"))
@@ -487,14 +503,16 @@ def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
     """
     cur = conn.cursor()
 
-    # --- Watershed (via the campaign's site) ------------------------------
+    # --- Watershed (via the campaign's derived site membership) -----------
+    # ponytail: TOP 1 — a multi-site campaign shows one watershed in the header.
     cur.execute(
         """
-        SELECT w.[Watershed_ID], w.[Name]
-        FROM [dbo].[Campaign] c
-        JOIN [dbo].[Site] s ON s.[Site_ID] = c.[Site_ID]
+        SELECT TOP 1 w.[Watershed_ID], w.[Name]
+        FROM [dbo].[CampaignSamplingLocation] csl
+        JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = csl.[SamplingPoint_ID]
+        JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
         LEFT JOIN [dbo].[Watershed] w ON w.[Watershed_ID] = s.[Watershed_ID]
-        WHERE c.[Campaign_ID] = ?
+        WHERE csl.[Campaign_ID] = ? AND w.[Watershed_ID] IS NOT NULL
         """,
         campaign_id,
     )

@@ -11,8 +11,9 @@ class CampaignOut(BaseModel):
     campaign_id: int
     campaign_kind_id: int
     campaign_kind_name: str | None
-    site_id: int
-    site_name: str | None
+    # Campaigns are multi-site; sites are derived from sampling-location membership.
+    site_ids: list[int] = []
+    site_names: list[str] = []
     name: str
     description: str | None
     start_date: datetime | None
@@ -24,7 +25,6 @@ class CampaignOut(BaseModel):
 class CampaignIn(BaseModel):
     name: str
     campaign_kind_id: int
-    site_id: int
     description: str | None = None
     start_date: str | None = None  # ISO datetime string e.g. "2024-06-01T00:00:00"
     end_date: str | None = None
@@ -36,7 +36,6 @@ class CampaignPatch(BaseModel):
 
     name: str | None = None
     campaign_kind_id: int | None = None
-    site_id: int | None = None
     description: str | None = None
     start_date: str | None = None
     end_date: str | None = None

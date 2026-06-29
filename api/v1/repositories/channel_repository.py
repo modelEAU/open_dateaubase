@@ -651,12 +651,10 @@ def _pedigree_campaign(cur: pyodbc.Cursor, campaign_id: int | None):
         SELECT c.[Name], ck.[Name] AS campaign_kind,
                c.[CampaignStartDateTime], c.[CampaignEndDateTime],
                per.[Person_ID], per.[FirstName], per.[LastName],
-               per.[Email], per.[Role], per.[Company],
-               c.[Site_ID], s.[Name], s.[City], s.[Province], s.[Country]
+               per.[Email], per.[Role], per.[Company]
         FROM [dbo].[Campaign] c
         LEFT JOIN [dbo].[CampaignKind] ck ON ck.[CampaignKind_ID] = c.[CampaignKind_ID]
         LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = c.[ResponsiblePerson_ID]
-        LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = c.[Site_ID]
         WHERE c.[Campaign_ID] = ?
         """,
         campaign_id,
@@ -671,10 +669,26 @@ def _pedigree_campaign(cur: pyodbc.Cursor, campaign_id: int | None):
         full_name = " ".join(n for n in (r[5], r[6]) if n)
         person = {"person_id": r[4], "name": full_name or None,
                   "email": r[7], "role": r[8], "company": r[9]}
-    site_fallback = (
-        {"site_id": r[10], "name": r[11], "city": r[12], "province": r[13], "country": r[14]}
-        if r[10] is not None else None
+    # Campaign sites are derived from sampling-location membership; use one as a
+    # pedigree fallback only when the campaign is unambiguously single-site.
+    cur.execute(
+        """
+        SELECT DISTINCT s.[Site_ID], s.[Name], s.[City], s.[Province], s.[Country]
+        FROM [dbo].[CampaignSamplingLocation] csl
+        JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = csl.[SamplingPoint_ID]
+        JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
+        WHERE csl.[Campaign_ID] = ?
+        """,
+        campaign_id,
     )
+    site_rows = cur.fetchall()
+    site_fallback = None
+    if len(site_rows) == 1:
+        s = site_rows[0]
+        site_fallback = {
+            "site_id": s[0], "name": s[1], "city": s[2],
+            "province": s[3], "country": s[4],
+        }
     return campaign, person, site_fallback
 
 
