@@ -1,0 +1,64 @@
+_format_version: "1.0"
+view:
+  name: vw_ChannelResolved
+  schema: dbo
+  description: >
+    Channel with its current SignalInterfacePort resolved from the active
+    ChannelPortHistory row (ValidTo IS NULL). Replaces the former denormalised
+    Channel.SignalInterfacePort_ID column: there is exactly one source of truth
+    (ChannelPortHistory) so the port can never drift. Every read that needs the
+    current port selects FROM this view instead of FROM the Channel base table;
+    the equipment-resolution join predicates are otherwise unchanged. The
+    filtered unique index UQ_ChannelPortHistory_ActiveRow guarantees at most one
+    active row per channel, so this view returns exactly one row per Channel.
+  columns:
+    - name: Stream_ID
+      sql_data_type: INT
+      description: "Channel primary key (shared with Stream)"
+    - name: SignalInterface_ID
+      sql_data_type: INT
+      description: "Publishing SignalInterface (NULL for derived channels)"
+    - name: TagName
+      sql_data_type: NVARCHAR(200)
+      description: "Published tag string"
+    - name: SignalInterfacePort_ID
+      sql_data_type: INT
+      description: "Current port from the active ChannelPortHistory row (NULL if untraced)"
+    - name: ParentChannel_ID
+      sql_data_type: INT
+      description: "Parent value channel for sub-signals (Status/Alarm/Uncertainty)"
+    - name: ChannelKind_ID
+      sql_data_type: INT
+      description: "1=Value, 2=Status, 3=Alarm, 4=Uncertainty"
+    - name: Parameter_ID
+      sql_data_type: INT
+      description: "Measured analyte or parameter"
+    - name: DataProvenanceKind_ID
+      sql_data_type: INT
+      description: "How the data was produced"
+    - name: ProducedByStep_ID
+      sql_data_type: INT
+      description: "ProcessingStep that produced a derived channel (NULL for raw)"
+    - name: ValueKind_ID
+      sql_data_type: INT
+      description: "Shape of stored values (1=Scalar, ...)"
+    - name: Unit_ID
+      sql_data_type: INT
+      description: "Unit of measurement"
+  view_definition: |
+    SELECT
+        c.[Stream_ID],
+        c.[SignalInterface_ID],
+        c.[TagName],
+        cph.[SignalInterfacePort_ID],
+        c.[ParentChannel_ID],
+        c.[ChannelKind_ID],
+        c.[Parameter_ID],
+        c.[DataProvenanceKind_ID],
+        c.[ProducedByStep_ID],
+        c.[ValueKind_ID],
+        c.[Unit_ID]
+    FROM [dbo].[Channel] c
+    LEFT JOIN [dbo].[ChannelPortHistory] cph
+        ON cph.[Channel_ID] = c.[Stream_ID]
+        AND cph.[ValidTo] IS NULL

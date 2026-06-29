@@ -34,6 +34,27 @@ def _yaml(
     return lambda: load_table(table).build_form_fields(exclude=exclude, overrides=overrides)
 
 
+def _channel_fields() -> list[dict]:
+    """Channel form: YAML-derived columns plus the current port.
+
+    F3 dropped the denormalised Channel.SignalInterfacePort_ID column (the port
+    is now resolved from the active ChannelPortHistory row), but ChannelIn still
+    accepts ``signal_interface_port_id`` as the channel's current port — writes
+    route through ``channel_repository.set_channel_active_port``. The field is no
+    longer in the YAML, so re-add it explicitly to keep the form↔schema contract.
+    """
+    fields = load_table("Channel").build_form_fields(exclude={"unit_id"})
+    fields.append(
+        {
+            "name": "signal_interface_port_id",
+            "type": "select",
+            "required": False,
+            "options_fn": "list_signal_interface_port_lookup",
+        }
+    )
+    return fields
+
+
 def _explicit(fields: list[dict]) -> Callable[[], list[dict]]:
     """For entities whose API request schema diverges too far from the YAML to
     derive (renamed date fields, anchor-derived ids, non-column list inputs).
@@ -74,7 +95,7 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
     ),
     # ChannelIn carries no unit (a channel's unit follows its parameter);
     # produced_by_step_id is included (manual link to a derived channel's step).
-    "channel": _yaml("Channel", exclude={"unit_id"}),
+    "channel": _channel_fields,
     # --- explicit: API schema diverges from YAML too far to derive -----------
     # CampaignIn renames the YAML *DateTime columns to start_date/end_date.
     "campaign": _explicit(
@@ -140,8 +161,9 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
     "parameter": _yaml(
         "Parameter", exclude={"qudt_quantity_kind_iri", "value_kind_id"}
     ),
-    # ChannelIn carries no unit (a channel's unit follows its parameter).
-    "channel": _yaml("Channel", exclude={"unit_id"}),
+    # ChannelIn carries no unit (a channel's unit follows its parameter); the
+    # port is re-added by _channel_fields (dropped from YAML by F3).
+    "channel": _channel_fields,
     # --- need rename: API name diverges from YAML→snake ---------------------
     # EquipmentIn uses model_id; is_active/storage_location are managed via the
     # commission/decommission lifecycle endpoints, not the edit form.

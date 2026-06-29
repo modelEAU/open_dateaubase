@@ -227,23 +227,32 @@ def open_channel_port_history(
     body: ChannelPortHistoryIn,
     conn=Depends(get_db),
 ):
-    """Open a ChannelPortHistory row linking a channel to a port for a time period."""
+    """Open a ChannelPortHistory row linking a channel to a port for a time period.
+
+    Routes through ``set_channel_active_port``, the single writer of the CPH
+    active-row invariant: it closes the previous active row before opening the
+    new one, so a second post no longer collides with the
+    UQ_ChannelPortHistory_ActiveRow filtered unique index (previously a 500).
+    """
     cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO [dbo].[ChannelPortHistory]"
-        "    ([Channel_ID], [SignalInterfacePort_ID], [ValidFrom], [GatingNote])"
-        " OUTPUT INSERTED.[ChannelPortHistory_ID], INSERTED.[Channel_ID],"
-        "   INSERTED.[SignalInterfacePort_ID],"
-        "   CONVERT(VARCHAR(50), INSERTED.[ValidFrom], 127),"
-        "   INSERTED.[GatingNote]"
-        " VALUES (?, ?, ?, ?)",
+    channel_repository.set_channel_active_port(
+        cursor,
         channel_id,
         body.signal_interface_port_id,
         body.valid_from,
         body.gating_note,
     )
-    row = cursor.fetchone()
     conn.commit()
+    # Return the resulting active row (the just-opened one, or the existing one
+    # when the port was already current — set_channel_active_port is a no-op then).
+    cursor.execute(
+        "SELECT [ChannelPortHistory_ID], [Channel_ID], [SignalInterfacePort_ID],"
+        "   CONVERT(VARCHAR(50), [ValidFrom], 127), [GatingNote]"
+        " FROM [dbo].[ChannelPortHistory]"
+        " WHERE [Channel_ID] = ? AND [ValidTo] IS NULL",
+        channel_id,
+    )
+    row = cursor.fetchone()
     return ChannelPortHistoryOut(
         channel_port_history_id=row[0],
         channel_id=row[1],

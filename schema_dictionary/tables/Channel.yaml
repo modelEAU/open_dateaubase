@@ -12,8 +12,10 @@ table:
     swaps and sensor relocations are tracked on the physical Equipment via
     EquipmentWiringHistory and EquipmentLocationHistory, leaving Stream_ID
     stable. The specific SignalInterfacePort carrying the stream is
-    optional at ingest time and can be backfilled later via
-    ChannelPortHistory (and the denormalised SignalInterfacePort_ID below).
+    optional at ingest time and is recorded over time in ChannelPortHistory
+    (the active row is the current port). Queries that need the current port
+    resolve it through the vw_ChannelResolved view, so there is a single
+    source of truth and no denormalised column to drift.
     Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
 
     Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL.
@@ -55,17 +57,6 @@ table:
         (case-preserved; lookups are case-insensitive trimmed). For
         direct-connect interfaces a synthetic tag such as
         "{equipment_identifier}/{parameter_name}" is auto-generated.
-
-    - name: SignalInterfacePort_ID
-      logical_type: integer
-      nullable: true
-      description: >
-        Current physical port (if known) this Channel is gated through.
-        Denormalised from the active ChannelPortHistory row for query
-        convenience. NULL when the wiring has not yet been traced.
-      foreign_key:
-        table: SignalInterfacePort
-        column: SignalInterfacePort_ID
 
     - name: ParentChannel_ID
       logical_type: integer

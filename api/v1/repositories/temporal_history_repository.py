@@ -613,7 +613,7 @@ def list_deployment_traces(
             NULL                        AS ValidFrom,
             NULL                        AS ValidTo,
             0                           AS is_deployed
-        FROM [dbo].[Channel] ch
+        FROM [dbo].[vw_ChannelResolved] ch
         JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = ch.[SignalInterface_ID]
         JOIN [dbo].[Parameter]       p  ON p.[Parameter_ID]        = ch.[Parameter_ID]
         LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
@@ -667,7 +667,7 @@ def list_deployment_traces(
             ON ewh.[Equipment_ID] = elh.[Equipment_ID]
             AND ewh.[ValidFrom]  <= ISNULL(elh.[ValidTo], GETUTCDATE())
             AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] >= elh.[ValidFrom])
-        JOIN [dbo].[Channel] ch
+        JOIN [dbo].[vw_ChannelResolved] ch
             ON ch.[SignalInterface_ID] = ewh.[SignalInterface_ID]
             AND (
                 ewh.[SignalInterfacePort_ID] = ch.[SignalInterfacePort_ID]

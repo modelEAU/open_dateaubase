@@ -165,7 +165,7 @@ class SensorStatusRepository:
                 sc.IsOperational AS is_operational,
                 sc.Severity AS severity
             FROM [dbo].[EquipmentWiringHistory] ewh
-            JOIN [dbo].[Channel]        valueC ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+            JOIN [dbo].[vw_ChannelResolved] valueC ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
                                             AND (
                                                 valueC.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
                                                 OR (valueC.[SignalInterfacePort_ID] IS NULL AND ewh.[SignalInterfacePort_ID] IS NULL)
@@ -288,7 +288,7 @@ class SensorStatusRepository:
                 sc.Severity AS severity,
                 latestStatus.[Timestamp] AS status_since
             FROM [dbo].[EquipmentWiringHistory] ewh
-            JOIN [dbo].[Channel]        valueC  ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+            JOIN [dbo].[vw_ChannelResolved] valueC  ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
                                               AND (
                                                   valueC.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
                                                   OR (valueC.[SignalInterfacePort_ID] IS NULL AND ewh.[SignalInterfacePort_ID] IS NULL)
@@ -340,7 +340,7 @@ class SensorStatusRepository:
                 sc.Severity AS severity,
                 o.[Timestamp] AS status_since
             FROM [dbo].[EquipmentWiringHistory] ewh
-            JOIN [dbo].[Channel]        valueC  ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+            JOIN [dbo].[vw_ChannelResolved] valueC  ON valueC.[SignalInterface_ID] = ewh.[SignalInterface_ID]
                                               AND (
                                                   valueC.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
                                                   OR (valueC.[SignalInterfacePort_ID] IS NULL AND ewh.[SignalInterfacePort_ID] IS NULL)
@@ -403,7 +403,7 @@ class SensorStatusRepository:
         cursor.execute(
             """
             SELECT ewh.[Equipment_ID]
-            FROM [dbo].[Channel] c
+            FROM [dbo].[vw_ChannelResolved] c
             JOIN [dbo].[EquipmentWiringHistory] ewh
               ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
              AND (

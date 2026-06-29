@@ -196,7 +196,7 @@ Junction table: sampling locations actively monitored during a campaign.
 
 ### Channel
 
-Invariant descriptor for a measurement stream (sensor channel). Channel is the sensor subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Stream_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
+Invariant descriptor for a measurement stream (sensor channel). Channel is the sensor subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes — equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Stream_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and is recorded over time in ChannelPortHistory (the active row is the current port). Queries that need the current port resolve it through the vw_ChannelResolved view, so there is a single source of truth and no denormalised column to drift. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).
 Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Accumulated processing operations applied to a Channel live in the ChannelTrait junction (to be added in a later slice).
 
 
@@ -211,8 +211,6 @@ Raw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NUL
  | FK → [SignalInterface.SignalInterface_ID](#SignalInterface) |
 | TagName | NVARCHAR(200) | - | ✓ | <span id="TagName"></span>Tag string as published by the SignalInterface (case-preserved; lookups are case-insensitive trimmed). For direct-connect interfaces a synthetic tag such as "{equipment_identifier}/{parameter_name}" is auto-generated.
  | - |
-| SignalInterfacePort_ID | INT | - |  | <span id="SignalInterfacePort_ID"></span>Current physical port (if known) this Channel is gated through. Denormalised from the active ChannelPortHistory row for query convenience. NULL when the wiring has not yet been traced.
- | FK → [SignalInterfacePort.SignalInterfacePort_ID](#SignalInterfacePort) |
 | ParentChannel_ID | INT | - |  | <span id="ParentChannel_ID"></span>For sub-signal Channels (Status, Alarm, Uncertainty), points to the parent value Channel's Stream_ID. NULL for primary value channels and unlinked channels. Self-FK.
  | FK → [Channel.Stream_ID](#Channel) |
 | ChannelKind_ID | INT | - | ✓ | <span id="ChannelKind_ID"></span>Kind of information this Channel carries (1=Value, 2=Status, 3=Alarm, 4=Uncertainty).

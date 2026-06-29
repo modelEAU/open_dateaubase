@@ -1,6 +1,8 @@
-schema_version: "2.0.0"
+schema_version: "2.1.0"
 description: >
-  Initial public release. Complete redesign of the signal interface,
-  annotation model, lab observation model, and deployment trace concept.
-  Breaking change from v1.x — no migration provided; fresh install only.
-date: "2026-06-11"
+  Consistency hardening. Drops the denormalised Channel.SignalInterfacePort_ID
+  column (F3): the current port is now resolved from the active
+  ChannelPortHistory row via the new vw_ChannelResolved view, giving a single
+  source of truth that cannot drift. Pre-release, fresh install only — no
+  migration provided.
+date: "2026-06-29"

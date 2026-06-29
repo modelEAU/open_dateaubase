@@ -993,7 +993,7 @@
     {
       "id": "Channel",
       "label": "Channel",
-      "description": "Invariant descriptor for a measurement stream (sensor channel). Channel is the sensor subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Stream_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and can be backfilled later via ChannelPortHistory (and the denormalised SignalInterfacePort_ID below). Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\nRaw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Accumulated processing operations applied to a Channel live in the ChannelTrait junction (to be added in a later slice).\n",
+      "description": "Invariant descriptor for a measurement stream (sensor channel). Channel is the sensor subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each row is identified by a unique (SignalInterface, TagName, Parameter, DataProvenance, ProducedByStep) combination. A Channel is created once and never changes \u2014 equipment swaps and sensor relocations are tracked on the physical Equipment via EquipmentWiringHistory and EquipmentLocationHistory, leaving Stream_ID stable. The specific SignalInterfacePort carrying the stream is optional at ingest time and is recorded over time in ChannelPortHistory (the active row is the current port). Queries that need the current port resolve it through the vw_ChannelResolved view, so there is a single source of truth and no denormalised column to drift. Lab sample results are stored in LabAnalysis + LabValue (not in Channel).\nRaw/ingested channels have SignalInterface_ID NOT NULL and ProducedByStep_ID NULL. Derived/processed channels have SignalInterface_ID NULL and ProducedByStep_ID pointing to the ProcessingStep that produced them. Accumulated processing operations applied to a Channel live in the ChannelTrait junction (to be added in a later slice).\n",
       "fields": [
         {
           "name": "Stream_ID",
@@ -1021,15 +1021,6 @@
           "is_required": true,
           "fk_target": null,
           "description": "Tag string as published by the SignalInterface (case-preserved; lookups are case-insensitive trimmed). For direct-connect interfaces a synthetic tag such as \"{equipment_identifier}/{parameter_name}\" is auto-generated.\n"
-        },
-        {
-          "name": "SignalInterfacePort_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "SignalInterfacePort.SignalInterfacePort_ID",
-          "description": "Current physical port (if known) this Channel is gated through. Denormalised from the active ChannelPortHistory row for query convenience. NULL when the wiring has not yet been traced.\n"
         },
         {
           "name": "ParentChannel_ID",
@@ -4895,7 +4886,7 @@
       "id": "vw_ChannelEquipmentAtTime",
       "label": "vw_ChannelEquipmentAtTime",
       "description": "Resolves, for every Observation, which physical Equipment was wired to the Channel at the time of the observation. Walks EquipmentWiringHistory by matching SignalInterface_ID (and, when the Channel's port is known, SignalInterfacePort_ID) and bracketing (ValidFrom, ValidTo]. When a Channel has no port recorded and multiple Equipment share the interface at the same time, EquipmentID is NULL and Resolution = 'ambiguous'.\n",
-      "view_definition": "WITH channel_wiring AS (\n    SELECT\n        o.[Observation_ID] AS ObservationID,\n        c.[Stream_ID]      AS ChannelID,\n        o.[Timestamp]      AS Timestamp,\n        c.[SignalInterface_ID],\n        c.[SignalInterfacePort_ID],\n        ewh.[Equipment_ID] AS EquipmentID,\n        ROW_NUMBER() OVER (\n            PARTITION BY o.[Observation_ID]\n            ORDER BY\n                CASE WHEN ewh.[SignalInterfacePort_ID] IS NOT NULL THEN 0 ELSE 1 END,\n                ewh.[ValidFrom] DESC\n        ) AS rn,\n        COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count\n    FROM [dbo].[Observation] o\n    JOIN [dbo].[Channel] c                      ON c.[Stream_ID]            = o.[Channel_ID]\n    LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]\n                                                AND (\n                                                     ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]\n                                                     OR (ewh.[SignalInterfacePort_ID] IS NULL AND c.[SignalInterfacePort_ID] IS NULL)\n                                                     OR c.[SignalInterfacePort_ID] IS NULL\n                                                    )\n                                                AND ewh.[ValidFrom] <= o.[Timestamp]\n                                                AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] > o.[Timestamp])\n)\nSELECT\n    cw.ObservationID,\n    cw.ChannelID,\n    cw.Timestamp,\n    CASE WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN NULL ELSE cw.EquipmentID END AS EquipmentID,\n    e.[Identifier]     AS EquipmentName,\n    CASE\n        WHEN cw.EquipmentID IS NULL AND cw.match_count = 0 THEN N'unlinked'\n        WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN N'ambiguous'\n        ELSE N'resolved'\n    END AS Resolution\nFROM channel_wiring cw\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = cw.EquipmentID\nWHERE cw.rn = 1\n",
+      "view_definition": "WITH channel_wiring AS (\n    SELECT\n        o.[Observation_ID] AS ObservationID,\n        c.[Stream_ID]      AS ChannelID,\n        o.[Timestamp]      AS Timestamp,\n        c.[SignalInterface_ID],\n        c.[SignalInterfacePort_ID],\n        ewh.[Equipment_ID] AS EquipmentID,\n        ROW_NUMBER() OVER (\n            PARTITION BY o.[Observation_ID]\n            ORDER BY\n                CASE WHEN ewh.[SignalInterfacePort_ID] IS NOT NULL THEN 0 ELSE 1 END,\n                ewh.[ValidFrom] DESC\n        ) AS rn,\n        COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count\n    FROM [dbo].[Observation] o\n    JOIN [dbo].[vw_ChannelResolved] c           ON c.[Stream_ID]            = o.[Channel_ID]\n    LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]\n                                                AND (\n                                                     ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]\n                                                     OR (ewh.[SignalInterfacePort_ID] IS NULL AND c.[SignalInterfacePort_ID] IS NULL)\n                                                     OR c.[SignalInterfacePort_ID] IS NULL\n                                                    )\n                                                AND ewh.[ValidFrom] <= o.[Timestamp]\n                                                AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] > o.[Timestamp])\n)\nSELECT\n    cw.ObservationID,\n    cw.ChannelID,\n    cw.Timestamp,\n    CASE WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN NULL ELSE cw.EquipmentID END AS EquipmentID,\n    e.[Identifier]     AS EquipmentName,\n    CASE\n        WHEN cw.EquipmentID IS NULL AND cw.match_count = 0 THEN N'unlinked'\n        WHEN cw.match_count > 1 AND cw.[SignalInterfacePort_ID] IS NULL THEN N'ambiguous'\n        ELSE N'resolved'\n    END AS Resolution\nFROM channel_wiring cw\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = cw.EquipmentID\nWHERE cw.rn = 1\n",
       "columns": [
         {
           "name": "ObservationID",
@@ -5020,10 +5011,119 @@
       "group_color": "#0284c7"
     },
     {
+      "id": "vw_ChannelResolved",
+      "label": "vw_ChannelResolved",
+      "description": "Channel with its current SignalInterfacePort resolved from the active ChannelPortHistory row (ValidTo IS NULL). Replaces the former denormalised Channel.SignalInterfacePort_ID column: there is exactly one source of truth (ChannelPortHistory) so the port can never drift. Every read that needs the current port selects FROM this view instead of FROM the Channel base table; the equipment-resolution join predicates are otherwise unchanged. The filtered unique index UQ_ChannelPortHistory_ActiveRow guarantees at most one active row per channel, so this view returns exactly one row per Channel.\n",
+      "view_definition": "SELECT\n    c.[Stream_ID],\n    c.[SignalInterface_ID],\n    c.[TagName],\n    cph.[SignalInterfacePort_ID],\n    c.[ParentChannel_ID],\n    c.[ChannelKind_ID],\n    c.[Parameter_ID],\n    c.[DataProvenanceKind_ID],\n    c.[ProducedByStep_ID],\n    c.[ValueKind_ID],\n    c.[Unit_ID]\nFROM [dbo].[Channel] c\nLEFT JOIN [dbo].[ChannelPortHistory] cph\n    ON cph.[Channel_ID] = c.[Stream_ID]\n    AND cph.[ValidTo] IS NULL\n",
+      "columns": [
+        {
+          "name": "Stream_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Channel primary key (shared with Stream)"
+        },
+        {
+          "name": "SignalInterface_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Publishing SignalInterface (NULL for derived channels)"
+        },
+        {
+          "name": "TagName",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Published tag string"
+        },
+        {
+          "name": "SignalInterfacePort_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Current port from the active ChannelPortHistory row (NULL if untraced)"
+        },
+        {
+          "name": "ParentChannel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Parent value channel for sub-signals (Status/Alarm/Uncertainty)"
+        },
+        {
+          "name": "ChannelKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "1=Value, 2=Status, 3=Alarm, 4=Uncertainty"
+        },
+        {
+          "name": "Parameter_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Measured analyte or parameter"
+        },
+        {
+          "name": "DataProvenanceKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "How the data was produced"
+        },
+        {
+          "name": "ProducedByStep_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "ProcessingStep that produced a derived channel (NULL for raw)"
+        },
+        {
+          "name": "ValueKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Shape of stored values (1=Scalar, ...)"
+        },
+        {
+          "name": "Unit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Unit of measurement"
+        }
+      ],
+      "group_name": "Views",
+      "group_color": "#0284c7"
+    },
+    {
       "id": "vw_ChannelStatus",
       "label": "vw_ChannelStatus",
       "description": "Per-channel sensor status view. A status channel is a Channel whose ChannelRole = Status and whose ParentChannel_ID points at the measured value Channel. The equipment behind the value channel is resolved via the new EquipmentWiringHistory table (v4.0.0).\n",
-      "view_definition": "SELECT\n    statusC.[Stream_ID]       AS StatusChannelID,\n    valueC.[Stream_ID]        AS MeasurementChannelID,\n    e.[Equipment_ID]          AS EquipmentID,\n    e.[Identifier]            AS EquipmentName,\n    p.[Parameter]             AS MeasurementParameter,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)    AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]       statusC ON statusC.[Stream_ID]  = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[Channel]       valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]\nJOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]\nLEFT JOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n  AND statusC.[ParentChannel_ID] IS NOT NULL\n",
+      "view_definition": "SELECT\n    statusC.[Stream_ID]       AS StatusChannelID,\n    valueC.[Stream_ID]        AS MeasurementChannelID,\n    e.[Equipment_ID]          AS EquipmentID,\n    e.[Identifier]            AS EquipmentName,\n    p.[Parameter]             AS MeasurementParameter,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)    AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]       statusC ON statusC.[Stream_ID]  = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[vw_ChannelResolved] valueC ON valueC.[Stream_ID] = statusC.[ParentChannel_ID]\nJOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]\nLEFT JOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nLEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n  AND statusC.[ParentChannel_ID] IS NOT NULL\n",
       "columns": [
         {
           "name": "StatusChannelID",
@@ -5096,7 +5196,7 @@
       "id": "vw_DeviceStatus",
       "label": "vw_DeviceStatus",
       "description": "Device-level status view. Finds status channels through the v4.0.0 SignalInterface + EquipmentWiringHistory chain: a status Channel (ChannelRole = Status) inherits its equipment from the parent value Channel's current wiring. Replaces the port-centric v3.0.0 join.\n",
-      "view_definition": "SELECT\n    statusC.[Stream_ID]        AS StatusChannelID,\n    e.[Equipment_ID]           AS EquipmentID,\n    e.[Identifier]             AS EquipmentName,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)     AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]      statusC ON statusC.[Stream_ID]  = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]  role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[Channel]      valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]\nJOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nJOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n",
+      "view_definition": "SELECT\n    statusC.[Stream_ID]        AS StatusChannelID,\n    e.[Equipment_ID]           AS EquipmentID,\n    e.[Identifier]             AS EquipmentName,\n    o.[Timestamp],\n    CAST(v.[Value] AS INT)     AS StatusCodeID\nFROM [dbo].[Value] v\nJOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]\nJOIN [dbo].[Channel]      statusC ON statusC.[Stream_ID]  = o.[Channel_ID]\nJOIN [dbo].[ChannelKind]  role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]\nJOIN [dbo].[vw_ChannelResolved] valueC ON valueC.[Stream_ID] = statusC.[ParentChannel_ID]\nJOIN [dbo].[EquipmentWiringHistory] ewh\n       ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]\n      AND (\n           ewh.[SignalInterfacePort_ID] = valueC.[SignalInterfacePort_ID]\n           OR valueC.[SignalInterfacePort_ID] IS NULL\n          )\n      AND ewh.[ValidTo] IS NULL\nJOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]\nWHERE role.[Name] = N'Status'\n",
       "columns": [
         {
           "name": "StatusChannelID",
@@ -5315,13 +5415,6 @@
       "to_table": "SignalInterface",
       "from_field": "SignalInterface_ID",
       "to_field": "SignalInterface_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "Channel",
-      "to_table": "SignalInterfacePort",
-      "from_field": "SignalInterfacePort_ID",
-      "to_field": "SignalInterfacePort_ID",
       "relationship_type": null
     },
     {

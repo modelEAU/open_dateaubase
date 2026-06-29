@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import pyodbc
 
 # Channel is the Sensor subtype of Stream (StreamKind discriminator: 1=Sensor,
@@ -31,7 +33,7 @@ _CHANNEL_SELECT = """
         u.[Unit]                     AS UnitName,
         ewh.[Equipment_ID],
         e.[Identifier]               AS EquipmentIdentifier
-    FROM [dbo].[Channel] c
+    FROM [dbo].[vw_ChannelResolved] c
     LEFT JOIN [dbo].[SignalInterface]          si  ON si.[SignalInterface_ID]  = c.[SignalInterface_ID]
     LEFT JOIN [dbo].[SignalInterfacePort]      sip ON sip.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]
     LEFT JOIN [dbo].[Channel]                  parent ON parent.[Stream_ID] = c.[ParentChannel_ID]
@@ -73,7 +75,7 @@ _CHANNEL_SELECT_WITH_CAMPAIGN = """
         u.[Unit]                     AS UnitName,
         ewh.[Equipment_ID],
         e.[Identifier]               AS EquipmentIdentifier
-    FROM [dbo].[Channel] c
+    FROM [dbo].[vw_ChannelResolved] c
     LEFT JOIN [dbo].[SignalInterface]          si  ON si.[SignalInterface_ID]  = c.[SignalInterface_ID]
     LEFT JOIN [dbo].[SignalInterfacePort]      sip ON sip.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]
     LEFT JOIN [dbo].[Channel]                  parent ON parent.[Stream_ID] = c.[ParentChannel_ID]
@@ -163,7 +165,7 @@ def list_channels(
 
     if use_campaign:
         count_sql = (
-            f"SELECT COUNT(*) FROM [dbo].[Channel] c "
+            f"SELECT COUNT(*) FROM [dbo].[vw_ChannelResolved] c "
             f"LEFT JOIN [dbo].[EquipmentWiringHistory] ewh "
             f"    ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID] "
             f"    AND (ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID] "
@@ -178,7 +180,7 @@ def list_channels(
     else:
         if equipment_id is not None:
             count_sql = (
-                f"SELECT COUNT(*) FROM [dbo].[Channel] c "
+                f"SELECT COUNT(*) FROM [dbo].[vw_ChannelResolved] c "
                 f"LEFT JOIN [dbo].[EquipmentWiringHistory] ewh "
                 f"    ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID] "
                 f"    AND (ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID] "
@@ -225,6 +227,81 @@ def _insert_stream(cursor: pyodbc.Cursor, stream_kind_id: int) -> int:
     return int(cursor.fetchone()[0])
 
 
+def set_channel_active_port(
+    cursor: pyodbc.Cursor,
+    channel_id: int,
+    port_id: int | None,
+    valid_from: datetime | str | None = None,
+    gating_note: str | None = None,
+) -> tuple[int | None, int | None]:
+    """Make ``port_id`` the channel's active ChannelPortHistory row.
+
+    The single writer of the CPH active-row invariant: closes the current
+    active row (if any) and opens a new one, in the caller's transaction (does
+    NOT commit). No-op when the requested port already matches the active row,
+    so it never churns rows. Passing ``port_id=None`` closes the active row
+    without opening a new one (the channel becomes untraced).
+
+    Returns ``(new_cph_id, closed_cph_id)``; either may be ``None``.
+    """
+    cursor.execute(
+        "SELECT [ChannelPortHistory_ID], [SignalInterfacePort_ID] "
+        "FROM [dbo].[ChannelPortHistory] "
+        "WHERE [Channel_ID] = ? AND [ValidTo] IS NULL",
+        channel_id,
+    )
+    active = cursor.fetchone()
+    active_port = active[1] if active else None
+    if active_port == port_id:
+        return None, active[0] if active else None  # already current — no churn
+
+    closed_id: int | None = None
+    ts = valid_from
+    if active is not None:
+        if ts is None:
+            cursor.execute(
+                "UPDATE [dbo].[ChannelPortHistory] SET [ValidTo] = SYSUTCDATETIME() "
+                "OUTPUT DELETED.[ChannelPortHistory_ID] "
+                "WHERE [Channel_ID] = ? AND [ValidTo] IS NULL",
+                channel_id,
+            )
+        else:
+            cursor.execute(
+                "UPDATE [dbo].[ChannelPortHistory] SET [ValidTo] = ? "
+                "OUTPUT DELETED.[ChannelPortHistory_ID] "
+                "WHERE [Channel_ID] = ? AND [ValidTo] IS NULL",
+                ts,
+                channel_id,
+            )
+        closed_id = cursor.fetchone()[0]
+
+    new_id: int | None = None
+    if port_id is not None:
+        if ts is None:
+            cursor.execute(
+                "INSERT INTO [dbo].[ChannelPortHistory] "
+                "([Channel_ID], [SignalInterfacePort_ID], [ValidFrom], [GatingNote]) "
+                "OUTPUT INSERTED.[ChannelPortHistory_ID] "
+                "VALUES (?, ?, SYSUTCDATETIME(), ?)",
+                channel_id,
+                port_id,
+                gating_note,
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO [dbo].[ChannelPortHistory] "
+                "([Channel_ID], [SignalInterfacePort_ID], [ValidFrom], [GatingNote]) "
+                "OUTPUT INSERTED.[ChannelPortHistory_ID] "
+                "VALUES (?, ?, ?, ?)",
+                channel_id,
+                port_id,
+                ts,
+                gating_note,
+            )
+        new_id = int(cursor.fetchone()[0])
+    return new_id, closed_id
+
+
 def insert_channel(conn: pyodbc.Connection, data: dict) -> dict | None:
     """Insert a new channel and return the created record.
 
@@ -237,13 +314,12 @@ def insert_channel(conn: pyodbc.Connection, data: dict) -> dict | None:
     new_id = _insert_stream(cursor, STREAM_KIND_SENSOR)
     cursor.execute(
         "INSERT INTO [dbo].[Channel] "
-        "([Stream_ID], [SignalInterface_ID], [TagName], [SignalInterfacePort_ID], [ParentChannel_ID], "
+        "([Stream_ID], [SignalInterface_ID], [TagName], [ParentChannel_ID], "
         "[ChannelKind_ID], [Parameter_ID], [DataProvenanceKind_ID], [ProducedByStep_ID], [ValueKind_ID], [Unit_ID])"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         new_id,
         data.get("signal_interface_id"),
         data.get("tag_name"),
-        data.get("signal_interface_port_id"),
         data.get("parent_channel_id"),
         data.get("channel_kind_id", 1),  # Default to 'Value' kind
         data.get("parameter_id"),
@@ -253,6 +329,10 @@ def insert_channel(conn: pyodbc.Connection, data: dict) -> dict | None:
         # arg won't fire since model_dump() always includes the key as None.
         data.get("unit_id"),
     )
+    # The port is no longer a Channel column (F3): record it as the active
+    # ChannelPortHistory row. Only when a port is actually supplied.
+    if data.get("signal_interface_port_id") is not None:
+        set_channel_active_port(cursor, new_id, data["signal_interface_port_id"])
     conn.commit()
     return get_channel_by_id(conn, new_id)
 
@@ -262,12 +342,11 @@ def update_channel(conn: pyodbc.Connection, channel_id: int, data: dict) -> dict
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE [dbo].[Channel]"
-        " SET [SignalInterface_ID]=?, [TagName]=?, [SignalInterfacePort_ID]=?, [ParentChannel_ID]=?, "
+        " SET [SignalInterface_ID]=?, [TagName]=?, [ParentChannel_ID]=?, "
         "[ChannelKind_ID]=?, [Parameter_ID]=?, [DataProvenanceKind_ID]=?, [ProducedByStep_ID]=?, [ValueKind_ID]=?, [Unit_ID]=?"
         " WHERE [Stream_ID]=?",
         data.get("signal_interface_id"),
         data.get("tag_name"),
-        data.get("signal_interface_port_id"),
         data.get("parent_channel_id"),
         data.get("channel_kind_id", 1),
         data.get("parameter_id"),
@@ -277,6 +356,11 @@ def update_channel(conn: pyodbc.Connection, channel_id: int, data: dict) -> dict
         data.get("unit_id"),
         channel_id,
     )
+    # The port is no longer a Channel column (F3): reflect a provided port change
+    # in ChannelPortHistory. Only act when the caller explicitly sent the field
+    # (a PATCH that omits it must not clear the port).
+    if "signal_interface_port_id" in data:
+        set_channel_active_port(cursor, channel_id, data["signal_interface_port_id"])
     conn.commit()
     return get_channel_by_id(conn, channel_id)
 
@@ -391,7 +475,7 @@ def get_channel_ids_for_equipment(
     cursor.execute(
         """
         SELECT c.[Stream_ID]
-        FROM [dbo].[Channel] c
+        FROM [dbo].[vw_ChannelResolved] c
         JOIN [dbo].[EquipmentWiringHistory] ewh
             ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
             AND (
@@ -523,3 +607,193 @@ def get_stream_story(conn: pyodbc.Connection, stream_id: int) -> dict | None:
 
     return {"stream_id": stream_id, "record": record,
             "location_history": locations, "annotations": annotations}
+
+
+def _pedigree_sampling_point(cur: pyodbc.Cursor, sp_id: int | None):
+    """Resolve (sampling_location, process_unit, site) for a sampling point."""
+    if sp_id is None:
+        return None, None, None
+    cur.execute(
+        """
+        SELECT sp.[SamplingPoint], sp.[LatitudeWGS84], sp.[LongitudeWGS84],
+               pu.[ProcessUnit_ID], pu.[Tag], pu.[Name], puk.[Name] AS pu_kind,
+               s.[Site_ID], s.[Name], s.[City], s.[Province], s.[Country]
+        FROM [dbo].[SamplingPoint] sp
+        LEFT JOIN [dbo].[ProcessUnit] pu ON pu.[ProcessUnit_ID] = sp.[ProcessUnit_ID]
+        LEFT JOIN [dbo].[ProcessUnitKind] puk ON puk.[ProcessUnitKind_ID] = pu.[ProcessUnitKind_ID]
+        LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
+        WHERE sp.[SamplingPoint_ID] = ?
+        """,
+        sp_id,
+    )
+    r = cur.fetchone()
+    if r is None:
+        return None, None, None
+    location = {"sampling_point_id": sp_id, "name": r[0],
+                "latitude": r[1], "longitude": r[2]}
+    process_unit = (
+        {"process_unit_id": r[3], "tag": r[4], "name": r[5], "kind": r[6]}
+        if r[3] is not None else None
+    )
+    site = (
+        {"site_id": r[7], "name": r[8], "city": r[9], "province": r[10], "country": r[11]}
+        if r[7] is not None else None
+    )
+    return location, process_unit, site
+
+
+def _pedigree_campaign(cur: pyodbc.Cursor, campaign_id: int | None):
+    """Resolve (campaign, responsible_person, site_fallback) for a campaign."""
+    if campaign_id is None:
+        return None, None, None
+    cur.execute(
+        """
+        SELECT c.[Name], ck.[Name] AS campaign_kind,
+               c.[CampaignStartDateTime], c.[CampaignEndDateTime],
+               per.[Person_ID], per.[FirstName], per.[LastName],
+               per.[Email], per.[Role], per.[Company],
+               c.[Site_ID], s.[Name], s.[City], s.[Province], s.[Country]
+        FROM [dbo].[Campaign] c
+        LEFT JOIN [dbo].[CampaignKind] ck ON ck.[CampaignKind_ID] = c.[CampaignKind_ID]
+        LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = c.[ResponsiblePerson_ID]
+        LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = c.[Site_ID]
+        WHERE c.[Campaign_ID] = ?
+        """,
+        campaign_id,
+    )
+    r = cur.fetchone()
+    if r is None:
+        return None, None, None
+    campaign = {"campaign_id": campaign_id, "name": r[0], "kind": r[1],
+                "start": r[2], "end": r[3]}
+    person = None
+    if r[4] is not None:
+        full_name = " ".join(n for n in (r[5], r[6]) if n)
+        person = {"person_id": r[4], "name": full_name or None,
+                  "email": r[7], "role": r[8], "company": r[9]}
+    site_fallback = (
+        {"site_id": r[10], "name": r[11], "city": r[12], "province": r[13], "country": r[14]}
+        if r[10] is not None else None
+    )
+    return campaign, person, site_fallback
+
+
+def _pedigree_segment(cur, valid_from, valid_to, equipment_identifier,
+                      sp_id, campaign_id) -> dict:
+    """Assemble one deployment segment (a slice of the stream's life with a
+    stable location + campaign)."""
+    location, process_unit, site = _pedigree_sampling_point(cur, sp_id)
+    campaign, person, site_fallback = _pedigree_campaign(cur, campaign_id)
+    return {
+        "valid_from": valid_from,
+        "valid_to": valid_to,
+        "equipment_identifier": equipment_identifier,
+        "sampling_location": location,
+        "process_unit": process_unit,
+        "site": site or site_fallback,
+        "campaign": campaign,
+        "responsible_person": person,
+    }
+
+
+def get_stream_pedigree(
+    conn: pyodbc.Connection,
+    stream_id: int,
+    *,
+    from_dt: datetime | None = None,
+    to_dt: datetime | None = None,
+) -> dict | None:
+    """Resolve the organizational/spatial *pedigree* of a stream (distinct from
+    its processing *provenance*): the time-invariant identity plus a **deployment
+    timeline** of where it lived and which campaign owned it over its life.
+
+    The location/campaign of a sensor channel are *historical*: equipment is
+    rewired (EquipmentWiringHistory) and moved between sampling points
+    (EquipmentLocationHistory) over time, so a single channel's data can span
+    several sampling locations and campaigns. The pedigree therefore returns one
+    segment per deployment (with its own ValidFrom/ValidTo), not a single
+    snapshot. ``from_dt``/``to_dt`` restrict the timeline to segments overlapping
+    that window (i.e. the exported time range). A lab AnalysisSeries has a single,
+    fixed sampling point + campaign, so it returns exactly one open segment.
+
+    Returns None if the stream id is unknown.
+    """
+    cur = conn.cursor()
+
+    # --- Identity (time-invariant) --------------------------------------
+    cur.execute(
+        """
+        SELECT p.[Parameter], u.[Unit], vk.[Name] AS value_kind, c.[TagName]
+        FROM [dbo].[Channel] c
+        LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = c.[Parameter_ID]
+        LEFT JOIN [dbo].[Unit] u ON u.[Unit_ID] = c.[Unit_ID]
+        LEFT JOIN [dbo].[ValueKind] vk ON vk.[ValueKind_ID] = c.[ValueKind_ID]
+        WHERE c.[Stream_ID] = ?
+        """,
+        stream_id,
+    )
+    row = cur.fetchone()
+    if row is not None:
+        record = {"kind": "sensor", "parameter": row[0], "unit": row[1],
+                  "value_kind": row[2], "label": row[3]}
+
+        # Deployment segments: the EWH×ELH temporal join (mirrors
+        # list_deployment_traces), one row per EquipmentLocationHistory the
+        # producing equipment occupied, restricted to the requested window.
+        where = ["ch.[Stream_ID] = ?"]
+        params: list = [stream_id]
+        if to_dt is not None:
+            where.append("elh.[ValidFrom] <= ?")
+            params.append(to_dt)
+        if from_dt is not None:
+            where.append("(elh.[ValidTo] IS NULL OR elh.[ValidTo] >= ?)")
+            params.append(from_dt)
+        cur.execute(
+            f"""
+            SELECT DISTINCT elh.[EquipmentLocationHistory_ID], elh.[ValidFrom],
+                   elh.[ValidTo], e.[Identifier], elh.[SamplingPoint_ID],
+                   elh.[Campaign_ID]
+            FROM [dbo].[vw_ChannelResolved] ch
+            JOIN [dbo].[EquipmentWiringHistory] ewh
+                ON ewh.[SignalInterface_ID] = ch.[SignalInterface_ID]
+                AND (
+                    ewh.[SignalInterfacePort_ID] = ch.[SignalInterfacePort_ID]
+                    OR (ewh.[SignalInterfacePort_ID] IS NULL AND ch.[SignalInterfacePort_ID] IS NULL)
+                    OR ch.[SignalInterfacePort_ID] IS NULL
+                )
+            JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]
+            JOIN [dbo].[EquipmentLocationHistory] elh
+                ON elh.[Equipment_ID] = e.[Equipment_ID]
+                AND ewh.[ValidFrom] <= ISNULL(elh.[ValidTo], GETUTCDATE())
+                AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] >= elh.[ValidFrom])
+            WHERE {" AND ".join(where)}
+            ORDER BY elh.[ValidFrom]
+            """,
+            *params,
+        )
+        seg_rows = cur.fetchall()
+        deployments = [
+            _pedigree_segment(cur, r[1], r[2], r[3], r[4], r[5]) for r in seg_rows
+        ]
+    else:
+        cur.execute(
+            """
+            SELECT p.[Parameter], u.[Unit], vk.[Name] AS value_kind, a.[Name],
+                   a.[SamplingPoint_ID], a.[Campaign_ID]
+            FROM [dbo].[AnalysisSeries] a
+            LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = a.[Parameter_ID]
+            LEFT JOIN [dbo].[Unit] u ON u.[Unit_ID] = a.[Unit_ID]
+            LEFT JOIN [dbo].[ValueKind] vk ON vk.[ValueKind_ID] = a.[ValueKind_ID]
+            WHERE a.[Stream_ID] = ?
+            """,
+            stream_id,
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        record = {"kind": "lab", "parameter": row[0], "unit": row[1],
+                  "value_kind": row[2], "label": row[3]}
+        # Lab series: a single open segment (its fixed sampling point + campaign).
+        deployments = [_pedigree_segment(cur, None, None, None, row[4], row[5])]
+
+    return {"stream_id": stream_id, **record, "deployments": deployments}

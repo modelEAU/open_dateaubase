@@ -70,7 +70,6 @@ class TestChannelSharedPKDictionary:
         for col in (
             "SignalInterface_ID",
             "TagName",
-            "SignalInterfacePort_ID",
             "ChannelKind_ID",
             "Parameter_ID",
             "DataProvenanceKind_ID",
@@ -79,6 +78,12 @@ class TestChannelSharedPKDictionary:
             "Unit_ID",
         ):
             assert col in names
+
+    def test_denormalised_port_column_dropped(self, channel):
+        # F3: the denormalised port column is gone; the current port is resolved
+        # from the active ChannelPortHistory row via vw_ChannelResolved.
+        names = {c["name"] for c in channel["columns"]}
+        assert "SignalInterfacePort_ID" not in names
 
     def test_uq_signal_stream_index_unchanged(self, channel):
         idx = {i["name"]: i for i in channel.get("indexes", [])}

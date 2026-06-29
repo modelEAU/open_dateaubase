@@ -42,7 +42,7 @@ view:
     JOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]
     JOIN [dbo].[Channel]       statusC ON statusC.[Stream_ID]  = o.[Channel_ID]
     JOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]
-    JOIN [dbo].[Channel]       valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]
+    JOIN [dbo].[vw_ChannelResolved] valueC ON valueC.[Stream_ID] = statusC.[ParentChannel_ID]
     JOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]
     LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
            ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]

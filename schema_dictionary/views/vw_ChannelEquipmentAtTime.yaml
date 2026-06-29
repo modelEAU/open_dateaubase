@@ -46,7 +46,7 @@ view:
             ) AS rn,
             COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count
         FROM [dbo].[Observation] o
-        JOIN [dbo].[Channel] c                      ON c.[Stream_ID]            = o.[Channel_ID]
+        JOIN [dbo].[vw_ChannelResolved] c           ON c.[Stream_ID]            = o.[Channel_ID]
         LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
                                                     AND (
                                                          ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]

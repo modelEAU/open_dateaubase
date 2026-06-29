@@ -30,7 +30,7 @@ WITH channel_wiring AS (
         ) AS rn,
         COUNT(*) OVER (PARTITION BY o.[Observation_ID]) AS match_count
     FROM [dbo].[Observation] o
-    JOIN [dbo].[Channel] c                      ON c.[Stream_ID]            = o.[Channel_ID]
+    JOIN [dbo].[vw_ChannelResolved] c           ON c.[Stream_ID]            = o.[Channel_ID]
     LEFT JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
                                                 AND (
                                                      ewh.[SignalInterfacePort_ID] = c.[SignalInterfacePort_ID]
@@ -107,6 +107,53 @@ LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint
 | SamplingPointID | INT | `SamplingPointID` | SamplingPoint where the equipment was installed at this time |
 | SamplingPointName | NVARCHAR(200) | `SamplingPointName` | Name of the SamplingPoint |
 
+<span id="vw_ChannelResolved"></span>
+
+## vw_ChannelResolved
+
+Channel with its current SignalInterfacePort resolved from the active ChannelPortHistory row (ValidTo IS NULL). Replaces the former denormalised Channel.SignalInterfacePort_ID column: there is exactly one source of truth (ChannelPortHistory) so the port can never drift. Every read that needs the current port selects FROM this view instead of FROM the Channel base table; the equipment-resolution join predicates are otherwise unchanged. The filtered unique index UQ_ChannelPortHistory_ActiveRow guarantees at most one active row per channel, so this view returns exactly one row per Channel.
+
+
+
+**View Definition:**
+
+```sql
+SELECT
+    c.[Stream_ID],
+    c.[SignalInterface_ID],
+    c.[TagName],
+    cph.[SignalInterfacePort_ID],
+    c.[ParentChannel_ID],
+    c.[ChannelKind_ID],
+    c.[Parameter_ID],
+    c.[DataProvenanceKind_ID],
+    c.[ProducedByStep_ID],
+    c.[ValueKind_ID],
+    c.[Unit_ID]
+FROM [dbo].[Channel] c
+LEFT JOIN [dbo].[ChannelPortHistory] cph
+    ON cph.[Channel_ID] = c.[Stream_ID]
+    AND cph.[ValidTo] IS NULL
+
+```
+
+
+#### Columns
+
+| Column | SQL Type | Source Field | Description |
+|--------|----------|--------------|-------------|
+| Stream_ID | INT | `Stream_ID` | Channel primary key (shared with Stream) |
+| SignalInterface_ID | INT | `SignalInterface_ID` | Publishing SignalInterface (NULL for derived channels) |
+| TagName | NVARCHAR(200) | `TagName` | Published tag string |
+| SignalInterfacePort_ID | INT | `SignalInterfacePort_ID` | Current port from the active ChannelPortHistory row (NULL if untraced) |
+| ParentChannel_ID | INT | `ParentChannel_ID` | Parent value channel for sub-signals (Status/Alarm/Uncertainty) |
+| ChannelKind_ID | INT | `ChannelKind_ID` | 1=Value, 2=Status, 3=Alarm, 4=Uncertainty |
+| Parameter_ID | INT | `Parameter_ID` | Measured analyte or parameter |
+| DataProvenanceKind_ID | INT | `DataProvenanceKind_ID` | How the data was produced |
+| ProducedByStep_ID | INT | `ProducedByStep_ID` | ProcessingStep that produced a derived channel (NULL for raw) |
+| ValueKind_ID | INT | `ValueKind_ID` | Shape of stored values (1=Scalar, ...) |
+| Unit_ID | INT | `Unit_ID` | Unit of measurement |
+
 <span id="vw_ChannelStatus"></span>
 
 ## vw_ChannelStatus
@@ -130,7 +177,7 @@ FROM [dbo].[Value] v
 JOIN [dbo].[Observation]   o       ON o.[Observation_ID]   = v.[Observation_ID]
 JOIN [dbo].[Channel]       statusC ON statusC.[Stream_ID]  = o.[Channel_ID]
 JOIN [dbo].[ChannelKind]   role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]
-JOIN [dbo].[Channel]       valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]
+JOIN [dbo].[vw_ChannelResolved] valueC ON valueC.[Stream_ID] = statusC.[ParentChannel_ID]
 JOIN [dbo].[Parameter]     p       ON p.[Parameter_ID]     = valueC.[Parameter_ID]
 LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
        ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]
@@ -179,7 +226,7 @@ FROM [dbo].[Value] v
 JOIN [dbo].[Observation]  o       ON o.[Observation_ID]   = v.[Observation_ID]
 JOIN [dbo].[Channel]      statusC ON statusC.[Stream_ID]  = o.[Channel_ID]
 JOIN [dbo].[ChannelKind]  role    ON role.[ChannelKind_ID] = statusC.[ChannelKind_ID]
-JOIN [dbo].[Channel]      valueC  ON valueC.[Stream_ID]    = statusC.[ParentChannel_ID]
+JOIN [dbo].[vw_ChannelResolved] valueC ON valueC.[Stream_ID] = statusC.[ParentChannel_ID]
 JOIN [dbo].[EquipmentWiringHistory] ewh
        ON ewh.[SignalInterface_ID] = valueC.[SignalInterface_ID]
       AND (
