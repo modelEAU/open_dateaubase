@@ -131,7 +131,7 @@ Controlled vocabulary defining how bins on a ValueBinningAxis are specified. Eac
 
 ### Campaign
 
-A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Supersedes Project (defunct table) for all organisational grouping.
+A named collection of measurement activities, classified by type (Experiment, Operations, Commissioning). Campaigns are multi-site: their sites are derived from sampling-location membership (CampaignSamplingLocation to SamplingPoint.Site), not stored. Supersedes Project (defunct table) for all organisational grouping.
 
 
 #### Fields
@@ -140,7 +140,6 @@ A named collection of measurement activities at a site, classified by type (Expe
 |-------|----------|-----------|----------|-------------|-------------|
 | Campaign_ID | INT **(PK)** | - | ✓ | <span id="Campaign_ID"></span>Surrogate primary key. | - |
 | CampaignKind_ID | INT | - | ✓ | <span id="CampaignKind_ID"></span>Kind of campaign (See CampaignKind table. E.g., Experiment, Monitoring, Facility Commissioning). | FK → [CampaignKind.CampaignKind_ID](#CampaignKind) |
-| Site_ID | INT | - | ✓ | <span id="Site_ID"></span>Site where the campaign is conducted. | FK → [Site.Site_ID](#Site) |
 | Name | NVARCHAR(200) | - | ✓ | <span id="Name"></span>Human-readable name for the campaign. | - |
 | Description | NVARCHAR(2000) | - |  | <span id="Description"></span>Detailed description of the campaign objectives and scope. | - |
 | CampaignStartDateTime | DATETIME2(7) | - |  | <span id="CampaignStartDateTime"></span>Date and time the campaign began (UTC). | - |

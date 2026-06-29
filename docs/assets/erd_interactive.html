@@ -800,7 +800,7 @@
     {
       "id": "Campaign",
       "label": "Campaign",
-      "description": "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Supersedes Project (defunct table) for all organisational grouping.",
+      "description": "A named collection of measurement activities, classified by type (Experiment, Operations, Commissioning). Campaigns are multi-site: their sites are derived from sampling-location membership (CampaignSamplingLocation to SamplingPoint.Site), not stored. Supersedes Project (defunct table) for all organisational grouping.",
       "fields": [
         {
           "name": "Campaign_ID",
@@ -819,15 +819,6 @@
           "is_required": true,
           "fk_target": "CampaignKind.CampaignKind_ID",
           "description": "Kind of campaign (See CampaignKind table. E.g., Experiment, Monitoring, Facility Commissioning)."
-        },
-        {
-          "name": "Site_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Site.Site_ID",
-          "description": "Site where the campaign is conducted."
         },
         {
           "name": "Name",
@@ -5605,13 +5596,6 @@
       "to_table": "CampaignKind",
       "from_field": "CampaignKind_ID",
       "to_field": "CampaignKind_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "Campaign",
-      "to_table": "Site",
-      "from_field": "Site_ID",
-      "to_field": "Site_ID",
       "relationship_type": null
     },
     {

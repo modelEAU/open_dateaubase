@@ -164,12 +164,11 @@ SET @SP_BR4 = SCOPE_IDENTITY();
 DECLARE @CampOpsID INT, @CampExpID INT;
 
 INSERT INTO [dbo].[Campaign] (
-    [CampaignKind_ID], [Site_ID], [Name], [Description],
+    [CampaignKind_ID], [Name], [Description],
     [CampaignStartDateTime], [ResponsiblePerson_ID]
 )
 VALUES (
     2,      -- Operations
-    @SiteID,
     N'TEST_ Routine Operations 2026',
     N'TEST campaign — ongoing routine monitoring of the pilot WWTP',
     '2026-01-01T00:00:00',
@@ -178,12 +177,11 @@ VALUES (
 SET @CampOpsID = SCOPE_IDENTITY();
 
 INSERT INTO [dbo].[Campaign] (
-    [CampaignKind_ID], [Site_ID], [Name], [Description],
+    [CampaignKind_ID], [Name], [Description],
     [CampaignStartDateTime], [CampaignEndDateTime], [ResponsiblePerson_ID]
 )
 VALUES (
     1,      -- Experiment
-    @SiteID,
     N'TEST_ Bioaugmentation Experiment Spring 2026',
     N'TEST campaign — evaluating the effect of bioaugmentation on nitrogen removal',
     '2026-04-01T00:00:00',
