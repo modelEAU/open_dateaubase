@@ -717,3 +717,96 @@ def get_das_conflict(
     if active["site_id"] == site_id:
         return None
     return active
+
+
+def get_das_move_equipment_conflicts(
+    conn: pyodbc.Connection, das_id: int, new_site_id: int
+) -> list[dict]:
+    """Equipment that would be left stranded if this DAS moves to ``new_site_id``
+    (consistency audit F1).
+
+    Returns the equipment currently wired (active EquipmentWiringHistory) to one
+    of this DAS's SignalInterfaces whose active location is at a SamplingPoint in
+    a *different* Site than ``new_site_id``. The DAS-move flow surfaces this list
+    so the user can relocate those equipment in the same step rather than leaving
+    a silent location/DAS mismatch (which ``vw_DeploymentCoherence`` would then
+    report). Empty list = the move is coherent.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT DISTINCT
+            e.[Equipment_ID],
+            e.[Identifier]          AS equipment_identifier,
+            sp.[SamplingPoint_ID],
+            sp.[SamplingPoint]      AS sampling_point_name,
+            sp.[Site_ID]            AS current_site_id,
+            s.[Name]                AS current_site_name
+        FROM [dbo].[EquipmentWiringHistory] ewh
+        JOIN [dbo].[SignalInterface] si
+            ON si.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+            AND si.[DataAcquisitionSystem_ID] = ?
+        JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]
+        JOIN [dbo].[EquipmentLocationHistory] elh
+            ON elh.[Equipment_ID] = e.[Equipment_ID] AND elh.[ValidTo] IS NULL
+        JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+        LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
+        WHERE ewh.[ValidTo] IS NULL
+          AND sp.[Site_ID] <> ?
+        """,
+        das_id,
+        new_site_id,
+    )
+    return [
+        {
+            "equipment_id": row[0],
+            "equipment_identifier": row[1],
+            "sampling_point_id": row[2],
+            "sampling_point_name": row[3],
+            "current_site_id": row[4],
+            "current_site_name": row[5],
+        }
+        for row in cursor.fetchall()
+    ]
+
+
+def get_active_campaign_deployment(
+    conn: pyodbc.Connection, equipment_id: int
+) -> dict | None:
+    """The still-active campaign whose deployment placed this equipment, if any
+    (consistency audit F13).
+
+    Physical configuration is shared across campaigns, so reconfiguring equipment
+    (relocate/rewire) that was placed by a campaign whose run has not ended will
+    close that campaign's deployment. This returns that campaign so the caller can
+    warn before acting. ``None`` when the equipment's active location row has no
+    campaign provenance, or that campaign has already ended.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            c.[Campaign_ID],
+            c.[Name]                            AS campaign_name,
+            elh.[EquipmentLocationHistory_ID],
+            elh.[SamplingPoint_ID],
+            sp.[SamplingPoint]                  AS sampling_point_name
+        FROM [dbo].[EquipmentLocationHistory] elh
+        JOIN [dbo].[Campaign] c ON c.[Campaign_ID] = elh.[Campaign_ID]
+        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+        WHERE elh.[Equipment_ID] = ?
+          AND elh.[ValidTo] IS NULL
+          AND (c.[CampaignEndDateTime] IS NULL OR c.[CampaignEndDateTime] > SYSUTCDATETIME())
+        """,
+        equipment_id,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "campaign_id": row[0],
+        "campaign_name": row[1],
+        "equipment_location_history_id": row[2],
+        "sampling_point_id": row[3],
+        "sampling_point_name": row[4],
+    }

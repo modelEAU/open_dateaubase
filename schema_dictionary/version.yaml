@@ -1,8 +1,9 @@
-schema_version: "2.1.0"
+schema_version: "2.2.0"
 description: >
-  Consistency hardening. Drops the denormalised Channel.SignalInterfacePort_ID
-  column (F3): the current port is now resolved from the active
-  ChannelPortHistory row via the new vw_ChannelResolved view, giving a single
-  source of truth that cannot drift. Pre-release, fresh install only — no
+  Consistency hardening, part 2. Adds vw_DeploymentCoherence (F1): surfaces
+  equipment whose active location Site differs from the Site its connected DAS
+  is currently deployed to, so a DAS move no longer silently strands equipment.
+  Builds on 2.1.0 (dropped the denormalised Channel.SignalInterfacePort_ID,
+  resolved via vw_ChannelResolved). Pre-release, fresh install only — no
   migration provided.
 date: "2026-06-29"

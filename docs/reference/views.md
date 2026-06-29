@@ -205,6 +205,60 @@ WHERE role.[Name] = N'Status'
 | Timestamp | DATETIME2(7) | `Timestamp` | Timestamp of the status observation |
 | StatusCodeID | INT | `StatusCodeID` | Raw integer status code stored in the status Channel's Value rows |
 
+<span id="vw_DeploymentCoherence"></span>
+
+## vw_DeploymentCoherence
+
+Surfaces deployment drift (consistency audit F1): equipment whose active location sits at a Site different from the Site where its connected Data Acquisition System is currently deployed. A DAS is deployed to a Site (DASLocationHistory); equipment is wired to that DAS's SignalInterfaces (EquipmentWiringHistory) and physically placed at a SamplingPoint (EquipmentLocationHistory), and every SamplingPoint belongs to a Site. When a DAS is moved to a new Site, the equipment it feeds does not move with it automatically — this view lists each such stranded equipment so the drift can be corrected (relocate the equipment, or move the DAS back). Only active rows (ValidTo IS NULL) on both histories are considered; a row appears here only while the mismatch is live.
+
+
+
+**View Definition:**
+
+```sql
+SELECT
+    dlh.[DataAcquisitionSystem_ID]      AS DAS_ID,
+    das.[Name]                          AS DASName,
+    dlh.[Site_ID]                       AS DASSite_ID,
+    dsite.[Name]                        AS DASSiteName,
+    e.[Equipment_ID]                    AS Equipment_ID,
+    e.[Identifier]                      AS EquipmentName,
+    sp.[Site_ID]                        AS EquipmentSite_ID,
+    esite.[Name]                        AS EquipmentSiteName,
+    sp.[SamplingPoint_ID]               AS SamplingPoint_ID,
+    sp.[SamplingPoint]                  AS SamplingPointName
+FROM [dbo].[DASLocationHistory] dlh
+JOIN [dbo].[DataAcquisitionSystem] das ON das.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
+JOIN [dbo].[SignalInterface] si        ON si.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
+JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = si.[SignalInterface_ID]
+                                       AND ewh.[ValidTo] IS NULL
+JOIN [dbo].[Equipment] e               ON e.[Equipment_ID] = ewh.[Equipment_ID]
+JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = e.[Equipment_ID]
+                                       AND elh.[ValidTo] IS NULL
+JOIN [dbo].[SamplingPoint] sp          ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+LEFT JOIN [dbo].[Site] dsite           ON dsite.[Site_ID] = dlh.[Site_ID]
+LEFT JOIN [dbo].[Site] esite           ON esite.[Site_ID] = sp.[Site_ID]
+WHERE dlh.[ValidTo] IS NULL
+  AND sp.[Site_ID] <> dlh.[Site_ID]
+
+```
+
+
+#### Columns
+
+| Column | SQL Type | Source Field | Description |
+|--------|----------|--------------|-------------|
+| DAS_ID | INT | `DAS_ID` | The deployed Data Acquisition System |
+| DASName | NVARCHAR(200) | `DASName` | DAS name |
+| DASSite_ID | INT | `DASSite_ID` | Site the DAS is currently deployed to |
+| DASSiteName | NVARCHAR(200) | `DASSiteName` | Name of the DAS's Site |
+| Equipment_ID | INT | `Equipment_ID` | Equipment wired to the DAS but located elsewhere |
+| EquipmentName | NVARCHAR(200) | `EquipmentName` | Equipment identifier |
+| EquipmentSite_ID | INT | `EquipmentSite_ID` | Site of the equipment's current SamplingPoint (the drift) |
+| EquipmentSiteName | NVARCHAR(200) | `EquipmentSiteName` | Name of the equipment's current Site |
+| SamplingPoint_ID | INT | `SamplingPoint_ID` | Equipment's current SamplingPoint |
+| SamplingPointName | NVARCHAR(200) | `SamplingPointName` | Name of the equipment's current SamplingPoint |
+
 <span id="vw_DeviceStatus"></span>
 
 ## vw_DeviceStatus
