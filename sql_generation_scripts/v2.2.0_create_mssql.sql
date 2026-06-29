@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.2.0
 -- Platform: mssql
--- Generated: 2026-06-29 13:05:36 UTC
+-- Generated: 2026-06-29 17:02:27 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -960,6 +960,52 @@ ALTER TABLE [dbo].[Watershed] ADD CONSTRAINT [FK_Watershed_ParentWatershed_ID] F
 
 -- Views
 GO
+CREATE OR ALTER VIEW [dbo].[vw_ChannelResolved] AS
+SELECT
+    c.[Stream_ID],
+    c.[SignalInterface_ID],
+    c.[TagName],
+    cph.[SignalInterfacePort_ID],
+    c.[ParentChannel_ID],
+    c.[ChannelKind_ID],
+    c.[Parameter_ID],
+    c.[DataProvenanceKind_ID],
+    c.[ProducedByStep_ID],
+    c.[ValueKind_ID],
+    c.[Unit_ID]
+FROM [dbo].[Channel] c
+LEFT JOIN [dbo].[ChannelPortHistory] cph
+    ON cph.[Channel_ID] = c.[Stream_ID]
+    AND cph.[ValidTo] IS NULL;
+
+GO
+CREATE OR ALTER VIEW [dbo].[vw_DeploymentCoherence] AS
+SELECT
+    dlh.[DataAcquisitionSystem_ID]      AS DAS_ID,
+    das.[Name]                          AS DASName,
+    dlh.[Site_ID]                       AS DASSite_ID,
+    dsite.[Name]                        AS DASSiteName,
+    e.[Equipment_ID]                    AS Equipment_ID,
+    e.[Identifier]                      AS EquipmentName,
+    sp.[Site_ID]                        AS EquipmentSite_ID,
+    esite.[Name]                        AS EquipmentSiteName,
+    sp.[SamplingPoint_ID]               AS SamplingPoint_ID,
+    sp.[SamplingPoint]                  AS SamplingPointName
+FROM [dbo].[DASLocationHistory] dlh
+JOIN [dbo].[DataAcquisitionSystem] das ON das.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
+JOIN [dbo].[SignalInterface] si        ON si.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
+JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = si.[SignalInterface_ID]
+                                       AND ewh.[ValidTo] IS NULL
+JOIN [dbo].[Equipment] e               ON e.[Equipment_ID] = ewh.[Equipment_ID]
+JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = e.[Equipment_ID]
+                                       AND elh.[ValidTo] IS NULL
+JOIN [dbo].[SamplingPoint] sp          ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+LEFT JOIN [dbo].[Site] dsite           ON dsite.[Site_ID] = dlh.[Site_ID]
+LEFT JOIN [dbo].[Site] esite           ON esite.[Site_ID] = sp.[Site_ID]
+WHERE dlh.[ValidTo] IS NULL
+  AND sp.[Site_ID] <> dlh.[Site_ID];
+
+GO
 CREATE OR ALTER VIEW [dbo].[vw_ChannelEquipmentAtTime] AS
 WITH channel_wiring AS (
     SELECT
@@ -1003,40 +1049,6 @@ LEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = cw.EquipmentID
 WHERE cw.rn = 1;
 
 GO
-CREATE OR ALTER VIEW [dbo].[vw_ChannelLocationAtTime] AS
-SELECT
-    cea.ObservationID,
-    cea.ChannelID,
-    cea.Timestamp,
-    cea.EquipmentID,
-    elh.[SamplingPoint_ID] AS SamplingPointID,
-    sp.[SamplingPoint]     AS SamplingPointName
-FROM [dbo].[vw_ChannelEquipmentAtTime] cea
-LEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID
-                                              AND elh.[ValidFrom]   <= cea.Timestamp
-                                              AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > cea.Timestamp)
-LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID];
-
-GO
-CREATE OR ALTER VIEW [dbo].[vw_ChannelResolved] AS
-SELECT
-    c.[Stream_ID],
-    c.[SignalInterface_ID],
-    c.[TagName],
-    cph.[SignalInterfacePort_ID],
-    c.[ParentChannel_ID],
-    c.[ChannelKind_ID],
-    c.[Parameter_ID],
-    c.[DataProvenanceKind_ID],
-    c.[ProducedByStep_ID],
-    c.[ValueKind_ID],
-    c.[Unit_ID]
-FROM [dbo].[Channel] c
-LEFT JOIN [dbo].[ChannelPortHistory] cph
-    ON cph.[Channel_ID] = c.[Stream_ID]
-    AND cph.[ValidTo] IS NULL;
-
-GO
 CREATE OR ALTER VIEW [dbo].[vw_ChannelStatus] AS
 SELECT
     statusC.[Stream_ID]       AS StatusChannelID,
@@ -1064,33 +1076,6 @@ WHERE role.[Name] = N'Status'
   AND statusC.[ParentChannel_ID] IS NOT NULL;
 
 GO
-CREATE OR ALTER VIEW [dbo].[vw_DeploymentCoherence] AS
-SELECT
-    dlh.[DataAcquisitionSystem_ID]      AS DAS_ID,
-    das.[Name]                          AS DASName,
-    dlh.[Site_ID]                       AS DASSite_ID,
-    dsite.[Name]                        AS DASSiteName,
-    e.[Equipment_ID]                    AS Equipment_ID,
-    e.[Identifier]                      AS EquipmentName,
-    sp.[Site_ID]                        AS EquipmentSite_ID,
-    esite.[Name]                        AS EquipmentSiteName,
-    sp.[SamplingPoint_ID]               AS SamplingPoint_ID,
-    sp.[SamplingPoint]                  AS SamplingPointName
-FROM [dbo].[DASLocationHistory] dlh
-JOIN [dbo].[DataAcquisitionSystem] das ON das.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
-JOIN [dbo].[SignalInterface] si        ON si.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
-JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = si.[SignalInterface_ID]
-                                       AND ewh.[ValidTo] IS NULL
-JOIN [dbo].[Equipment] e               ON e.[Equipment_ID] = ewh.[Equipment_ID]
-JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = e.[Equipment_ID]
-                                       AND elh.[ValidTo] IS NULL
-JOIN [dbo].[SamplingPoint] sp          ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
-LEFT JOIN [dbo].[Site] dsite           ON dsite.[Site_ID] = dlh.[Site_ID]
-LEFT JOIN [dbo].[Site] esite           ON esite.[Site_ID] = sp.[Site_ID]
-WHERE dlh.[ValidTo] IS NULL
-  AND sp.[Site_ID] <> dlh.[Site_ID];
-
-GO
 CREATE OR ALTER VIEW [dbo].[vw_DeviceStatus] AS
 SELECT
     statusC.[Stream_ID]        AS StatusChannelID,
@@ -1112,6 +1097,21 @@ JOIN [dbo].[EquipmentWiringHistory] ewh
       AND ewh.[ValidTo] IS NULL
 JOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]
 WHERE role.[Name] = N'Status';
+
+GO
+CREATE OR ALTER VIEW [dbo].[vw_ChannelLocationAtTime] AS
+SELECT
+    cea.ObservationID,
+    cea.ChannelID,
+    cea.Timestamp,
+    cea.EquipmentID,
+    elh.[SamplingPoint_ID] AS SamplingPointID,
+    sp.[SamplingPoint]     AS SamplingPointName
+FROM [dbo].[vw_ChannelEquipmentAtTime] cea
+LEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID
+                                              AND elh.[ValidFrom]   <= cea.Timestamp
+                                              AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > cea.Timestamp)
+LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID];
 
 
 GO

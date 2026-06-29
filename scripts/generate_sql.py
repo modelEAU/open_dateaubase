@@ -11,6 +11,7 @@ Usage:
 
 import sys
 import json
+import re
 from pathlib import Path
 from datetime import datetime
 from importlib.metadata import version
@@ -162,6 +163,34 @@ def parse_parts_json(json_path):
     return data
 
 
+def _ordered_views(views: dict) -> list[str]:
+    """View ids in creation order: a view that references another is emitted after it.
+
+    Dependencies are read straight from each view's SQL text (whole-word match on
+    the other view ids), so no manual ``depends_on`` bookkeeping is needed. Kahn's
+    algorithm with an alphabetical tiebreak keeps the generated script stable.
+    """
+    ids = list(views)
+    deps = {
+        vid: {
+            other
+            for other in ids
+            if other != vid
+            and re.search(rf"\b{re.escape(other)}\b", views[vid]["view_definition"])
+        }
+        for vid in ids
+    }
+    ordered: list[str] = []
+    remaining = set(ids)
+    while remaining:
+        ready = sorted(v for v in remaining if deps[v] <= set(ordered))
+        if not ready:  # a dependency cycle — surface it rather than emit broken SQL
+            raise ValueError(f"Cyclic view dependencies among: {sorted(remaining)}")
+        ordered.extend(ready)
+        remaining -= set(ready)
+    return ordered
+
+
 def generate_sql_schemas(parts_data, output_path, db_list):
     """Generate SQL schemas for multiple database types."""
     for target_db in db_list:
@@ -236,10 +265,14 @@ def generate_sql_schema(data, target_db="mssql", include_timestamp=True):
                 if fk_sql:
                     sql.append(fk_sql)
 
-    # Third pass: Create views
+    # Third pass: Create views, dependency-ordered.
+    # SQL Server resolves view references at CREATE time (no deferral), so a view
+    # that selects from another view must be emitted after it. Kahn's algorithm,
+    # alphabetical tiebreak for a deterministic script.
     if "views" in data and data["views"]:
         sql.append("\n-- Views\n")
-        for view_id, view_info in sorted(data["views"].items()):
+        for view_id in _ordered_views(data["views"]):
+            view_info = data["views"][view_id]
             sql.append(f"\n-- {view_info['description']}")
             sql.append(f"CREATE VIEW {db_config['quote'](view_id)} AS")
             sql.append(f"{view_info['view_definition']};")

@@ -1,5 +1,6 @@
 """SQL migration script renderer for MSSQL and PostgreSQL."""
 
+import re
 from datetime import datetime, timezone
 
 from .diff import SchemaDiff
@@ -577,6 +578,40 @@ def render_drop_view(view_name: str, view_dict: dict, platform: str) -> str:
     return f"DROP VIEW {full_view};"
 
 
+def _order_views_by_dependency(views: dict[str, dict]) -> list[str]:
+    """View names in creation order: a view that selects from another comes after it.
+
+    SQL Server resolves view references at CREATE (OR ALTER) time — there is no
+    deferral across views — so emitting them alphabetically breaks whenever one
+    view sits on top of another (e.g. vw_ChannelEquipmentAtTime on
+    vw_ChannelResolved). Dependencies are read straight from each view's SQL text
+    (whole-word match on the other view names), so no manual bookkeeping is
+    needed. Kahn's algorithm with an alphabetical tiebreak keeps output stable.
+    """
+    names = list(views)
+
+    def _definition(name: str) -> str:
+        return (views[name].get("view", {}).get("view_definition") or "")
+
+    deps = {
+        name: {
+            other
+            for other in names
+            if other != name and re.search(rf"\b{re.escape(other)}\b", _definition(name))
+        }
+        for name in names
+    }
+    ordered: list[str] = []
+    remaining = set(names)
+    while remaining:
+        ready = sorted(n for n in remaining if deps[n] <= set(ordered))
+        if not ready:  # a dependency cycle — surface it rather than emit broken SQL
+            raise ValueError(f"Cyclic view dependencies among: {sorted(remaining)}")
+        ordered.extend(ready)
+        remaining -= set(ready)
+    return ordered
+
+
 def render_create_script_with_views(
     schema: dict[str, dict],
     views: dict[str, dict],
@@ -600,7 +635,7 @@ def render_create_script_with_views(
 
     if views:
         view_lines: list[str] = ["", "-- Views"]
-        for view_name in sorted(views.keys()):
+        for view_name in _order_views_by_dependency(views):
             if platform == "mssql":
                 view_lines.append("GO")
             view_lines.append(render_create_view(view_name, views[view_name], platform))

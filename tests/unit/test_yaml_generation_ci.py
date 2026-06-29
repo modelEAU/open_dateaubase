@@ -8,6 +8,7 @@ These tests run without a database and validate:
 5. load_views returns an empty dict when views_dir is empty (graceful).
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -176,6 +177,31 @@ def test_view_yaml_files_validate_cleanly() -> None:
     views = load_views(VIEWS_DIR)
     errors = validate_views(views)
     assert errors == [], "\n".join(errors)
+
+
+def test_views_emitted_after_views_they_reference() -> None:
+    """A view that selects from another must be CREATEd after it.
+
+    SQL Server resolves view references at CREATE time, so an alphabetical emit
+    order broke db-init once vw_ChannelEquipmentAtTime started selecting from
+    vw_ChannelResolved. Guard the dependency-ordered emit.
+    """
+    from tools.schema_migrate.loader import load_schema, load_views
+    from tools.schema_migrate.render import render_create_script_with_views
+
+    views = load_views(VIEWS_DIR)
+    schema = load_schema(TABLES_DIR)
+    sql = render_create_script_with_views(schema, views, "test", "mssql")
+
+    # Position of each "CREATE ... VIEW [dbo].[name]" in the script.
+    pos = {name: sql.index(f"[dbo].[{name}]") for name in views}
+    for name, vdoc in views.items():
+        definition = vdoc.get("view", {}).get("view_definition") or ""
+        for other in views:
+            if other != name and re.search(rf"\b{re.escape(other)}\b", definition):
+                assert pos[other] < pos[name], (
+                    f"{name} references {other} but is created before it"
+                )
 
 
 # ---------------------------------------------------------------------------
