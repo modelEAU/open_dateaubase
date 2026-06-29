@@ -19,6 +19,49 @@ from datetime import datetime
 import pyodbc
 
 
+def _assert_valid_from_ok(
+    cursor: pyodbc.Cursor,
+    table: str,
+    entity_col: str,
+    entity_id: int,
+    valid_from: datetime,
+) -> None:
+    """Reject a backdated ``valid_from`` that would overlap existing history (F7).
+
+    The swap helpers open the new active row at ``valid_from`` (ValidTo NULL) and
+    close the prior active row at ``valid_from``. That is only coherent when
+    ``valid_from`` falls strictly after the active row's start and outside every
+    closed ``[ValidFrom, ValidTo)`` interval. A unique filtered index already
+    guarantees one *open* row, but nothing stops a backdated insert from inverting
+    the row it closes or landing inside an old interval — this is that guard.
+
+    ``table``/``entity_col`` are fixed internal identifiers (never user input).
+    """
+    cursor.execute(
+        f"""
+        SELECT TOP 1 [ValidFrom], [ValidTo]
+        FROM [dbo].[{table}]
+        WHERE [{entity_col}] = ?
+          AND (
+                ([ValidTo] IS NULL AND [ValidFrom] >= ?)
+             OR ([ValidTo] IS NOT NULL AND [ValidFrom] <= ? AND ? < [ValidTo])
+              )
+        """,
+        entity_id,
+        valid_from,
+        valid_from,
+        valid_from,
+    )
+    row = cursor.fetchone()
+    if row is not None:
+        raise ValueError(
+            f"valid_from {valid_from} conflicts with an existing {table} interval "
+            f"[{row[0]}, {row[1]}) for {entity_col}={entity_id}: the new active row "
+            "would overlap or invert history. Use a timestamp strictly after the "
+            "current active row's start and outside any past interval."
+        )
+
+
 # ---------------------------------------------------------------------------
 # EquipmentWiringHistory
 # ---------------------------------------------------------------------------
@@ -95,6 +138,11 @@ def rewire_equipment(
     cursor = conn.cursor()
     closed_id: int | None = None
 
+    # F7: a backdated swap_time must not overlap or invert existing history.
+    _assert_valid_from_ok(
+        cursor, "EquipmentWiringHistory", "Equipment_ID", equipment_id, swap_time
+    )
+
     # Close the active row, if any.
     cursor.execute(
         """
@@ -156,6 +204,7 @@ def register_equipment_at_interface(
 
     cursor = conn.cursor()
     if start_time is None:
+        # No start_time → "now", which is after all existing rows; no overlap risk.
         cursor.execute(
             """
             INSERT INTO [dbo].[EquipmentWiringHistory]
@@ -169,6 +218,10 @@ def register_equipment_at_interface(
             note,
         )
     else:
+        # F7: a backdated first row must not land inside any closed interval.
+        _assert_valid_from_ok(
+            cursor, "EquipmentWiringHistory", "Equipment_ID", equipment_id, start_time
+        )
         cursor.execute(
             """
             INSERT INTO [dbo].[EquipmentWiringHistory]
@@ -296,6 +349,11 @@ def relocate_equipment(
     cursor = conn.cursor()
     closed_id: int | None = None
 
+    # F7: a backdated start_time must not overlap or invert existing history.
+    _assert_valid_from_ok(
+        cursor, "EquipmentLocationHistory", "Equipment_ID", equipment_id, start_time
+    )
+
     # Close the active row, if any.
     cursor.execute(
         """
@@ -352,6 +410,11 @@ def open_location_for_campaign(
     """
     cursor = conn.cursor()
     closed_id: int | None = None
+
+    # F7: a backdated start_time must not overlap or invert existing history.
+    _assert_valid_from_ok(
+        cursor, "EquipmentLocationHistory", "Equipment_ID", equipment_id, start_time
+    )
 
     cursor.execute(
         """
@@ -493,6 +556,11 @@ def deploy_das(
 
     cursor = conn.cursor()
     closed_id: int | None = None
+
+    # F7: a backdated valid_from must not overlap or invert existing history.
+    _assert_valid_from_ok(
+        cursor, "DASLocationHistory", "DataAcquisitionSystem_ID", das_id, valid_from
+    )
 
     # Close the active row, if any.
     cursor.execute(

@@ -75,7 +75,8 @@ def test_rewire_to_different_port_same_interface_is_allowed(monkeypatch):
 
     conn = MagicMock()
     cursor = MagicMock()
-    cursor.fetchone.side_effect = [None, (99,)]  # no row closed, new id
+    # F7 interval guard (no conflict), then: no row closed, new id.
+    cursor.fetchone.side_effect = [None, None, (99,)]
     conn.cursor.return_value = cursor
 
     new_id, closed_id = thr.rewire_equipment(

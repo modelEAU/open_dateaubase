@@ -20,8 +20,9 @@ class TestOpenLocationForCampaign:
         UPDATE OUTPUT and new_row_id from the INSERT OUTPUT."""
         conn = MagicMock()
         cursor = MagicMock()
-        # The UPDATE/INSERT both go through fetchone(); side_effect drives them in order.
+        # fetchone() order: F7 interval guard SELECT (no conflict), close UPDATE, open INSERT.
         fetchone_returns: list[tuple[int] | None] = [
+            None,
             (closed_row_id,) if closed_row_id is not None else None,
             (new_row_id,),
         ]
@@ -45,10 +46,10 @@ class TestOpenLocationForCampaign:
         assert new_id == 7
         assert closed_id == 3
 
-        # Two cursor.execute calls: close UPDATE, then open INSERT.
-        assert cursor.execute.call_count == 2
-        update_sql = cursor.execute.call_args_list[0][0][0]
-        insert_sql = cursor.execute.call_args_list[1][0][0]
+        # Three cursor.execute calls: F7 guard SELECT, close UPDATE, open INSERT.
+        assert cursor.execute.call_count == 3
+        update_sql = cursor.execute.call_args_list[1][0][0]
+        insert_sql = cursor.execute.call_args_list[2][0][0]
 
         assert "UPDATE" in update_sql and "EquipmentLocationHistory" in update_sql
         assert "ValidTo" in update_sql
@@ -91,8 +92,8 @@ class TestOpenLocationForCampaign:
             notes=None,
         )
 
-        # Second call is the INSERT; args after the SQL string are the bound parameters.
-        insert_args = cursor.execute.call_args_list[1][0][1:]
+        # Third call is the INSERT (after F7 guard + close); args after the SQL are params.
+        insert_args = cursor.execute.call_args_list[2][0][1:]
         assert 42 in insert_args  # equipment_id
         assert 8 in insert_args   # sampling_point_id
         assert start in insert_args  # start_time
