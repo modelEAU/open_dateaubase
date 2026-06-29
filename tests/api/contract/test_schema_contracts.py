@@ -435,8 +435,9 @@ REQUIRED_CAMPAIGN_FIELDS = {
     "campaign_id",
     "campaign_kind_id",
     "campaign_kind_name",
-    "site_id",
-    "site_name",
+    # Campaigns are multi-site: sites are derived, exposed as lists.
+    "site_ids",
+    "site_names",
     "name",
     "description",
     "start_date",
@@ -448,7 +449,8 @@ def _mock_campaign():
     return {f: None for f in REQUIRED_CAMPAIGN_FIELDS} | {
         "campaign_id": 1,
         "campaign_kind_id": 1,
-        "site_id": 1,
+        "site_ids": [1],
+        "site_names": ["Site A"],
         "name": "Ops 2025",
     }
 

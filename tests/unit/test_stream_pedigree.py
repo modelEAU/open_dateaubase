@@ -29,12 +29,13 @@ _SP_INLET = ("Inlet", 46.7, -71.2, 7, "R-210", "Bioreactor", "Tank",
              3, "pilEAU", "Quebec", "QC", "Canada")
 _SP_EFF = ("Effluent", 46.8, -71.3, 8, "R-310", "Clarifier", "Tank",
            3, "pilEAU", "Quebec", "QC", "Canada")
+# Campaign SELECT no longer carries site columns; sites are a separate query.
 _CAMP_WINTER = ("Winter 2026", "Experiment", "2026-01-01", "2026-04-01",
-                11, "Jean", "Tremblay", "jt@x.io", "PI", "modelEAU",
-                3, "pilEAU", "Quebec", "QC", "Canada")
+                11, "Jean", "Tremblay", "jt@x.io", "PI", "modelEAU")
 _CAMP_SPRING = ("Spring 2026", "Experiment", "2026-04-01", "2026-07-01",
-                12, "Marie", "Roy", "mr@x.io", "Eng", "modelEAU",
-                3, "pilEAU", "Quebec", "QC", "Canada")
+                12, "Marie", "Roy", "mr@x.io", "Eng", "modelEAU")
+# Derived single-site fallback row (site_id, name, city, province, country).
+_CAMP_SITE = (3, "pilEAU", "Quebec", "QC", "Canada")
 
 
 def test_sensor_spanning_two_deployments_yields_a_timeline():
@@ -45,7 +46,8 @@ def test_sensor_spanning_two_deployments_yields_a_timeline():
     seg2 = (102, "2026-04-01", None, "EQ5", 22, 6)  # open-ended (still active)
     conn, _ = _conn(
         fetchone_seq=[identity, _SP_INLET, _CAMP_WINTER, _SP_EFF, _CAMP_SPRING],
-        fetchall_seq=[[seg1, seg2]],
+        # segments, then derived sites per campaign (Winter, Spring).
+        fetchall_seq=[[seg1, seg2], [_CAMP_SITE], [_CAMP_SITE]],
     )
 
     ped = channel_repository.get_stream_pedigree(conn, 42)
@@ -91,7 +93,10 @@ def test_sensor_window_filters_segments_in_sql():
 def test_lab_series_single_open_segment():
     lab_identity = ("TSS", "mg/L", "Scalar", "TSS@Eff", 21, 5)
     # sensor identity misses -> lab branch; then one segment's lookups.
-    conn, cursor = _conn(fetchone_seq=[None, lab_identity, _SP_INLET, _CAMP_WINTER])
+    conn, cursor = _conn(
+        fetchone_seq=[None, lab_identity, _SP_INLET, _CAMP_WINTER],
+        fetchall_seq=[[_CAMP_SITE]],  # derived sites for the campaign
+    )
 
     ped = channel_repository.get_stream_pedigree(conn, 7)
 

@@ -520,8 +520,11 @@ class TestExecuteHappyPath:
         at.button(key="wiz_next_5").click().run()
 
         payload = mock_apis["create_campaign"].call_args[0][0]
-        assert payload["site_id"] == 1  # "Site A" → id 1
+        # Campaign is multi-site now: no site_id on the campaign; the resolved
+        # site flows downstream to the DAS deployment instead.
+        assert "site_id" not in payload
         assert payload["responsible_person_id"] == 1  # "Alice Smith" → person_id 1
+        assert mock_apis["deploy_das"].call_args.kwargs["site_id"] == 1  # "Site A" → id 1
 
     def test_new_equipment_new_model_creates_model_first(self, mock_apis):
         state = _all_new_state()
@@ -566,8 +569,11 @@ class TestStatePropagationBugs:
         at.button(key="wiz_next_5").click().run()
 
         assert not _errors(at), f"BUG-3 regression: {_errors(at)}"
+        # The campaign carries no site_id; proving the store-key site resolved
+        # means it reaches the downstream DAS deployment as site_id=1.
         payload = mock_apis["create_campaign"].call_args[0][0]
-        assert payload["site_id"] == 1  # "Site A" resolves to id=1
+        assert "site_id" not in payload
+        assert mock_apis["deploy_das"].call_args.kwargs["site_id"] == 1  # "Site A" → id 1
 
     def test_bug_4_sl_mode_resolved_from_store_key_only(self, mock_apis):
         """BUG-4: step 3 reported 'No sampling locations selected' because
