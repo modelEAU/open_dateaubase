@@ -170,13 +170,15 @@ def _csv_bytes(rows: list[dict]) -> bytes:
     return buf.getvalue().encode()
 
 
-def _stream_rows(entry: dict, base: str, zf: zipfile.ZipFile) -> list[dict]:
+def _stream_rows(
+    entry: dict, base: str, zf: zipfile.ZipFile, quality_labels: dict
+) -> list[dict]:
     """Build the CSV rows for one stream (and embed image files as a side effect).
 
     Uniform across scalar/vector/matrix: timestamp_utc first, then the original
     row fields (value, quality_code, bin_index/row/col, …), then parameter/unit,
-    then overlay columns. Image streams add an image_file column pointing at the
-    embedded file."""
+    then overlay columns. quality_code is rendered as its label, not the id.
+    Image streams add an image_file column pointing at the embedded file."""
     data = entry.get("data") or {}
     parameter = data.get("parameter", "")
     unit = data.get("unit", "")
@@ -191,8 +193,9 @@ def _stream_rows(entry: dict, base: str, zf: zipfile.ZipFile) -> list[dict]:
         ts = orig.get("timestamp")
         row: dict = {"timestamp_utc": ts}
         for k, v in orig.items():
-            if k != "timestamp":
-                row[k] = v
+            if k == "timestamp":
+                continue
+            row[k] = quality_labels.get(v, v) if k == "quality_code" else v
         row["parameter"] = parameter
         row["unit"] = unit
         row.update(_segment_columns(ts, deployments))
@@ -209,9 +212,14 @@ def _stream_rows(entry: dict, base: str, zf: zipfile.ZipFile) -> list[dict]:
     return rows
 
 
-def build_export_zip(entries: list[dict]) -> bytes:
+def build_export_zip(
+    entries: list[dict], quality_labels: dict | None = None
+) -> bytes:
     """Build the export zip: paired <basename>.csv + <basename>.yaml per stream,
-    plus embedded image files for image streams. Returns the zip bytes."""
+    plus embedded image files for image streams. ``quality_labels`` maps
+    QualityCode ids to their names so the CSV shows labels, not ids. Returns the
+    zip bytes."""
+    quality_labels = quality_labels or {}
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         used: set[str] = set()
@@ -225,7 +233,7 @@ def build_export_zip(entries: list[dict]) -> bytes:
                 n += 1
             used.add(unique)
 
-            rows = _stream_rows(entry, unique, zf)
+            rows = _stream_rows(entry, unique, zf, quality_labels)
             zf.writestr(f"{unique}.csv", _csv_bytes(rows))
             zf.writestr(
                 f"{unique}.yaml",

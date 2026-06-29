@@ -121,6 +121,33 @@ def test_scalar_zip_has_paired_csv_and_yaml_with_overlay():
     assert ped["site"]["name"] == "pilEAU"
 
 
+def test_quality_code_rendered_as_label_not_id():
+    entry = {
+        "filename": "CH-5_TSS", "value_kind": 1,
+        "data": {"parameter": "TSS", "unit": "mg/L", "data": [
+            {"timestamp": "2026-06-19T04:00:00", "value": 10.0, "quality_code": 1},
+            {"timestamp": "2026-06-19T06:00:00", "value": 11.0, "quality_code": 2},
+        ]},
+        "annotations": [], "events": [], "pedigree": {},
+    }
+    files = _read_zip(ex.build_export_zip([entry], {1: "Accepted", 2: "Suspect"}))
+    rows = _rows(files["CH-5_TSS.csv"])
+    assert rows[0]["quality_code"] == "Accepted"
+    assert rows[1]["quality_code"] == "Suspect"
+
+
+def test_unknown_quality_code_falls_back_to_raw_value():
+    entry = {
+        "filename": "CH-5_TSS", "value_kind": 1,
+        "data": {"parameter": "TSS", "unit": "mg/L", "data": [
+            {"timestamp": "2026-06-19T04:00:00", "value": 10.0, "quality_code": 9},
+        ]},
+        "annotations": [], "events": [], "pedigree": {},
+    }
+    row = _rows(_read_zip(ex.build_export_zip([entry], {1: "Accepted"}))["CH-5_TSS.csv"])[0]
+    assert row["quality_code"] == "9"
+
+
 def test_per_row_location_and_campaign_follow_deployment_timeline():
     """The spicy case: rows before/after an equipment move carry the location and
     campaign that were active at their timestamp (resolved from the timeline)."""

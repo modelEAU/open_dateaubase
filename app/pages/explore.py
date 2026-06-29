@@ -1786,10 +1786,18 @@ def _render_export_section(
     )
     if st.button("Generate export", key="btn_generate_export"):
         with st.spinner("Building export…"):
+            try:
+                quality_labels = {
+                    q["quality_code_id"]: q.get("name") for q in list_quality_codes()
+                }
+            except APIError:
+                quality_labels = {}
             entries = _build_export_entries(
                 active_channels, channel_meta, active_series, series_meta
             )
-            st.session_state.explore_export_zip = export.build_export_zip(entries)
+            st.session_state.explore_export_zip = export.build_export_zip(
+                entries, quality_labels
+            )
             st.session_state.explore_export_count = len(entries)
 
     blob = st.session_state.get("explore_export_zip")
