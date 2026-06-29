@@ -133,7 +133,7 @@ story.header(
         ("Ongoing" if ongoing else "Ended", "ok" if ongoing else "grey", True),
     ],
     meta=[
-        ("Site", camp.get("site_name") or "—"),
+        ("Site", ", ".join(camp.get("site_names") or []) or "—"),
         ("Watershed", ws.get("name") or "—"),
         ("Period", period),
         ("Lead", camp.get("responsible_person_name") or "—"),

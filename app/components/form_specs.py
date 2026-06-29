@@ -102,7 +102,6 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
         [
             {"name": "name", "type": "text", "required": True},
             {"name": "campaign_kind_id", "type": "select", "required": True},
-            {"name": "site_id", "type": "select", "required": True},
             {"name": "description", "type": "textarea", "required": False},
             {"name": "start_date", "type": "date", "required": False},
             {"name": "end_date", "type": "date", "required": False},

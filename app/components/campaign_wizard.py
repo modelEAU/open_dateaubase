@@ -1593,7 +1593,8 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
                 "campaign_kind_id": _resolve_id(
                     st.session_state.get("wiz_s0_campaign_type"), type_opts
                 ),
-                "site_id": campaign_site_id,
+                # Campaign no longer stores a site; membership is derived from the
+                # sampling locations created below (campaigns are multi-site).
                 "description": st.session_state.get("wiz_s0_description") or None,
                 "start_date": start_date.isoformat() if start_date else None,
                 "end_date": end_date.isoformat() if end_date else None,

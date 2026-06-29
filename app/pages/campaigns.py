@@ -156,8 +156,6 @@ _CAMPAIGN_OVERLAYS = {
     "name": {"label": "Name", "help": "Human-readable name for the campaign"},
     "campaign_kind_id": {"options": type_options, "label": "Campaign Kind",
         "help": "Kind of campaign (Experiment, Operations, Commissioning)"},
-    "site_id": {"options": site_options, "label": "Site",
-        "help": "Site where the campaign is conducted"},
     "description": {"label": "Description", "help": "Objectives and scope"},
     "start_date": {"label": "Start Date", "help": "Date the campaign began"},
     "end_date": {"label": "End Date", "help": "Date the campaign ended; blank if ongoing"},
@@ -189,7 +187,9 @@ with site_filter_col:
 
 # Filter campaigns
 if site_id_filter is not None:
-    filtered_campaigns = [c for c in campaigns if c.get("site_id") == site_id_filter]
+    filtered_campaigns = [
+        c for c in campaigns if site_id_filter in (c.get("site_ids") or [])
+    ]
 else:
     filtered_campaigns = campaigns
 
