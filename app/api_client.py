@@ -495,6 +495,22 @@ def get_stream_provenance(stream_id: int) -> dict:
     return _request("GET", f"/lineage/streams/{stream_id}/provenance")
 
 
+def get_stream_pedigree(
+    stream_id: int, start: str | None = None, end: str | None = None
+) -> dict:
+    """Fetch the pedigree of a Stream for the data-export metadata YAML: identity
+    plus a time-bound deployment timeline (sampling location, process unit, site,
+    campaign, responsible person per deployment). ``start``/``end`` (UTC ISO)
+    restrict the timeline to segments overlapping the exported window. Distinct
+    from get_stream_provenance (the processing DAG)."""
+    params: dict = {}
+    if start is not None:
+        params["from"] = start
+    if end is not None:
+        params["to"] = end
+    return _request("GET", f"/lineage/streams/{stream_id}/pedigree", params=params)
+
+
 def get_channel_thumbnail(channel_id: int, timestamp: str) -> bytes:
     """Fetch the JPEG thumbnail bytes for an image channel entry."""
     return _request("GET", f"/timeseries/{channel_id}/thumbnail/{timestamp}", return_="content")

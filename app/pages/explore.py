@@ -16,8 +16,6 @@ Layout (issue #16):
 
 from __future__ import annotations
 
-import io
-import csv
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -45,8 +43,17 @@ from app.api_client import (
     list_deployment_traces_lookup,
     get_analysis_series_thumbnail,
     get_stream_story,
+    get_stream_pedigree,
+    get_channel_timeseries,
+    get_analysis_series_timeseries,
+    get_equipment_events,
+    get_channel_image,
+    get_analysis_series_image,
+    get_campaign,
+    list_campaigns_lookup,
 )
 from app.components import entity_story as story
+from app.components import explore_export as export
 
 # Provenance inspector lives in its own module (Phase 5 split). Re-exported here
 # so the panel is callable as before and tests can reach the helpers via
@@ -136,6 +143,7 @@ def _init_state() -> None:
         "explore_next_plot_id": 2,      # next id handed out by "+ Add plot"
         "explore_plot_of": {},          # "ch:<id>" / "s:<id>" -> plot id
         "explore_target_plot": 1,       # plot new streams are added to
+        "explore_campaign_filter_id": None,  # page-level campaign scope (None=off)
         "explore_start": date.today() - timedelta(days=30),
         "explore_end": date.today(),
         "explore_mode": "viz",
@@ -499,74 +507,6 @@ def _equipment_event_dialog(
             st.rerun()
         except APIError as e:
             st.error(f"Failed: {e.message}")
-
-
-# ---------------------------------------------------------------------------
-# Download helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_csv(rows: list[dict]) -> bytes:
-    if not rows:
-        return b""
-    buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
-    writer.writeheader()
-    writer.writerows(rows)
-    return buf.getvalue().encode()
-
-
-def _flat_scalar_rows(channel_ids: list[int], channel_meta: dict) -> list[dict]:
-    out = []
-    for ch_id in channel_ids:
-        data = _load_timeseries(ch_id)
-        if data is None:
-            continue
-        meta = channel_meta.get(ch_id, {})
-        label = f"CH-{ch_id} {meta.get('equipment_identifier', '')} {meta.get('parameter_name', '')}".strip()
-        unit = data.get("unit", "")
-        param = data.get("parameter", "")
-        for row in data.get("data", []):
-            out.append(
-                {
-                    "channel_id": ch_id,
-                    "channel_label": label,
-                    "timestamp": row.get("timestamp"),
-                    "value": row.get("value"),
-                    "quality_code": row.get("quality_code"),
-                    "parameter": param,
-                    "unit": unit,
-                }
-            )
-    return out
-
-
-def _flat_series_scalar_rows(series_ids: list[int], series_meta: dict) -> list[dict]:
-    out = []
-    for s_id in series_ids:
-        data = _load_series_timeseries(s_id)
-        if data is None:
-            continue
-        meta = series_meta.get(s_id, {})
-        label = (
-            f"LAB-{s_id} {meta.get('parameter_name', '')} "
-            f"@ {meta.get('sampling_point_label', '')}"
-        ).strip()
-        unit = data.get("unit", "")
-        param = data.get("parameter", "")
-        for row in data.get("data", []):
-            out.append(
-                {
-                    "channel_id": f"LAB-{s_id}",
-                    "channel_label": label,
-                    "timestamp": row.get("timestamp"),
-                    "value": row.get("value"),
-                    "quality_code": row.get("quality_code"),
-                    "parameter": param,
-                    "unit": unit,
-                }
-            )
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1350,19 +1290,8 @@ def _render_scalar_view(
         ]
         st.dataframe(df_ov, use_container_width=True, hide_index=True)
 
-    # Download (sensor + lab)
-    st.divider()
-    all_rows = _flat_scalar_rows(scalar_channels, channel_meta)
-    all_rows += _flat_series_scalar_rows(scalar_series, series_meta)
-    if all_rows:
-        csv_bytes = _make_csv(all_rows)
-        st.download_button(
-            "Download CSV",
-            data=csv_bytes,
-            file_name="explore_scalar.csv",
-            mime="text/csv",
-            key=f"dl_scalar{suffix}",
-        )
+    # Bulk export of all active streams lives at the page level (see
+    # _render_export_section), not per value-type view.
 
 
 def _render_vector_view(
@@ -1433,18 +1362,6 @@ def _render_vector_view(
                 annotation_types=annotation_types,
             )
 
-    st.divider()
-    df = pd.DataFrame(rows)
-    if data:
-        df["parameter"] = data.get("parameter", "")
-        df["unit"] = data.get("unit", "")
-    csv_bytes = df.to_csv(index=False).encode()
-    st.download_button(
-        "Download CSV",
-        data=csv_bytes,
-        file_name="explore_vector.csv",
-        mime="text/csv",
-    )
 
 
 def _render_matrix_view(
@@ -1509,17 +1426,6 @@ def _render_matrix_view(
         fig = _build_matrix_slice_line(data, "col", sel_col)
         st.plotly_chart(fig, use_container_width=True, key="matrix_col_chart")
 
-    st.divider()
-    if data:
-        df["parameter"] = data.get("parameter", "")
-        df["unit"] = data.get("unit", "")
-    csv_bytes = df.to_csv(index=False).encode()
-    st.download_button(
-        "Download CSV",
-        data=csv_bytes,
-        file_name="explore_matrix.csv",
-        mime="text/csv",
-    )
 
 
 def _render_image_view(
@@ -1632,17 +1538,6 @@ def _render_image_view(
     else:
         st.caption("Check image thumbnails above to select them for bulk actions.")
 
-    img_df = pd.DataFrame(rows)
-    if data:
-        img_df["parameter"] = data.get("parameter", "")
-        img_df["unit"] = data.get("unit", "")
-    csv_bytes = img_df.to_csv(index=False).encode()
-    st.download_button(
-        "Download image list CSV",
-        data=csv_bytes,
-        file_name="explore_images.csv",
-        mime="text/csv",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -1746,12 +1641,256 @@ def _render_sidebar_minimal() -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# Bulk export: zip of per-stream CSV (UTC) + pedigree YAML
+# ---------------------------------------------------------------------------
+
+
+def _raw_annotations(path: str, start_iso: str, end_iso: str) -> list[dict]:
+    """List a stream's annotations over [start,end] WITHOUT the display-time
+    local conversion the cached loaders apply — the export keeps UTC throughout."""
+    import httpx
+    from app.api_client import _get_client, _raise_for_status
+
+    try:
+        with _get_client() as client:
+            r = client.get(path, params={"from": start_iso, "to": end_iso})
+        _raise_for_status(r)
+    except (httpx.ConnectError, APIError):
+        return []
+    return r.json().get("annotations", [])
+
+
+def _stream_export_filename(prefix: str, sid: int, meta: dict) -> str:
+    parameter = meta.get("parameter_name") or "data"
+    loc = meta.get("sampling_point_label") or meta.get("equipment_identifier") or ""
+    base = f"{prefix}-{sid}_{parameter}"
+    return f"{base}_{loc}" if loc else base
+
+
+def _stream_images(loader, stream_id: int, data: dict | None) -> dict:
+    """Fetch full-res image bytes per timestamp for an image stream."""
+    images: dict = {}
+    if not data:
+        return images
+    for row in data.get("data", []):
+        ts = row.get("timestamp")
+        if not ts:
+            continue
+        try:
+            images[ts] = loader(stream_id, ts)
+        except APIError:
+            pass
+    return images
+
+
+def _build_export_entries(
+    active_channels: list[int],
+    channel_meta: dict[int, dict],
+    active_series: list[int],
+    series_meta: dict[int, dict],
+) -> list[dict]:
+    """Assemble one export-entry dict per active stream (raw UTC data + overlay
+    annotations/events + pedigree + images). Pure-builder input for
+    explore_export.build_export_zip."""
+    start_iso = _local_to_utc_iso(st.session_state.explore_start)
+    end_iso = _local_to_utc_iso(st.session_state.explore_end, end_of_day=True)
+    entries: list[dict] = []
+
+    for ch_id in active_channels:
+        meta = channel_meta.get(ch_id, {})
+        try:
+            data = get_channel_timeseries(ch_id, start=start_iso, end=end_iso)
+        except APIError:
+            continue
+        anns = [
+            export.overlay_from_annotation(a)
+            for a in _raw_annotations(f"/timeseries/{ch_id}/annotations", start_iso, end_iso)
+        ]
+        events = []
+        eq_id = meta.get("equipment_id")
+        if eq_id:
+            try:
+                events = [
+                    export.overlay_from_event(e)
+                    for e in get_equipment_events(eq_id, from_dt=start_iso, to_dt=end_iso)
+                ]
+            except APIError:
+                events = []
+        images = (
+            _stream_images(get_channel_image, ch_id, data)
+            if meta.get("value_kind_id") == VALUE_TYPE_IMAGE else {}
+        )
+        try:
+            pedigree = get_stream_pedigree(ch_id, start=start_iso, end=end_iso)
+        except APIError:
+            pedigree = {}
+        entries.append({
+            "filename": _stream_export_filename("CH", ch_id, meta),
+            "value_kind": meta.get("value_kind_id"),
+            "data": data or {},
+            "annotations": anns,
+            "events": events,
+            "pedigree": pedigree,
+            "images": images,
+        })
+
+    for s_id in active_series:
+        meta = series_meta.get(s_id, {})
+        try:
+            data = get_analysis_series_timeseries(s_id, start=start_iso, end=end_iso)
+        except APIError:
+            continue
+        anns = [
+            export.overlay_from_annotation(a)
+            for a in _raw_annotations(f"/analysis-series/{s_id}/annotations", start_iso, end_iso)
+        ]
+        images = (
+            _stream_images(get_analysis_series_image, s_id, data)
+            if meta.get("value_kind_id") == VALUE_TYPE_IMAGE else {}
+        )
+        try:
+            pedigree = get_stream_pedigree(s_id, start=start_iso, end=end_iso)
+        except APIError:
+            pedigree = {}
+        entries.append({
+            "filename": _stream_export_filename("LAB", s_id, meta),
+            "value_kind": meta.get("value_kind_id"),
+            "data": data or {},
+            "annotations": anns,
+            "events": [],  # lab series have no equipment events
+            "pedigree": pedigree,
+            "images": images,
+        })
+
+    return entries
+
+
+def _render_export_section(
+    active_channels: list[int],
+    channel_meta: dict[int, dict],
+    active_series: list[int],
+    series_meta: dict[int, dict],
+) -> None:
+    """Two-step export: 'Generate export' builds the zip once into session_state,
+    then 'Download zip' serves it (avoids rebuilding on every rerun)."""
+    if not active_channels and not active_series:
+        return
+    st.divider()
+    st.subheader("⬇ Export data")
+    n = len(active_channels) + len(active_series)
+    st.caption(
+        f"Bundle all {n} active stream(s) as a zip: one CSV per stream "
+        "(UTC timestamps, plus annotation & equipment-event columns) and a "
+        "pedigree YAML for each."
+    )
+    if st.button("Generate export", key="btn_generate_export"):
+        with st.spinner("Building export…"):
+            entries = _build_export_entries(
+                active_channels, channel_meta, active_series, series_meta
+            )
+            st.session_state.explore_export_zip = export.build_export_zip(entries)
+            st.session_state.explore_export_count = len(entries)
+
+    blob = st.session_state.get("explore_export_zip")
+    if blob:
+        st.download_button(
+            f"Download zip ({len(blob) // 1024} KB · "
+            f"{st.session_state.get('explore_export_count', 0)} stream(s))",
+            data=blob,
+            file_name="dateaubase_export.zip",
+            mime="application/zip",
+            key="btn_download_export",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Campaign filter: scope the whole explorer (plot + export) to one campaign
+# ---------------------------------------------------------------------------
+
+
+def _apply_campaign_window(campaign_id: int) -> None:
+    """Snap the active time range to a campaign's date span. Uses the pending-range
+    flag so the date-input widgets pick it up on the next run (they can't be set
+    after being drawn)."""
+    try:
+        campaign = get_campaign(campaign_id)
+    except APIError:
+        return
+
+    def _to_date(value) -> date | None:
+        if not value:
+            return None
+        try:
+            return date.fromisoformat(str(value)[:10])
+        except ValueError:
+            return None
+
+    start = _to_date(campaign.get("start_date"))
+    end = _to_date(campaign.get("end_date")) or date.today()
+    if start:
+        st.session_state._tstrip_pending = (start, end)
+
+
+def _scope_to_campaign(
+    deployment_traces: list[dict],
+    series_list: list[dict],
+    campaign_id: int | None,
+) -> tuple[list[dict], list[dict]]:
+    """Restrict the pickable sensor traces + lab series to one campaign. With the
+    source lists scoped, the picker can only add that campaign's streams, so the
+    plot and the export stay within the campaign (its time window is snapped
+    separately)."""
+    if campaign_id is None:
+        return deployment_traces, series_list
+    return (
+        [d for d in deployment_traces if d.get("campaign_id") == campaign_id],
+        [s for s in series_list if s.get("campaign_id") == campaign_id],
+    )
+
+
+def _render_campaign_filter(campaigns: list[dict]) -> None:
+    """Page-level campaign scope. Selecting a campaign snaps the time window to
+    its span and restricts the stream picker to that campaign — so the plot and
+    the export both cover only that campaign's data. '(all campaigns)' clears it."""
+    opts: dict[str, int | None] = {"📂 All campaigns (no filter)": None}
+    for c in campaigns:
+        opts[c.get("name") or str(c.get("campaign_id"))] = c.get("campaign_id")
+
+    current = st.session_state.explore_campaign_filter_id
+    labels = list(opts.keys())
+    cur_label = next((l for l, v in opts.items() if v == current), labels[0])
+
+    sel = st.selectbox(
+        "Campaign filter",
+        labels,
+        index=labels.index(cur_label),
+        key="explore_campaign_filter_sel",
+        help="Scope the explorer (plot + download) to one campaign: snaps the time "
+        "range to the campaign span and limits the picker to its streams.",
+    )
+    new_id = opts[sel]
+    if new_id != current:
+        st.session_state.explore_campaign_filter_id = new_id
+        if new_id is not None:
+            _apply_campaign_window(new_id)
+        _invalidate_data_cache()
+        st.rerun()
+
+    if current is not None:
+        st.caption(
+            "Scoped to this campaign — the time range and the stream picker are "
+            "restricted, and exports cover only this span."
+        )
+
+
 def _render_page_body(
     deployment_traces: list[dict],
     series_list: list[dict],
     equipment: list[dict],
     annotation_types: list[dict],
     event_types: list[dict],
+    campaigns: list[dict],
 ) -> None:
     """Render the main content area of the Explore page (picker, chips, time
     strip, and visualization).  When a provenance trail is active, this is
@@ -1760,6 +1899,9 @@ def _render_page_body(
     """
     # --- Top bar: title + Viz/Extract toggle ---
     _render_top_bar()
+
+    # --- Page-level campaign filter (scopes plot + export) ---
+    _render_campaign_filter(campaigns)
 
     st.divider()
 
@@ -1821,6 +1963,9 @@ def _render_page_body(
         active_series, series_meta,
     )
 
+    # --- Bulk export (all active streams → zip) ---
+    _render_export_section(active_channels, channel_meta, active_series, series_meta)
+
 
 # ---------------------------------------------------------------------------
 # Main page
@@ -1852,6 +1997,11 @@ def main() -> None:
     except APIError:
         series_list = []
 
+    try:
+        campaigns = list_campaigns_lookup()
+    except APIError:
+        campaigns = []
+
     # Deployment traces filtered by the active time window
     from_dt = _local_to_utc_iso(st.session_state.explore_start)
     to_dt = _local_to_utc_iso(st.session_state.explore_end, end_of_day=True)
@@ -1860,6 +2010,11 @@ def main() -> None:
     except APIError:
         deployment_traces = []
 
+    # Page-level campaign scope: restrict the pickable streams to the campaign.
+    deployment_traces, series_list = _scope_to_campaign(
+        deployment_traces, series_list, st.session_state.explore_campaign_filter_id
+    )
+
     _render_sidebar_minimal()
 
     # --- Global page layout: provenance panel as a right-hand sidebar ---
@@ -1867,13 +2022,15 @@ def main() -> None:
         body_col, prov_col = st.columns([7, 3])
         with body_col:
             _render_page_body(
-                deployment_traces, series_list, equipment, annotation_types, event_types
+                deployment_traces, series_list, equipment, annotation_types,
+                event_types, campaigns,
             )
         with prov_col:
             _render_provenance_panel(_add_node_to_plot, _inspect_stream)
     else:
         _render_page_body(
-            deployment_traces, series_list, equipment, annotation_types, event_types
+            deployment_traces, series_list, equipment, annotation_types,
+            event_types, campaigns,
         )
 
     # Stream Story — additive narrative panel for the inspected stream.
