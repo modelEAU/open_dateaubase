@@ -67,6 +67,21 @@ def restore_snapshot(wiz_id: str, step: int) -> None:
             st.session_state[key] = val
 
 
+def snapshot_get(wiz_id: str, step: int, key: str, default=None):
+    """Read a value a prior step captured in its snapshot.
+
+    Streamlit drops a widget's session-state entry on any rerun where that
+    widget is not rendered. A later step that reads an earlier step's widget key
+    directly therefore sees ``None`` after the first in-step rerun (e.g. a
+    selectbox change), losing the earlier selection. The snapshot is a plain
+    dict that survives, so cross-step reads must come from it. Live state wins
+    when present (most up to date); fall back to the snapshot when dropped.
+    """
+    if key in st.session_state:
+        return st.session_state[key]
+    return st.session_state.get(f"_{wiz_id}_snap_{step}", {}).get(key, default)
+
+
 def clear_wizard(wiz_id: str) -> None:
     """Remove all wizard state keys from session_state."""
     prefix = f"{wiz_id}_"

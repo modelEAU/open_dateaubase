@@ -22,6 +22,7 @@ from app.components.wizard_helpers import (
     render_wizard_result,
     resolve_id,
     restore_snapshot,
+    snapshot_get,
 )
 
 _WIZ = "cmp_wiz"
@@ -235,7 +236,10 @@ def _step_equipment_deployments(lookups: dict) -> None:
     restore_snapshot(_WIZ, 2)
 
     sites = lookups.get("sites", [])
-    selected_site = st.session_state.get(f"{_WIZ}_s1_site")
+    # Read step-1 selections from its snapshot: the step-1 widgets aren't
+    # rendered here, so Streamlit drops their live keys on the rerun an
+    # equipment selectbox triggers (which otherwise blanks this step).
+    selected_site = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_site")
     site_record = next((s for s in sites if s["name"] == selected_site), None)
     site_id = site_record["site_id"] if site_record else None
 
@@ -246,7 +250,7 @@ def _step_equipment_deployments(lookups: dict) -> None:
         except APIError:
             pass
 
-    selected_sl_labels: list[str] = st.session_state.get(f"{_WIZ}_s1_sl_selected") or []
+    selected_sl_labels: list[str] = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_sl_selected") or []
     selected_sls = [sl for sl in sampling_locations if sl["name"] in selected_sl_labels]
 
     equipment = lookups.get("equipment", [])
@@ -290,8 +294,8 @@ def _step_review(lookups: dict) -> None:
     start = st.session_state.get(f"{_WIZ}_s0_start_date")
     end = st.session_state.get(f"{_WIZ}_s0_end_date")
     description = st.session_state.get(f"{_WIZ}_s0_description", "")
-    selected_site = st.session_state.get(f"{_WIZ}_s1_site", "")
-    selected_sl_labels: list[str] = st.session_state.get(f"{_WIZ}_s1_sl_selected") or []
+    selected_site = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_site", "")
+    selected_sl_labels: list[str] = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_sl_selected") or []
 
     st.markdown("### Campaign")
     st.write(f"**Name:** {name}")
