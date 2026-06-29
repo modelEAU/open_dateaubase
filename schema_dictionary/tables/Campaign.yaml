@@ -2,7 +2,7 @@ _format_version: "1.0"
 table:
   name: Campaign
   schema: dbo
-  description: "A named collection of measurement activities at a site, classified by type (Experiment, Operations, Commissioning). Supersedes Project (defunct table) for all organisational grouping."
+  description: "A named collection of measurement activities, classified by type (Experiment, Operations, Commissioning). Campaigns are multi-site: their sites are derived from sampling-location membership (CampaignSamplingLocation to SamplingPoint.Site), not stored. Supersedes Project (defunct table) for all organisational grouping."
 
   columns:
     - name: Campaign_ID
@@ -17,13 +17,6 @@ table:
       foreign_key:
         table: CampaignKind
         column: CampaignKind_ID
-    - name: Site_ID
-      logical_type: integer
-      nullable: false
-      description: "Site where the campaign is conducted."
-      foreign_key:
-        table: Site
-        column: Site_ID
     - name: Name
       logical_type: string
       max_length: 200

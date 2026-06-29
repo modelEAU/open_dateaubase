@@ -1,9 +1,9 @@
-schema_version: "2.3.0"
+schema_version: "2.4.0"
 description: >
-  Consistency hardening part 3 — broken-link visibility (Batch 3). F6:
-  vw_ChannelLocationAtTime gains Resolution + LocationResolution discriminators
-  (broken-chain NULL vs genuinely-absent). F5: vw_UnlinkedChannels (raw channels
-  with observations but no active wiring). F11: vw_InactiveParentReferences
-  (active wiring pointing at soft-deleted interfaces/ports). Pre-release, fresh
-  install only — no migration.
+  Consistency hardening part 4 — multi-site campaigns (Batch 6). Drops
+  Campaign.Site_ID; a campaign's sites are now derived from its sampling-location
+  membership (CampaignSamplingLocation to SamplingPoint.Site), so a campaign may
+  span several sites. Readers (campaign list/overview, channel pedigree fallback,
+  site filter) repointed to the derived set. Pre-release, fresh install only —
+  no migration.
 date: "2026-06-29"
