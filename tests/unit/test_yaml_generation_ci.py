@@ -179,6 +179,22 @@ def test_view_yaml_files_validate_cleanly() -> None:
     assert errors == [], "\n".join(errors)
 
 
+def test_channel_location_view_exposes_resolution_discriminators() -> None:
+    """F6: vw_ChannelLocationAtTime must carry Resolution + LocationResolution so a
+    NULL SamplingPoint from a broken chain is distinguishable from a genuine absence."""
+    import yaml as _yaml
+
+    doc = _yaml.safe_load(
+        (VIEWS_DIR / "vw_ChannelLocationAtTime.yaml").read_text(encoding="utf-8")
+    )["view"]
+    col_names = {c["name"] for c in doc["columns"]}
+    assert {"Resolution", "LocationResolution"} <= col_names, col_names
+    definition = doc["view_definition"]
+    # the location leg discriminates the three broken/absent/resolved cases
+    for token in ("no-equipment", "no-location", "LocationResolution"):
+        assert token in definition, f"missing {token!r} in view definition"
+
+
 def test_views_emitted_after_views_they_reference() -> None:
     """A view that selects from another must be CREATEd after it.
 

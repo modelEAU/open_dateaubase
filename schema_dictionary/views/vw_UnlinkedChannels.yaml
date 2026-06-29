@@ -1,0 +1,56 @@
+_format_version: "1.0"
+view:
+  name: vw_UnlinkedChannels
+  schema: dbo
+  description: >
+    Health view (consistency audit F5): raw/ingested channels that carry
+    Observations but have no active EquipmentWiringHistory on their
+    SignalInterface, so every observation resolves as 'unlinked' (see
+    vw_ChannelEquipmentAtTime) with no equipment and no SamplingPoint. These
+    are channels that were ingested but never linked to physical equipment —
+    "N channels need wiring". Only raw channels are considered: derived/
+    processed channels have SignalInterface_ID NULL by design and are
+    deliberately unwired, not forgotten, so they are excluded. A channel drops
+    off this list the moment an active wiring row exists for its interface.
+  columns:
+    - name: ChannelID
+      sql_data_type: INT
+      description: "Channel (Stream_ID) lacking active wiring"
+    - name: TagName
+      sql_data_type: NVARCHAR(200)
+      description: "Channel tag name"
+    - name: SignalInterfaceID
+      sql_data_type: INT
+      description: "The channel's SignalInterface (has no active wiring row)"
+    - name: SignalInterfaceName
+      sql_data_type: NVARCHAR(200)
+      description: "Name of the SignalInterface"
+    - name: ObservationCount
+      sql_data_type: INT
+      description: "How many observations are stranded on this unlinked channel"
+    - name: FirstObservation
+      sql_data_type: DATETIME2(7)
+      description: "Earliest stranded observation timestamp"
+    - name: LastObservation
+      sql_data_type: DATETIME2(7)
+      description: "Latest stranded observation timestamp"
+  view_definition: |
+    SELECT
+        c.[Stream_ID]          AS ChannelID,
+        c.[TagName]            AS TagName,
+        c.[SignalInterface_ID] AS SignalInterfaceID,
+        si.[Name]              AS SignalInterfaceName,
+        COUNT(o.[Observation_ID]) AS ObservationCount,
+        MIN(o.[Timestamp])     AS FirstObservation,
+        MAX(o.[Timestamp])     AS LastObservation
+    FROM [dbo].[Channel] c
+    JOIN [dbo].[Observation] o ON o.[Channel_ID] = c.[Stream_ID]
+    LEFT JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = c.[SignalInterface_ID]
+    WHERE c.[SignalInterface_ID] IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM [dbo].[EquipmentWiringHistory] ewh
+          WHERE ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+            AND ewh.[ValidTo] IS NULL
+      )
+    GROUP BY c.[Stream_ID], c.[TagName], c.[SignalInterface_ID], si.[Name]

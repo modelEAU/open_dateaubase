@@ -4949,8 +4949,8 @@
     {
       "id": "vw_ChannelLocationAtTime",
       "label": "vw_ChannelLocationAtTime",
-      "description": "Resolves the SamplingPoint a Channel was sampling at the time of each Observation, by composing vw_ChannelEquipmentAtTime with EquipmentLocationHistory. When equipment cannot be resolved (ambiguous or unlinked wiring), SamplingPointID is NULL.\n",
-      "view_definition": "SELECT\n    cea.ObservationID,\n    cea.ChannelID,\n    cea.Timestamp,\n    cea.EquipmentID,\n    elh.[SamplingPoint_ID] AS SamplingPointID,\n    sp.[SamplingPoint]     AS SamplingPointName\nFROM [dbo].[vw_ChannelEquipmentAtTime] cea\nLEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID\n                                              AND elh.[ValidFrom]   <= cea.Timestamp\n                                              AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > cea.Timestamp)\nLEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]\n",
+      "description": "Resolves the SamplingPoint a Channel was sampling at the time of each Observation, by composing vw_ChannelEquipmentAtTime with EquipmentLocationHistory. SamplingPointID is NULL whenever the chain is broken; the Resolution (equipment leg) and LocationResolution (location leg) discriminators say *why*, so NULL-because-broken is distinguishable from NULL-because-genuinely-absent (consistency audit F6).\n",
+      "view_definition": "SELECT\n    cea.ObservationID,\n    cea.ChannelID,\n    cea.Timestamp,\n    cea.EquipmentID,\n    cea.Resolution,\n    elh.[SamplingPoint_ID] AS SamplingPointID,\n    sp.[SamplingPoint]     AS SamplingPointName,\n    CASE\n        WHEN cea.EquipmentID IS NULL              THEN N'no-equipment'\n        WHEN elh.[SamplingPoint_ID] IS NOT NULL   THEN N'resolved'\n        ELSE N'no-location'\n    END AS LocationResolution\nFROM [dbo].[vw_ChannelEquipmentAtTime] cea\nLEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID\n                                              AND elh.[ValidFrom]   <= cea.Timestamp\n                                              AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > cea.Timestamp)\nLEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]\n",
       "columns": [
         {
           "name": "ObservationID",
@@ -4989,6 +4989,15 @@
           "description": "Equipment resolved at this time (NULL if unresolved)"
         },
         {
+          "name": "Resolution",
+          "sql_type": "NVARCHAR(20)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Equipment leg, passed through from vw_ChannelEquipmentAtTime: 'resolved' | 'unlinked' | 'ambiguous'"
+        },
+        {
           "name": "SamplingPointID",
           "sql_type": "INT",
           "is_pk": false,
@@ -5005,6 +5014,15 @@
           "is_required": false,
           "fk_target": null,
           "description": "Name of the SamplingPoint"
+        },
+        {
+          "name": "LocationResolution",
+          "sql_type": "NVARCHAR(20)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Location leg: 'resolved' (active ELH row) | 'no-location' (equipment resolved but no covering ELH row) | 'no-equipment' (equipment leg broken upstream, see Resolution)"
         }
       ],
       "group_name": "Views",
@@ -5342,6 +5360,134 @@
           "is_required": false,
           "fk_target": null,
           "description": "Raw integer status code stored in the status Channel's Value rows"
+        }
+      ],
+      "group_name": "Views",
+      "group_color": "#0284c7"
+    },
+    {
+      "id": "vw_InactiveParentReferences",
+      "label": "vw_InactiveParentReferences",
+      "description": "Health view (consistency audit F11): live references to soft-deleted parents. The model leans on IsActive soft-deletes for SignalInterface and SignalInterfacePort, but setting IsActive=0 does nothing to the active EquipmentWiringHistory rows still pointing at that interface/port \u2014 they keep resolving as if active. This view lists each active wiring row (ValidTo IS NULL) whose referenced SignalInterface or SignalInterfacePort is inactive, so the app can warn before deactivating a parent that still has live children (and operators can reconcile existing orphans). One row per dangling reference; ReferenceType says which leg is stale.\n",
+      "view_definition": "SELECT\n    N'active-wiring->interface' AS ReferenceType,\n    ewh.[EquipmentWiringHistory_ID] AS WiringHistoryID,\n    ewh.[Equipment_ID]              AS EquipmentID,\n    si.[SignalInterface_ID]         AS ParentID,\n    si.[Name]                       AS ParentLabel\nFROM [dbo].[EquipmentWiringHistory] ewh\nJOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = ewh.[SignalInterface_ID]\nWHERE ewh.[ValidTo] IS NULL\n  AND si.[IsActive] = 0\nUNION ALL\nSELECT\n    N'active-wiring->port'  AS ReferenceType,\n    ewh.[EquipmentWiringHistory_ID] AS WiringHistoryID,\n    ewh.[Equipment_ID]              AS EquipmentID,\n    sip.[SignalInterfacePort_ID]    AS ParentID,\n    sip.[PortIdentifier]            AS ParentLabel\nFROM [dbo].[EquipmentWiringHistory] ewh\nJOIN [dbo].[SignalInterfacePort] sip ON sip.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]\nWHERE ewh.[ValidTo] IS NULL\n  AND sip.[IsActive] = 0\n",
+      "columns": [
+        {
+          "name": "ReferenceType",
+          "sql_type": "NVARCHAR(40)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "'active-wiring->interface' | 'active-wiring->port'"
+        },
+        {
+          "name": "WiringHistoryID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "The active EquipmentWiringHistory row holding the stale reference"
+        },
+        {
+          "name": "EquipmentID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Equipment wired by that row"
+        },
+        {
+          "name": "ParentID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "SignalInterface_ID or SignalInterfacePort_ID that is inactive"
+        },
+        {
+          "name": "ParentLabel",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Inactive parent's name (interface) or port identifier"
+        }
+      ],
+      "group_name": "Views",
+      "group_color": "#0284c7"
+    },
+    {
+      "id": "vw_UnlinkedChannels",
+      "label": "vw_UnlinkedChannels",
+      "description": "Health view (consistency audit F5): raw/ingested channels that carry Observations but have no active EquipmentWiringHistory on their SignalInterface, so every observation resolves as 'unlinked' (see vw_ChannelEquipmentAtTime) with no equipment and no SamplingPoint. These are channels that were ingested but never linked to physical equipment \u2014 \"N channels need wiring\". Only raw channels are considered: derived/ processed channels have SignalInterface_ID NULL by design and are deliberately unwired, not forgotten, so they are excluded. A channel drops off this list the moment an active wiring row exists for its interface.\n",
+      "view_definition": "SELECT\n    c.[Stream_ID]          AS ChannelID,\n    c.[TagName]            AS TagName,\n    c.[SignalInterface_ID] AS SignalInterfaceID,\n    si.[Name]              AS SignalInterfaceName,\n    COUNT(o.[Observation_ID]) AS ObservationCount,\n    MIN(o.[Timestamp])     AS FirstObservation,\n    MAX(o.[Timestamp])     AS LastObservation\nFROM [dbo].[Channel] c\nJOIN [dbo].[Observation] o ON o.[Channel_ID] = c.[Stream_ID]\nLEFT JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = c.[SignalInterface_ID]\nWHERE c.[SignalInterface_ID] IS NOT NULL\n  AND NOT EXISTS (\n      SELECT 1\n      FROM [dbo].[EquipmentWiringHistory] ewh\n      WHERE ewh.[SignalInterface_ID] = c.[SignalInterface_ID]\n        AND ewh.[ValidTo] IS NULL\n  )\nGROUP BY c.[Stream_ID], c.[TagName], c.[SignalInterface_ID], si.[Name]\n",
+      "columns": [
+        {
+          "name": "ChannelID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Channel (Stream_ID) lacking active wiring"
+        },
+        {
+          "name": "TagName",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Channel tag name"
+        },
+        {
+          "name": "SignalInterfaceID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "The channel's SignalInterface (has no active wiring row)"
+        },
+        {
+          "name": "SignalInterfaceName",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Name of the SignalInterface"
+        },
+        {
+          "name": "ObservationCount",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "How many observations are stranded on this unlinked channel"
+        },
+        {
+          "name": "FirstObservation",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Earliest stranded observation timestamp"
+        },
+        {
+          "name": "LastObservation",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Latest stranded observation timestamp"
         }
       ],
       "group_name": "Views",

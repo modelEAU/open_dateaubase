@@ -131,6 +131,21 @@ def _latest_migration_target_version() -> str | None:
     return ".".join(str(x) for x in max(versions))
 
 
+def test_version_description_fits_schemaversion_column() -> None:
+    """version.yaml description must fit SchemaVersion.Description, or db-init's
+    INSERT truncates and fails (Msg 2628). Guards against discovering this only
+    in docker."""
+    desc = (yaml.safe_load(VERSION_YAML.read_text(encoding="utf-8")).get("description") or "").strip()
+    sv = yaml.safe_load((TABLES_DIR / "SchemaVersion.yaml").read_text(encoding="utf-8"))
+    max_len = next(
+        c["max_length"] for c in sv["table"]["columns"] if c["name"] == "Description"
+    )
+    assert len(desc) <= max_len, (
+        f"version.yaml description is {len(desc)} chars but SchemaVersion."
+        f"Description holds {max_len}. Shorten it or the stamp INSERT truncates."
+    )
+
+
 def test_version_yaml_matches_latest_migration_target() -> None:
     """schema_dictionary/version.yaml schema_version should equal the highest migration target."""
     latest = _latest_migration_target_version()

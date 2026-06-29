@@ -16412,6 +16412,138 @@
         }
       }
     },
+    "/api/v1/data-health/unlinked-channels": {
+      "get": {
+        "tags": [
+          "data-health"
+        ],
+        "summary": "Unlinked Channels",
+        "description": "Raw channels that carry observations but have no active wiring (F5).",
+        "operationId": "unlinked_channels_api_v1_data_health_unlinked_channels_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnlinkedChannelsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-health/inactive-parent-references": {
+      "get": {
+        "tags": [
+          "data-health"
+        ],
+        "summary": "Inactive Parent References",
+        "description": "Active wiring rows still pointing at a soft-deleted interface/port (F11).\n\nOptionally filter to a single parent \u2014 the deactivation flow passes the\ninterface/port about to be set inactive to ask \"does this still have live\nchildren?\" before committing.",
+        "operationId": "inactive_parent_references_api_v1_data_health_inactive_parent_references_get",
+        "parameters": [
+          {
+            "name": "signal_interface_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signal Interface Id"
+            }
+          },
+          {
+            "name": "signal_interface_port_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signal Interface Port Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InactiveParentReferencesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "tags": [
@@ -21573,6 +21705,68 @@
         ],
         "title": "ImageIngestResponse"
       },
+      "InactiveParentReference": {
+        "properties": {
+          "reference_type": {
+            "type": "string",
+            "title": "Reference Type"
+          },
+          "wiring_history_id": {
+            "type": "integer",
+            "title": "Wiring History Id"
+          },
+          "equipment_id": {
+            "type": "integer",
+            "title": "Equipment Id"
+          },
+          "parent_id": {
+            "type": "integer",
+            "title": "Parent Id"
+          },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reference_type",
+          "wiring_history_id",
+          "equipment_id",
+          "parent_id",
+          "parent_label"
+        ],
+        "title": "InactiveParentReference",
+        "description": "An active wiring row pointing at a soft-deleted interface/port (F11)."
+      },
+      "InactiveParentReferencesResponse": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/InactiveParentReference"
+            },
+            "type": "array",
+            "title": "References"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "references"
+        ],
+        "title": "InactiveParentReferencesResponse"
+      },
       "IngestResponse": {
         "properties": {
           "channel_id": {
@@ -26713,6 +26907,108 @@
           "si_offset"
         ],
         "title": "UnitOut"
+      },
+      "UnlinkedChannel": {
+        "properties": {
+          "channel_id": {
+            "type": "integer",
+            "title": "Channel Id"
+          },
+          "tag_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag Name"
+          },
+          "signal_interface_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Interface Id"
+          },
+          "signal_interface_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Interface Name"
+          },
+          "observation_count": {
+            "type": "integer",
+            "title": "Observation Count"
+          },
+          "first_observation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Observation"
+          },
+          "last_observation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Observation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel_id",
+          "tag_name",
+          "signal_interface_id",
+          "signal_interface_name",
+          "observation_count",
+          "first_observation",
+          "last_observation"
+        ],
+        "title": "UnlinkedChannel",
+        "description": "A raw channel with observations but no active wiring (F5)."
+      },
+      "UnlinkedChannelsResponse": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/UnlinkedChannel"
+            },
+            "type": "array",
+            "title": "Channels"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "channels"
+        ],
+        "title": "UnlinkedChannelsResponse"
       },
       "UserOut": {
         "properties": {

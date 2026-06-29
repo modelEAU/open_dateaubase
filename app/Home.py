@@ -83,6 +83,7 @@ pg = st.navigation(
         "Reports": [
             st.Page(str(_pages / "campaign_story.py"), title="Campaign Story", icon="📖"),
             st.Page(str(_pages / "equipment_story.py"), title="Equipment Story", icon="🔧"),
+            st.Page(str(_pages / "data_health.py"), title="Data Health", icon="🩺"),
             st.Page(str(_pages / "browse_tables.py"), title="Browse Tables", icon="🗄️"),
         ],
         "Workflows": [

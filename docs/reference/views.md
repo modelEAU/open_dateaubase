@@ -73,7 +73,7 @@ WHERE cw.rn = 1
 
 ## vw_ChannelLocationAtTime
 
-Resolves the SamplingPoint a Channel was sampling at the time of each Observation, by composing vw_ChannelEquipmentAtTime with EquipmentLocationHistory. When equipment cannot be resolved (ambiguous or unlinked wiring), SamplingPointID is NULL.
+Resolves the SamplingPoint a Channel was sampling at the time of each Observation, by composing vw_ChannelEquipmentAtTime with EquipmentLocationHistory. SamplingPointID is NULL whenever the chain is broken; the Resolution (equipment leg) and LocationResolution (location leg) discriminators say *why*, so NULL-because-broken is distinguishable from NULL-because-genuinely-absent (consistency audit F6).
 
 
 
@@ -85,8 +85,14 @@ SELECT
     cea.ChannelID,
     cea.Timestamp,
     cea.EquipmentID,
+    cea.Resolution,
     elh.[SamplingPoint_ID] AS SamplingPointID,
-    sp.[SamplingPoint]     AS SamplingPointName
+    sp.[SamplingPoint]     AS SamplingPointName,
+    CASE
+        WHEN cea.EquipmentID IS NULL              THEN N'no-equipment'
+        WHEN elh.[SamplingPoint_ID] IS NOT NULL   THEN N'resolved'
+        ELSE N'no-location'
+    END AS LocationResolution
 FROM [dbo].[vw_ChannelEquipmentAtTime] cea
 LEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID
                                               AND elh.[ValidFrom]   <= cea.Timestamp
@@ -104,8 +110,10 @@ LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint
 | ChannelID | INT | `ChannelID` | Channel this observation belongs to |
 | Timestamp | DATETIME2(7) | `Timestamp` | Observation timestamp used for resolution |
 | EquipmentID | INT | `EquipmentID` | Equipment resolved at this time (NULL if unresolved) |
+| Resolution | NVARCHAR(20) | `Resolution` | Equipment leg, passed through from vw_ChannelEquipmentAtTime: 'resolved' | 'unlinked' | 'ambiguous' |
 | SamplingPointID | INT | `SamplingPointID` | SamplingPoint where the equipment was installed at this time |
 | SamplingPointName | NVARCHAR(200) | `SamplingPointName` | Name of the SamplingPoint |
+| LocationResolution | NVARCHAR(20) | `LocationResolution` | Location leg: 'resolved' (active ELH row) | 'no-location' (equipment resolved but no covering ELH row) | 'no-equipment' (equipment leg broken upstream, see Resolution) |
 
 <span id="vw_ChannelResolved"></span>
 
@@ -303,3 +311,95 @@ WHERE role.[Name] = N'Status'
 | EquipmentName | NVARCHAR(200) | `EquipmentName` | Identifier of the equipment |
 | Timestamp | DATETIME2(7) | `Timestamp` | Timestamp of the status observation |
 | StatusCodeID | INT | `StatusCodeID` | Raw integer status code stored in the status Channel's Value rows |
+
+<span id="vw_InactiveParentReferences"></span>
+
+## vw_InactiveParentReferences
+
+Health view (consistency audit F11): live references to soft-deleted parents. The model leans on IsActive soft-deletes for SignalInterface and SignalInterfacePort, but setting IsActive=0 does nothing to the active EquipmentWiringHistory rows still pointing at that interface/port — they keep resolving as if active. This view lists each active wiring row (ValidTo IS NULL) whose referenced SignalInterface or SignalInterfacePort is inactive, so the app can warn before deactivating a parent that still has live children (and operators can reconcile existing orphans). One row per dangling reference; ReferenceType says which leg is stale.
+
+
+
+**View Definition:**
+
+```sql
+SELECT
+    N'active-wiring->interface' AS ReferenceType,
+    ewh.[EquipmentWiringHistory_ID] AS WiringHistoryID,
+    ewh.[Equipment_ID]              AS EquipmentID,
+    si.[SignalInterface_ID]         AS ParentID,
+    si.[Name]                       AS ParentLabel
+FROM [dbo].[EquipmentWiringHistory] ewh
+JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+WHERE ewh.[ValidTo] IS NULL
+  AND si.[IsActive] = 0
+UNION ALL
+SELECT
+    N'active-wiring->port'  AS ReferenceType,
+    ewh.[EquipmentWiringHistory_ID] AS WiringHistoryID,
+    ewh.[Equipment_ID]              AS EquipmentID,
+    sip.[SignalInterfacePort_ID]    AS ParentID,
+    sip.[PortIdentifier]            AS ParentLabel
+FROM [dbo].[EquipmentWiringHistory] ewh
+JOIN [dbo].[SignalInterfacePort] sip ON sip.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
+WHERE ewh.[ValidTo] IS NULL
+  AND sip.[IsActive] = 0
+
+```
+
+
+#### Columns
+
+| Column | SQL Type | Source Field | Description |
+|--------|----------|--------------|-------------|
+| ReferenceType | NVARCHAR(40) | `ReferenceType` | 'active-wiring->interface' | 'active-wiring->port' |
+| WiringHistoryID | INT | `WiringHistoryID` | The active EquipmentWiringHistory row holding the stale reference |
+| EquipmentID | INT | `EquipmentID` | Equipment wired by that row |
+| ParentID | INT | `ParentID` | SignalInterface_ID or SignalInterfacePort_ID that is inactive |
+| ParentLabel | NVARCHAR(200) | `ParentLabel` | Inactive parent's name (interface) or port identifier |
+
+<span id="vw_UnlinkedChannels"></span>
+
+## vw_UnlinkedChannels
+
+Health view (consistency audit F5): raw/ingested channels that carry Observations but have no active EquipmentWiringHistory on their SignalInterface, so every observation resolves as 'unlinked' (see vw_ChannelEquipmentAtTime) with no equipment and no SamplingPoint. These are channels that were ingested but never linked to physical equipment — "N channels need wiring". Only raw channels are considered: derived/ processed channels have SignalInterface_ID NULL by design and are deliberately unwired, not forgotten, so they are excluded. A channel drops off this list the moment an active wiring row exists for its interface.
+
+
+
+**View Definition:**
+
+```sql
+SELECT
+    c.[Stream_ID]          AS ChannelID,
+    c.[TagName]            AS TagName,
+    c.[SignalInterface_ID] AS SignalInterfaceID,
+    si.[Name]              AS SignalInterfaceName,
+    COUNT(o.[Observation_ID]) AS ObservationCount,
+    MIN(o.[Timestamp])     AS FirstObservation,
+    MAX(o.[Timestamp])     AS LastObservation
+FROM [dbo].[Channel] c
+JOIN [dbo].[Observation] o ON o.[Channel_ID] = c.[Stream_ID]
+LEFT JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = c.[SignalInterface_ID]
+WHERE c.[SignalInterface_ID] IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM [dbo].[EquipmentWiringHistory] ewh
+      WHERE ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+        AND ewh.[ValidTo] IS NULL
+  )
+GROUP BY c.[Stream_ID], c.[TagName], c.[SignalInterface_ID], si.[Name]
+
+```
+
+
+#### Columns
+
+| Column | SQL Type | Source Field | Description |
+|--------|----------|--------------|-------------|
+| ChannelID | INT | `ChannelID` | Channel (Stream_ID) lacking active wiring |
+| TagName | NVARCHAR(200) | `TagName` | Channel tag name |
+| SignalInterfaceID | INT | `SignalInterfaceID` | The channel's SignalInterface (has no active wiring row) |
+| SignalInterfaceName | NVARCHAR(200) | `SignalInterfaceName` | Name of the SignalInterface |
+| ObservationCount | INT | `ObservationCount` | How many observations are stranded on this unlinked channel |
+| FirstObservation | DATETIME2(7) | `FirstObservation` | Earliest stranded observation timestamp |
+| LastObservation | DATETIME2(7) | `LastObservation` | Latest stranded observation timestamp |

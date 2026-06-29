@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from .endpoints.auth import get_current_user, router as auth_router
 from .endpoints.audit import router as audit_router
 from .endpoints.health import router as health_router
+from .endpoints.data_health import router as data_health_router
 from .endpoints.sites import router as sites_router
 from .endpoints.channels import router as channels_router
 from .endpoints.timeseries import router as timeseries_router
@@ -128,6 +129,9 @@ protected.include_router(
 )
 protected.include_router(
     admin_browse_router, prefix="/admin/tables", tags=["admin-browse"]
+)
+protected.include_router(
+    data_health_router, prefix="/data-health", tags=["data-health"]
 )
 
 # Mount the public and protected groups onto the v1 router.

@@ -1,0 +1,52 @@
+_format_version: "1.0"
+view:
+  name: vw_InactiveParentReferences
+  schema: dbo
+  description: >
+    Health view (consistency audit F11): live references to soft-deleted
+    parents. The model leans on IsActive soft-deletes for SignalInterface and
+    SignalInterfacePort, but setting IsActive=0 does nothing to the active
+    EquipmentWiringHistory rows still pointing at that interface/port — they
+    keep resolving as if active. This view lists each active wiring row
+    (ValidTo IS NULL) whose referenced SignalInterface or SignalInterfacePort
+    is inactive, so the app can warn before deactivating a parent that still
+    has live children (and operators can reconcile existing orphans). One row
+    per dangling reference; ReferenceType says which leg is stale.
+  columns:
+    - name: ReferenceType
+      sql_data_type: NVARCHAR(40)
+      description: "'active-wiring->interface' | 'active-wiring->port'"
+    - name: WiringHistoryID
+      sql_data_type: INT
+      description: "The active EquipmentWiringHistory row holding the stale reference"
+    - name: EquipmentID
+      sql_data_type: INT
+      description: "Equipment wired by that row"
+    - name: ParentID
+      sql_data_type: INT
+      description: "SignalInterface_ID or SignalInterfacePort_ID that is inactive"
+    - name: ParentLabel
+      sql_data_type: NVARCHAR(200)
+      description: "Inactive parent's name (interface) or port identifier"
+  view_definition: |
+    SELECT
+        N'active-wiring->interface' AS ReferenceType,
+        ewh.[EquipmentWiringHistory_ID] AS WiringHistoryID,
+        ewh.[Equipment_ID]              AS EquipmentID,
+        si.[SignalInterface_ID]         AS ParentID,
+        si.[Name]                       AS ParentLabel
+    FROM [dbo].[EquipmentWiringHistory] ewh
+    JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+    WHERE ewh.[ValidTo] IS NULL
+      AND si.[IsActive] = 0
+    UNION ALL
+    SELECT
+        N'active-wiring->port'  AS ReferenceType,
+        ewh.[EquipmentWiringHistory_ID] AS WiringHistoryID,
+        ewh.[Equipment_ID]              AS EquipmentID,
+        sip.[SignalInterfacePort_ID]    AS ParentID,
+        sip.[PortIdentifier]            AS ParentLabel
+    FROM [dbo].[EquipmentWiringHistory] ewh
+    JOIN [dbo].[SignalInterfacePort] sip ON sip.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
+    WHERE ewh.[ValidTo] IS NULL
+      AND sip.[IsActive] = 0

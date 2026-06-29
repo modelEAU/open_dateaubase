@@ -1005,6 +1005,34 @@ def get_active_campaign_deployment(equipment_id: int) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
+# Data health — broken-link views (F5, F11)
+# ---------------------------------------------------------------------------
+
+
+def get_unlinked_channels() -> list[dict]:
+    """Raw channels with observations but no active wiring ("need wiring", F5)."""
+    return _request("GET", "/data-health/unlinked-channels").get("channels", [])
+
+
+def get_inactive_parent_references(
+    signal_interface_id: int | None = None,
+    signal_interface_port_id: int | None = None,
+) -> list[dict]:
+    """Active wiring rows pointing at a soft-deleted interface/port (F11).
+
+    Pass an interface/port id to check whether that specific parent still has
+    live children before deactivating it."""
+    params = {}
+    if signal_interface_id is not None:
+        params["signal_interface_id"] = signal_interface_id
+    if signal_interface_port_id is not None:
+        params["signal_interface_port_id"] = signal_interface_port_id
+    return _request(
+        "GET", "/data-health/inactive-parent-references", params=params
+    ).get("references", [])
+
+
+# ---------------------------------------------------------------------------
 # ControlLoop
 # ---------------------------------------------------------------------------
 

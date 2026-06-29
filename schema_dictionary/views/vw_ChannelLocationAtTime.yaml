@@ -5,8 +5,10 @@ view:
   description: >
     Resolves the SamplingPoint a Channel was sampling at the time of each
     Observation, by composing vw_ChannelEquipmentAtTime with
-    EquipmentLocationHistory. When equipment cannot be resolved (ambiguous
-    or unlinked wiring), SamplingPointID is NULL.
+    EquipmentLocationHistory. SamplingPointID is NULL whenever the chain is
+    broken; the Resolution (equipment leg) and LocationResolution (location
+    leg) discriminators say *why*, so NULL-because-broken is distinguishable
+    from NULL-because-genuinely-absent (consistency audit F6).
   columns:
     - name: ObservationID
       sql_data_type: BIGINT
@@ -20,20 +22,32 @@ view:
     - name: EquipmentID
       sql_data_type: INT
       description: "Equipment resolved at this time (NULL if unresolved)"
+    - name: Resolution
+      sql_data_type: NVARCHAR(20)
+      description: "Equipment leg, passed through from vw_ChannelEquipmentAtTime: 'resolved' | 'unlinked' | 'ambiguous'"
     - name: SamplingPointID
       sql_data_type: INT
       description: "SamplingPoint where the equipment was installed at this time"
     - name: SamplingPointName
       sql_data_type: NVARCHAR(200)
       description: "Name of the SamplingPoint"
+    - name: LocationResolution
+      sql_data_type: NVARCHAR(20)
+      description: "Location leg: 'resolved' (active ELH row) | 'no-location' (equipment resolved but no covering ELH row) | 'no-equipment' (equipment leg broken upstream, see Resolution)"
   view_definition: |
     SELECT
         cea.ObservationID,
         cea.ChannelID,
         cea.Timestamp,
         cea.EquipmentID,
+        cea.Resolution,
         elh.[SamplingPoint_ID] AS SamplingPointID,
-        sp.[SamplingPoint]     AS SamplingPointName
+        sp.[SamplingPoint]     AS SamplingPointName,
+        CASE
+            WHEN cea.EquipmentID IS NULL              THEN N'no-equipment'
+            WHEN elh.[SamplingPoint_ID] IS NOT NULL   THEN N'resolved'
+            ELSE N'no-location'
+        END AS LocationResolution
     FROM [dbo].[vw_ChannelEquipmentAtTime] cea
     LEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID
                                                   AND elh.[ValidFrom]   <= cea.Timestamp
