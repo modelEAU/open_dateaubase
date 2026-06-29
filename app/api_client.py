@@ -935,6 +935,12 @@ def get_das_conflict(das_id: int, site_id: int) -> dict | None:
     return data if data.get("conflict") else None
 
 
+def get_das_move_conflicts(das_id: int, site_id: int) -> list[dict]:
+    """Equipment wired to this DAS that a move to ``site_id`` would strand (F1)."""
+    data = _request("GET", f"/das/{das_id}/move-conflicts", params={"site_id": site_id})
+    return data.get("stranded_equipment", [])
+
+
 def update_das(das_id: int, data: dict) -> dict:
     return _request("PUT", f"/signal-interfaces/das/{das_id}", json=data)
 
@@ -989,6 +995,13 @@ def get_wiring_at_time(equipment_id: int, at: str) -> dict:
 
 def get_location_at_time(equipment_id: int, at: str) -> dict:
     return _request("GET", f"/equipment/{equipment_id}/location-at", params={"at": at})
+
+
+def get_active_campaign_deployment(equipment_id: int) -> dict | None:
+    """Return the still-running campaign whose deployment placed this equipment,
+    or None if reconfiguring would close no running campaign's deployment (F13)."""
+    data = _request("GET", f"/equipment/{equipment_id}/active-campaign")
+    return data if data.get("campaign_id") else None
 
 
 # ---------------------------------------------------------------------------

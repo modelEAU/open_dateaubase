@@ -25,6 +25,7 @@ from ..repositories import (
     temporal_history_repository,
 )
 from ..schemas.equipment_move import (
+    ActiveCampaignDeploymentResponse,
     EquipmentRegisterInterfaceRequest,
     EquipmentRegisterInterfaceResponse,
     EquipmentRelocateRequest,
@@ -330,4 +331,38 @@ def get_location_at_time_endpoint(
         sampling_point_name=row.get("sampling_point_name"),
         valid_from=row["valid_from"],
         valid_to=row["valid_to"],
+    )
+
+
+@router.get(
+    "/{equipment_id}/active-campaign",
+    response_model=ActiveCampaignDeploymentResponse,
+)
+def get_active_campaign_endpoint(
+    equipment_id: int,
+    conn=Depends(get_db),
+):
+    """Return the still-running campaign whose deployment placed this equipment.
+
+    Reconfiguring (relocate/rewire) equipment placed by a campaign that has not
+    ended will close that campaign's deployment, since physical configuration is
+    shared across campaigns. The move UIs call this to warn before acting. All
+    fields are None when no open campaign row exists."""
+    row = temporal_history_repository.get_active_campaign_deployment(conn, equipment_id)
+    if row is None:
+        return ActiveCampaignDeploymentResponse(
+            equipment_id=equipment_id,
+            campaign_id=None,
+            campaign_name=None,
+            equipment_location_history_id=None,
+            sampling_point_id=None,
+            sampling_point_name=None,
+        )
+    return ActiveCampaignDeploymentResponse(
+        equipment_id=equipment_id,
+        campaign_id=row["campaign_id"],
+        campaign_name=row.get("campaign_name"),
+        equipment_location_history_id=row.get("equipment_location_history_id"),
+        sampling_point_id=row.get("sampling_point_id"),
+        sampling_point_name=row.get("sampling_point_name"),
     )

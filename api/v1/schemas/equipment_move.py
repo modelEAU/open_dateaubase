@@ -93,3 +93,16 @@ class LocationAtTimeResponse(BaseModel):
     sampling_point_name: str | None
     valid_from: datetime | None
     valid_to: datetime | None
+
+
+class ActiveCampaignDeploymentResponse(BaseModel):
+    """The still-running campaign whose deployment placed this equipment, if any
+    (consistency audit F13). ``campaign_id`` is None when no open campaign row
+    exists — reconfiguring then closes no running campaign's deployment."""
+
+    equipment_id: int
+    campaign_id: int | None
+    campaign_name: str | None
+    equipment_location_history_id: int | None
+    sampling_point_id: int | None
+    sampling_point_name: str | None

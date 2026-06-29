@@ -21,6 +21,8 @@ from ..schemas.das_move import (
     DASConflictResponse,
     DASDeployRequest,
     DASDeployResponse,
+    DASMoveConflictsResponse,
+    StrandedEquipment,
 )
 
 router = APIRouter()
@@ -139,4 +141,30 @@ def conflict_check_endpoint(
         conflicting_site_name=conflict.get("site_name"),
         conflicting_campaign_id=conflict.get("campaign_id"),
         conflicting_campaign_name=conflict.get("campaign_name"),
+    )
+
+
+@router.get(
+    "/{das_id}/move-conflicts",
+    response_model=DASMoveConflictsResponse,
+)
+def move_conflicts_endpoint(
+    das_id: int,
+    site_id: int,
+    conn=Depends(get_db),
+):
+    """Equipment that a pending move of this DAS to ``site_id`` would strand.
+
+    Lists equipment currently wired to this DAS whose active location is at a
+    SamplingPoint in a *different* Site than ``site_id``. Empty list = the move
+    is coherent. The wizard surfaces this so the user can relocate those
+    equipment too rather than leaving a silent location/DAS mismatch (which
+    ``vw_DeploymentCoherence`` would then report)."""
+    rows = temporal_history_repository.get_das_move_equipment_conflicts(
+        conn, das_id=das_id, new_site_id=site_id
+    )
+    return DASMoveConflictsResponse(
+        das_id=das_id,
+        site_id=site_id,
+        stranded_equipment=[StrandedEquipment(**r) for r in rows],
     )

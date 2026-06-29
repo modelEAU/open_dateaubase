@@ -6553,6 +6553,65 @@
         }
       }
     },
+    "/api/v1/equipment/{equipment_id}/active-campaign": {
+      "get": {
+        "tags": [
+          "equipment-move"
+        ],
+        "summary": "Get Active Campaign Endpoint",
+        "description": "Return the still-running campaign whose deployment placed this equipment.\n\nReconfiguring (relocate/rewire) equipment placed by a campaign that has not\nended will close that campaign's deployment, since physical configuration is\nshared across campaigns. The move UIs call this to warn before acting. All\nfields are None when no open campaign row exists.",
+        "operationId": "get_active_campaign_endpoint_api_v1_equipment__equipment_id__active_campaign_get",
+        "parameters": [
+          {
+            "name": "equipment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Equipment Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveCampaignDeploymentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/das/{das_id}/deploy": {
       "post": {
         "tags": [
@@ -6732,6 +6791,74 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DASConflictResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/das/{das_id}/move-conflicts": {
+      "get": {
+        "tags": [
+          "das-move"
+        ],
+        "summary": "Move Conflicts Endpoint",
+        "description": "Equipment that a pending move of this DAS to ``site_id`` would strand.\n\nLists equipment currently wired to this DAS whose active location is at a\nSamplingPoint in a *different* Site than ``site_id``. Empty list = the move\nis coherent. The wizard surfaces this so the user can relocate those\nequipment too rather than leaving a silent location/DAS mismatch (which\n``vw_DeploymentCoherence`` would then report).",
+        "operationId": "move_conflicts_endpoint_api_v1_das__das_id__move_conflicts_get",
+        "parameters": [
+          {
+            "name": "das_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Das Id"
+            }
+          },
+          {
+            "name": "site_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Site Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DASMoveConflictsResponse"
                 }
               }
             }
@@ -16308,6 +16435,80 @@
   },
   "components": {
     "schemas": {
+      "ActiveCampaignDeploymentResponse": {
+        "properties": {
+          "equipment_id": {
+            "type": "integer",
+            "title": "Equipment Id"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
+          },
+          "campaign_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Name"
+          },
+          "equipment_location_history_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Location History Id"
+          },
+          "sampling_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Id"
+          },
+          "sampling_point_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "equipment_id",
+          "campaign_id",
+          "campaign_name",
+          "equipment_location_history_id",
+          "sampling_point_id",
+          "sampling_point_name"
+        ],
+        "title": "ActiveCampaignDeploymentResponse",
+        "description": "The still-running campaign whose deployment placed this equipment, if any\n(consistency audit F13). ``campaign_id`` is None when no open campaign row\nexists \u2014 reconfiguring then closes no running campaign's deployment."
+      },
       "AnalysisSeriesCreateRequest": {
         "properties": {
           "name": {
@@ -19441,6 +19642,33 @@
           "closed_history_id"
         ],
         "title": "DASDeployResponse"
+      },
+      "DASMoveConflictsResponse": {
+        "properties": {
+          "das_id": {
+            "type": "integer",
+            "title": "Das Id"
+          },
+          "site_id": {
+            "type": "integer",
+            "title": "Site Id"
+          },
+          "stranded_equipment": {
+            "items": {
+              "$ref": "#/components/schemas/StrandedEquipment"
+            },
+            "type": "array",
+            "title": "Stranded Equipment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "das_id",
+          "site_id",
+          "stranded_equipment"
+        ],
+        "title": "DASMoveConflictsResponse",
+        "description": "Equipment wired to this DAS whose active location is at a Site other than\n``site_id`` \u2014 i.e. would be silently stranded if the DAS moves there."
       },
       "DasCreateIn": {
         "properties": {
@@ -25786,6 +26014,80 @@
         ],
         "title": "StatusTransition",
         "description": "A single status transition event."
+      },
+      "StrandedEquipment": {
+        "properties": {
+          "equipment_id": {
+            "type": "integer",
+            "title": "Equipment Id"
+          },
+          "equipment_identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Identifier"
+          },
+          "sampling_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Id"
+          },
+          "sampling_point_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Name"
+          },
+          "current_site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Site Id"
+          },
+          "current_site_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Site Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "equipment_id",
+          "equipment_identifier",
+          "sampling_point_id",
+          "sampling_point_name",
+          "current_site_id",
+          "current_site_name"
+        ],
+        "title": "StrandedEquipment",
+        "description": "Equipment a pending DAS move would strand (consistency audit F1)."
       },
       "StreamPedigreeOut": {
         "properties": {

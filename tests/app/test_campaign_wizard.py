@@ -339,6 +339,42 @@ class TestStep3Validation:
         assert not _errors(at)
         assert at.session_state.wizard_step == 4
 
+    def test_das_move_strands_equipment_warning(self, mocked_lookups):
+        """F1: picking a DAS active at another site lists the equipment it strands."""
+        conflict = {
+            "conflicting_site_name": "Plant A",
+            "conflicting_site_id": 2,
+            "conflicting_campaign_name": "Old Study",
+        }
+        stranded = [
+            {
+                "equipment_id": 5,
+                "equipment_identifier": "pH-01",
+                "sampling_point_name": "Influent",
+                "current_site_name": "Plant A",
+            }
+        ]
+        at = _at(
+            3,
+            {
+                "wiz_s1_mode": "Use existing",
+                "wiz_s1_site_label": "Site A",
+                "wiz_das_ids": [0],
+                "wiz_das_next_id": 1,
+                "wiz_das_0_mode": "Existing",
+                "wiz_das_0_das_label": "DAS-001",
+            },
+        )
+        with patch(f"{MOD}.get_das_conflict", return_value=conflict), patch(
+            f"{MOD}.get_das_move_conflicts", return_value=stranded
+        ) as m:
+            at.run()
+        warnings = " ".join(w.value for w in at.warning)
+        assert "would strand 1 wired equipment" in warnings
+        assert "pH-01" in warnings
+        # queried with the resolved DAS id and the new (campaign) site id
+        assert m.call_args.args == (1, 1)
+
 
 # ---------------------------------------------------------------------------
 # Step 4: Equipment & Tags

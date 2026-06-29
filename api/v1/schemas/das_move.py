@@ -45,3 +45,23 @@ class DASConflictResponse(BaseModel):
     conflicting_site_name: str | None
     conflicting_campaign_id: int | None
     conflicting_campaign_name: str | None
+
+
+class StrandedEquipment(BaseModel):
+    """Equipment a pending DAS move would strand (consistency audit F1)."""
+
+    equipment_id: int
+    equipment_identifier: str | None
+    sampling_point_id: int | None
+    sampling_point_name: str | None
+    current_site_id: int | None
+    current_site_name: str | None
+
+
+class DASMoveConflictsResponse(BaseModel):
+    """Equipment wired to this DAS whose active location is at a Site other than
+    ``site_id`` — i.e. would be silently stranded if the DAS moves there."""
+
+    das_id: int
+    site_id: int
+    stranded_equipment: list[StrandedEquipment]

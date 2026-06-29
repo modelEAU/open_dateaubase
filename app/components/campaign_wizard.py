@@ -21,6 +21,7 @@ from app.api_client import (
     create_site,
     deploy_das,
     get_das_conflict,
+    get_das_move_conflicts,
     list_campaign_kinds,
     list_das_lookup,
     list_equipment_lookup,
@@ -753,6 +754,23 @@ def _step_das(lookups: dict) -> None:
                                 "but make sure the other campaign is aware."
                             )
                             st.warning(msg)
+                            # F1: name the equipment this move would strand at the old site.
+                            try:
+                                stranded = get_das_move_conflicts(resolved_das_id, current_site_id)
+                            except APIError:
+                                stranded = []
+                            if stranded:
+                                names = ", ".join(
+                                    f"**{e.get('equipment_identifier') or f'#{e['equipment_id']}'}**"
+                                    f" (at {e.get('sampling_point_name') or '—'},"
+                                    f" {e.get('current_site_name') or 'other site'})"
+                                    for e in stranded
+                                )
+                                st.warning(
+                                    f"Moving this DAS would strand {len(stranded)} wired "
+                                    f"equipment at the old site: {names}. Relocate them too "
+                                    "via **Equipment Move** so their location follows the DAS."
+                                )
                         st.session_state[f"wiz_das_{das_id}_conflict"] = conflict
                 else:
                     st.info(
