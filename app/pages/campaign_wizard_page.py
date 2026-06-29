@@ -195,32 +195,59 @@ def _step_site_and_sls(lookups: dict) -> None:
         )
         return
 
-    selected_site = st.selectbox("Site *", site_labels, key=f"{_WIZ}_s1_site")
+    # Campaigns are multi-site: one repeatable block per site, each with its own
+    # sampling-location multiselect. The campaign's sites are the union.
+    block_ids: list[int] = st.session_state.get(f"{_WIZ}_s1_block_ids") or []
+    if not block_ids:
+        block_ids = [0]
+        st.session_state[f"{_WIZ}_s1_block_ids"] = block_ids
+        st.session_state[f"{_WIZ}_s1_next_block"] = 1
 
-    # Load sampling locations for the selected site
-    site_record = next((s for s in sites if s["name"] == selected_site), None)
-    site_id = site_record["site_id"] if site_record else None
-    sampling_locations: list[dict] = []
+    st.caption(
+        "Add each site this campaign covers and pick its sampling locations. "
+        "The campaign's sites are derived from everything selected here."
+    )
 
-    if site_id is not None:
-        try:
-            sampling_locations = list_site_sampling_locations(site_id)
-        except APIError as e:
-            st.error(f"Failed to load sampling locations: {e.message}")
+    for b in block_ids:
+        with st.container(border=True):
+            head, rm = st.columns([6, 1])
+            with head:
+                selected_site = st.selectbox(
+                    "Site *", site_labels, key=f"{_WIZ}_s1_site_{b}"
+                )
+            with rm:
+                st.write("")
+                if len(block_ids) > 1 and st.button(
+                    "✖", key=f"{_WIZ}_s1_site_{b}_remove", help="Remove this site"
+                ):
+                    st.session_state[f"{_WIZ}_s1_block_ids"] = [
+                        i for i in block_ids if i != b
+                    ]
+                    st.rerun()
 
-    if not sampling_locations:
-        st.info(
-            "This site has no sampling locations yet. "
-            "Use the **Site Setup Wizard** to add sampling locations, "
-            "or proceed to create a campaign without deployments."
-        )
-    else:
-        sl_labels = [sl["name"] for sl in sampling_locations]
-        st.multiselect(
-            "Sampling locations in scope",
-            sl_labels,
-            key=f"{_WIZ}_s1_sl_selected",
-        )
+            site_record = next((s for s in sites if s["name"] == selected_site), None)
+            site_id = site_record["site_id"] if site_record else None
+            sls: list[dict] = []
+            if site_id is not None:
+                try:
+                    sls = list_site_sampling_locations(site_id)
+                except APIError as e:
+                    st.error(f"Failed to load sampling locations: {e.message}")
+
+            if not sls:
+                st.info("This site has no sampling locations yet.")
+            else:
+                st.multiselect(
+                    "Sampling locations in scope",
+                    [sl["name"] for sl in sls],
+                    key=f"{_WIZ}_s1_sls_{b}",
+                )
+
+    if st.button("➕ Add another site", key=f"{_WIZ}_s1_add_site"):
+        nxt = st.session_state.get(f"{_WIZ}_s1_next_block", len(block_ids))
+        st.session_state[f"{_WIZ}_s1_block_ids"] = block_ids + [nxt]
+        st.session_state[f"{_WIZ}_s1_next_block"] = nxt + 1
+        st.rerun()
 
     nav(
         wiz_id=_WIZ,
@@ -232,26 +259,41 @@ def _step_site_and_sls(lookups: dict) -> None:
     )
 
 
+def _selected_sls(lookups: dict) -> list[dict]:
+    """Union of sampling locations selected across all site blocks, each
+    annotated with ``site_name``.
+
+    Reads from the step-1 snapshot so it survives later-step reruns. SL ids are
+    unique across sites; SL names may collide between sites, so resolution is
+    per block (within a single site, names are unique)."""
+    sites = lookups.get("sites", [])
+    block_ids = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_block_ids") or [0]
+    out: list[dict] = []
+    seen: set[int] = set()
+    for b in block_ids:
+        site_name = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_site_{b}")
+        site_record = next((s for s in sites if s["name"] == site_name), None)
+        if not site_record:
+            continue
+        try:
+            sls = list_site_sampling_locations(site_record["site_id"])
+        except APIError:
+            sls = []
+        chosen = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_sls_{b}") or []
+        for sl in sls:
+            if sl["name"] in chosen and sl["id"] not in seen:
+                seen.add(sl["id"])
+                out.append({**sl, "site_name": site_record["name"]})
+    return out
+
+
 def _step_equipment_deployments(lookups: dict) -> None:
     restore_snapshot(_WIZ, 2)
 
-    sites = lookups.get("sites", [])
-    # Read step-1 selections from its snapshot: the step-1 widgets aren't
+    # Sampling locations come from the step-1 snapshot (its widgets aren't
     # rendered here, so Streamlit drops their live keys on the rerun an
-    # equipment selectbox triggers (which otherwise blanks this step).
-    selected_site = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_site")
-    site_record = next((s for s in sites if s["name"] == selected_site), None)
-    site_id = site_record["site_id"] if site_record else None
-
-    sampling_locations: list[dict] = []
-    if site_id is not None:
-        try:
-            sampling_locations = list_site_sampling_locations(site_id)
-        except APIError:
-            pass
-
-    selected_sl_labels: list[str] = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_sl_selected") or []
-    selected_sls = [sl for sl in sampling_locations if sl["name"] in selected_sl_labels]
+    # equipment selectbox triggers, which otherwise blanks this step).
+    selected_sls = _selected_sls(lookups)
 
     equipment = lookups.get("equipment", [])
     eq_labels = [e["identifier"] for e in equipment]
@@ -273,7 +315,7 @@ def _step_equipment_deployments(lookups: dict) -> None:
             )
             for sl in selected_sls:
                 st.selectbox(
-                    f"Equipment at **{sl['name']}**",
+                    f"Equipment at **{sl['name']}** ({sl['site_name']})",
                     ["(none)"] + eq_labels,
                     key=f"{_WIZ}_s2_sl_{sl['id']}_eq",
                 )
@@ -289,13 +331,16 @@ def _step_equipment_deployments(lookups: dict) -> None:
 
 
 def _step_review(lookups: dict) -> None:
+    # Re-inject earlier steps' snapshots: their widgets aren't rendered here, so
+    # the live keys were dropped on the way to this step.
+    for s in range(3):
+        restore_snapshot(_WIZ, s)
+
     name = st.session_state.get(f"{_WIZ}_s0_name", "")
     kind_label = st.session_state.get(f"{_WIZ}_s0_kind", "")
     start = st.session_state.get(f"{_WIZ}_s0_start_date")
     end = st.session_state.get(f"{_WIZ}_s0_end_date")
     description = st.session_state.get(f"{_WIZ}_s0_description", "")
-    selected_site = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_site", "")
-    selected_sl_labels: list[str] = snapshot_get(_WIZ, 1, f"{_WIZ}_s1_sl_selected") or []
 
     st.markdown("### Campaign")
     st.write(f"**Name:** {name}")
@@ -313,23 +358,16 @@ def _step_review(lookups: dict) -> None:
         ln = st.session_state.get(f"{_WIZ}_s0_person_last_name", "")
         st.write(f"**Responsible person (new):** {fn} {ln}".strip())
 
-    st.markdown("### Site")
-    st.write(f"**Site:** {selected_site}")
-    if selected_sl_labels:
-        st.write(f"**Sampling locations:** {', '.join(selected_sl_labels)}")
+    selected_sls = _selected_sls(lookups)
+    site_names = sorted({sl["site_name"] for sl in selected_sls})
+
+    st.markdown("### Sites & Sampling Locations")
+    if site_names:
+        st.write(f"**Sites:** {', '.join(site_names)}")
+    for sl in selected_sls:
+        st.write(f"- {sl['name']} ({sl['site_name']})")
 
     # Show deployments
-    sites = lookups.get("sites", [])
-    site_record = next((s for s in sites if s["name"] == selected_site), None)
-    site_id = site_record["site_id"] if site_record else None
-    sampling_locations: list[dict] = []
-    if site_id:
-        try:
-            sampling_locations = list_site_sampling_locations(site_id)
-        except APIError:
-            pass
-
-    selected_sls = [sl for sl in sampling_locations if sl["name"] in selected_sl_labels]
     equipment = lookups.get("equipment", [])
     deployments = []
     for sl in selected_sls:
@@ -341,7 +379,7 @@ def _step_review(lookups: dict) -> None:
     if deployments:
         st.markdown("### Equipment Deployments")
         for sl, eq in deployments:
-            st.write(f"- **{eq['identifier']}** at {sl['name']}")
+            st.write(f"- **{eq['identifier']}** at {sl['name']} ({sl['site_name']})")
 
     def on_next() -> list[str]:
         created, errors = _execute_creates(lookups)
@@ -387,7 +425,6 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
         for k in lookups["campaign_kinds"]
     ]
     person_opts: list[dict] = lookups.get("persons", [])
-    sites = lookups.get("sites", [])
     equipment = lookups.get("equipment", [])
     eq_opts = [{"id": e["equipment_id"], "label": e["identifier"]} for e in equipment]
 
@@ -443,34 +480,24 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
         errors.append(f"Campaign creation failed: {e.message}")
         return created, errors
 
-    # 3. Create deployments
-    selected_site = st.session_state.get(f"{_WIZ}_s1_site")
-    site_record = next((s for s in sites if s["name"] == selected_site), None)
-    site_id = site_record["site_id"] if site_record else None
-    selected_sl_labels: list[str] = st.session_state.get(f"{_WIZ}_s1_sl_selected") or []
-
-    if site_id and selected_sl_labels:
-        try:
-            sampling_locations = list_site_sampling_locations(site_id)
-        except APIError:
-            sampling_locations = []
-
-        selected_sls = [sl for sl in sampling_locations if sl["name"] in selected_sl_labels]
-        for sl in selected_sls:
-            eq_label = st.session_state.get(f"{_WIZ}_s2_sl_{sl['id']}_eq") or "(none)"
-            eq_id = resolve_id(eq_label, eq_opts) if eq_label != "(none)" else None
-            if eq_id is not None:
-                try:
-                    create_campaign_deployment(
-                        campaign_id,
-                        {
-                            "equipment_id": eq_id,
-                            "sampling_point_id": sl["id"],
-                        },
-                    )
-                    created.append({"label": f"Deployment at {sl['name']}", "detail": eq_label})
-                except APIError as e:
-                    errors.append(f"Deployment at '{sl['name']}': {e.message}")
+    # 3. Create deployments (across every site block's selected locations)
+    for sl in _selected_sls(lookups):
+        eq_label = st.session_state.get(f"{_WIZ}_s2_sl_{sl['id']}_eq") or "(none)"
+        eq_id = resolve_id(eq_label, eq_opts) if eq_label != "(none)" else None
+        if eq_id is not None:
+            try:
+                create_campaign_deployment(
+                    campaign_id,
+                    {
+                        "equipment_id": eq_id,
+                        "sampling_point_id": sl["id"],
+                    },
+                )
+                created.append(
+                    {"label": f"Deployment at {sl['name']} ({sl['site_name']})", "detail": eq_label}
+                )
+            except APIError as e:
+                errors.append(f"Deployment at '{sl['name']}': {e.message}")
 
     return created, errors
 
