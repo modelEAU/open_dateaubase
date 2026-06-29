@@ -55,14 +55,27 @@ BRUSH_SELECTED_JS = (
     "}"
 )
 
+# Click is the reliable, discoverable single-point selector (just click a marker).
+# It returns the SAME shape as the brush handler so one resolver handles both.
+CLICK_SELECTED_JS = (
+    "function(p){"
+    " if(p.componentType!=='series'){return null;}"
+    " return [{seriesIndex: p.seriesIndex, dataIndex: [p.dataIndex]}];"
+    "}"
+)
+
 
 def _qc_color(qc) -> str:
     return QUALITY_COLORS.get(qc, DEFAULT_QUALITY_COLOR)
 
 
-def _value_label(meta: dict) -> str:
-    param = meta.get("parameter_name") or ""
-    unit = meta.get("unit_name") or ""
+def _series_value_label(data: dict | None, meta: dict) -> str:
+    """Y-axis label as 'parameter (unit)'. The loaded time-series payload carries
+    both fields reliably; the picker meta (DeploymentTraceLookupItem) has no
+    unit, so prefer the data and fall back to meta."""
+    data = data or {}
+    param = data.get("parameter") or meta.get("parameter_name") or ""
+    unit = data.get("unit") or meta.get("unit_name") or ""
     return f"{param} ({unit})" if param and unit else param or unit or "Value"
 
 
@@ -121,8 +134,7 @@ def build_scalar_echarts_option(
     seen_labels: set[str] = set()
     drawn_eq: set = set()
 
-    def _track_label(meta: dict) -> None:
-        lbl = _value_label(meta)
+    def _track_label(lbl: str) -> None:
         if lbl not in seen_labels:
             seen_labels.add(lbl)
             y_labels.append(lbl)
@@ -144,7 +156,7 @@ def build_scalar_echarts_option(
         obs_list = [ts_to_obs.get(ts) for ts in ts_list]
 
         meta = channel_meta.get(ch_id, {})
-        _track_label(meta)
+        _track_label(_series_value_label(data, meta))
         label = f"CH-{ch_id}: {meta.get('equipment_identifier', '?')} / {meta.get('parameter_name', '?')}"
         color = SENSOR_PALETTE[idx % len(SENSOR_PALETTE)]
 
@@ -199,7 +211,7 @@ def build_scalar_echarts_option(
         obs_list = [r.get("observation_id") for r in rows]
 
         smeta = series_meta.get(s_id, {})
-        _track_label(smeta)
+        _track_label(_series_value_label(data, smeta))
         label = (
             f"LAB-{s_id}: {smeta.get('name') or smeta.get('parameter_name', '?')} "
             f"@ {smeta.get('sampling_point_label', '?')}"
@@ -238,9 +250,18 @@ def build_scalar_echarts_option(
     option = {
         "tooltip": {"trigger": "item", "axisPointer": {"type": "cross"}},
         "legend": {"top": 0, "type": "scroll"},
-        "grid": {"left": 60, "right": 24, "top": 48, "bottom": 72},
-        "xAxis": {"type": "time", "name": "Time"},
-        "yAxis": {"type": "value", "name": y_axis_title, "scale": True},
+        "grid": {"left": 76, "right": 24, "top": 48, "bottom": 80, "containLabel": True},
+        "xAxis": {
+            "type": "time", "name": "Time",
+            "nameLocation": "middle", "nameGap": 28,
+        },
+        "yAxis": {
+            "type": "value", "name": y_axis_title, "scale": True,
+            # Render the parameter (unit) as a proper rotated axis title, like the
+            # old Plotly yaxis_title — not the tiny default label at the axis top.
+            "nameLocation": "middle", "nameGap": 44,
+            "nameTextStyle": {"fontWeight": "bold"},
+        },
         "dataZoom": [
             {"type": "inside", "xAxisIndex": 0},
             {"type": "slider", "xAxisIndex": 0, "bottom": 8},

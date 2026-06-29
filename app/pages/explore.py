@@ -89,6 +89,7 @@ from app.components.explore_matrix import (  # noqa: F401
 from app.components.explore_scalar import _build_scalar_figure  # noqa: F401
 from app.components.explore_echarts import (  # noqa: F401
     BRUSH_SELECTED_JS,
+    CLICK_SELECTED_JS,
     build_scalar_echarts_option,
     resolve_brush_selection,
 )
@@ -1167,13 +1168,14 @@ def _render_scalar_view(
     option, series_index_map, overlay_rows = build_scalar_echarts_option(
         scalar_channels, channel_meta, mode, scalar_series, series_meta
     )
-    # ECharts canvas chart: native dataZoom (slider + scroll/pinch) for zoom, and
-    # the toolbox brush (rect / polygon / lineX) for point selection. The JS
-    # handler returns the brushed (seriesIndex, dataIndex) list; we map it back
-    # to stream/observation identity in Python (resolve_brush_selection).
+    # ECharts canvas chart: native dataZoom (slider + scroll/pinch) for zoom.
+    # Selection has two paths that both return the same (seriesIndex, dataIndex)
+    # shape: click a marker (single point — reliable + discoverable) or use the
+    # toolbox brush (rect / polygon / lineX) for multi-select. resolve_brush_selection
+    # maps either back to stream/observation identity.
     brush_payload = st_echarts(
         options=option,
-        events={"brushSelected": BRUSH_SELECTED_JS},
+        events={"click": CLICK_SELECTED_JS, "brushSelected": BRUSH_SELECTED_JS},
         height="480px",
         key=f"scalar_chart{suffix}",
     )
@@ -1182,41 +1184,53 @@ def _render_scalar_view(
     lab_pts = sel["lab_pts"]
     selected_pts = sensor_pts + lab_pts
 
-    if selected_pts:
-        n_streams = len({s["id"] for s in sensor_pts}) + len({s["id"] for s in lab_pts})
-        st.markdown(
-            f"**{len(selected_pts)} points selected** across {n_streams} stream(s)."
+    # Identities derived from the live selection — what annotation / events target.
+    sensor_sel_ids = sorted({p["id"] for p in sensor_pts})
+    lab_series_ids: list[int] = list(dict.fromkeys(p["id"] for p in lab_pts))
+    sel_equipment: dict[int, str] = {}
+    for ch_id in sensor_sel_ids:
+        m = channel_meta.get(ch_id, {})
+        eqid = m.get("equipment_id")
+        if eqid is not None:
+            sel_equipment[eqid] = m.get("equipment_identifier") or f"EQ-{eqid}"
+    all_sel_times = [p["x"] for p in selected_pts if p.get("x")]
+
+    st.markdown("##### Annotate & flag")
+    if not selected_pts:
+        st.caption(
+            "Click a point — or use the brush tool (top-right of the chart) to "
+            "box / lasso-select several — to choose what gets annotated. "
+            "Annotations apply to the selected points, not the view range. "
+            "Scroll or drag the bottom slider to zoom."
         )
-        sel_rows = [
-            {"Stream": f"CH-{p['id']}", "Kind": "sensor",
-             "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
-            for p in sensor_pts
-        ] + [
-            {"Stream": f"LAB-{p['id']}", "Kind": "lab",
-             "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
-            for p in lab_pts
-        ]
-        st.dataframe(
-            pd.DataFrame(sel_rows), use_container_width=True, hide_index=True
-        )
 
-    if sensor_pts:
-        sel_times = [p["x"] for p in sensor_pts if p.get("x")]
-        t_start_sel = min(sel_times) if sel_times else None
-        t_end_sel = max(sel_times) if sel_times else None
+    obs_col, eq_col = st.columns(2)
 
-        # Single sensor point → pin to its exact observation
-        single_sensor_obs_id: int | None = None
-        single_sensor_val: float | None = None
-        if len(sensor_pts) == 1:
-            single_sensor_obs_id = sensor_pts[0].get("obs_id")
-            single_sensor_val = sensor_pts[0].get("y")
+    # --- Left: selected observations + annotate buttons ---
+    with obs_col:
+        st.caption(f"**Selected observations** · {len(selected_pts)}")
+        if selected_pts:
+            sel_rows = [
+                {"Stream": f"CH-{p['id']}", "Kind": "sensor",
+                 "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
+                for p in sensor_pts
+            ] + [
+                {"Stream": f"LAB-{p['id']}", "Kind": "lab",
+                 "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
+                for p in lab_pts
+            ]
+            st.dataframe(
+                pd.DataFrame(sel_rows), use_container_width=True, hide_index=True
+            )
+        else:
+            st.caption("— none —")
 
-        # Annotate ONLY the streams that have selected points, scoped to the
-        # selected points' time span (not the plotted view range).
-        sensor_sel_ids = sorted({p["id"] for p in sensor_pts})
-        col1, col2 = st.columns(2)
-        with col1:
+        if sensor_pts:
+            sel_times = [p["x"] for p in sensor_pts if p.get("x")]
+            t_start_sel = min(sel_times) if sel_times else None
+            t_end_sel = max(sel_times) if sel_times else None
+            single_sensor_obs_id = sensor_pts[0].get("obs_id") if len(sensor_pts) == 1 else None
+            single_sensor_val = sensor_pts[0].get("y") if len(sensor_pts) == 1 else None
             btn_label = "Annotate selected point" if single_sensor_obs_id else "Annotate selected points"
             if st.button(btn_label, type="primary", key=f"btn_sensor_ann{suffix}"):
                 _annotation_dialog(
@@ -1227,49 +1241,43 @@ def _render_scalar_view(
                     observation_id=single_sensor_obs_id,
                     point_value=single_sensor_val,
                 )
-        with col2:
-            if st.button("Tag Equipment Event", key=f"btn_eq_event{suffix}"):
-                st.session_state._show_event_dialog = True
-                st.session_state._ann_start = str(t_start_sel)
-                st.session_state._ann_end = str(t_end_sel)
-                st.rerun()  # dialog check runs before visualization area in script order
 
-    if lab_pts:
-        lab_times = [p["x"] for p in lab_pts if p.get("x")]
-        t_lab_start = min(lab_times) if lab_times else None
-        t_lab_end = max(lab_times) if lab_times else None
-
-        # Group by series to support multi-series box selections
-        lab_series_ids: list[int] = list(dict.fromkeys(p["id"] for p in lab_pts))
-
-        # Single lab point → pin to exact replicate observation
-        single_lab_obs_id: int | None = None
-        single_lab_val: float | None = None
-        if len(lab_pts) == 1:
-            single_lab_obs_id = lab_pts[0].get("obs_id")
-            single_lab_val = lab_pts[0].get("y")
-
-        lab_btn_label = (
-            "Annotate selected lab point" if single_lab_obs_id
-            else "Annotate selected lab points"
-        )
-        if st.button(lab_btn_label, type="primary", key=f"btn_lab_ann_pt{suffix}"):
-            _annotation_dialog(
-                channel_ids=[],
-                series_ids=lab_series_ids,
-                start_time=str(t_lab_start) if t_lab_start else None,
-                end_time=str(t_lab_end) if (t_lab_end and not single_lab_obs_id) else None,
-                annotation_types=annotation_types,
-                observation_id=single_lab_obs_id,
-                point_value=single_lab_val,
+        if lab_pts:
+            lab_times = [p["x"] for p in lab_pts if p.get("x")]
+            t_lab_start = min(lab_times) if lab_times else None
+            t_lab_end = max(lab_times) if lab_times else None
+            single_lab_obs_id = lab_pts[0].get("obs_id") if len(lab_pts) == 1 else None
+            single_lab_val = lab_pts[0].get("y") if len(lab_pts) == 1 else None
+            lab_btn_label = (
+                "Annotate selected lab point" if single_lab_obs_id
+                else "Annotate selected lab points"
             )
+            if st.button(lab_btn_label, type="primary", key=f"btn_lab_ann_pt{suffix}"):
+                _annotation_dialog(
+                    channel_ids=[],
+                    series_ids=lab_series_ids,
+                    start_time=str(t_lab_start) if t_lab_start else None,
+                    end_time=str(t_lab_end) if (t_lab_end and not single_lab_obs_id) else None,
+                    annotation_types=annotation_types,
+                    observation_id=single_lab_obs_id,
+                    point_value=single_lab_val,
+                )
 
-    if not selected_pts:
-        st.caption(
-            "Use the brush tool (top-right of the chart) to box / lasso-select "
-            "points, then annotate or flag them. Scroll or drag the bottom slider "
-            "to zoom. Annotations apply to the selected points, not the view range."
-        )
+    # --- Right: selected equipment + equipment-event button (always available) ---
+    with eq_col:
+        st.caption(f"**Selected equipment** · {len(sel_equipment)}")
+        if sel_equipment:
+            for ident in sel_equipment.values():
+                st.markdown(f"- {ident}")
+        else:
+            st.caption("— equipment of any selected sensor points appears here —")
+        # Equipment events are equipment + time based (not tied to a point), so
+        # this is always available; the selected span pre-fills the dialog.
+        if st.button("Tag equipment event", key=f"btn_eq_event{suffix}"):
+            st.session_state._show_event_dialog = True
+            st.session_state._ann_start = str(min(all_sel_times)) if all_sel_times else None
+            st.session_state._ann_end = str(max(all_sel_times)) if all_sel_times else None
+            st.rerun()  # dialog check runs before visualization area in script order
 
     # Annotations & events summary table
     if overlay_rows:

@@ -88,6 +88,28 @@ def test_selected_points_listed_in_a_table():
     assert all(r["Stream"] == "CH-5" for r in recs)
 
 
+def test_equipment_event_button_always_available_and_lists_selected_equipment():
+    """The equipment-event button is no longer gated behind a selection, and the
+    selected equipment is listed so it's clear what an event would target."""
+    with ExitStack() as stack:
+        _patches(stack)
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_channels"] = [5]
+        at.session_state["explore_channel_meta"] = {5: _M5}
+        at.session_state["explore_start"] = date(2026, 5, 1)
+        at.session_state["explore_end"] = date(2026, 5, 8)
+        at.run()
+        # No selection yet — the equipment-event button is still present.
+        assert "btn_eq_event_p1" in [b.key for b in at.button]
+
+        # Select a CH-5 point; its equipment (EQ5) is now listed.
+        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 0, "dataIndex": [0]}]
+        at.run()
+        assert "btn_eq_event_p1" in [b.key for b in at.button]
+        body = " ".join((m.value or "") for m in at.markdown)
+        assert "EQ5" in body, "selected equipment identifier not shown"
+
+
 def test_annotation_scoped_to_selected_stream_only():
     """Two sensor channels active; brushing a point on CH-5 only must annotate
     CH-5 alone — not every channel in the plot (the old view-range behavior)."""

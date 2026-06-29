@@ -66,6 +66,32 @@ def test_option_has_line_and_scatter_with_zoom_and_brush():
     assert [p["obs_id"] for p in smap[1]["points"]] == [701, 702]
 
 
+def test_yaxis_labelled_with_parameter_and_unit_from_data():
+    # Sensor meta (DeploymentTraceLookupItem) has no unit_name; the unit must come
+    # from the loaded time-series payload so the axis reads "parameter (unit)".
+    meta_no_unit = {5: {"value_kind_id": 1, "equipment_identifier": "EQ5",
+                        "parameter_name": "TSS", "equipment_id": 5}}
+    ch_ts = {"parameter": "TSS", "unit": "mg/L", "data": _CH_TS["data"]}
+    with (
+        patch(f"{_MOD}._load_timeseries", return_value=ch_ts),
+        patch(f"{_MOD}._load_series_timeseries", return_value={"data": []}),
+        patch(f"{_MOD}._load_annotations", return_value=[]),
+        patch(f"{_MOD}._load_series_annotations", return_value=[]),
+        patch(f"{_MOD}._load_equipment_events", return_value=[]),
+    ):
+        option, _, _ = ee.build_scalar_echarts_option([5], meta_no_unit, "extract", [], {})
+    assert option["yAxis"]["name"] == "TSS (mg/L)"
+    # rendered as a proper centered axis title, not the tiny default
+    assert option["yAxis"]["nameLocation"] == "middle"
+
+
+def test_click_handler_returns_brush_shape():
+    # Click handler must emit the same {seriesIndex, dataIndex[]} shape the
+    # resolver consumes, so one resolver handles click + brush.
+    assert "seriesIndex" in ee.CLICK_SELECTED_JS
+    assert "dataIndex" in ee.CLICK_SELECTED_JS
+
+
 def test_quality_code_drives_per_point_color():
     option, _, _ = _build()
     line = option["series"][0]
