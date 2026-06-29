@@ -376,21 +376,26 @@ def delete_campaign_deployment(
 ) -> None:
     """Reverse a deployment created by :func:`create_campaign_deployment`.
 
-    In one transaction:
-      1. Delete the active (``ValidTo IS NULL``) ``EquipmentLocationHistory`` row
-         tagged with this campaign for the equipment (the physical placement that
-         create opened). EquipmentInstallation was dropped — placement lives here.
-      2. Delete the ``CampaignEquipment`` link.
-      3. Delete the ``CampaignSamplingLocation`` link **only if** no other equipment
-         remains placed at that sampling point under this campaign (the link is
-         campaign-level and shared across deployments).
+    Membership is junction-authoritative (consistency audit F10, decision D2):
+    ``CampaignEquipment`` / ``CampaignSamplingLocation`` define what a campaign
+    contains; ``ELH.Campaign_ID`` is provenance only. In one transaction:
+      1. Delete the ``CampaignEquipment`` membership row.
+      2. Delete the active (``ValidTo IS NULL``) ``EquipmentLocationHistory`` row
+         create opened (reverses the physical placement). Closed ELH rows keep
+         their provenance ``Campaign_ID`` untouched.
+      3. Delete the ``CampaignSamplingLocation`` membership row **only if** no
+         *other* equipment still in this campaign has any placement provenance at
+         that sampling point. The check is junction-driven and agnostic to ELH
+         open/closed state — the previous "only if an open ELH row remains"
+         condition dropped the SP link whenever the last placement there had been
+         closed, so the junctions and ELH history could disagree.
     """
     cursor = conn.cursor()
 
     cursor.execute(
         """
-        DELETE FROM [dbo].[EquipmentLocationHistory]
-        WHERE [Campaign_ID] = ? AND [Equipment_ID] = ? AND [ValidTo] IS NULL
+        DELETE FROM [dbo].[CampaignEquipment]
+        WHERE [Campaign_ID] = ? AND [Equipment_ID] = ?
         """,
         campaign_id,
         equipment_id,
@@ -398,8 +403,8 @@ def delete_campaign_deployment(
 
     cursor.execute(
         """
-        DELETE FROM [dbo].[CampaignEquipment]
-        WHERE [Campaign_ID] = ? AND [Equipment_ID] = ?
+        DELETE FROM [dbo].[EquipmentLocationHistory]
+        WHERE [Campaign_ID] = ? AND [Equipment_ID] = ? AND [ValidTo] IS NULL
         """,
         campaign_id,
         equipment_id,
@@ -411,16 +416,19 @@ def delete_campaign_deployment(
             DELETE FROM [dbo].[CampaignSamplingLocation]
             WHERE [Campaign_ID] = ? AND [SamplingPoint_ID] = ?
             AND NOT EXISTS (
-                SELECT 1 FROM [dbo].[EquipmentLocationHistory] elh
-                WHERE elh.[Campaign_ID] = ?
-                  AND elh.[SamplingPoint_ID] = ?
-                  AND elh.[ValidTo] IS NULL
+                SELECT 1
+                FROM [dbo].[CampaignEquipment] ce
+                JOIN [dbo].[EquipmentLocationHistory] elh
+                  ON elh.[Equipment_ID] = ce.[Equipment_ID]
+                 AND elh.[Campaign_ID]  = ce.[Campaign_ID]
+                 AND elh.[SamplingPoint_ID] = ?
+                WHERE ce.[Campaign_ID] = ?
             )
             """,
             campaign_id,
             sampling_point_id,
-            campaign_id,
             sampling_point_id,
+            campaign_id,
         )
 
     conn.commit()
