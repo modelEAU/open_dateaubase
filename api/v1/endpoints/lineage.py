@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
 
 from fastapi import HTTPException
 
@@ -13,6 +15,7 @@ from ..schemas.lineage import (
     ProcessingStepCreate,
     ProcessingStepOut,
     ProvenanceGraphOut,
+    StreamPedigreeOut,
     StreamStoryOut,
 )
 from ..services import lineage_service
@@ -93,5 +96,25 @@ def get_stream_story(stream_id: int, conn=Depends(get_db)):
     if story is None:
         raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found.")
     return story
+
+
+@router.get("/streams/{stream_id}/pedigree", response_model=StreamPedigreeOut)
+def get_stream_pedigree(
+    stream_id: int,
+    from_: datetime | None = Query(None, alias="from"),
+    to: datetime | None = Query(None, alias="to"),
+    conn=Depends(get_db),
+):
+    """Read-only stream pedigree: time-invariant identity plus a time-bound
+    deployment timeline (sampling location, process unit, site, campaign,
+    responsible person per deployment). Optional from/to restrict the timeline to
+    segments overlapping that window (the exported range). Distinct from
+    /provenance (the processing DAG). Powers the data-export metadata YAML."""
+    pedigree = channel_repository.get_stream_pedigree(
+        conn, stream_id, from_dt=from_, to_dt=to
+    )
+    if pedigree is None:
+        raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found.")
+    return pedigree
 
 

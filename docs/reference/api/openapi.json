@@ -391,7 +391,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/SamplingLocationOut"
+                    "$ref": "#/components/schemas/api__v1__schemas__metadata__SamplingLocationOut"
                   },
                   "title": "Response List All Sampling Locations Api V1 Sites Sampling Locations Get"
                 }
@@ -462,7 +462,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SamplingLocationOut"
+                  "$ref": "#/components/schemas/api__v1__schemas__metadata__SamplingLocationOut"
                 }
               }
             }
@@ -1213,7 +1213,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/SamplingLocationOut"
+                    "$ref": "#/components/schemas/api__v1__schemas__metadata__SamplingLocationOut"
                   },
                   "title": "Response List Sampling Locations Api V1 Sites  Site Id  Sampling Locations Get"
                 }
@@ -1282,7 +1282,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SamplingLocationOut"
+                  "$ref": "#/components/schemas/api__v1__schemas__metadata__SamplingLocationOut"
                 }
               }
             }
@@ -2100,7 +2100,7 @@
           "channels"
         ],
         "summary": "Open Channel Port History",
-        "description": "Open a ChannelPortHistory row linking a channel to a port for a time period.",
+        "description": "Open a ChannelPortHistory row linking a channel to a port for a time period.\n\nRoutes through ``set_channel_active_port``, the single writer of the CPH\nactive-row invariant: it closes the previous active row before opening the\nnew one, so a second post no longer collides with the\nUQ_ChannelPortHistory_ActiveRow filtered unique index (previously a 500).",
         "operationId": "open_channel_port_history_api_v1_channels__channel_id__port_history_post",
         "parameters": [
           {
@@ -7100,6 +7100,99 @@
         }
       }
     },
+    "/api/v1/lineage/streams/{stream_id}/pedigree": {
+      "get": {
+        "tags": [
+          "lineage"
+        ],
+        "summary": "Get Stream Pedigree",
+        "description": "Read-only stream pedigree: time-invariant identity plus a time-bound\ndeployment timeline (sampling location, process unit, site, campaign,\nresponsible person per deployment). Optional from/to restrict the timeline to\nsegments overlapping that window (the exported range). Distinct from\n/provenance (the processing DAG). Powers the data-export metadata YAML.",
+        "operationId": "get_stream_pedigree_api_v1_lineage_streams__stream_id__pedigree_get",
+        "parameters": [
+          {
+            "name": "stream_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Stream Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamPedigreeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ingest/lookup/units": {
       "get": {
         "tags": [
@@ -8022,7 +8115,7 @@
           "ingestion"
         ],
         "summary": "Ingest Sensor",
-        "description": "Ingest raw sensor measurements.\n\nResolves (or creates) the Channel via the UNIQUE stream identity:\n(das_name, tag, parameter_name, data_provenance_kind_id, processing_degree).\nDAS and SignalPort are auto-created with a warning on first encounter.\nUnrecognised parameter_name or unit_name returns 422 before any DB write.",
+        "description": "Ingest raw sensor measurements.\n\nResolves (or creates) the Channel via the UNIQUE stream identity:\n(das_name, tag, parameter_name, data_provenance_kind_id, processing_degree).\nDAS and SignalInterface are auto-created with a warning on first encounter.\nUnrecognised parameter_name or unit_name returns 422 before any DB write.",
         "operationId": "ingest_sensor_api_v1_ingest_sensor_post",
         "parameters": [
           {
@@ -8082,7 +8175,7 @@
           "ingestion"
         ],
         "summary": "Ingest Sensor Tagless",
-        "description": "Ingest raw sensor measurements from a direct-connect station (no SCADA tag).\n\nA synthetic SignalPort tag is auto-generated as\n``\"{equipment_name}/{parameter_name}\"`` (lowercased, trimmed) \u2014 deterministic\nand stable across repeated runs.\n\nOn first ingest a SignalPortEquipmentHistory row is opened immediately so\nprovenance is recorded from the start.  Subsequent ingests for the same\n(DAS, equipment_name, parameter_name) are idempotent.\n\nUnrecognised equipment name produces a warning and auto-creates the\nEquipment record.  Unrecognised parameter_name or unit_name returns 422 before\nany DB write.",
+        "description": "Ingest raw sensor measurements from a direct-connect station (no SCADA tag).\n\nA synthetic SignalInterface tag is auto-generated as\n``\"{equipment_name}/{parameter_name}\"`` (lowercased, trimmed) \u2014 deterministic\nand stable across repeated runs.\n\nOn first ingest an EquipmentWiringHistory row is opened immediately so\nprovenance is recorded from the start.  Subsequent ingests for the same\n(DAS, equipment_name, parameter_name) are idempotent.\n\nUnrecognised equipment name produces a warning and auto-creates the\nEquipment record.  Unrecognised parameter_name or unit_name returns 422 before\nany DB write.",
         "operationId": "ingest_sensor_tagless_api_v1_ingest_sensor_tagless_post",
         "parameters": [
           {
@@ -17932,6 +18025,65 @@
         "title": "CampaignPatch",
         "description": "Partial update schema for Campaign - all fields optional."
       },
+      "CampaignPedigreeOut": {
+        "properties": {
+          "campaign_id": {
+            "type": "integer",
+            "title": "Campaign Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "campaign_id"
+        ],
+        "title": "CampaignPedigreeOut"
+      },
       "ChannelDerivedIn": {
         "properties": {
           "source_channel_id": {
@@ -19689,6 +19841,98 @@
         ],
         "title": "DeploymentOut",
         "description": "A deployment pairs equipment with a sampling point for a campaign."
+      },
+      "DeploymentSegmentOut": {
+        "properties": {
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "equipment_identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Identifier"
+          },
+          "sampling_location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/api__v1__schemas__lineage__SamplingLocationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "process_unit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProcessUnitPedigreeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "site": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SitePedigreeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "campaign": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CampaignPedigreeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "responsible_person": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResponsiblePersonOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "DeploymentSegmentOut",
+        "description": "One slice of a stream's life with a stable location + campaign. Sensor\nstreams have one per EquipmentLocationHistory they spanned; a lab series has\na single open segment (valid_from/valid_to null)."
       },
       "DeploymentTraceLookupItem": {
         "properties": {
@@ -23255,6 +23499,52 @@
         "type": "object",
         "title": "ProcessUnitPatch"
       },
+      "ProcessUnitPedigreeOut": {
+        "properties": {
+          "process_unit_id": {
+            "type": "integer",
+            "title": "Process Unit Id"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "process_unit_id"
+        ],
+        "title": "ProcessUnitPedigreeOut"
+      },
       "ProcessUnitTreeOut": {
         "properties": {
           "id": {
@@ -23918,6 +24208,63 @@
         ],
         "title": "QualityCodePatch"
       },
+      "ResponsiblePersonOut": {
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id"
+        ],
+        "title": "ResponsiblePersonOut"
+      },
       "RetuneRequest": {
         "properties": {
           "start_time": {
@@ -24261,106 +24608,6 @@
           "name"
         ],
         "title": "SamplingLocationIn"
-      },
-      "SamplingLocationOut": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latitude"
-          },
-          "longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Longitude"
-          },
-          "site_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Site Id"
-          },
-          "site_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Site Name"
-          },
-          "process_unit_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Process Unit Id"
-          },
-          "picture_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Picture Path"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "description",
-          "latitude",
-          "longitude",
-          "site_id",
-          "site_name"
-        ],
-        "title": "SamplingLocationOut"
       },
       "SensorChannelResolveRequest": {
         "properties": {
@@ -25373,6 +25620,63 @@
         "title": "SitePatch",
         "description": "Partial update schema for Site - all fields optional."
       },
+      "SitePedigreeOut": {
+        "properties": {
+          "site_id": {
+            "type": "integer",
+            "title": "Site Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "province": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Province"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site_id"
+        ],
+        "title": "SitePedigreeOut"
+      },
       "StatusCodeListResponse": {
         "properties": {
           "status_codes": {
@@ -25482,6 +25786,77 @@
         ],
         "title": "StatusTransition",
         "description": "A single status transition event."
+      },
+      "StreamPedigreeOut": {
+        "properties": {
+          "stream_id": {
+            "type": "integer",
+            "title": "Stream Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "parameter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameter"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Kind"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "deployments": {
+            "items": {
+              "$ref": "#/components/schemas/DeploymentSegmentOut"
+            },
+            "type": "array",
+            "title": "Deployments",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "stream_id",
+          "kind"
+        ],
+        "title": "StreamPedigreeOut",
+        "description": "Organizational/spatial pedigree of a stream (see\nchannel_repository.get_stream_pedigree). Distinct from provenance: the\nwho/where/why, not the processing how. Identity is time-invariant; location,\ncampaign and responsible person are a time-bound deployment timeline. Powers\nthe data-export metadata YAML."
       },
       "StreamStoryOut": {
         "properties": {
@@ -26883,6 +27258,152 @@
           "valid_to"
         ],
         "title": "WiringAtTimeResponse"
+      },
+      "api__v1__schemas__lineage__SamplingLocationOut": {
+        "properties": {
+          "sampling_point_id": {
+            "type": "integer",
+            "title": "Sampling Point Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sampling_point_id"
+        ],
+        "title": "SamplingLocationOut"
+      },
+      "api__v1__schemas__metadata__SamplingLocationOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "site_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Name"
+          },
+          "process_unit_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Unit Id"
+          },
+          "picture_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "latitude",
+          "longitude",
+          "site_id",
+          "site_name"
+        ],
+        "title": "SamplingLocationOut"
       }
     }
   }

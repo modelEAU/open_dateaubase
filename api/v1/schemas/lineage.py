@@ -112,3 +112,72 @@ class StreamStoryOut(BaseModel):
     record: dict
     location_history: list[dict]
     annotations: list[dict]
+
+
+class SamplingLocationOut(BaseModel):
+    sampling_point_id: int
+    name: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+
+
+class ProcessUnitPedigreeOut(BaseModel):
+    process_unit_id: int
+    tag: str | None = None
+    name: str | None = None
+    kind: str | None = None
+
+
+class SitePedigreeOut(BaseModel):
+    site_id: int
+    name: str | None = None
+    city: str | None = None
+    province: str | None = None
+    country: str | None = None
+
+
+class CampaignPedigreeOut(BaseModel):
+    campaign_id: int
+    name: str | None = None
+    kind: str | None = None
+    start: datetime | None = None
+    end: datetime | None = None
+
+
+class ResponsiblePersonOut(BaseModel):
+    person_id: int
+    name: str | None = None
+    email: str | None = None
+    role: str | None = None
+    company: str | None = None
+
+
+class DeploymentSegmentOut(BaseModel):
+    """One slice of a stream's life with a stable location + campaign. Sensor
+    streams have one per EquipmentLocationHistory they spanned; a lab series has
+    a single open segment (valid_from/valid_to null)."""
+
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    equipment_identifier: str | None = None
+    sampling_location: SamplingLocationOut | None = None
+    process_unit: ProcessUnitPedigreeOut | None = None
+    site: SitePedigreeOut | None = None
+    campaign: CampaignPedigreeOut | None = None
+    responsible_person: ResponsiblePersonOut | None = None
+
+
+class StreamPedigreeOut(BaseModel):
+    """Organizational/spatial pedigree of a stream (see
+    channel_repository.get_stream_pedigree). Distinct from provenance: the
+    who/where/why, not the processing how. Identity is time-invariant; location,
+    campaign and responsible person are a time-bound deployment timeline. Powers
+    the data-export metadata YAML."""
+
+    stream_id: int
+    kind: str  # "sensor" | "lab"
+    parameter: str | None = None
+    unit: str | None = None
+    value_kind: str | None = None
+    label: str | None = None
+    deployments: list[DeploymentSegmentOut] = []
