@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.5.0
 -- Platform: mssql
--- Generated: 2026-06-30 04:43:02 UTC
+-- Generated: 2026-06-30 11:58:55 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
