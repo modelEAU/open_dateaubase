@@ -583,13 +583,13 @@
           "description": "Campaign this annotation is associated with, if any"
         },
         {
-          "name": "EquipmentEvent_ID",
+          "name": "Event_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
           "fk_target": "Event.Event_ID",
-          "description": "Event that caused this annotation, if any (column rename to Event_ID deferred to S3)"
+          "description": "Event that caused this annotation, if any (causal link: Event=cause, Annotation=effect)"
         },
         {
           "name": "Title",
@@ -5636,7 +5636,7 @@
     {
       "from_table": "Annotation",
       "to_table": "Event",
-      "from_field": "EquipmentEvent_ID",
+      "from_field": "Event_ID",
       "to_field": "Event_ID",
       "relationship_type": null
     },
