@@ -14,7 +14,7 @@ if _project_root not in sys.path:
 
 import streamlit as st
 
-from app.api_client import APIError, get_health
+from app.api_client import APIError, get_health, list_sampling_points_lookup
 from app.auth import get_current_user, logout
 from app.auth import _show_auth_page as _login
 from app.config import settings
@@ -57,6 +57,26 @@ def _home() -> None:
 - **Associations** — equipment model parameters/procedures, parameter units
 - **Vocabulary** — lookup tables and controlled vocabularies
             """
+        )
+
+    _onboarding_panel()
+
+
+def _onboarding_panel() -> None:
+    try:
+        sps = list_sampling_points_lookup()
+    except Exception:
+        return  # API down — don't crash Home
+    if sps:
+        return  # foundation complete, hide panel
+    with st.container(border=True):
+        st.markdown("### Get started")
+        st.markdown(
+            "No sampling locations found yet. Complete these foundation steps to start loading data:\n\n"
+            "1. [Add a site](sites) — define where you sample\n"
+            "2. [Add a person](persons) — who is responsible\n"
+            "3. [Add a sampling location](sampling_locations) — the specific point on the site\n\n"
+            "_Once a sampling location exists, this panel will disappear._"
         )
 
 
