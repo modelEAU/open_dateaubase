@@ -79,6 +79,18 @@ LOGBOOK_ROLES = [
     "conductor",
 ]
 
+# Per-equipment maintenance-sheet profile (PRD-4 S3). One maintenance Event per
+# row; the target is the *whole sheet's* equipment/channel (picked once from the
+# sheet name). Before/after probe readings are NOT stored — the PRD-2.5 drift
+# Channel derives them from the stream; manual zero-checks go to notes.
+MAINTENANCE_ROLES = [
+    "(ignore)",
+    "event_date",
+    "start_time",
+    "end_time",
+    "notes",
+]
+
 # Profile registry — maps a profile key to its role vocabulary. The engine is
 # profile-agnostic; profiles only supply the role set (and their resolve/submit).
 PROFILES = {
@@ -86,6 +98,7 @@ PROFILES = {
     "Lab (long)": LONG_LAB_ROLES,
     "Sensor CSV": SENSOR_ROLES,
     "Logbook (Général)": LOGBOOK_ROLES,
+    "Logbook (Maintenance)": MAINTENANCE_ROLES,
 }
 
 # ---------------------------------------------------------------------------
@@ -731,6 +744,123 @@ def _make_target(level: str, option: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Per-equipment maintenance-sheet profile (PRD-4 S3)
+# ---------------------------------------------------------------------------
+
+
+def _default_kind_index(event_kinds: list[dict], keyword: str = "maintenance") -> int:
+    """Index of the first kind whose name contains *keyword* (else 0)."""
+    for i, k in enumerate(event_kinds):
+        if keyword.lower() in (k.get("name") or "").lower():
+            return i
+    return 0
+
+
+def _combine_dt(raw_date, raw_time) -> "pd.Timestamp | None":
+    """Combine a date cell with an optional time cell into a tz-aware timestamp."""
+    if pd.isna(raw_date) or not str(raw_date).strip():
+        return None
+    try:
+        dt = pd.to_datetime(raw_date)
+    except Exception:
+        return None
+    if pd.isna(dt):  # e.g. unparseable string → NaT (no exception raised)
+        return None
+    if raw_time is not None and pd.notna(raw_time) and str(raw_time).strip():
+        try:
+            dt = pd.to_datetime(f"{dt.date()} {raw_time}")
+        except Exception:
+            pass  # keep the date-only value
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _resolve_maintenance(
+    role_map: dict[str, str],
+    df_data: pd.DataFrame,
+    sheet_target: dict,
+) -> dict:
+    """Resolve a per-equipment maintenance sheet (PRD-4 S3) — one Event per row.
+
+    The target is the *whole sheet's* equipment/channel (``sheet_target``),
+    not per-row. Each row maps ``event_date`` + ``start_time`` → start and
+    ``end_time`` → end (a spanning, non-instantaneous Event); ``notes`` carries
+    manual zero-checks. Before/after readings are intentionally not captured.
+    """
+    date_cols = [c for c, r in role_map.items() if r == "event_date"]
+    start_cols = [c for c, r in role_map.items() if r == "start_time"]
+    end_cols = [c for c, r in role_map.items() if r == "end_time"]
+    notes_cols = [c for c, r in role_map.items() if r == "notes"]
+
+    row_resolutions = []
+    n_resolved = 0
+    n_unresolved = 0
+
+    for idx, row in df_data.iterrows():
+        errors: list[str] = []
+
+        raw_date = row[date_cols[0]] if date_cols else None
+        start_dt = _combine_dt(raw_date, row[start_cols[0]] if start_cols else None)
+        if start_dt is None:
+            errors.append("no parseable start date/time")
+
+        end_dt = None
+        if end_cols:
+            end_dt = _combine_dt(raw_date, row[end_cols[0]])
+
+        notes = ""
+        if notes_cols:
+            raw_notes = row[notes_cols[0]]
+            notes = "" if pd.isna(raw_notes) else str(raw_notes).strip()
+
+        row_ok = start_dt is not None
+        if row_ok:
+            n_resolved += 1
+        else:
+            n_unresolved += 1
+
+        row_resolutions.append({
+            "row_index": int(idx),
+            "start_datetime": start_dt,
+            "end_datetime": end_dt,
+            "notes": notes,
+            "title": _derive_title(notes),
+            "target": sheet_target,
+            "errors": errors,
+            "ok": row_ok,
+        })
+
+    return {
+        "row_resolutions": row_resolutions,
+        "n_resolved": n_resolved,
+        "n_unresolved": n_unresolved,
+    }
+
+
+def _build_maintenance_payloads(
+    row_resolutions: list[dict], event_kind_id: int
+) -> list[dict]:
+    """Build one maintenance EventIn payload per resolved row (spanning Event)."""
+    payloads = []
+    for rr in row_resolutions:
+        if not rr["ok"]:
+            continue
+        target = rr["target"]
+        payload = {
+            "event_kind_id": event_kind_id,
+            "is_instantaneous": False,
+            "start_datetime": rr["start_datetime"].isoformat(),
+            "notes": rr["notes"] or None,
+            target["arc_field"]: target["entity_id"],
+        }
+        if rr["end_datetime"] is not None:
+            payload["end_datetime"] = rr["end_datetime"].isoformat()
+        payloads.append(payload)
+    return payloads
+
+
+# ---------------------------------------------------------------------------
 # Config persistence (S4) — PRD-5-compatible shape
 # ---------------------------------------------------------------------------
 
@@ -803,7 +933,8 @@ def mapper_page() -> None:
         help="Lab (wide): rows are samples, columns are parameters. "
         "Lab (long): each row is one measurement (parameter/unit in cells). "
         "Sensor CSV: each row is one timestamped reading. "
-        "Logbook (Général): each row is one operational Event.",
+        "Logbook (Général): each row is one operational Event. "
+        "Logbook (Maintenance): per-equipment sheet → one maintenance Event per row.",
     )
 
     uploaded = st.file_uploader(
@@ -993,6 +1124,13 @@ def mapper_page() -> None:
 
     if profile == "Logbook (Général)":
         _logbook_resolve_and_submit(role_map, active_cols, df_data)
+        return
+
+    if profile == "Logbook (Maintenance)":
+        # The sheet's subject (its name, or the file stem for CSV) seeds the
+        # single per-sheet target — e.g. "Solitax R240" → that equipment.
+        subject = str(sheet_name) if filename.endswith(".xlsx") else Path(filename).stem
+        _maintenance_resolve_and_submit(role_map, active_cols, df_data, subject)
         return
 
     # ------------------------------------------------------------------
@@ -1611,6 +1749,118 @@ def _do_event_submit(payloads: list[dict], row_resolutions: list[dict]) -> None:
     else:
         st.warning(f"{n_ok} event(s) created; {n_err} failed.")
     st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+
+# ---------------------------------------------------------------------------
+# Maintenance-sheet profile UI (PRD-4 S3) — single sheet target → maintenance Events
+# ---------------------------------------------------------------------------
+
+
+def _maintenance_resolve_and_submit(
+    role_map: dict[str, str],
+    active_cols: dict[str, str],
+    df_data: pd.DataFrame,
+    subject: str,
+) -> None:
+    """Resolve, preview, and create maintenance Events from a per-equipment sheet."""
+    tagged = set(active_cols.values())
+    if "event_date" not in tagged or "start_time" not in tagged:
+        st.info("Tag a date column as **event_date** and a **start_time** column (end_time optional).")
+        return
+
+    st.subheader("Sheet target")
+    st.caption(
+        "One maintenance Event per row, all targeting this sheet's "
+        "equipment/channel. Confirm the target — pre-filled from the sheet name. "
+        "Before/after readings are not stored (the drift Channel derives them)."
+    )
+    try:
+        equipment = api.list_equipment_lookup()
+        sampling_points = api.list_sampling_points_lookup()
+        process_units = api.list_process_units_lookup()
+        sites = api.list_sites_lookup()
+        campaigns = api.list_campaigns_lookup()
+        event_kinds = api.list_event_kinds_lookup()
+    except Exception as exc:
+        st.error(f"Could not load lookup data from API: {exc}")
+        return
+    if not event_kinds:
+        st.warning("No event kinds defined yet — create a 'maintenance' kind first.")
+        return
+
+    pools = _build_target_pools(equipment, sampling_points, process_units, sites, campaigns)
+    resolver = EntityResolver(
+        units=[], parameters=[], sampling_points=sampling_points,
+        equipment=equipment, sites=sites, process_units=process_units, campaigns=campaigns,
+    )
+    guess = resolver.resolve_target(subject or "")
+
+    level_names = list(TARGET_LEVELS.keys())
+    default_level = guess["level"] if guess else "Equipment"
+    lvl_col, ent_col = st.columns(2)
+    with lvl_col:
+        level = st.selectbox(
+            "Target level", level_names,
+            index=level_names.index(default_level),
+            key="mapper_maint_level",
+        )
+    opts = pools.get(level, [])
+    labels = [o["label"] for o in opts]
+    if not labels:
+        st.warning(f"No {level} entities available — pick another level.")
+        return
+    default_ix = labels.index(guess["label"]) if guess and guess["level"] == level and guess["label"] in labels else 0
+    with ent_col:
+        choice = st.selectbox("Target", labels, index=default_ix, key="mapper_maint_entity")
+    picked = next(o for o in opts if o["label"] == choice)
+    sheet_target = _make_target(level, picked)
+    st.caption(f"Subject **{subject or '(none)'}** → **{level}: {picked['label']}**")
+
+    kind_label = st.selectbox(
+        "Event kind",
+        options=[k["name"] for k in event_kinds],
+        index=_default_kind_index(event_kinds),
+        key="mapper_maint_kind",
+        help="Defaults to a 'maintenance' kind when one exists.",
+    )
+    event_kind_id = next(k["event_kind_id"] for k in event_kinds if k["name"] == kind_label)
+
+    if st.button("Resolve rows", key="mapper_maint_resolve"):
+        st.session_state["mapper_maint_resolution"] = _resolve_maintenance(
+            role_map, df_data, sheet_target
+        )
+
+    resolution = st.session_state.get("mapper_maint_resolution")
+    if resolution is None:
+        return
+
+    rows = resolution["row_resolutions"]
+    n_resolved = resolution["n_resolved"]
+    n_unresolved = resolution["n_unresolved"]
+
+    st.subheader("Preview events")
+    st.caption(f"{n_resolved} of {len(rows)} rows resolved — {n_unresolved} row(s) skipped.")
+    preview = []
+    for rr in rows:
+        tgt = rr["target"]
+        preview.append({
+            "row#": rr["row_index"],
+            "start": rr["start_datetime"].isoformat() if rr["start_datetime"] else "— missing —",
+            "end": rr["end_datetime"].isoformat() if rr["end_datetime"] else "—",
+            "target": f"{tgt['level']}: {tgt['label']}",
+            "notes": rr["title"] or "—",
+            "status": "ok" if rr["ok"] else ("error: " + "; ".join(rr["errors"])),
+        })
+    st.dataframe(pd.DataFrame(preview), use_container_width=True)
+    if n_resolved == 0:
+        st.error("No rows can be submitted — check the date/time columns.")
+        return
+
+    payloads = _build_maintenance_payloads(rows, event_kind_id)
+    st.subheader("Create events")
+    st.info(f"Will create **{len(payloads)}** maintenance Event(s). {n_unresolved} row(s) skipped.")
+    if st.button("Create events", key="mapper_maint_submit", type="primary"):
+        _do_event_submit(payloads, rows)
 
 
 mapper_page()
