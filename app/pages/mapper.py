@@ -1,12 +1,14 @@
-"""Mapper Engine — S3: upload CSV/XLSX → pick sheet/header/range
-→ tag column roles → preview → resolve entities (text → DB ID)
+"""Mapper Engine — S4: upload CSV/XLSX → pick sheet/header/range
+→ tag column roles → save/load named config → preview → resolve entities (text → DB ID)
 → preview ingest → submit to /ingest/lab.
 
 PRD-3 S1: shell. PRD-3 S2: entity resolution. PRD-3 S3: lab end-to-end.
+PRD-3 S4: save/reload named mapping config (PRD-5-compatible shape).
 """
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -190,6 +192,60 @@ def _resolve_all(
 
 
 # ---------------------------------------------------------------------------
+# Config persistence (S4) — PRD-5-compatible shape
+# ---------------------------------------------------------------------------
+
+_CONFIG_VERSION = 1
+
+
+def _config_dir() -> Path:
+    """Return (and create) the directory where named configs are stored."""
+    d = Path.home() / ".dateaubase_mapper_configs"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _build_config(
+    name: str,
+    header_row: int,
+    data_start_row: int,
+    role_map: dict[str, str],
+    sheet_name: str | int | None = None,
+) -> dict:
+    """Assemble a config dict in PRD-5-compatible shape."""
+    cfg: dict = {
+        "name": name,
+        "version": _CONFIG_VERSION,
+        "header_row": header_row,
+        "data_start_row": data_start_row,
+        "role_map": role_map,
+    }
+    if sheet_name is not None:
+        cfg["sheet_name"] = sheet_name
+    return cfg
+
+
+def _save_config(cfg: dict) -> Path:
+    """Persist *cfg* to ~/.dateaubase_mapper_configs/<name>.json. Returns the path."""
+    safe_name = "".join(c if c.isalnum() or c in "._- " else "_" for c in cfg["name"]).strip()
+    if not safe_name:
+        safe_name = "unnamed"
+    dest = _config_dir() / f"{safe_name}.json"
+    dest.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    return dest
+
+
+def _list_configs() -> list[Path]:
+    """Return all saved config files, sorted by name."""
+    return sorted(_config_dir().glob("*.json"))
+
+
+def _load_config(path: Path) -> dict:
+    """Read and return a config dict from *path*."""
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
 # Page
 # ---------------------------------------------------------------------------
 
@@ -299,6 +355,60 @@ def mapper_page() -> None:
                     key=f"mapper_role_{col_name}",
                 )
                 role_map[col_name] = role
+
+    # ------------------------------------------------------------------
+    # S4: Save / Load mapping config
+    # ------------------------------------------------------------------
+    with st.expander("💾 Save config", expanded=False):
+        cfg_name = st.text_input(
+            "Config name",
+            value="My Lab Sheet v1",
+            key="mapper_cfg_name",
+            help="A descriptive name — saved as a JSON file in ~/.dateaubase_mapper_configs/",
+        )
+        if st.button("Save", key="mapper_cfg_save"):
+            if not cfg_name.strip():
+                st.error("Please enter a config name before saving.")
+            else:
+                cfg = _build_config(
+                    name=cfg_name.strip(),
+                    header_row=int(header_row),
+                    data_start_row=int(data_start_row),
+                    role_map=role_map,
+                    sheet_name=sheet_name if filename.endswith(".xlsx") else None,
+                )
+                saved_path = _save_config(cfg)
+                st.success(f"Config saved to `{saved_path}`")
+
+    with st.expander("📂 Load config", expanded=False):
+        config_files = _list_configs()
+        if not config_files:
+            st.info("No saved configs yet. Save one above first.")
+        else:
+            selected_cfg_path = st.selectbox(
+                "Saved configs",
+                options=config_files,
+                format_func=lambda p: p.stem,
+                key="mapper_cfg_select",
+            )
+            if st.button("Load", key="mapper_cfg_load") and selected_cfg_path is not None:
+                try:
+                    loaded = _load_config(selected_cfg_path)
+                    # Apply layout settings via session_state
+                    st.session_state["mapper_header_row"] = loaded.get("header_row", 0)
+                    st.session_state["mapper_data_start"] = loaded.get("data_start_row", 1)
+                    # Apply role assignments per column
+                    for col_name, role in loaded.get("role_map", {}).items():
+                        key = f"mapper_role_{col_name}"
+                        if role in LAB_ROLES:
+                            st.session_state[key] = role
+                    st.success(
+                        f"Config **{loaded.get('name', selected_cfg_path.stem)}** loaded. "
+                        "Roles have been applied — scroll up to review."
+                    )
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Failed to load config: {exc}")
 
     # ------------------------------------------------------------------
     # Dumb preview — first 5 rows, role-tagged columns only
