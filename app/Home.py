@@ -74,6 +74,10 @@ def _home() -> None:
 
 
 def _onboarding_panel() -> None:
+    # Session-scoped dismiss
+    if st.session_state.get("onboarding_dismissed", False):
+        return
+
     try:
         sps = list_sampling_points_lookup()
         sites = list_sites_lookup()
@@ -128,32 +132,37 @@ def _onboarding_panel() -> None:
 
         foundation = (
             "Complete these foundation steps to start loading data:\n\n"
-            + _step(sites, "Site added", "Add a site", "sites") + "\n"
-            + _step(persons, "Person added", "Add a person", "persons") + "\n"
-            + _step(sps, "Sampling location added", "Add a sampling location", "sampling_locations")
+            + _step(sites, "🏭 Site created", "Create a Site", "sites") + "\n"
+            + _step(persons, "👤 Person added", "Add a Person", "persons") + "\n"
+            + _step(sps, "📍 Sampling location added", "Add a Sampling Location", "sampling_locations")
         )
         st.markdown(foundation)
 
         if data_type in ("Sensor", "Both"):
             sensor_steps = (
                 "\n**Sensor setup:**\n\n"
-                + _step(das, "DAS added", "Add a Data Acquisition System", "data_acquisition_systems") + "\n"
-                + _step(signal_interfaces, "Signal Interface added", "Add a Signal Interface", "signal_interfaces") + "\n"
-                + _step(channels, "Channel added", "Add a Channel (Field System Wizard)", "field_system_wizard")
+                + _step(das, "📡 DAS added", "Add a Data Acquisition System (DAS)", "data_acquisition_systems") + "\n"
+                + _step(signal_interfaces, "🔌 Signal Interface added", "Add a Signal Interface", "signal_interfaces") + "\n"
+                + _step(channels, "📊 Channel added", "Add a Channel (Field System Wizard)", "field_system_wizard")
             )
             st.markdown(sensor_steps)
 
         if data_type in ("Lab", "Both"):
             lab_steps = (
                 "\n**Lab setup:**\n\n"
-                + _step(laboratories, "Laboratory added", "Add a Laboratory", "laboratories") + "\n"
-                + _step(analysis_series, "Lab Experiment added", "Add a Lab Experiment", "lab_ingest")
+                + _step(laboratories, "🧪 Laboratory added", "Add a Laboratory", "laboratories") + "\n"
+                + _step(analysis_series, "🔬 Lab Experiment added", "Add a Lab Experiment", "lab_ingest")
             )
             st.markdown(lab_steps)
 
+        st.caption("💡 Campaign creation is optional — you can ingest data without one.")
         st.markdown(
             "_Once an ingestable Stream (Channel or AnalysisSeries) exists, this panel will disappear._"
         )
+
+        if st.button("Dismiss", key="dismiss_onboarding"):
+            st.session_state["onboarding_dismissed"] = True
+            st.rerun()
 
 
 _pages = Path(__file__).resolve().parent / "pages"  # resolve so st.Page paths are absolute under AppTest
