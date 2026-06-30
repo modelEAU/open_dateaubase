@@ -25,7 +25,11 @@ import pandas as pd
 import streamlit as st
 
 import app.api_client as api
-from app.components.resolver import EntityResolver
+from app.components.resolver import (
+    TARGET_LEVELS,
+    EntityResolver,
+    guess_target_level,
+)
 
 # ---------------------------------------------------------------------------
 # Profile stub — role vocabulary (S1: hardcoded; S2+ will load from saved profile)
@@ -654,6 +658,76 @@ def _build_event_payloads(
             payload["performed_by_person_id"] = rr["person"]["person_id"]
         payloads.append(payload)
     return payloads
+
+
+# ---------------------------------------------------------------------------
+# Target-confirmation UX (PRD-4 S2) — heuristic hint + user-confirmed overrides
+# ---------------------------------------------------------------------------
+
+
+def _build_target_pools(
+    equipment: list[dict],
+    sampling_points: list[dict],
+    process_units: list[dict],
+    sites: list[dict],
+    campaigns: list[dict],
+) -> dict[str, list[dict]]:
+    """Normalize each level's lookup into ``{id, label}`` options for pickers."""
+    from app.components.resolver import _candidate_name  # local import: shared labeler
+
+    def opts(pool: list[dict], id_key: str) -> list[dict]:
+        return [
+            {"id": c.get(id_key), "label": _candidate_name(c)}
+            for c in pool
+            if c.get(id_key) is not None and _candidate_name(c)
+        ]
+
+    return {
+        "Equipment": opts(equipment, "equipment_id"),
+        "SamplingPoint": opts(sampling_points, "sampling_point_id"),
+        "ProcessUnit": opts(process_units, "id"),
+        "Site": opts(sites, "site_id"),
+        "Campaign": opts(campaigns, "campaign_id"),
+    }
+
+
+def _apply_target_override(rr: dict, target: dict | None) -> dict:
+    """Return a copy of *rr* with a user-confirmed target, ``ok`` recomputed.
+
+    A row is submittable when it has a start datetime and a target. Setting a
+    target clears the stale "no target resolved" flag.
+    """
+    rr = {**rr, "target": target}
+    if target is not None:
+        rr["errors"] = [e for e in rr["errors"] if "no target resolved" not in e]
+    rr["ok"] = rr["start_datetime"] is not None and target is not None
+    return rr
+
+
+def _override_targets(
+    row_resolutions: list[dict], overrides: dict[int, dict]
+) -> tuple[list[dict], int, int]:
+    """Apply ``{row_index: target}`` overrides; return (rows, n_resolved, n_unresolved)."""
+    out = []
+    n_resolved = 0
+    for rr in row_resolutions:
+        ov = overrides.get(rr["row_index"])
+        if ov is not None:
+            rr = _apply_target_override(rr, ov)
+        if rr["ok"]:
+            n_resolved += 1
+        out.append(rr)
+    return out, n_resolved, len(out) - n_resolved
+
+
+def _make_target(level: str, option: dict) -> dict:
+    """Build a target dict from a confirmed (level, {id,label}) pick."""
+    return {
+        "arc_field": TARGET_LEVELS[level],
+        "level": level,
+        "entity_id": option["id"],
+        "label": option["label"],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1372,14 +1446,19 @@ def _logbook_resolve_and_submit(
 
     if st.button("Resolve targets", key="mapper_logbook_resolve"):
         try:
+            equipment = api.list_equipment_lookup()
+            sampling_points = api.list_sampling_points_lookup()
+            process_units = api.list_process_units_lookup()
+            sites = api.list_sites_lookup()
+            campaigns = api.list_campaigns_lookup()
             resolver = EntityResolver(
                 units=[],
                 parameters=[],
-                sampling_points=api.list_sampling_points_lookup(),
-                equipment=api.list_equipment_lookup(),
-                sites=api.list_sites_lookup(),
-                process_units=api.list_process_units_lookup(),
-                campaigns=api.list_campaigns_lookup(),
+                sampling_points=sampling_points,
+                equipment=equipment,
+                sites=sites,
+                process_units=process_units,
+                campaigns=campaigns,
                 persons=api.list_persons_lookup(),
             )
         except Exception as exc:
@@ -1388,14 +1467,75 @@ def _logbook_resolve_and_submit(
         st.session_state["mapper_logbook_resolution"] = _resolve_logbook(
             resolver, role_map, df_data
         )
+        # Stash the picker pools for the S2 confirm UX; reset prior overrides.
+        st.session_state["mapper_logbook_pools"] = _build_target_pools(
+            equipment, sampling_points, process_units, sites, campaigns
+        )
+        st.session_state["mapper_logbook_overrides"] = {}
 
     resolution = st.session_state.get("mapper_logbook_resolution")
     if resolution is None:
         return
 
-    row_resolutions = resolution["row_resolutions"]
-    n_resolved = resolution["n_resolved"]
-    n_unresolved = resolution["n_unresolved"]
+    base_rows = resolution["row_resolutions"]
+    pools = st.session_state.get("mapper_logbook_pools", {})
+    overrides = st.session_state.get("mapper_logbook_overrides", {})
+
+    # ------------------------------------------------------------------
+    # S2: confirm / override ambiguous targets (never auto-committed).
+    # Only rows that have a date but no resolved target are fixable here.
+    # ------------------------------------------------------------------
+    fixable = [
+        rr for rr in base_rows
+        if rr["start_datetime"] is not None
+        and rr["row_index"] not in overrides
+        and rr["target"] is None
+    ]
+    if fixable and pools:
+        with st.expander(f"🎯 Confirm targets ({len(fixable)} need a pick)", expanded=True):
+            st.caption(
+                "These rows name no known entity. Pick the right target — nothing "
+                "is submitted until you confirm. The level is pre-filled from a "
+                "heuristic guess; it is only a hint."
+            )
+            level_names = list(TARGET_LEVELS.keys())
+            for rr in fixable:
+                ri = rr["row_index"]
+                st.markdown(f"**Row {ri}** — {rr['title'] or '(no title)'}")
+                guess = guess_target_level(rr["notes"])
+                lvl_col, ent_col = st.columns(2)
+                with lvl_col:
+                    level = st.selectbox(
+                        "Level",
+                        options=level_names,
+                        index=level_names.index(guess) if guess in level_names else 0,
+                        key=f"mapper_logbook_lvl_{ri}",
+                    )
+                opts = pools.get(level, [])
+                with ent_col:
+                    choice = st.selectbox(
+                        "Target",
+                        options=["— pick —"] + [o["label"] for o in opts],
+                        key=f"mapper_logbook_ent_{ri}",
+                    )
+                col_apply, col_bulk = st.columns(2)
+                picked = next((o for o in opts if o["label"] == choice), None)
+                if col_apply.button("Apply", key=f"mapper_logbook_apply_{ri}", disabled=picked is None):
+                    overrides[ri] = _make_target(level, picked)
+                    st.session_state["mapper_logbook_overrides"] = overrides
+                    st.rerun()
+                if col_bulk.button(
+                    "Apply to all flagged",
+                    key=f"mapper_logbook_bulk_{ri}",
+                    disabled=picked is None,
+                    help="Set this same target on every still-unresolved dated row.",
+                ):
+                    for other in fixable:
+                        overrides[other["row_index"]] = _make_target(level, picked)
+                    st.session_state["mapper_logbook_overrides"] = overrides
+                    st.rerun()
+
+    row_resolutions, n_resolved, n_unresolved = _override_targets(base_rows, overrides)
     n_total = len(row_resolutions)
 
     st.subheader("Preview events")
@@ -1424,7 +1564,7 @@ def _logbook_resolve_and_submit(
             f"{n_unresolved} row(s) have no date or no resolved target and will be skipped."
         )
     if n_resolved == 0:
-        st.error("No rows can be submitted — all rows have errors.")
+        st.error("No rows can be submitted — confirm a target above, or fix the dates.")
         return
 
     payloads = _build_event_payloads(row_resolutions, event_kind_id)
