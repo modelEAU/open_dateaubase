@@ -39,6 +39,19 @@ LAB_ROLES = [
     "parameter_value",
 ]
 
+# Long-format (tidy) lab profile (S6). One row = one measurement; parameter and
+# unit come from cells (not the header). Resolves into the same shape as the
+# wide profile so the preview/submit pipeline is reused unchanged.
+LONG_LAB_ROLES = [
+    "(ignore)",
+    "sample_datetime",
+    "sampling_location",
+    "replicate",
+    "parameter",
+    "unit",
+    "value",
+]
+
 # Sensor-CSV profile (S5). Each row is one timestamped reading; the tag,
 # parameter, and unit columns identify (and auto-create) the channel.
 SENSOR_ROLES = [
@@ -54,6 +67,7 @@ SENSOR_ROLES = [
 # profile-agnostic; profiles only supply the role set (and their resolve/submit).
 PROFILES = {
     "Lab (wide)": LAB_ROLES,
+    "Lab (long)": LONG_LAB_ROLES,
     "Sensor CSV": SENSOR_ROLES,
 }
 
@@ -187,6 +201,148 @@ def _resolve_all(
 
         row_ok = len(errors) == 0 and dt_val is not None and sp is not None and len(values) > 0
 
+        if row_ok:
+            n_resolved += 1
+        else:
+            n_unresolved += 1
+
+        row_resolutions.append({
+            "row_index": int(idx),
+            "datetime": dt_val,
+            "sampling_point": sp,
+            "sp_text": sp_text,
+            "replicate": replicate,
+            "values": values,
+            "errors": errors,
+            "ok": row_ok,
+        })
+
+    return {
+        "col_resolutions": col_resolutions,
+        "row_resolutions": row_resolutions,
+        "n_resolved": n_resolved,
+        "n_unresolved": n_unresolved,
+    }
+
+
+def _resolve_long(
+    resolver: EntityResolver,
+    role_map: dict[str, str],
+    df_data: pd.DataFrame,
+) -> dict:
+    """Resolve a long-format (tidy) lab table into the SAME shape as
+    :func:`_resolve_all`, so the wide-lab preview + submit pipeline is reused
+    unchanged. Each row is one measurement: ``parameter`` and ``unit`` come from
+    cells (not the header); ``sample_datetime`` / ``sampling_location`` are
+    per-row. Resolved (parameter, unit) pairs are registered as synthetic
+    "columns" keyed ``"<param> (<unit>)"`` so ``col_resolutions`` matches the
+    wide shape consumed downstream.
+    """
+    datetime_cols = [c for c, r in role_map.items() if r == "sample_datetime"]
+    location_cols = [c for c, r in role_map.items() if r == "sampling_location"]
+    replicate_cols = [c for c, r in role_map.items() if r == "replicate"]
+    parameter_cols = [c for c, r in role_map.items() if r == "parameter"]
+    unit_cols = [c for c, r in role_map.items() if r == "unit"]
+    value_cols = [c for c, r in role_map.items() if r == "value"]
+
+    col_resolutions: dict[str, dict] = {}
+    row_resolutions = []
+    n_resolved = 0
+    n_unresolved = 0
+
+    for idx, row in df_data.iterrows():
+        errors: list[str] = []
+
+        # sample_datetime
+        dt_val = None
+        if datetime_cols:
+            raw_dt = row[datetime_cols[0]]
+            try:
+                dt_val = pd.to_datetime(raw_dt)
+                if dt_val.tzinfo is None:
+                    dt_val = dt_val.replace(tzinfo=timezone.utc)
+            except Exception:
+                errors.append(f"cannot parse datetime '{raw_dt}'")
+        else:
+            errors.append("no sample_datetime column tagged")
+
+        # sampling_location → sampling_point_id
+        sp = None
+        sp_text = ""
+        if location_cols:
+            sp_text = str(row[location_cols[0]])
+            sp = resolver.resolve_sampling_point(sp_text)
+            if sp is None:
+                errors.append(f"sampling point '{sp_text}' not found")
+        else:
+            errors.append("no sampling_location column tagged")
+
+        # replicate
+        replicate = 1
+        if replicate_cols:
+            try:
+                replicate = int(row[replicate_cols[0]])
+            except Exception:
+                pass  # default to 1 silently
+
+        # parameter → parameter entity
+        param = None
+        param_text = ""
+        if parameter_cols:
+            param_text = str(row[parameter_cols[0]]).strip()
+            param = resolver.resolve_parameter(param_text)
+            if param is None:
+                errors.append(f"parameter '{param_text}' not found")
+        else:
+            errors.append("no parameter column tagged")
+
+        # unit → unit entity
+        unit = None
+        unit_text = ""
+        if unit_cols:
+            unit_text = str(row[unit_cols[0]]).strip()
+            unit = resolver.resolve_unit(unit_text)
+            if unit is None:
+                errors.append(f"unit '{unit_text}' not found")
+        else:
+            errors.append("no unit column tagged")
+
+        # value → numeric
+        value = None
+        if value_cols:
+            raw_val = row[value_cols[0]]
+            try:
+                value = float(raw_val)
+            except (TypeError, ValueError):
+                errors.append(f"value '{raw_val}' is not numeric")
+        else:
+            errors.append("no value column tagged")
+
+        values = []
+        if param is not None and unit is not None and value is not None:
+            unit_symbol = unit.get("symbol") or unit.get("name", "")
+            col_key = f"{param['name']} ({unit_symbol})"
+            col_resolutions.setdefault(col_key, {
+                "param": param,
+                "unit": unit,
+                "resolved": True,
+                "errors": [],
+            })
+            values.append({
+                "col": col_key,
+                "parameter_id": param["parameter_id"],
+                "parameter_name": param["name"],
+                "unit_id": unit["unit_id"],
+                "unit_symbol": unit_symbol,
+                "value": value,
+            })
+
+        row_ok = (
+            len(errors) == 0
+            and dt_val is not None
+            and sp is not None
+            and len(values) > 0
+        )
         if row_ok:
             n_resolved += 1
         else:
@@ -424,6 +580,7 @@ def mapper_page() -> None:
         index=0,
         key="mapper_profile",
         help="Lab (wide): rows are samples, columns are parameters. "
+        "Lab (long): each row is one measurement (parameter/unit in cells). "
         "Sensor CSV: each row is one timestamped reading.",
     )
 
@@ -613,18 +770,35 @@ def mapper_page() -> None:
         return
 
     # ------------------------------------------------------------------
-    # S2 / S3: Entity resolution
+    # S2 / S3: Entity resolution (wide lab) — or S6 long-format lab.
+    # Long format resolves into the same shape, so the preview + submit
+    # pipeline below is shared verbatim.
     # ------------------------------------------------------------------
-    param_value_cols = [col for col, role in active_cols.items() if role == "parameter_value"]
-    if not param_value_cols:
-        st.info("Tag at least one column as **parameter_value** to enable entity resolution and ingest.")
-        return
+    is_long = profile == "Lab (long)"
+    if is_long:
+        needed = {"sample_datetime", "sampling_location", "parameter", "unit", "value"}
+        missing = needed - set(active_cols.values())
+        if missing:
+            st.info(
+                "Tag one column for each of: sample_datetime, sampling_location, "
+                f"parameter, unit, value. Still missing: {', '.join(sorted(missing))}."
+            )
+            return
+    else:
+        param_value_cols = [col for col, role in active_cols.items() if role == "parameter_value"]
+        if not param_value_cols:
+            st.info("Tag at least one column as **parameter_value** to enable entity resolution and ingest.")
+            return
 
     st.subheader("Resolve entities")
     st.caption(
-        "Match column headers and row cells to database entities using fuzzy text matching. "
-        "Parameter column headers should follow the format **Name (unit)** e.g. *COD (mg/L)*. "
-        "Unresolved columns/rows are listed — they are never silently submitted."
+        "Match row cells to database entities using fuzzy text matching. "
+        + (
+            "Each row is one measurement (parameter and unit from cells). "
+            if is_long
+            else "Parameter column headers should follow the format **Name (unit)** e.g. *COD (mg/L)*. "
+        )
+        + "Unresolved columns/rows are listed — they are never silently submitted."
     )
 
     if st.button("Resolve entities", key="mapper_resolve"):
@@ -641,7 +815,11 @@ def mapper_page() -> None:
             parameters=params_list,
             sampling_points=sps_list,
         )
-        resolution = _resolve_all(resolver, role_map, df_data)
+        resolution = (
+            _resolve_long(resolver, role_map, df_data)
+            if is_long
+            else _resolve_all(resolver, role_map, df_data)
+        )
         st.session_state["mapper_resolution"] = resolution
 
     # ------------------------------------------------------------------
