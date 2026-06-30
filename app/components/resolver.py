@@ -5,6 +5,20 @@ from difflib import get_close_matches
 from typing import Any
 
 
+# Label keys a lookup dict may carry, most specific first. Used by target
+# resolution, which is key-agnostic across the different target lookups.
+_NAME_KEYS = ("identifier", "name", "label", "tag")
+
+
+def _candidate_name(candidate: dict) -> str:
+    """Return the first non-empty label a candidate lookup dict carries."""
+    for key in _NAME_KEYS:
+        val = candidate.get(key)
+        if val:
+            return str(val)
+    return ""
+
+
 def _best_match(query: str, candidates: list[dict], name_key: str, id_key: str) -> dict | None:
     """Return the best fuzzy match dict or None."""
     names = [c[name_key] for c in candidates if c.get(name_key)]
@@ -32,10 +46,22 @@ class EntityResolver:
         units: list[dict],
         parameters: list[dict],
         sampling_points: list[dict],
+        equipment: list[dict] | None = None,
+        sites: list[dict] | None = None,
+        process_units: list[dict] | None = None,
+        campaigns: list[dict] | None = None,
+        persons: list[dict] | None = None,
     ) -> None:
         self._units = units
         self._parameters = parameters
         self._sps = sampling_points
+        # Event-target candidate pools (PRD-4 logbook profile). Optional so the
+        # lab/sensor profiles construct the resolver unchanged.
+        self._equipment = equipment or []
+        self._sites = sites or []
+        self._process_units = process_units or []
+        self._campaigns = campaigns or []
+        self._persons = persons or []
 
     def resolve_unit(self, text: str) -> dict | None:
         """Match unit by symbol (exact, case-insensitive) then by name (fuzzy)."""
@@ -56,3 +82,46 @@ class EntityResolver:
     def resolve_sampling_point(self, text: str) -> dict | None:
         """Match sampling point by name (fuzzy)."""
         return _best_match(text, self._sps, "name", "sampling_point_id")
+
+    def resolve_person(self, text: str) -> dict | None:
+        """Match a person by their display label (fuzzy)."""
+        return _best_match(text, self._persons, "label", "person_id")
+
+    def resolve_target(self, text: str) -> dict | None:
+        """Resolve free text to the *smallest* logical Event target it names.
+
+        Scans the text for any candidate label as a substring, smallest level
+        first (Equipment → SamplingPoint → ProcessUnit → Site → Campaign), and
+        returns the first level that hits. Within a level the longest matching
+        label wins (most specific). Returns a dict with ``arc_field`` (the
+        EventIn FK to set), ``level``, ``entity_id``, ``label`` — or None.
+
+        ponytail: substring containment, not word-boundary aware ("P-100"
+        matches inside "P-1000"). S2 adds the disambiguation UX + tighter match.
+        """
+        haystack = (text or "").strip().lower()
+        if not haystack:
+            return None
+        # (level label, candidate pool, EventIn arc-FK field, id key)
+        levels = [
+            ("Equipment", self._equipment, "equipment_id", "equipment_id"),
+            ("SamplingPoint", self._sps, "sampling_point_id", "sampling_point_id"),
+            ("ProcessUnit", self._process_units, "process_unit_id", "id"),
+            ("Site", self._sites, "site_id", "site_id"),
+            ("Campaign", self._campaigns, "campaign_id", "campaign_id"),
+        ]
+        for level, pool, arc_field, id_key in levels:
+            hits = [
+                c for c in pool
+                if (name := _candidate_name(c)) and len(name) >= 2
+                and name.lower() in haystack
+            ]
+            if hits:
+                best = max(hits, key=lambda c: len(_candidate_name(c)))
+                return {
+                    "arc_field": arc_field,
+                    "level": level,
+                    "entity_id": best.get(id_key),
+                    "label": _candidate_name(best),
+                }
+        return None

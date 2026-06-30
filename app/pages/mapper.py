@@ -63,12 +63,25 @@ SENSOR_ROLES = [
     "value",
 ]
 
+# Logbook "Général" profile (PRD-4 S1). One flat journal row → one Event.
+# Date(+Heure) → start; Commentaires → notes (+ derived title) and the target
+# search source; Conductor → performed-by person. Target is resolved to the
+# smallest logical unit by the shared resolver.
+LOGBOOK_ROLES = [
+    "(ignore)",
+    "event_date",
+    "event_time",
+    "notes",
+    "conductor",
+]
+
 # Profile registry — maps a profile key to its role vocabulary. The engine is
 # profile-agnostic; profiles only supply the role set (and their resolve/submit).
 PROFILES = {
     "Lab (wide)": LAB_ROLES,
     "Lab (long)": LONG_LAB_ROLES,
     "Sensor CSV": SENSOR_ROLES,
+    "Logbook (Général)": LOGBOOK_ROLES,
 }
 
 # ---------------------------------------------------------------------------
@@ -509,6 +522,140 @@ def _build_sensor_payloads(
     return list(grouped.values())
 
 
+def _derive_title(notes: str, limit: int = 60) -> str:
+    """Derive a short Event title from the comment's first line."""
+    first = (notes or "").strip().splitlines()[0] if notes and notes.strip() else ""
+    return first[:limit].strip()
+
+
+def _resolve_logbook(
+    resolver: EntityResolver,
+    role_map: dict[str, str],
+    df_data: pd.DataFrame,
+) -> dict:
+    """Resolve a "Général" logbook journal (PRD-4 S1) — one Event per row.
+
+    ``event_date`` (+ optional ``event_time``) → start datetime; ``notes`` →
+    Event notes (and the text scanned for the target); ``conductor`` → the
+    performed-by person. The target is resolved to the *smallest* logical unit
+    found in the comment. Rows with no parseable date or no resolvable target
+    are flagged (never auto-guessed into a wrong target).
+
+    Returns ``row_resolutions`` / ``n_resolved`` / ``n_unresolved``.
+    """
+    date_cols = [c for c, r in role_map.items() if r == "event_date"]
+    time_cols = [c for c, r in role_map.items() if r == "event_time"]
+    notes_cols = [c for c, r in role_map.items() if r == "notes"]
+    conductor_cols = [c for c, r in role_map.items() if r == "conductor"]
+
+    row_resolutions = []
+    n_resolved = 0
+    n_unresolved = 0
+
+    for idx, row in df_data.iterrows():
+        errors: list[str] = []
+
+        # start datetime — date (required) combined with optional time
+        start_dt = None
+        if date_cols:
+            raw_d = row[date_cols[0]]
+            try:
+                start_dt = pd.to_datetime(raw_d)
+                if time_cols:
+                    raw_t = row[time_cols[0]]
+                    if pd.notna(raw_t) and str(raw_t).strip():
+                        try:
+                            start_dt = pd.to_datetime(f"{start_dt.date()} {raw_t}")
+                        except Exception:
+                            errors.append(f"cannot parse time '{raw_t}' — using date only")
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                start_dt = None
+                errors.append(f"cannot parse date '{raw_d}'")
+        else:
+            errors.append("no event_date column tagged")
+
+        # notes + derived title
+        notes = ""
+        if notes_cols:
+            raw_notes = row[notes_cols[0]]
+            notes = "" if pd.isna(raw_notes) else str(raw_notes).strip()
+        title = _derive_title(notes)
+
+        # conductor → person (optional FK; unresolved warns, never blocks)
+        person = None
+        person_text = ""
+        if conductor_cols:
+            raw_c = row[conductor_cols[0]]
+            person_text = "" if pd.isna(raw_c) else str(raw_c).strip()
+            if person_text:
+                person = resolver.resolve_person(person_text)
+                if person is None:
+                    errors.append(f"conductor '{person_text}' not matched — left unset")
+
+        # target → smallest logical unit named in the comment
+        target = resolver.resolve_target(notes)
+        if target is None:
+            errors.append("no target resolved from comment — pick one before submit")
+
+        # A row submits when it has a start time and a target. Unmatched
+        # conductor is a soft warning (person FK is optional), so it does not
+        # block — but it is still surfaced in errors above.
+        blocking = (start_dt is None) or (target is None)
+        row_ok = not blocking
+
+        if row_ok:
+            n_resolved += 1
+        else:
+            n_unresolved += 1
+
+        row_resolutions.append({
+            "row_index": int(idx),
+            "start_datetime": start_dt,
+            "notes": notes,
+            "title": title,
+            "person": person,
+            "person_text": person_text,
+            "target": target,
+            "errors": errors,
+            "ok": row_ok,
+        })
+
+    return {
+        "row_resolutions": row_resolutions,
+        "n_resolved": n_resolved,
+        "n_unresolved": n_unresolved,
+    }
+
+
+def _build_event_payloads(
+    row_resolutions: list[dict], event_kind_id: int
+) -> list[dict]:
+    """Build one EventIn payload per resolved logbook row.
+
+    Each payload sets exactly one exclusive-arc target FK (from the resolved
+    target's ``arc_field``), so it satisfies EventIn's one-target invariant.
+    Only ``ok`` rows are included — flagged rows are surfaced, never submitted.
+    """
+    payloads = []
+    for rr in row_resolutions:
+        if not rr["ok"]:
+            continue
+        target = rr["target"]
+        payload = {
+            "event_kind_id": event_kind_id,
+            "is_instantaneous": True,
+            "start_datetime": rr["start_datetime"].isoformat(),
+            "notes": rr["notes"] or None,
+            target["arc_field"]: target["entity_id"],
+        }
+        if rr["person"]:
+            payload["performed_by_person_id"] = rr["person"]["person_id"]
+        payloads.append(payload)
+    return payloads
+
+
 # ---------------------------------------------------------------------------
 # Config persistence (S4) — PRD-5-compatible shape
 # ---------------------------------------------------------------------------
@@ -581,7 +728,8 @@ def mapper_page() -> None:
         key="mapper_profile",
         help="Lab (wide): rows are samples, columns are parameters. "
         "Lab (long): each row is one measurement (parameter/unit in cells). "
-        "Sensor CSV: each row is one timestamped reading.",
+        "Sensor CSV: each row is one timestamped reading. "
+        "Logbook (Général): each row is one operational Event.",
     )
 
     uploaded = st.file_uploader(
@@ -767,6 +915,10 @@ def mapper_page() -> None:
     # ------------------------------------------------------------------
     if profile == "Sensor CSV":
         _sensor_resolve_and_submit(role_map, active_cols, df_data)
+        return
+
+    if profile == "Logbook (Général)":
+        _logbook_resolve_and_submit(role_map, active_cols, df_data)
         return
 
     # ------------------------------------------------------------------
@@ -1171,6 +1323,153 @@ def _do_sensor_submit(payloads: list[dict]) -> None:
         st.success(f"All {n_ok} channel(s) submitted successfully.")
     else:
         st.warning(f"{n_ok} channel(s) submitted; {n_err} failed.")
+    st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+
+# ---------------------------------------------------------------------------
+# Logbook "Général" profile UI (PRD-4 S1) — map → resolve target → create Events
+# ---------------------------------------------------------------------------
+
+
+def _logbook_resolve_and_submit(
+    role_map: dict[str, str],
+    active_cols: dict[str, str],
+    df_data: pd.DataFrame,
+) -> None:
+    """Resolve, preview, and create Events from a "Général" logbook journal."""
+    tagged = set(active_cols.values())
+    if "event_date" not in tagged:
+        st.info("Tag the date column as **event_date** (and optionally a time column).")
+        return
+    if "notes" not in tagged:
+        st.info("Tag the comments column as **notes** — it carries the entry text and target.")
+        return
+
+    st.subheader("Resolve targets")
+    st.caption(
+        "Each row becomes one Event. The comment is scanned for the smallest "
+        "logical target it names (Equipment → SamplingPoint → ProcessUnit → "
+        "Site → Campaign). Rows with no parseable date or no resolved target "
+        "are flagged — never auto-guessed into a wrong target."
+    )
+
+    # Event kind isn't in the sheet — the user picks a default for all rows.
+    try:
+        event_kinds = api.list_event_kinds_lookup()
+    except Exception as exc:
+        st.error(f"Could not load event kinds: {exc}")
+        return
+    if not event_kinds:
+        st.warning("No event kinds defined yet — create one before importing the logbook.")
+        return
+    kind_label = st.selectbox(
+        "Default event kind",
+        options=[k["name"] for k in event_kinds],
+        key="mapper_logbook_kind",
+        help="Applied to every imported row (the Général sheet has no kind column).",
+    )
+    event_kind_id = next(k["event_kind_id"] for k in event_kinds if k["name"] == kind_label)
+
+    if st.button("Resolve targets", key="mapper_logbook_resolve"):
+        try:
+            resolver = EntityResolver(
+                units=[],
+                parameters=[],
+                sampling_points=api.list_sampling_points_lookup(),
+                equipment=api.list_equipment_lookup(),
+                sites=api.list_sites_lookup(),
+                process_units=api.list_process_units_lookup(),
+                campaigns=api.list_campaigns_lookup(),
+                persons=api.list_persons_lookup(),
+            )
+        except Exception as exc:
+            st.error(f"Could not load lookup data from API: {exc}")
+            return
+        st.session_state["mapper_logbook_resolution"] = _resolve_logbook(
+            resolver, role_map, df_data
+        )
+
+    resolution = st.session_state.get("mapper_logbook_resolution")
+    if resolution is None:
+        return
+
+    row_resolutions = resolution["row_resolutions"]
+    n_resolved = resolution["n_resolved"]
+    n_unresolved = resolution["n_unresolved"]
+    n_total = len(row_resolutions)
+
+    st.subheader("Preview events")
+    st.caption(
+        f"{n_resolved} of {n_total} rows resolved — "
+        f"{n_unresolved} row(s) have errors and will NOT be submitted."
+    )
+
+    preview_rows = []
+    for rr in row_resolutions:
+        ts_str = rr["start_datetime"].isoformat() if rr["start_datetime"] else "— missing —"
+        tgt = rr["target"]
+        target_disp = f"{tgt['level']}: {tgt['label']}" if tgt else "— unresolved —"
+        preview_rows.append({
+            "row#": rr["row_index"],
+            "start": ts_str,
+            "title": rr["title"] or "—",
+            "target": target_disp,
+            "conductor": (rr["person"]["label"] if rr["person"] else (rr["person_text"] or "—")),
+            "status": "ok" if rr["ok"] else ("error: " + "; ".join(rr["errors"])),
+        })
+    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True)
+
+    if n_unresolved > 0:
+        st.warning(
+            f"{n_unresolved} row(s) have no date or no resolved target and will be skipped."
+        )
+    if n_resolved == 0:
+        st.error("No rows can be submitted — all rows have errors.")
+        return
+
+    payloads = _build_event_payloads(row_resolutions, event_kind_id)
+    st.subheader("Create events")
+    st.info(f"Will create **{len(payloads)}** Event(s). {n_unresolved} row(s) skipped.")
+    if st.button("Create events", key="mapper_logbook_submit", type="primary"):
+        _do_event_submit(payloads, row_resolutions)
+
+
+def _do_event_submit(payloads: list[dict], row_resolutions: list[dict]) -> None:
+    """Call POST /events for each resolved logbook row. Reports per-row results."""
+    if not payloads:
+        st.error("No resolved rows to submit.")
+        return
+
+    # One ok row per payload, in the same order, for the result table.
+    ok_rows = [rr for rr in row_resolutions if rr["ok"]]
+    results = []
+    progress = st.progress(0, text="Creating events…")
+    for i, (payload, rr) in enumerate(zip(payloads, ok_rows)):
+        tgt = rr["target"]
+        try:
+            resp = api.create_event(payload)
+            results.append({
+                "row": rr["row_index"],
+                "target": f"{tgt['level']}: {tgt['label']}",
+                "status": "ok",
+                "detail": f"event_id={resp.get('event_id')}",
+            })
+        except Exception as exc:
+            results.append({
+                "row": rr["row_index"],
+                "target": f"{tgt['level']}: {tgt['label']}",
+                "status": "error",
+                "detail": str(exc),
+            })
+        progress.progress((i + 1) / len(payloads), text=f"Row {rr['row_index']} done")
+    progress.empty()
+
+    n_ok = sum(1 for r in results if r["status"] == "ok")
+    n_err = sum(1 for r in results if r["status"] == "error")
+    if n_err == 0:
+        st.success(f"All {n_ok} event(s) created successfully.")
+    else:
+        st.warning(f"{n_ok} event(s) created; {n_err} failed.")
     st.dataframe(pd.DataFrame(results), use_container_width=True)
 
 
