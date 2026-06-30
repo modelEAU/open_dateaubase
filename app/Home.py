@@ -14,7 +14,15 @@ if _project_root not in sys.path:
 
 import streamlit as st
 
-from app.api_client import APIError, get_health, list_sampling_points_lookup
+from app.api_client import (
+    APIError,
+    get_health,
+    list_analysis_series_lookup,
+    list_channels,
+    list_persons_lookup,
+    list_sampling_points_lookup,
+    list_sites_lookup,
+)
 from app.auth import get_current_user, logout
 from app.auth import _show_auth_page as _login
 from app.config import settings
@@ -65,22 +73,35 @@ def _home() -> None:
 def _onboarding_panel() -> None:
     try:
         sps = list_sampling_points_lookup()
+        sites = list_sites_lookup()
+        persons = list_persons_lookup()
+        ch_resp = list_channels(page_size=1)
+        channels = ch_resp.get("items", []) if isinstance(ch_resp, dict) else (ch_resp or [])
+        analysis_series = list_analysis_series_lookup()
     except Exception:
         return  # API down — don't crash Home
-    if sps:
-        return  # foundation complete, hide panel
+
+    # Auto-hide once any ingestable Stream exists
+    if channels or analysis_series:
+        return
+
+    def _step(items: list, done_label: str, todo_label: str, url: str) -> str:
+        if items:
+            return f"- ✓ {done_label}"
+        return f"- ○ [{todo_label}]({url})"
+
     with st.container(border=True):
         st.markdown("### Get started")
         st.markdown(
-            "No sampling locations found yet. Complete these foundation steps to start loading data:\n\n"
-            "1. [Add a site](sites) — define where you sample\n"
-            "2. [Add a person](persons) — who is responsible\n"
-            "3. [Add a sampling location](sampling_locations) — the specific point on the site\n\n"
-            "_Once a sampling location exists, this panel will disappear._"
+            "Complete these foundation steps to start loading data:\n\n"
+            + _step(sites, "Site added", "Add a site", "sites") + "\n"
+            + _step(persons, "Person added", "Add a person", "persons") + "\n"
+            + _step(sps, "Sampling location added", "Add a sampling location", "sampling_locations") + "\n\n"
+            "_Once an ingestable Stream (Channel or AnalysisSeries) exists, this panel will disappear._"
         )
 
 
-_pages = Path(__file__).parent / "pages"
+_pages = Path(__file__).resolve().parent / "pages"  # resolve so st.Page paths are absolute under AppTest
 _user = get_current_user()
 
 if not _user:
