@@ -47,6 +47,7 @@ from .endpoints.vocab import router as vocab_router
 from .endpoints.convert import router as convert_router
 from .endpoints.deployment_traces import router as deployment_traces_router
 from .endpoints.admin_browse import router as admin_browse_router
+from .endpoints.events import events_router, event_kinds_router
 
 router = APIRouter()
 
@@ -133,6 +134,8 @@ protected.include_router(
 protected.include_router(
     data_health_router, prefix="/data-health", tags=["data-health"]
 )
+protected.include_router(events_router, prefix="/events", tags=["events"])
+protected.include_router(event_kinds_router, prefix="/event-kinds", tags=["event-kinds"])
 
 # Mount the public and protected groups onto the v1 router.
 router.include_router(public_router)
