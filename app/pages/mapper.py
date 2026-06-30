@@ -1,9 +1,11 @@
-"""Mapper Engine — S4: upload CSV/XLSX → pick sheet/header/range
+"""Mapper Engine — S5: upload CSV/XLSX → pick sheet/header/range
 → tag column roles → save/load named config → preview → resolve entities (text → DB ID)
-→ preview ingest → submit to /ingest/lab.
+→ preview ingest → submit via the active profile's endpoint.
 
 PRD-3 S1: shell. PRD-3 S2: entity resolution. PRD-3 S3: lab end-to-end.
 PRD-3 S4: save/reload named mapping config (PRD-5-compatible shape).
+PRD-3 S5: Sensor-CSV profile — thin profile reusing the same engine,
+mapping timestamp/tag/parameter/unit/value columns to /ingest/sensor.
 """
 
 from __future__ import annotations
@@ -36,6 +38,24 @@ LAB_ROLES = [
     "replicate",
     "parameter_value",
 ]
+
+# Sensor-CSV profile (S5). Each row is one timestamped reading; the tag,
+# parameter, and unit columns identify (and auto-create) the channel.
+SENSOR_ROLES = [
+    "(ignore)",
+    "timestamp",
+    "tag",
+    "parameter",
+    "unit",
+    "value",
+]
+
+# Profile registry — maps a profile key to its role vocabulary. The engine is
+# profile-agnostic; profiles only supply the role set (and their resolve/submit).
+PROFILES = {
+    "Lab (wide)": LAB_ROLES,
+    "Sensor CSV": SENSOR_ROLES,
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -191,6 +211,148 @@ def _resolve_all(
     }
 
 
+def _resolve_sensor(
+    resolver: EntityResolver,
+    role_map: dict[str, str],
+    df_data: pd.DataFrame,
+) -> dict:
+    """Resolve a Sensor-CSV table (thin profile, reuses the shared engine).
+
+    Each row is one timestamped reading. The ``parameter`` and ``unit`` cells
+    resolve to existing DB entities; the ``tag`` cell is passed through to the
+    tagged sensor-ingest endpoint (channels are auto-created server-side).
+
+    Returns the same shape as :func:`_resolve_all`:
+    ``row_resolutions`` (per-row dicts), ``n_resolved``, ``n_unresolved``.
+    """
+    timestamp_cols = [c for c, r in role_map.items() if r == "timestamp"]
+    tag_cols = [c for c, r in role_map.items() if r == "tag"]
+    parameter_cols = [c for c, r in role_map.items() if r == "parameter"]
+    unit_cols = [c for c, r in role_map.items() if r == "unit"]
+    value_cols = [c for c, r in role_map.items() if r == "value"]
+
+    row_resolutions = []
+    n_resolved = 0
+    n_unresolved = 0
+
+    for idx, row in df_data.iterrows():
+        errors: list[str] = []
+
+        # timestamp
+        ts_val = None
+        if timestamp_cols:
+            raw_ts = row[timestamp_cols[0]]
+            try:
+                ts_val = pd.to_datetime(raw_ts)
+                if ts_val.tzinfo is None:
+                    ts_val = ts_val.replace(tzinfo=timezone.utc)
+            except Exception:
+                errors.append(f"cannot parse timestamp '{raw_ts}'")
+        else:
+            errors.append("no timestamp column tagged")
+
+        # tag — free text, passed through (resolved server-side against DAS tags)
+        tag = ""
+        if tag_cols:
+            tag = str(row[tag_cols[0]]).strip()
+        if not tag:
+            errors.append("missing tag")
+
+        # parameter → parameter entity
+        param = None
+        param_text = ""
+        if parameter_cols:
+            param_text = str(row[parameter_cols[0]]).strip()
+            param = resolver.resolve_parameter(param_text)
+            if param is None:
+                errors.append(f"parameter '{param_text}' not found")
+        else:
+            errors.append("no parameter column tagged")
+
+        # unit → unit entity
+        unit = None
+        unit_text = ""
+        if unit_cols:
+            unit_text = str(row[unit_cols[0]]).strip()
+            unit = resolver.resolve_unit(unit_text)
+            if unit is None:
+                errors.append(f"unit '{unit_text}' not found")
+        else:
+            errors.append("no unit column tagged")
+
+        # value → numeric
+        value = None
+        if value_cols:
+            raw_val = row[value_cols[0]]
+            try:
+                value = float(raw_val)
+            except (TypeError, ValueError):
+                errors.append(f"value '{raw_val}' is not numeric")
+        else:
+            errors.append("no value column tagged")
+
+        row_ok = len(errors) == 0
+
+        if row_ok:
+            n_resolved += 1
+        else:
+            n_unresolved += 1
+
+        row_resolutions.append({
+            "row_index": int(idx),
+            "timestamp": ts_val,
+            "tag": tag,
+            "parameter": param,
+            "param_text": param_text,
+            "unit": unit,
+            "unit_text": unit_text,
+            "value": value,
+            "errors": errors,
+            "ok": row_ok,
+        })
+
+    return {
+        "row_resolutions": row_resolutions,
+        "n_resolved": n_resolved,
+        "n_unresolved": n_unresolved,
+    }
+
+
+def _build_sensor_payloads(
+    row_resolutions: list[dict], das_name: str = ""
+) -> list[dict]:
+    """Group resolved sensor rows into tagged /ingest/sensor payloads.
+
+    Rows sharing the same (tag, parameter, unit) form one channel; their
+    timestamped values are batched into a single payload. Only ``ok`` rows
+    are included — unresolved rows are surfaced upstream, never submitted.
+    ``das_name`` names the source data-acquisition system (the tag lives under it).
+    """
+    grouped: dict[tuple, dict] = {}
+    for rr in row_resolutions:
+        if not rr["ok"]:
+            continue
+        key = (rr["tag"], rr["parameter"]["parameter_id"], rr["unit"]["unit_id"])
+        payload = grouped.get(key)
+        if payload is None:
+            payload = {
+                "das_name": das_name,
+                "tag": rr["tag"],
+                "channel_kind": "value",
+                "parameter_name": rr["parameter"]["name"],
+                "unit_name": rr["unit"].get("symbol") or rr["unit"].get("name", ""),
+                "strict": False,
+                "values": [],
+            }
+            grouped[key] = payload
+        payload["values"].append({
+            "timestamp": rr["timestamp"].isoformat(),
+            "value": rr["value"],
+            "quality_code": None,
+        })
+    return list(grouped.values())
+
+
 # ---------------------------------------------------------------------------
 # Config persistence (S4) — PRD-5-compatible shape
 # ---------------------------------------------------------------------------
@@ -211,11 +373,13 @@ def _build_config(
     data_start_row: int,
     role_map: dict[str, str],
     sheet_name: str | int | None = None,
+    profile: str = "Lab (wide)",
 ) -> dict:
     """Assemble a config dict in PRD-5-compatible shape."""
     cfg: dict = {
         "name": name,
         "version": _CONFIG_VERSION,
+        "profile": profile,
         "header_row": header_row,
         "data_start_row": data_start_row,
         "role_map": role_map,
@@ -252,7 +416,16 @@ def _load_config(path: Path) -> dict:
 
 def mapper_page() -> None:
     st.header("Import Data (Mapper)")
-    st.caption("PRD-3 S3 — Lab profile: upload → tag roles → resolve → preview → submit")
+    st.caption("PRD-3 S5 — upload → pick profile → tag roles → resolve → preview → submit")
+
+    profile = st.selectbox(
+        "Profile",
+        options=list(PROFILES.keys()),
+        index=0,
+        key="mapper_profile",
+        help="Lab (wide): rows are samples, columns are parameters. "
+        "Sensor CSV: each row is one timestamped reading.",
+    )
 
     uploaded = st.file_uploader(
         "Upload a spreadsheet",
@@ -263,6 +436,8 @@ def mapper_page() -> None:
     if uploaded is None:
         st.info("Upload a CSV or XLSX file to get started.")
         return
+
+    active_roles = PROFILES.get(profile, LAB_ROLES)
 
     file_bytes = uploaded.read()
     filename = uploaded.name
@@ -350,7 +525,7 @@ def mapper_page() -> None:
             with col_widget:
                 role = st.selectbox(
                     col_name,
-                    options=LAB_ROLES,
+                    options=active_roles,
                     index=0,
                     key=f"mapper_role_{col_name}",
                 )
@@ -376,6 +551,7 @@ def mapper_page() -> None:
                     data_start_row=int(data_start_row),
                     role_map=role_map,
                     sheet_name=sheet_name if filename.endswith(".xlsx") else None,
+                    profile=profile,
                 )
                 saved_path = _save_config(cfg)
                 st.success(f"Config saved to `{saved_path}`")
@@ -398,9 +574,13 @@ def mapper_page() -> None:
                     st.session_state["mapper_header_row"] = loaded.get("header_row", 0)
                     st.session_state["mapper_data_start"] = loaded.get("data_start_row", 1)
                     # Apply role assignments per column
+                    loaded_profile = loaded.get("profile")
+                    if loaded_profile in PROFILES:
+                        st.session_state["mapper_profile"] = loaded_profile
+                    valid_roles = PROFILES.get(loaded_profile, active_roles)
                     for col_name, role in loaded.get("role_map", {}).items():
                         key = f"mapper_role_{col_name}"
-                        if role in LAB_ROLES:
+                        if role in valid_roles:
                             st.session_state[key] = role
                     st.success(
                         f"Config **{loaded.get('name', selected_cfg_path.stem)}** loaded. "
@@ -424,6 +604,13 @@ def mapper_page() -> None:
     preview_df.columns = [f"{col} [{role}]" for col, role in active_cols.items()]
     st.dataframe(preview_df, use_container_width=True)
     st.caption("Preview shows the first 5 data rows with role labels as column headers.")
+
+    # ------------------------------------------------------------------
+    # S5: Sensor-CSV profile — thin profile branch (reuses the same engine)
+    # ------------------------------------------------------------------
+    if profile == "Sensor CSV":
+        _sensor_resolve_and_submit(role_map, active_cols, df_data)
+        return
 
     # ------------------------------------------------------------------
     # S2 / S3: Entity resolution
@@ -656,6 +843,156 @@ def _do_submit(
     else:
         st.warning(f"{n_ok} row(s) submitted; {n_err} row(s) failed.")
 
+    st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+
+# ---------------------------------------------------------------------------
+# Sensor-CSV profile UI (S5) — thin profile over the shared engine
+# ---------------------------------------------------------------------------
+
+
+def _sensor_resolve_and_submit(
+    role_map: dict[str, str],
+    active_cols: dict[str, str],
+    df_data: pd.DataFrame,
+) -> None:
+    """Resolve, preview, and submit a Sensor-CSV table to /ingest/sensor."""
+    needed = {"timestamp", "tag", "parameter", "unit", "value"}
+    tagged = set(active_cols.values())
+    missing = needed - tagged
+    if missing:
+        st.info(
+            "Tag one column for each of: timestamp, tag, parameter, unit, value. "
+            f"Still missing: {', '.join(sorted(missing))}."
+        )
+        return
+
+    st.subheader("Resolve entities")
+    st.caption(
+        "Parameter and unit cells are matched to database entities by fuzzy text. "
+        "The tag is passed through to the tagged sensor endpoint (channels are "
+        "auto-created). Unresolved rows are listed — never silently submitted."
+    )
+
+    if st.button("Resolve entities", key="mapper_sensor_resolve"):
+        try:
+            units_list = api.list_units_lookup()
+            params_list = api.list_parameters_lookup()
+            sps_list = api.list_sampling_points_lookup()
+        except Exception as exc:
+            st.error(f"Could not load lookup data from API: {exc}")
+            return
+        resolver = EntityResolver(
+            units=units_list,
+            parameters=params_list,
+            sampling_points=sps_list,
+        )
+        st.session_state["mapper_sensor_resolution"] = _resolve_sensor(
+            resolver, role_map, df_data
+        )
+
+    resolution = st.session_state.get("mapper_sensor_resolution")
+    if resolution is None:
+        return
+
+    row_resolutions = resolution["row_resolutions"]
+    n_resolved = resolution["n_resolved"]
+    n_unresolved = resolution["n_unresolved"]
+    n_total = len(row_resolutions)
+
+    st.subheader("Preview ingest")
+    st.caption(
+        f"{n_resolved} of {n_total} rows resolved — "
+        f"{n_unresolved} row(s) have errors and will NOT be submitted."
+    )
+
+    preview_rows = []
+    for rr in row_resolutions:
+        ts_str = rr["timestamp"].isoformat() if rr["timestamp"] else "— missing —"
+        param_name = rr["parameter"]["name"] if rr["parameter"] else f"— {rr['param_text']} not found —"
+        unit_disp = (
+            (rr["unit"].get("symbol") or rr["unit"].get("name", ""))
+            if rr["unit"]
+            else f"— {rr['unit_text']} not found —"
+        )
+        preview_rows.append({
+            "row#": rr["row_index"],
+            "timestamp": ts_str,
+            "tag": rr["tag"],
+            "parameter": param_name,
+            "unit": unit_disp,
+            "value": rr["value"] if rr["value"] is not None else "—",
+            "status": "ok" if rr["ok"] else ("error: " + "; ".join(rr["errors"])),
+        })
+    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True)
+
+    if n_unresolved > 0:
+        st.warning(
+            f"{n_unresolved} row(s) have unresolved entities or invalid values and will be skipped."
+        )
+    if n_resolved == 0:
+        st.error("No rows can be submitted — all rows have errors.")
+        return
+
+    st.subheader("Submit to /ingest/sensor")
+    das_name = st.text_input(
+        "Data-acquisition system (DAS)",
+        key="mapper_sensor_das",
+        help="The source system the tags belong to; auto-created if it doesn't exist.",
+    ).strip()
+    payloads = _build_sensor_payloads(row_resolutions, das_name)
+    st.info(
+        f"Will submit **{n_resolved}** reading(s) grouped into **{len(payloads)}** "
+        f"channel(s) (one tagged /ingest/sensor call each). {n_unresolved} row(s) skipped."
+    )
+
+    submit_disabled = not das_name
+    if submit_disabled:
+        st.caption("Enter a DAS name to enable submit.")
+    if st.button(
+        "Submit to /ingest/sensor",
+        key="mapper_sensor_submit",
+        type="primary",
+        disabled=submit_disabled,
+    ):
+        _do_sensor_submit(payloads)
+
+
+def _do_sensor_submit(payloads: list[dict]) -> None:
+    """Call POST /ingest/sensor for each (tag, parameter, unit) channel payload."""
+    if not payloads:
+        st.error("No resolved readings to submit.")
+        return
+
+    results = []
+    progress = st.progress(0, text="Submitting channels…")
+    for i, payload in enumerate(payloads):
+        try:
+            resp = api.ingest_sensor(payload)
+            results.append({
+                "tag": payload["tag"],
+                "parameter": payload["parameter_name"],
+                "rows": len(payload["values"]),
+                "status": "ok",
+                "detail": f"channel_id={resp.get('channel_id')}, rows_written={resp.get('rows_written')}",
+            })
+        except Exception as exc:
+            results.append({
+                "tag": payload["tag"],
+                "parameter": payload["parameter_name"],
+                "rows": len(payload["values"]),
+                "status": "error",
+                "detail": str(exc),
+            })
+        progress.progress((i + 1) / len(payloads), text=f"Channel '{payload['tag']}' done")
+    progress.empty()
+
+    n_ok = sum(1 for r in results if r["status"] == "ok")
+    n_err = sum(1 for r in results if r["status"] == "error")
+    if n_err == 0:
+        st.success(f"All {n_ok} channel(s) submitted successfully.")
+    else:
+        st.warning(f"{n_ok} channel(s) submitted; {n_err} failed.")
     st.dataframe(pd.DataFrame(results), use_container_width=True)
 
 
