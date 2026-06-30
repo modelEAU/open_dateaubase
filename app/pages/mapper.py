@@ -1,7 +1,7 @@
-"""Mapper Engine — S1 shell: upload CSV/XLSX → pick sheet/header/range
-→ tag column roles → dumb preview (no entity resolution, no submit).
+"""Mapper Engine — S2: upload CSV/XLSX → pick sheet/header/range
+→ tag column roles → preview → resolve entities (text → DB ID).
 
-PRD-3 S1. Entity resolution and submit are S2–S3.
+PRD-3 S1: shell. PRD-3 S2: entity resolution.
 """
 
 from __future__ import annotations
@@ -17,6 +17,9 @@ import io
 
 import pandas as pd
 import streamlit as st
+
+import app.api_client as api
+from app.components.resolver import EntityResolver
 
 # ---------------------------------------------------------------------------
 # Profile stub — role vocabulary (S1: hardcoded; S2+ will load from saved profile)
@@ -176,10 +179,57 @@ def mapper_page() -> None:
     preview_df = df_data[list(active_cols.keys())].head(5).copy()
     preview_df.columns = [f"{col} [{role}]" for col, role in active_cols.items()]
     st.dataframe(preview_df, use_container_width=True)
-    st.caption(
-        "Preview shows the first 5 data rows with role labels as column headers. "
-        "Entity resolution and submit are coming in S2–S3."
-    )
+    st.caption("Preview shows the first 5 data rows with role labels as column headers.")
+
+    # ------------------------------------------------------------------
+    # S2: Entity resolution — columns tagged as parameter_value
+    # ------------------------------------------------------------------
+    param_value_cols = [col for col, role in active_cols.items() if role == "parameter_value"]
+    if param_value_cols:
+        st.subheader("Resolve entities")
+        st.caption(
+            "Match column headers to Parameters in the database using fuzzy text matching. "
+            "Unresolved columns are listed so nothing is silently dropped."
+        )
+        if st.button("Resolve entities", key="mapper_resolve"):
+            try:
+                units_list = api.list_units_lookup()
+                params_list = api.list_parameters_lookup()
+                sps_list = api.list_sampling_points_lookup()
+            except Exception as exc:
+                st.error(f"Could not load lookup data from API: {exc}")
+                return
+
+            resolver = EntityResolver(
+                units=units_list,
+                parameters=params_list,
+                sampling_points=sps_list,
+            )
+
+            rows = []
+            for col in param_value_cols:
+                match = resolver.resolve_parameter(col)
+                rows.append(
+                    {
+                        "Column header": col,
+                        "Matched parameter": match["name"] if match else "— unresolved —",
+                        "parameter_id": match["parameter_id"] if match else None,
+                        "Status": "✓ resolved" if match else "✗ unresolved",
+                    }
+                )
+
+            result_df = pd.DataFrame(rows)
+            st.dataframe(result_df, use_container_width=True)
+
+            unresolved = [r["Column header"] for r in rows if r["parameter_id"] is None]
+            if unresolved:
+                st.warning(
+                    f"{len(unresolved)} column(s) could not be matched: "
+                    + ", ".join(f"**{c}**" for c in unresolved)
+                    + ". Review column names or add the missing parameters."
+                )
+            else:
+                st.success("All parameter_value columns resolved successfully.")
 
 
 mapper_page()
