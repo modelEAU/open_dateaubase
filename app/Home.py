@@ -185,6 +185,7 @@ pg = st.navigation(
             st.Page(str(_pages / "mapper.py"), title="Import Data (Mapper)", icon="📥"),
             st.Page(str(_pages / "explore.py"), title="Visualize Data", icon="📊"),
             st.Page(str(_pages / "equipment_move.py"), title="Move a sensor", icon="➡️"),
+            st.Page(str(_pages / "maintenance_control_chart.py"), title="Maintenance Control Chart", icon="📉"),
         ],
         "Reports": [
             st.Page(str(_pages / "campaign_story.py"), title="Campaign Story", icon="📖"),
