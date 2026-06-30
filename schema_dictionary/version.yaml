@@ -1,9 +1,8 @@
-schema_version: "2.4.0"
+schema_version: "2.5.0"
 description: >
-  Consistency hardening part 4 — multi-site campaigns (Batch 6). Drops
-  Campaign.Site_ID; a campaign's sites are now derived from its sampling-location
-  membership (CampaignSamplingLocation to SamplingPoint.Site), so a campaign may
-  span several sites. Readers (campaign list/overview, channel pedigree fallback,
-  site filter) repointed to the derived set. Pre-release, fresh install only —
-  no migration.
-date: "2026-06-29"
+  PRD-2 S1 — Rename EquipmentEvent to Event with 8-FK exclusive arc (CHECK
+  exactly-one non-NULL: Channel, Equipment, SignalInterface, DAS, SamplingPoint,
+  ProcessUnit, Site, Campaign). Rename EquipmentEventKind to EventKind; expand
+  seed vocab (Calibration/Cleaning/Repair/…15 kinds). Annotation FK repointed
+  to Event. Pre-release, fresh install only — no migration.
+date: "2026-06-30"

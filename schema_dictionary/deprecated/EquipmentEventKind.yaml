@@ -1,0 +1,37 @@
+_format_version: "1.0"
+table:
+  name: EquipmentEventKind
+  schema: dbo
+  description: "Controlled vocabulary classifying the kind of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)"
+
+  columns:
+    - name: EquipmentEventKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the equipment event kind"
+
+    - name: Description
+      logical_type: string
+      max_length: 300
+      nullable: true
+      description: "Explanation of what this kind of equipment event involves"
+
+  primary_key: [EquipmentEventKind_ID]
+
+  seed_data:
+    - { EquipmentEventKind_ID: 1, Name: "Calibration",      Description: "Adjustment of sensor output to match a known reference standard" }
+    - { EquipmentEventKind_ID: 2, Name: "Commissioning",    Description: "Formal activation of equipment into operational service" }
+    - { EquipmentEventKind_ID: 3, Name: "Maintenance",      Description: "Physical cleaning, inspection, or servicing of equipment" }
+    - { EquipmentEventKind_ID: 4, Name: "Installation",    Description: "First-time mounting or connection of equipment at its deployment site" }
+    - { EquipmentEventKind_ID: 5, Name: "Removal",         Description: "Decommissioning or retrieval of equipment from its deployment site" }
+    - { EquipmentEventKind_ID: 6, Name: "Firmware Update", Description: "Update to the embedded software or firmware of the device" }
+    - { EquipmentEventKind_ID: 7, Name: "Failure",         Description: "Unplanned malfunction or breakdown requiring corrective action" }
+    - { EquipmentEventKind_ID: 8, Name: "Repair",           Description: "Corrective action performed following a recorded failure" }
+    - { EquipmentEventKind_ID: 9, Name: "Decommissioning", Description: "Formal retirement of equipment from operational service" }

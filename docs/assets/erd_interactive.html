@@ -588,8 +588,8 @@
           "is_pk": false,
           "is_fk": true,
           "is_required": false,
-          "fk_target": "EquipmentEvent.EquipmentEvent_ID",
-          "description": "Equipment event that caused this annotation, if any"
+          "fk_target": "Event.Event_ID",
+          "description": "Event that caused this annotation, if any (column rename to Event_ID deferred to S3)"
         },
         {
           "name": "Title",
@@ -1899,134 +1899,6 @@
       "group_key": "equipment"
     },
     {
-      "id": "EquipmentEvent",
-      "label": "EquipmentEvent",
-      "description": "Records a discrete lifecycle event (calibration, maintenance, failure, etc.) that occurred on a specific piece of equipment.",
-      "fields": [
-        {
-          "name": "EquipmentEvent_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Equipment_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "Equipment.Equipment_ID",
-          "description": "Equipment on which the event occurred"
-        },
-        {
-          "name": "EquipmentEventKind_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": true,
-          "fk_target": "EquipmentEventKind.EquipmentEventKind_ID",
-          "description": "Kind of lifecycle event"
-        },
-        {
-          "name": "EventDateTimeStart",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Date and time the event began (UTC)"
-        },
-        {
-          "name": "IsInstantaneous",
-          "sql_type": "BIT",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "True if the event occurred at a single point in time. When true, EventDateTimeEnd must be NULL. When false and EventDateTimeEnd is NULL, the event is ongoing."
-        },
-        {
-          "name": "EventDateTimeEnd",
-          "sql_type": "DATETIME2(7)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Date and time the event ended (UTC). NULL when IsInstantaneous=1 (point-in-time) or when the event is still ongoing (IsInstantaneous=0)."
-        },
-        {
-          "name": "PerformedByPerson_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Person.Person_ID",
-          "description": "Person who physically performed the event (e.g. technician on site)"
-        },
-        {
-          "name": "RecordedByPerson_ID",
-          "sql_type": "INT",
-          "is_pk": false,
-          "is_fk": true,
-          "is_required": false,
-          "fk_target": "Person.Person_ID",
-          "description": "Person who entered this record into the system (may differ from PerformedByPerson_ID)"
-        },
-        {
-          "name": "Notes",
-          "sql_type": "NVARCHAR(MAX)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Free-text notes about the event"
-        }
-      ],
-      "group_name": "Field System & Equipment",
-      "group_color": "#059669",
-      "group_key": "equipment"
-    },
-    {
-      "id": "EquipmentEventKind",
-      "label": "EquipmentEventKind",
-      "description": "Controlled vocabulary classifying the kind of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)",
-      "fields": [
-        {
-          "name": "EquipmentEventKind_ID",
-          "sql_type": "INT",
-          "is_pk": true,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Surrogate primary key"
-        },
-        {
-          "name": "Name",
-          "sql_type": "NVARCHAR(100)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": true,
-          "fk_target": null,
-          "description": "Name of the equipment event kind"
-        },
-        {
-          "name": "Description",
-          "sql_type": "NVARCHAR(300)",
-          "is_pk": false,
-          "is_fk": false,
-          "is_required": false,
-          "fk_target": null,
-          "description": "Explanation of what this kind of equipment event involves"
-        }
-      ],
-      "group_name": "Field System & Equipment",
-      "group_color": "#059669",
-      "group_key": "equipment"
-    },
-    {
       "id": "EquipmentLocationHistory",
       "label": "EquipmentLocationHistory",
       "description": "Temporal record of where a piece of Equipment is physically installed (which SamplingPoint). Independent from EquipmentWiringHistory: a probe can be relocated without changing its wiring, and vice versa. At most one row per Equipment may have ValidTo IS NULL (the equipment's current location).\n",
@@ -2291,6 +2163,197 @@
       "group_name": "Field System & Equipment",
       "group_color": "#059669",
       "group_key": "equipment"
+    },
+    {
+      "id": "Event",
+      "label": "Event",
+      "description": "Records a discrete, time-stamped operational occurrence (calibration, cleaning, power outage, PLC crash, site visit, \u2026) at any node of the physical hierarchy. Each Event attaches to exactly one target via an exclusive arc of eight nullable FKs \u2014 a CHECK constraint enforces that exactly one is non-NULL. Generalises the former EquipmentEvent (which was restricted to Equipment).\n",
+      "fields": [
+        {
+          "name": "Event_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Channel_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Channel.Stream_ID",
+          "description": "Leaf target: the specific sensor Channel the event concerns (references Channel.Stream_ID)"
+        },
+        {
+          "name": "Equipment_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Equipment.Equipment_ID",
+          "description": "Target: the Equipment the event concerns (sensor, actuator, \u2026)"
+        },
+        {
+          "name": "SignalInterface_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SignalInterface.SignalInterface_ID",
+          "description": "Target: the SignalInterface (field bus, port block) the event concerns"
+        },
+        {
+          "name": "DataAcquisitionSystem_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "DataAcquisitionSystem.DataAcquisitionSystem_ID",
+          "description": "Target: the DataAcquisitionSystem (PLC, logger) the event concerns"
+        },
+        {
+          "name": "SamplingPoint_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SamplingPoint.SamplingPoint_ID",
+          "description": "Target: the SamplingPoint the event concerns"
+        },
+        {
+          "name": "ProcessUnit_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "ProcessUnit.ProcessUnit_ID",
+          "description": "Target: the ProcessUnit the event concerns"
+        },
+        {
+          "name": "Site_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Site.Site_ID",
+          "description": "Target: the Site the event concerns (site-wide power outage, etc.)"
+        },
+        {
+          "name": "Campaign_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Campaign.Campaign_ID",
+          "description": "Target: the Campaign the event concerns"
+        },
+        {
+          "name": "EventKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": true,
+          "fk_target": "EventKind.EventKind_ID",
+          "description": "Kind of event (calibration, cleaning, power outage, \u2026)"
+        },
+        {
+          "name": "EventDateTimeStart",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Date and time the event began (UTC)"
+        },
+        {
+          "name": "IsInstantaneous",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "True if the event occurred at a single point in time. When true, EventDateTimeEnd must be NULL. When false and EventDateTimeEnd is NULL, the event is ongoing.\n"
+        },
+        {
+          "name": "EventDateTimeEnd",
+          "sql_type": "DATETIME2(7)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Date and time the event ended (UTC). NULL when IsInstantaneous=1 (point-in-time) or when the event is still ongoing (IsInstantaneous=0).\n"
+        },
+        {
+          "name": "PerformedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who physically performed the event (e.g. technician on site)"
+        },
+        {
+          "name": "RecordedByPerson_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "Person.Person_ID",
+          "description": "Person who entered this record into the system (may differ from PerformedByPerson_ID)"
+        },
+        {
+          "name": "Notes",
+          "sql_type": "NVARCHAR(MAX)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Free-text notes about the event"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280",
+      "group_key": null
+    },
+    {
+      "id": "EventKind",
+      "label": "EventKind",
+      "description": "Controlled vocabulary classifying the kind of operational event (Calibration, Cleaning, PowerOutage, ControllerCrash, \u2026). Generalises the former EquipmentEventKind to cover all targets in the exclusive-arc Event table.\n",
+      "fields": [
+        {
+          "name": "EventKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the event kind"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this kind of event involves"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280",
+      "group_key": null
     },
     {
       "id": "HydrologicalCharacteristics",
@@ -5572,9 +5635,9 @@
     },
     {
       "from_table": "Annotation",
-      "to_table": "EquipmentEvent",
+      "to_table": "Event",
       "from_field": "EquipmentEvent_ID",
-      "to_field": "EquipmentEvent_ID",
+      "to_field": "Event_ID",
       "relationship_type": null
     },
     {
@@ -5851,34 +5914,6 @@
       "relationship_type": null
     },
     {
-      "from_table": "EquipmentEvent",
-      "to_table": "Equipment",
-      "from_field": "Equipment_ID",
-      "to_field": "Equipment_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentEvent",
-      "to_table": "EquipmentEventKind",
-      "from_field": "EquipmentEventKind_ID",
-      "to_field": "EquipmentEventKind_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentEvent",
-      "to_table": "Person",
-      "from_field": "PerformedByPerson_ID",
-      "to_field": "Person_ID",
-      "relationship_type": null
-    },
-    {
-      "from_table": "EquipmentEvent",
-      "to_table": "Person",
-      "from_field": "RecordedByPerson_ID",
-      "to_field": "Person_ID",
-      "relationship_type": null
-    },
-    {
       "from_table": "EquipmentLocationHistory",
       "to_table": "Equipment",
       "from_field": "Equipment_ID",
@@ -5946,6 +5981,83 @@
       "to_table": "SignalInterfacePort",
       "from_field": "SignalInterfacePort_ID",
       "to_field": "SignalInterfacePort_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "Channel",
+      "from_field": "Channel_ID",
+      "to_field": "Stream_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "Equipment",
+      "from_field": "Equipment_ID",
+      "to_field": "Equipment_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "SignalInterface",
+      "from_field": "SignalInterface_ID",
+      "to_field": "SignalInterface_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "DataAcquisitionSystem",
+      "from_field": "DataAcquisitionSystem_ID",
+      "to_field": "DataAcquisitionSystem_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "SamplingPoint",
+      "from_field": "SamplingPoint_ID",
+      "to_field": "SamplingPoint_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "ProcessUnit",
+      "from_field": "ProcessUnit_ID",
+      "to_field": "ProcessUnit_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "Site",
+      "from_field": "Site_ID",
+      "to_field": "Site_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "Campaign",
+      "from_field": "Campaign_ID",
+      "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "EventKind",
+      "from_field": "EventKind_ID",
+      "to_field": "EventKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "Person",
+      "from_field": "PerformedByPerson_ID",
+      "to_field": "Person_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Event",
+      "to_table": "Person",
+      "from_field": "RecordedByPerson_ID",
+      "to_field": "Person_ID",
       "relationship_type": null
     },
     {
