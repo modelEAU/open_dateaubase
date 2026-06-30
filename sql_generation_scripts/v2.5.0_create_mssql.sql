@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.5.0
 -- Platform: mssql
--- Generated: 2026-06-30 11:58:55 UTC
+-- Generated: 2026-06-30 12:05:25 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -223,7 +223,7 @@ CREATE TABLE [dbo].[Annotation] (
     [EndTime] DATETIME2(7),
     [AuthorPerson_ID] INT,
     [Campaign_ID] INT,
-    [EquipmentEvent_ID] INT,
+    [Event_ID] INT,
     [Title] NVARCHAR(200),
     [Comment] NVARCHAR(MAX),
     [CreatedDateTime] DATETIME2(7) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -858,7 +858,7 @@ ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Stream_ID] FOREIGN 
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_AnnotationKind_ID] FOREIGN KEY ([AnnotationKind_ID]) REFERENCES [dbo].[AnnotationKind] ([AnnotationKind_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_AuthorPerson_ID] FOREIGN KEY ([AuthorPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
-ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_EquipmentEvent_ID] FOREIGN KEY ([EquipmentEvent_ID]) REFERENCES [dbo].[Event] ([Event_ID]);
+ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Event_ID] FOREIGN KEY ([Event_ID]) REFERENCES [dbo].[Event] ([Event_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Observation_ID] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 ALTER TABLE [dbo].[AuditLog] ADD CONSTRAINT [FK_AuditLog_UserAccount_ID] FOREIGN KEY ([UserAccount_ID]) REFERENCES [dbo].[UserAccount] ([UserAccount_ID]);
 ALTER TABLE [dbo].[Campaign] ADD CONSTRAINT [FK_Campaign_CampaignKind_ID] FOREIGN KEY ([CampaignKind_ID]) REFERENCES [dbo].[CampaignKind] ([CampaignKind_ID]);

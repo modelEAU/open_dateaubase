@@ -39,7 +39,7 @@ class AnnotationResponse(BaseModel):
     author: Optional[AnnotationAuthor] = None
     campaign_id: Optional[int] = None
     campaign_name: Optional[str] = None
-    equipment_event_id: Optional[int] = None
+    event_id: Optional[int] = None
     created_at: datetime
     modified_at: Optional[datetime] = None
     # Cross-stream feed enrichment (/recent, /by-type): derived location +
@@ -68,7 +68,7 @@ class AnnotationCreate(BaseModel):
     title: Optional[str] = Field(None, max_length=200)
     comment: Optional[str] = None
     campaign_id: Optional[int] = None
-    equipment_event_id: Optional[int] = None
+    event_id: Optional[int] = None
     author_person_id: Optional[int] = None  # TODO: replace with auth context
     observation_id: Optional[int] = None  # optional point pin (one exact Observation/Replicate)
 

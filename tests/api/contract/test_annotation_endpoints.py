@@ -81,7 +81,7 @@ def _mock_annotation():
         "author": {"person_id": 5, "name": "Marie Dupont"},
         "campaign_id": None,
         "campaign_name": None,
-        "equipment_event_id": None,
+        "event_id": None,
         "created_at": "2025-06-14T11:22:33",
         "modified_at": None,
     }
@@ -807,7 +807,7 @@ def _feed_row(annotation_id, *, stream_id, stream_kind_id=1,
     Column layout must match _row_to_annotation + _feed_row in annotation_repository:
     0=annotation_id, 1=stream_id, 2=annotation_kind_id, 3=name, 4=color,
     5=start_time, 6=end_time, 7=title, 8=comment, 9=author_person_id,
-    10=author_name, 11=campaign_id, 12=campaign_name, 13=equipment_event_id,
+    10=author_name, 11=campaign_id, 12=campaign_name, 13=event_id,
     14=created_datetime, 15=modified_datetime, 16=stream_kind_id,
     17=observation_id, 18=location_name, 19=parameter_name.
     stream_kind_id=1 → sensor/channel, stream_kind_id=2 → lab/series.

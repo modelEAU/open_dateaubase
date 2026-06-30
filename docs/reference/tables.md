@@ -67,7 +67,7 @@ Human-authored annotations on time series data. Each annotation anchors to a sin
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the annotated range. NULL = point annotation or ongoing | - |
 | AuthorPerson_ID | INT | - |  | <span id="AuthorPerson_ID"></span>Person who created this annotation | FK → [Person.Person_ID](#Person) |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this annotation is associated with, if any | FK → [Campaign.Campaign_ID](#Campaign) |
-| EquipmentEvent_ID | INT | - |  | <span id="EquipmentEvent_ID"></span>Event that caused this annotation, if any (column rename to Event_ID deferred to S3) | FK → [Event.Event_ID](#Event) |
+| Event_ID | INT | - |  | <span id="Event_ID"></span>Event that caused this annotation, if any (causal link: Event=cause, Annotation=effect) | FK → [Event.Event_ID](#Event) |
 | Title | NVARCHAR(200) | - |  | <span id="Title"></span>Short title for the annotation | - |
 | Comment | NVARCHAR(MAX) | - |  | <span id="Comment"></span>Detailed free-text comment | - |
 | CreatedDateTime | DATETIME2(7) | - | ✓ | <span id="CreatedDateTime"></span>When this annotation was created | Default: `CURRENT_TIMESTAMP` |
