@@ -90,3 +90,12 @@ def test_sensor_only_hides_lab_steps():
     at = _run([], data_type="Sensor")
     text = _collect_text(at)
     assert "laborator" not in text.lower()
+
+
+def test_panel_dismissed_hides_panel():
+    """Dismiss flag in session_state hides the panel for the rest of the session."""
+    at = _run([])
+    at.session_state["onboarding_dismissed"] = True
+    at.run()
+    text = _collect_text(at)
+    assert "Get started" not in text
