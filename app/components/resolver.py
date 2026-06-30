@@ -46,7 +46,11 @@ class EntityResolver:
         return _best_match(text, self._units, "name", "unit_id")
 
     def resolve_parameter(self, text: str) -> dict | None:
-        """Match parameter by name (fuzzy)."""
+        """Match parameter by short_name (exact, case-insensitive) then by name (fuzzy)."""
+        text_lower = text.strip().lower()
+        for p in self._parameters:
+            if (p.get("short_name") or "").lower() == text_lower:
+                return p
         return _best_match(text, self._parameters, "name", "parameter_id")
 
     def resolve_sampling_point(self, text: str) -> dict | None:

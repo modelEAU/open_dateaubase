@@ -1,7 +1,8 @@
-"""Mapper Engine — S2: upload CSV/XLSX → pick sheet/header/range
-→ tag column roles → preview → resolve entities (text → DB ID).
+"""Mapper Engine — S3: upload CSV/XLSX → pick sheet/header/range
+→ tag column roles → preview → resolve entities (text → DB ID)
+→ preview ingest → submit to /ingest/lab.
 
-PRD-3 S1: shell. PRD-3 S2: entity resolution.
+PRD-3 S1: shell. PRD-3 S2: entity resolution. PRD-3 S3: lab end-to-end.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 import io
+from datetime import datetime, timezone
 
 import pandas as pd
 import streamlit as st
@@ -55,6 +57,138 @@ def _read_dataframe(
     return pd.read_csv(io.BytesIO(file_bytes), header=header_row)
 
 
+def _parse_param_header(header: str) -> tuple[str, str]:
+    """Split 'COD (mg/L)' → ('COD', 'mg/L'). Returns (header, '') on no parens."""
+    if " (" in header and header.endswith(")"):
+        param_part, unit_part = header.split(" (", 1)
+        return param_part.strip(), unit_part.rstrip(")").strip()
+    return header.strip(), ""
+
+
+def _resolve_all(
+    resolver: EntityResolver,
+    role_map: dict[str, str],
+    df_data: pd.DataFrame,
+) -> dict:
+    """Run full entity resolution for column headers and each row's sampling location.
+
+    Returns a dict with:
+    - ``col_resolutions``: {col_name → {param, unit, resolved, error}}
+    - ``row_resolutions``: list of per-row dicts
+    - ``n_resolved``, ``n_unresolved`` counts
+    """
+    param_value_cols = [c for c, r in role_map.items() if r == "parameter_value"]
+    datetime_cols = [c for c, r in role_map.items() if r == "sample_datetime"]
+    location_cols = [c for c, r in role_map.items() if r == "sampling_location"]
+    replicate_cols = [c for c, r in role_map.items() if r == "replicate"]
+
+    # Resolve column-level entities (parameter + unit per header)
+    col_resolutions: dict[str, dict] = {}
+    for col in param_value_cols:
+        param_text, unit_text = _parse_param_header(col)
+        param = resolver.resolve_parameter(param_text)
+        unit = resolver.resolve_unit(unit_text) if unit_text else None
+        errors = []
+        if param is None:
+            errors.append(f"parameter '{param_text}' not found")
+        if not unit_text:
+            errors.append("no unit in header — use 'Name (unit)' format")
+        elif unit is None:
+            errors.append(f"unit '{unit_text}' not found")
+        col_resolutions[col] = {
+            "param": param,
+            "unit": unit,
+            "resolved": param is not None and unit is not None,
+            "errors": errors,
+        }
+
+    # Resolve row-level entities
+    row_resolutions = []
+    n_resolved = 0
+    n_unresolved = 0
+
+    for idx, row in df_data.iterrows():
+        errors: list[str] = []
+
+        # sample_datetime
+        dt_val = None
+        if datetime_cols:
+            raw_dt = row[datetime_cols[0]]
+            try:
+                dt_val = pd.to_datetime(raw_dt)
+                if dt_val.tzinfo is None:
+                    dt_val = dt_val.replace(tzinfo=timezone.utc)
+            except Exception:
+                errors.append(f"cannot parse datetime '{raw_dt}'")
+
+        # sampling_location → sampling_point_id
+        sp = None
+        sp_text = ""
+        if location_cols:
+            sp_text = str(row[location_cols[0]])
+            sp = resolver.resolve_sampling_point(sp_text)
+            if sp is None:
+                errors.append(f"sampling point '{sp_text}' not found")
+
+        # replicate
+        replicate = 1
+        if replicate_cols:
+            try:
+                replicate = int(row[replicate_cols[0]])
+            except Exception:
+                pass  # default to 1 silently
+
+        # Per-column values
+        values = []
+        col_errors: list[str] = []
+        for col in param_value_cols:
+            cr = col_resolutions[col]
+            if not cr["resolved"]:
+                col_errors.append(f"column '{col}' unresolved")
+                continue
+            raw_val = row.get(col)
+            try:
+                float_val = float(raw_val)
+            except (TypeError, ValueError):
+                col_errors.append(f"value '{raw_val}' in column '{col}' is not numeric")
+                continue
+            values.append({
+                "col": col,
+                "parameter_id": cr["param"]["parameter_id"],
+                "parameter_name": cr["param"]["name"],
+                "unit_id": cr["unit"]["unit_id"],
+                "unit_symbol": cr["unit"].get("symbol", cr["unit"].get("name", "")),
+                "value": float_val,
+            })
+
+        errors.extend(col_errors)
+
+        row_ok = len(errors) == 0 and dt_val is not None and sp is not None and len(values) > 0
+
+        if row_ok:
+            n_resolved += 1
+        else:
+            n_unresolved += 1
+
+        row_resolutions.append({
+            "row_index": int(idx),
+            "datetime": dt_val,
+            "sampling_point": sp,
+            "sp_text": sp_text,
+            "replicate": replicate,
+            "values": values,
+            "errors": errors,
+            "ok": row_ok,
+        })
+
+    return {
+        "col_resolutions": col_resolutions,
+        "row_resolutions": row_resolutions,
+        "n_resolved": n_resolved,
+        "n_unresolved": n_unresolved,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Page
 # ---------------------------------------------------------------------------
@@ -62,7 +196,7 @@ def _read_dataframe(
 
 def mapper_page() -> None:
     st.header("Import Data (Mapper)")
-    st.caption("PRD-3 S1 — engine shell: upload → tag column roles → preview")
+    st.caption("PRD-3 S3 — Lab profile: upload → tag roles → resolve → preview → submit")
 
     uploaded = st.file_uploader(
         "Upload a spreadsheet",
@@ -182,54 +316,237 @@ def mapper_page() -> None:
     st.caption("Preview shows the first 5 data rows with role labels as column headers.")
 
     # ------------------------------------------------------------------
-    # S2: Entity resolution — columns tagged as parameter_value
+    # S2 / S3: Entity resolution
     # ------------------------------------------------------------------
     param_value_cols = [col for col, role in active_cols.items() if role == "parameter_value"]
-    if param_value_cols:
-        st.subheader("Resolve entities")
-        st.caption(
-            "Match column headers to Parameters in the database using fuzzy text matching. "
-            "Unresolved columns are listed so nothing is silently dropped."
+    if not param_value_cols:
+        st.info("Tag at least one column as **parameter_value** to enable entity resolution and ingest.")
+        return
+
+    st.subheader("Resolve entities")
+    st.caption(
+        "Match column headers and row cells to database entities using fuzzy text matching. "
+        "Parameter column headers should follow the format **Name (unit)** e.g. *COD (mg/L)*. "
+        "Unresolved columns/rows are listed — they are never silently submitted."
+    )
+
+    if st.button("Resolve entities", key="mapper_resolve"):
+        try:
+            units_list = api.list_units_lookup()
+            params_list = api.list_parameters_lookup()
+            sps_list = api.list_sampling_points_lookup()
+        except Exception as exc:
+            st.error(f"Could not load lookup data from API: {exc}")
+            return
+
+        resolver = EntityResolver(
+            units=units_list,
+            parameters=params_list,
+            sampling_points=sps_list,
         )
-        if st.button("Resolve entities", key="mapper_resolve"):
-            try:
-                units_list = api.list_units_lookup()
-                params_list = api.list_parameters_lookup()
-                sps_list = api.list_sampling_points_lookup()
-            except Exception as exc:
-                st.error(f"Could not load lookup data from API: {exc}")
-                return
+        resolution = _resolve_all(resolver, role_map, df_data)
+        st.session_state["mapper_resolution"] = resolution
 
-            resolver = EntityResolver(
-                units=units_list,
-                parameters=params_list,
-                sampling_points=sps_list,
+    # ------------------------------------------------------------------
+    # Show resolution results (persisted in session state)
+    # ------------------------------------------------------------------
+    resolution = st.session_state.get("mapper_resolution")
+    if resolution is None:
+        return
+
+    col_resolutions: dict = resolution["col_resolutions"]
+    row_resolutions: list = resolution["row_resolutions"]
+    n_resolved: int = resolution["n_resolved"]
+    n_unresolved: int = resolution["n_unresolved"]
+
+    # Column resolution table
+    col_rows = []
+    for col, cr in col_resolutions.items():
+        param_name = cr["param"]["name"] if cr["param"] else "— unresolved —"
+        unit_display = (
+            cr["unit"].get("symbol") or cr["unit"].get("name", "— unresolved —")
+            if cr["unit"]
+            else "— unresolved —"
+        )
+        col_rows.append({
+            "Column header": col,
+            "Matched parameter": param_name,
+            "Matched unit": unit_display,
+            "Status": "resolved" if cr["resolved"] else "unresolved",
+        })
+    col_df = pd.DataFrame(col_rows)
+    st.markdown("**Column resolution**")
+    st.dataframe(col_df, use_container_width=True)
+
+    unresolved_cols = [c for c, cr in col_resolutions.items() if not cr["resolved"]]
+    if unresolved_cols:
+        for col in unresolved_cols:
+            st.warning(
+                f"Column **{col}**: " + "; ".join(col_resolutions[col]["errors"])
+                + ". Review column names or add missing entities."
             )
+    else:
+        st.success("All parameter_value columns resolved.")
 
-            rows = []
-            for col in param_value_cols:
-                match = resolver.resolve_parameter(col)
-                rows.append(
-                    {
-                        "Column header": col,
-                        "Matched parameter": match["name"] if match else "— unresolved —",
-                        "parameter_id": match["parameter_id"] if match else None,
-                        "Status": "✓ resolved" if match else "✗ unresolved",
-                    }
-                )
+    # ------------------------------------------------------------------
+    # Preview ingest table
+    # ------------------------------------------------------------------
+    st.subheader("Preview ingest")
+    n_total = len(row_resolutions)
+    st.caption(
+        f"{n_resolved} of {n_total} rows resolved — "
+        f"{n_unresolved} row(s) have errors and will NOT be submitted."
+    )
 
-            result_df = pd.DataFrame(rows)
-            st.dataframe(result_df, use_container_width=True)
+    # Build preview table
+    preview_rows = []
+    for rr in row_resolutions:
+        dt_str = rr["datetime"].isoformat() if rr["datetime"] else "— missing —"
+        sp_name = rr["sampling_point"]["name"] if rr["sampling_point"] else f"— {rr['sp_text']} not found —"
+        val_summary = ", ".join(
+            f"{v['parameter_name']}={v['value']} {v['unit_symbol']}"
+            for v in rr["values"]
+        )
+        row_dict = {
+            "row#": rr["row_index"],
+            "datetime": dt_str,
+            "sampling_point": sp_name,
+            "replicate": rr["replicate"],
+            "values": val_summary if val_summary else "—",
+            "status": "ok" if rr["ok"] else ("error: " + "; ".join(rr["errors"])),
+        }
+        preview_rows.append(row_dict)
 
-            unresolved = [r["Column header"] for r in rows if r["parameter_id"] is None]
-            if unresolved:
-                st.warning(
-                    f"{len(unresolved)} column(s) could not be matched: "
-                    + ", ".join(f"**{c}**" for c in unresolved)
-                    + ". Review column names or add the missing parameters."
-                )
-            else:
-                st.success("All parameter_value columns resolved successfully.")
+    preview_ingest_df = pd.DataFrame(preview_rows)
+    st.dataframe(preview_ingest_df, use_container_width=True)
+
+    if n_unresolved > 0:
+        st.warning(
+            f"{n_unresolved} row(s) have unresolved entities or missing values and will be skipped. "
+            "Fix the data or add missing parameters/locations before submitting."
+        )
+
+    if n_resolved == 0:
+        st.error("No rows can be submitted — all rows have errors.")
+        return
+
+    # ------------------------------------------------------------------
+    # Submit to /ingest/lab
+    # ------------------------------------------------------------------
+    st.subheader("Submit to /ingest/lab")
+
+    exp_name = st.text_input(
+        "Experiment name",
+        value=f"Mapper import {datetime.now(tz=timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+        key="mapper_exp_name",
+    )
+    exp_datetime = st.text_input(
+        "Experiment datetime (ISO, UTC)",
+        value=datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+        key="mapper_exp_datetime",
+    )
+
+    col_submit, col_info = st.columns([1, 3])
+    with col_info:
+        st.info(
+            f"Will submit **{n_resolved}** row(s) × {len([c for c in col_resolutions if col_resolutions[c]['resolved']])} "
+            f"parameter(s) = up to **{n_resolved * len([c for c in col_resolutions if col_resolutions[c]['resolved']])}** measurement(s). "
+            f"{n_unresolved} row(s) will be skipped."
+        )
+
+    if col_submit.button("Submit to /ingest/lab", key="mapper_submit", type="primary"):
+        _do_submit(row_resolutions, col_resolutions, exp_name, exp_datetime)
+
+
+def _do_submit(
+    row_resolutions: list[dict],
+    col_resolutions: dict,
+    exp_name: str,
+    exp_datetime_str: str,
+) -> None:
+    """Build payloads per row and call POST /ingest/lab. Reports per-row results."""
+    resolved_cols = {
+        col: cr for col, cr in col_resolutions.items() if cr["resolved"]
+    }
+    if not resolved_cols:
+        st.error("No resolved parameter columns — cannot submit.")
+        return
+
+    try:
+        exp_dt = datetime.fromisoformat(exp_datetime_str)
+    except Exception:
+        st.error(f"Invalid experiment datetime: '{exp_datetime_str}'. Use ISO format.")
+        return
+
+    ok_rows = [rr for rr in row_resolutions if rr["ok"]]
+    if not ok_rows:
+        st.error("No resolved rows to submit.")
+        return
+
+    results = []
+    progress = st.progress(0, text="Submitting rows…")
+
+    for i, rr in enumerate(ok_rows):
+        # Create a sample for this row
+        sample_datetime = rr["datetime"]
+        sp_id = rr["sampling_point"]["sampling_point_id"]
+        try:
+            sample_resp = api.create_sample({
+                "sampling_point_id": sp_id,
+                "sample_datetime_start": sample_datetime.isoformat(),
+            })
+            sample_id = sample_resp["sample_id"]
+        except Exception as exc:
+            results.append({"row": rr["row_index"], "status": "error", "detail": f"create_sample failed: {exc}"})
+            progress.progress((i + 1) / len(ok_rows), text=f"Row {rr['row_index']}: sample creation error")
+            continue
+
+        # Build measurements list
+        measurements = []
+        for v in rr["values"]:
+            col_name = v["col"]
+            param = col_resolutions[col_name]["param"]
+            unit = col_resolutions[col_name]["unit"]
+            measurements.append({
+                "parameter_id": v["parameter_id"],
+                "sampling_point_id": sp_id,
+                "unit_id": v["unit_id"],
+                "value_kind_id": 1,
+                "series_name": f"{param['name']}@{rr['sampling_point']['name']}",
+                "sample_id": sample_id,
+                "value": v["value"],
+                "replicate": rr["replicate"],
+            })
+
+        payload = {
+            "name": exp_name,
+            "experiment_datetime": exp_dt.isoformat(),
+            "measurements": measurements,
+        }
+
+        try:
+            resp = api.ingest_lab(payload)
+            results.append({
+                "row": rr["row_index"],
+                "status": "ok",
+                "detail": f"lab_experiment_id={resp.get('lab_experiment_id')}, rows_written={resp.get('rows_written')}",
+            })
+        except Exception as exc:
+            results.append({"row": rr["row_index"], "status": "error", "detail": str(exc)})
+
+        progress.progress((i + 1) / len(ok_rows), text=f"Row {rr['row_index']} done")
+
+    progress.empty()
+
+    # Report
+    n_ok = sum(1 for r in results if r["status"] == "ok")
+    n_err = sum(1 for r in results if r["status"] == "error")
+    if n_err == 0:
+        st.success(f"All {n_ok} row(s) submitted successfully.")
+    else:
+        st.warning(f"{n_ok} row(s) submitted; {n_err} row(s) failed.")
+
+    st.dataframe(pd.DataFrame(results), use_container_width=True)
 
 
 mapper_page()
