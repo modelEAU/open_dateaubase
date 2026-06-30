@@ -19,8 +19,11 @@ from app.api_client import (
     get_health,
     list_analysis_series_lookup,
     list_channels,
+    list_das_lookup,
+    list_laboratories_lookup,
     list_persons_lookup,
     list_sampling_points_lookup,
+    list_signal_interfaces_lookup,
     list_sites_lookup,
 )
 from app.auth import get_current_user, logout
@@ -85,18 +88,70 @@ def _onboarding_panel() -> None:
     if channels or analysis_series:
         return
 
+    # Fetch sensor/lab counts — failures are non-fatal
+    das: list = []
+    signal_interfaces: list = []
+    laboratories: list = []
+    try:
+        das = list_das_lookup()
+    except Exception:
+        pass
+    try:
+        signal_interfaces = list_signal_interfaces_lookup()
+    except Exception:
+        pass
+    try:
+        laboratories = list_laboratories_lookup()
+    except Exception:
+        pass
+
     def _step(items: list, done_label: str, todo_label: str, url: str) -> str:
         if items:
             return f"- ✓ {done_label}"
         return f"- ○ [{todo_label}]({url})"
 
+    # Default data-type selection
+    if "onboarding_data_type" not in st.session_state:
+        st.session_state["onboarding_data_type"] = "Both"
+
     with st.container(border=True):
         st.markdown("### Get started")
-        st.markdown(
+
+        st.radio(
+            "What will you load?",
+            ["Lab", "Sensor", "Both"],
+            horizontal=True,
+            key="onboarding_data_type",
+        )
+
+        data_type: str = st.session_state["onboarding_data_type"]
+
+        foundation = (
             "Complete these foundation steps to start loading data:\n\n"
             + _step(sites, "Site added", "Add a site", "sites") + "\n"
             + _step(persons, "Person added", "Add a person", "persons") + "\n"
-            + _step(sps, "Sampling location added", "Add a sampling location", "sampling_locations") + "\n\n"
+            + _step(sps, "Sampling location added", "Add a sampling location", "sampling_locations")
+        )
+        st.markdown(foundation)
+
+        if data_type in ("Sensor", "Both"):
+            sensor_steps = (
+                "\n**Sensor setup:**\n\n"
+                + _step(das, "DAS added", "Add a Data Acquisition System", "data_acquisition_systems") + "\n"
+                + _step(signal_interfaces, "Signal Interface added", "Add a Signal Interface", "signal_interfaces") + "\n"
+                + _step(channels, "Channel added", "Add a Channel (Field System Wizard)", "field_system_wizard")
+            )
+            st.markdown(sensor_steps)
+
+        if data_type in ("Lab", "Both"):
+            lab_steps = (
+                "\n**Lab setup:**\n\n"
+                + _step(laboratories, "Laboratory added", "Add a Laboratory", "laboratories") + "\n"
+                + _step(analysis_series, "Lab Experiment added", "Add a Lab Experiment", "lab_ingest")
+            )
+            st.markdown(lab_steps)
+
+        st.markdown(
             "_Once an ingestable Stream (Channel or AnalysisSeries) exists, this panel will disappear._"
         )
 
