@@ -118,6 +118,7 @@ pg = st.navigation(
             st.Page(str(_pages / "sensor_ingest.py"), title="Insert Sensor Data", icon="📡"),
             st.Page(str(_pages / "lab_ingest.py"), title="Insert Lab Data", icon="🧪"),
             st.Page(str(_pages / "lab_panels.py"), title="Lab Panels", icon="🗂️"),
+            st.Page(str(_pages / "mapper.py"), title="Import Data (Mapper)", icon="📥"),
             st.Page(str(_pages / "explore.py"), title="Visualize Data", icon="📊"),
             st.Page(str(_pages / "equipment_move.py"), title="Move a sensor", icon="➡️"),
         ],
@@ -172,6 +173,10 @@ pg = st.navigation(
                 icon="🔌",
             ),
 
+        ],
+        "Events": [
+            st.Page(str(_pages / "events.py"), title="Events", icon="⚡"),
+            st.Page(str(_pages / "event_kinds.py"), title="Event Kinds", icon="🏷️"),
         ],
         "Vocabulary": [
             st.Page(str(_pages / "site_kinds.py"), title="Site Kinds"),
