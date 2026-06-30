@@ -1,8 +1,48 @@
 """Entity resolver: text → existing DB ID with fuzzy suggestion."""
 from __future__ import annotations
 
+import re
 from difflib import get_close_matches
 from typing import Any
+
+# The exclusive-arc Event target levels, smallest logical unit first. Maps a
+# level label to the EventIn FK field it sets.
+TARGET_LEVELS: dict[str, str] = {
+    "Equipment": "equipment_id",
+    "SamplingPoint": "sampling_point_id",
+    "ProcessUnit": "process_unit_id",
+    "Site": "site_id",
+    "Campaign": "campaign_id",
+}
+
+# Cheap, deterministic level hints (PRD-4 S2) for rows the resolver could not
+# match to a known entity — a *suggestion* the user confirms, never an
+# auto-commit. An equipment-style tag (e.g. "P-100", "LDO-241") looks like
+# Equipment; a handful of keywords hint at site-wide / process-unit scope.
+_EQUIPMENT_TAG = re.compile(r"\b[A-Za-z]{1,4}-?\d{2,}\b")
+_LEVEL_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "Site": ("outage", "power", "panne", "électr", "electr", "building", "bâtiment", "site-wide"),
+    "ProcessUnit": ("plc", "automate", "scada", "ups", "onduleur"),
+}
+
+
+def guess_target_level(text: str) -> str | None:
+    """Suggest a target *level* (not an entity) from cheap text heuristics.
+
+    Used to pre-fill the level picker for rows with no entity match. Returns a
+    key of :data:`TARGET_LEVELS` or None. Never resolves an entity on its own —
+    the user still confirms which entity at that level.
+    """
+    raw = text or ""
+    low = raw.lower()
+    if not low.strip():
+        return None
+    if _EQUIPMENT_TAG.search(raw):
+        return "Equipment"
+    for level, keywords in _LEVEL_KEYWORDS.items():
+        if any(k in low for k in keywords):
+            return level
+    return None
 
 
 # Label keys a lookup dict may carry, most specific first. Used by target
