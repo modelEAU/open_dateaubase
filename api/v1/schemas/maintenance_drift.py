@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, field_validator
 
 
@@ -34,3 +36,27 @@ class MaintenanceDriftOut(BaseModel):
     channel_id: int
     name: str
     produced_by_step_id: int
+
+
+class DriftReadbackPoint(BaseModel):
+    """A single source-stream reading (used for the before/after values)."""
+
+    timestamp: datetime
+    value: float | None
+
+
+class MaintenanceDriftReadback(BaseModel):
+    """Read-back (PRD-4 S4): drift since last cleaning for a maintenance Event.
+
+    The before/after readings are derived from the *source* stream around the
+    event window (last sample before the start, first sample after the end).
+    """
+
+    event_id: int
+    drift_channel_id: int
+    source_channel_id: int
+    window_start: datetime
+    window_end: datetime | None = None
+    before: DriftReadbackPoint | None = None
+    after: DriftReadbackPoint | None = None
+    percent_diff: float | None = None

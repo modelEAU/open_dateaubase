@@ -10,8 +10,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from api.database import get_db
-from ..repositories import event_repository
+from api.v1.errors import EntityNotFoundError
+from ..repositories import event_repository, maintenance_drift_repository
 from ..schemas.events import EventIn, EventKindIn, EventKindOut, EventOut, EventPatch
+from ..schemas.maintenance_drift import MaintenanceDriftReadback
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +107,25 @@ def get_event(event_id: int, conn=Depends(get_db)):
     if row is None:
         raise HTTPException(status_code=404, detail=f"Event {event_id} not found.")
     return EventOut(**row)
+
+
+@events_router.get(
+    "/{event_id}/maintenance-drift",
+    response_model=MaintenanceDriftReadback,
+    summary="Drift since last cleaning for a maintenance Event",
+    description=(
+        "Read-back (PRD-4 S4): the before/after readings derived from the "
+        "source stream around this Event's window, via its linked "
+        "maintenance-drift Channel. 404 if the Event has no drift Channel."
+    ),
+)
+def get_event_maintenance_drift(event_id: int, conn=Depends(get_db)):
+    """Return the drift read-back for a maintenance Event (before/after + %diff)."""
+    try:
+        result = maintenance_drift_repository.get_drift_readback(conn, event_id)
+    except EntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return MaintenanceDriftReadback(**result)
 
 
 @events_router.put("/{event_id}", response_model=EventOut)
