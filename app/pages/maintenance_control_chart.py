@@ -23,6 +23,7 @@ import streamlit as st
 from app.api_client import (
     APIError,
     get_channel_timeseries,
+    get_event_maintenance_drift,
     list_channels,
     list_quality_codes,
 )
@@ -366,6 +367,46 @@ def main() -> None:
     st.divider()
     st.subheader("Out-of-limit points")
     _render_out_of_limit_table(drift_df, upper, lower)
+
+    st.divider()
+    _render_drift_readback()
+
+
+def _render_drift_readback() -> None:
+    """PRD-4 S4: 'drift since last cleaning' for a maintenance Event.
+
+    Enter a maintenance Event ID; shows the before/after readings derived from
+    the source stream around the event window, plus the % drift.
+    """
+    st.subheader("Drift since last cleaning")
+    st.caption(
+        "Enter a maintenance Event ID to read back the before/after values "
+        "derived from the source stream around its window."
+    )
+    event_id = st.number_input(
+        "Maintenance Event ID", min_value=0, value=0, step=1, key="mcc_event_id"
+    )
+    if not event_id:
+        return
+    try:
+        rb = get_event_maintenance_drift(int(event_id))
+    except APIError as e:
+        st.info(f"No drift read-back for Event {int(event_id)}: {e.message}")
+        return
+
+    before = rb.get("before")
+    after = rb.get("after")
+    pct = rb.get("percent_diff")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Before (fouled)", f"{before['value']:.3g}" if before and before.get("value") is not None else "—")
+    c2.metric("After (clean)", f"{after['value']:.3g}" if after and after.get("value") is not None else "—")
+    c3.metric("Drift", f"{pct:+.1f}%" if pct is not None else "—")
+    st.caption(
+        f"Drift channel CH-{rb.get('drift_channel_id')} · source CH-{rb.get('source_channel_id')} · "
+        f"window {rb.get('window_start')} → {rb.get('window_end') or '(instantaneous)'}"
+    )
+    if before is None or after is None:
+        st.warning("No source reading found on one side of the window — widen the data range.")
 
 
 def _in_streamlit_run() -> bool:

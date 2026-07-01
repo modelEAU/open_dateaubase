@@ -1688,6 +1688,11 @@ def delete_event(event_id: int) -> None:
     return _request("DELETE", f"/events/{event_id}")
 
 
+def get_event_maintenance_drift(event_id: int) -> dict:
+    """Drift read-back for a maintenance Event (before/after + %diff). 404 if none."""
+    return _request("GET", f"/events/{event_id}/maintenance-drift")
+
+
 # ---------------------------------------------------------------------------
 # Reference-data caching
 # ---------------------------------------------------------------------------
