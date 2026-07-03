@@ -67,7 +67,7 @@ Human-authored annotations on time series data. Each annotation anchors to a sin
 | EndTime | DATETIME2(7) | - |  | <span id="EndTime"></span>End of the annotated range. NULL = point annotation or ongoing | - |
 | AuthorPerson_ID | INT | - |  | <span id="AuthorPerson_ID"></span>Person who created this annotation | FK → [Person.Person_ID](#Person) |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this annotation is associated with, if any | FK → [Campaign.Campaign_ID](#Campaign) |
-| EquipmentEvent_ID | INT | - |  | <span id="EquipmentEvent_ID"></span>Equipment event that caused this annotation, if any | FK → [EquipmentEvent.EquipmentEvent_ID](#EquipmentEvent) |
+| Event_ID | INT | - |  | <span id="Event_ID"></span>Event that caused this annotation, if any (causal link: Event=cause, Annotation=effect) | FK → [Event.Event_ID](#Event) |
 | Title | NVARCHAR(200) | - |  | <span id="Title"></span>Short title for the annotation | - |
 | Comment | NVARCHAR(MAX) | - |  | <span id="Comment"></span>Detailed free-text comment | - |
 | CreatedDateTime | DATETIME2(7) | - | ✓ | <span id="CreatedDateTime"></span>When this annotation was created | Default: `CURRENT_TIMESTAMP` |
@@ -507,42 +507,6 @@ Stores information about a specific physical piece of equipment (e.g., serial nu
 | IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability.
  | Default: `True` |
 
-<span id="EquipmentEvent"></span>
-
-### EquipmentEvent
-
-Records a discrete lifecycle event (calibration, maintenance, failure, etc.) that occurred on a specific piece of equipment.
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| EquipmentEvent_ID | INT **(PK)** | - | ✓ | <span id="EquipmentEvent_ID"></span>Surrogate primary key | - |
-| Equipment_ID | INT | - | ✓ | <span id="Equipment_ID"></span>Equipment on which the event occurred | FK → [Equipment.Equipment_ID](#Equipment) |
-| EquipmentEventKind_ID | INT | - | ✓ | <span id="EquipmentEventKind_ID"></span>Kind of lifecycle event | FK → [EquipmentEventKind.EquipmentEventKind_ID](#EquipmentEventKind) |
-| EventDateTimeStart | DATETIME2(7) | - | ✓ | <span id="EventDateTimeStart"></span>Date and time the event began (UTC) | - |
-| IsInstantaneous | BIT | - | ✓ | <span id="IsInstantaneous"></span>True if the event occurred at a single point in time. When true, EventDateTimeEnd must be NULL. When false and EventDateTimeEnd is NULL, the event is ongoing. | Default: `False` |
-| EventDateTimeEnd | DATETIME2(7) | - |  | <span id="EventDateTimeEnd"></span>Date and time the event ended (UTC). NULL when IsInstantaneous=1 (point-in-time) or when the event is still ongoing (IsInstantaneous=0). | - |
-| PerformedByPerson_ID | INT | - |  | <span id="PerformedByPerson_ID"></span>Person who physically performed the event (e.g. technician on site) | FK → [Person.Person_ID](#Person) |
-| RecordedByPerson_ID | INT | - |  | <span id="RecordedByPerson_ID"></span>Person who entered this record into the system (may differ from PerformedByPerson_ID) | FK → [Person.Person_ID](#Person) |
-| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes about the event | - |
-
-<span id="EquipmentEventKind"></span>
-
-### EquipmentEventKind
-
-Controlled vocabulary classifying the kind of lifecycle event that occurred on a piece of equipment (Calibration, Maintenance, etc.)
-
-
-#### Fields
-
-| Field | SQL Type | Value Set | Required | Description | Constraints |
-|-------|----------|-----------|----------|-------------|-------------|
-| EquipmentEventKind_ID | INT **(PK)** | - | ✓ | <span id="EquipmentEventKind_ID"></span>Surrogate primary key | - |
-| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the equipment event kind | - |
-| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of what this kind of equipment event involves | - |
-
 <span id="EquipmentLocationHistory"></span>
 
 ### EquipmentLocationHistory
@@ -628,6 +592,53 @@ Temporal record of how a piece of Equipment is wired to a SignalInterface (and o
 | ValidFrom | DATETIME2(7) | - | ✓ | <span id="ValidFrom"></span>UTC datetime when this wiring started | - |
 | ValidTo | DATETIME2(7) | - |  | <span id="ValidTo"></span>UTC datetime when this wiring ended. NULL = currently wired. | - |
 | Note | NVARCHAR(MAX) | - |  | <span id="Note"></span>Free-text notes (reason for rewire, calibration context) | - |
+
+<span id="Event"></span>
+
+### Event
+
+Records a discrete, time-stamped operational occurrence (calibration, cleaning, power outage, PLC crash, site visit, …) at any node of the physical hierarchy. Each Event attaches to exactly one target via an exclusive arc of eight nullable FKs — a CHECK constraint enforces that exactly one is non-NULL. Generalises the former EquipmentEvent (which was restricted to Equipment).
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| Event_ID | INT **(PK)** | - | ✓ | <span id="Event_ID"></span>Surrogate primary key | - |
+| Channel_ID | INT | - |  | <span id="Channel_ID"></span>Leaf target: the specific sensor Channel the event concerns (references Channel.Stream_ID) | FK → [Channel.Stream_ID](#Channel) |
+| Equipment_ID | INT | - |  | <span id="Equipment_ID"></span>Target: the Equipment the event concerns (sensor, actuator, …) | FK → [Equipment.Equipment_ID](#Equipment) |
+| SignalInterface_ID | INT | - |  | <span id="SignalInterface_ID"></span>Target: the SignalInterface (field bus, port block) the event concerns | FK → [SignalInterface.SignalInterface_ID](#SignalInterface) |
+| DataAcquisitionSystem_ID | INT | - |  | <span id="DataAcquisitionSystem_ID"></span>Target: the DataAcquisitionSystem (PLC, logger) the event concerns | FK → [DataAcquisitionSystem.DataAcquisitionSystem_ID](#DataAcquisitionSystem) |
+| SamplingPoint_ID | INT | - |  | <span id="SamplingPoint_ID"></span>Target: the SamplingPoint the event concerns | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
+| ProcessUnit_ID | INT | - |  | <span id="ProcessUnit_ID"></span>Target: the ProcessUnit the event concerns | FK → [ProcessUnit.ProcessUnit_ID](#ProcessUnit) |
+| Site_ID | INT | - |  | <span id="Site_ID"></span>Target: the Site the event concerns (site-wide power outage, etc.) | FK → [Site.Site_ID](#Site) |
+| Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Target: the Campaign the event concerns | FK → [Campaign.Campaign_ID](#Campaign) |
+| EventKind_ID | INT | - | ✓ | <span id="EventKind_ID"></span>Kind of event (calibration, cleaning, power outage, …) | FK → [EventKind.EventKind_ID](#EventKind) |
+| EventDateTimeStart | DATETIME2(7) | - | ✓ | <span id="EventDateTimeStart"></span>Date and time the event began (UTC) | - |
+| IsInstantaneous | BIT | - | ✓ | <span id="IsInstantaneous"></span>True if the event occurred at a single point in time. When true, EventDateTimeEnd must be NULL. When false and EventDateTimeEnd is NULL, the event is ongoing.
+ | Default: `False` |
+| EventDateTimeEnd | DATETIME2(7) | - |  | <span id="EventDateTimeEnd"></span>Date and time the event ended (UTC). NULL when IsInstantaneous=1 (point-in-time) or when the event is still ongoing (IsInstantaneous=0).
+ | - |
+| PerformedByPerson_ID | INT | - |  | <span id="PerformedByPerson_ID"></span>Person who physically performed the event (e.g. technician on site) | FK → [Person.Person_ID](#Person) |
+| RecordedByPerson_ID | INT | - |  | <span id="RecordedByPerson_ID"></span>Person who entered this record into the system (may differ from PerformedByPerson_ID) | FK → [Person.Person_ID](#Person) |
+| Notes | NVARCHAR(MAX) | - |  | <span id="Notes"></span>Free-text notes about the event | - |
+
+<span id="EventKind"></span>
+
+### EventKind
+
+Controlled vocabulary classifying the kind of operational event (Calibration, Cleaning, PowerOutage, ControllerCrash, …). Generalises the former EquipmentEventKind to cover all targets in the exclusive-arc Event table.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| EventKind_ID | INT **(PK)** | - | ✓ | <span id="EventKind_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the event kind | - |
+| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of what this kind of event involves | - |
 
 <span id="HydrologicalCharacteristics"></span>
 

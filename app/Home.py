@@ -14,7 +14,18 @@ if _project_root not in sys.path:
 
 import streamlit as st
 
-from app.api_client import APIError, get_health
+from app.api_client import (
+    APIError,
+    get_health,
+    list_analysis_series_lookup,
+    list_channels,
+    list_das_lookup,
+    list_laboratories_lookup,
+    list_persons_lookup,
+    list_sampling_points_lookup,
+    list_signal_interfaces_lookup,
+    list_sites_lookup,
+)
 from app.auth import get_current_user, logout
 from app.auth import _show_auth_page as _login
 from app.config import settings
@@ -59,8 +70,102 @@ def _home() -> None:
             """
         )
 
+    _onboarding_panel()
 
-_pages = Path(__file__).parent / "pages"
+
+def _onboarding_panel() -> None:
+    # Session-scoped dismiss
+    if st.session_state.get("onboarding_dismissed", False):
+        return
+
+    try:
+        sps = list_sampling_points_lookup()
+        sites = list_sites_lookup()
+        persons = list_persons_lookup()
+        ch_resp = list_channels(page_size=1)
+        channels = ch_resp.get("items", []) if isinstance(ch_resp, dict) else (ch_resp or [])
+        analysis_series = list_analysis_series_lookup()
+    except Exception:
+        return  # API down — don't crash Home
+
+    # Auto-hide once any ingestable Stream exists
+    if channels or analysis_series:
+        return
+
+    # Fetch sensor/lab counts — failures are non-fatal
+    das: list = []
+    signal_interfaces: list = []
+    laboratories: list = []
+    try:
+        das = list_das_lookup()
+    except Exception:
+        pass
+    try:
+        signal_interfaces = list_signal_interfaces_lookup()
+    except Exception:
+        pass
+    try:
+        laboratories = list_laboratories_lookup()
+    except Exception:
+        pass
+
+    def _step(items: list, done_label: str, todo_label: str, url: str) -> str:
+        if items:
+            return f"- ✓ {done_label}"
+        return f"- ○ [{todo_label}]({url})"
+
+    # Default data-type selection
+    if "onboarding_data_type" not in st.session_state:
+        st.session_state["onboarding_data_type"] = "Both"
+
+    with st.container(border=True):
+        st.markdown("### Get started")
+
+        st.radio(
+            "What will you load?",
+            ["Lab", "Sensor", "Both"],
+            horizontal=True,
+            key="onboarding_data_type",
+        )
+
+        data_type: str = st.session_state["onboarding_data_type"]
+
+        foundation = (
+            "Complete these foundation steps to start loading data:\n\n"
+            + _step(sites, "🏭 Site created", "Create a Site", "sites") + "\n"
+            + _step(persons, "👤 Person added", "Add a Person", "persons") + "\n"
+            + _step(sps, "📍 Sampling location added", "Add a Sampling Location", "sampling_locations")
+        )
+        st.markdown(foundation)
+
+        if data_type in ("Sensor", "Both"):
+            sensor_steps = (
+                "\n**Sensor setup:**\n\n"
+                + _step(das, "📡 DAS added", "Add a Data Acquisition System (DAS)", "data_acquisition_systems") + "\n"
+                + _step(signal_interfaces, "🔌 Signal Interface added", "Add a Signal Interface", "signal_interfaces") + "\n"
+                + _step(channels, "📊 Channel added", "Add a Channel (Field System Wizard)", "field_system_wizard")
+            )
+            st.markdown(sensor_steps)
+
+        if data_type in ("Lab", "Both"):
+            lab_steps = (
+                "\n**Lab setup:**\n\n"
+                + _step(laboratories, "🧪 Laboratory added", "Add a Laboratory", "laboratories") + "\n"
+                + _step(analysis_series, "🔬 Lab Experiment added", "Add a Lab Experiment", "lab_ingest")
+            )
+            st.markdown(lab_steps)
+
+        st.caption("💡 Campaign creation is optional — you can ingest data without one.")
+        st.markdown(
+            "_Once an ingestable Stream (Channel or AnalysisSeries) exists, this panel will disappear._"
+        )
+
+        if st.button("Dismiss", key="dismiss_onboarding"):
+            st.session_state["onboarding_dismissed"] = True
+            st.rerun()
+
+
+_pages = Path(__file__).resolve().parent / "pages"  # resolve so st.Page paths are absolute under AppTest
 _user = get_current_user()
 
 if not _user:
@@ -77,8 +182,10 @@ pg = st.navigation(
             st.Page(str(_pages / "sensor_ingest.py"), title="Insert Sensor Data", icon="📡"),
             st.Page(str(_pages / "lab_ingest.py"), title="Insert Lab Data", icon="🧪"),
             st.Page(str(_pages / "lab_panels.py"), title="Lab Panels", icon="🗂️"),
+            st.Page(str(_pages / "mapper.py"), title="Import Data (Mapper)", icon="📥"),
             st.Page(str(_pages / "explore.py"), title="Visualize Data", icon="📊"),
             st.Page(str(_pages / "equipment_move.py"), title="Move a sensor", icon="➡️"),
+            st.Page(str(_pages / "maintenance_control_chart.py"), title="Maintenance Control Chart", icon="📉"),
         ],
         "Reports": [
             st.Page(str(_pages / "campaign_story.py"), title="Campaign Story", icon="📖"),
@@ -131,6 +238,10 @@ pg = st.navigation(
                 icon="🔌",
             ),
 
+        ],
+        "Events": [
+            st.Page(str(_pages / "events.py"), title="Events", icon="⚡"),
+            st.Page(str(_pages / "event_kinds.py"), title="Event Kinds", icon="🏷️"),
         ],
         "Vocabulary": [
             st.Page(str(_pages / "site_kinds.py"), title="Site Kinds"),

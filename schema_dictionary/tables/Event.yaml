@@ -1,0 +1,168 @@
+_format_version: "1.0"
+table:
+  name: Event
+  schema: dbo
+  description: >
+    Records a discrete, time-stamped operational occurrence (calibration, cleaning,
+    power outage, PLC crash, site visit, …) at any node of the physical hierarchy.
+    Each Event attaches to exactly one target via an exclusive arc of eight nullable
+    FKs — a CHECK constraint enforces that exactly one is non-NULL.
+    Generalises the former EquipmentEvent (which was restricted to Equipment).
+
+  columns:
+    - name: Event_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    # ── Exclusive-arc target (exactly one non-NULL enforced by CK_Event_ExclusiveArc) ──
+    - name: Channel_ID
+      logical_type: integer
+      nullable: true
+      description: "Leaf target: the specific sensor Channel the event concerns (references Channel.Stream_ID)"
+      foreign_key:
+        table: Channel
+        column: Stream_ID
+
+    - name: Equipment_ID
+      logical_type: integer
+      nullable: true
+      description: "Target: the Equipment the event concerns (sensor, actuator, …)"
+      foreign_key:
+        table: Equipment
+        column: Equipment_ID
+
+    - name: SignalInterface_ID
+      logical_type: integer
+      nullable: true
+      description: "Target: the SignalInterface (field bus, port block) the event concerns"
+      foreign_key:
+        table: SignalInterface
+        column: SignalInterface_ID
+
+    - name: DataAcquisitionSystem_ID
+      logical_type: integer
+      nullable: true
+      description: "Target: the DataAcquisitionSystem (PLC, logger) the event concerns"
+      foreign_key:
+        table: DataAcquisitionSystem
+        column: DataAcquisitionSystem_ID
+
+    - name: SamplingPoint_ID
+      logical_type: integer
+      nullable: true
+      description: "Target: the SamplingPoint the event concerns"
+      foreign_key:
+        table: SamplingPoint
+        column: SamplingPoint_ID
+
+    - name: ProcessUnit_ID
+      logical_type: integer
+      nullable: true
+      description: "Target: the ProcessUnit the event concerns"
+      foreign_key:
+        table: ProcessUnit
+        column: ProcessUnit_ID
+
+    - name: Site_ID
+      logical_type: integer
+      nullable: true
+      description: "Target: the Site the event concerns (site-wide power outage, etc.)"
+      foreign_key:
+        table: Site
+        column: Site_ID
+
+    - name: Campaign_ID
+      logical_type: integer
+      nullable: true
+      description: "Target: the Campaign the event concerns"
+      foreign_key:
+        table: Campaign
+        column: Campaign_ID
+
+    # ── Classification and timing ───────────────────────────────────────────
+    - name: EventKind_ID
+      logical_type: integer
+      nullable: false
+      description: "Kind of event (calibration, cleaning, power outage, …)"
+      foreign_key:
+        table: EventKind
+        column: EventKind_ID
+
+    - name: EventDateTimeStart
+      logical_type: timestamp
+      precision: 7
+      nullable: false
+      description: "Date and time the event began (UTC)"
+
+    - name: IsInstantaneous
+      logical_type: boolean
+      nullable: false
+      default: false
+      description: >
+        True if the event occurred at a single point in time. When true,
+        EventDateTimeEnd must be NULL. When false and EventDateTimeEnd is NULL,
+        the event is ongoing.
+
+    - name: EventDateTimeEnd
+      logical_type: timestamp
+      precision: 7
+      nullable: true
+      description: >
+        Date and time the event ended (UTC). NULL when IsInstantaneous=1
+        (point-in-time) or when the event is still ongoing (IsInstantaneous=0).
+
+    - name: PerformedByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who physically performed the event (e.g. technician on site)"
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+    - name: RecordedByPerson_ID
+      logical_type: integer
+      nullable: true
+      description: "Person who entered this record into the system (may differ from PerformedByPerson_ID)"
+      foreign_key:
+        table: Person
+        column: Person_ID
+
+    - name: Notes
+      logical_type: string
+      max_length: max
+      nullable: true
+      description: "Free-text notes about the event"
+
+  primary_key: [Event_ID]
+
+  check_constraints:
+    - name: CK_Event_ExclusiveArc
+      expression: >-
+        (CASE WHEN [Channel_ID] IS NOT NULL THEN 1 ELSE 0 END +
+         CASE WHEN [Equipment_ID] IS NOT NULL THEN 1 ELSE 0 END +
+         CASE WHEN [SignalInterface_ID] IS NOT NULL THEN 1 ELSE 0 END +
+         CASE WHEN [DataAcquisitionSystem_ID] IS NOT NULL THEN 1 ELSE 0 END +
+         CASE WHEN [SamplingPoint_ID] IS NOT NULL THEN 1 ELSE 0 END +
+         CASE WHEN [ProcessUnit_ID] IS NOT NULL THEN 1 ELSE 0 END +
+         CASE WHEN [Site_ID] IS NOT NULL THEN 1 ELSE 0 END +
+         CASE WHEN [Campaign_ID] IS NOT NULL THEN 1 ELSE 0 END) = 1
+
+  indexes:
+    - name: IX_Event_Equipment_Start
+      columns: [Equipment_ID, EventDateTimeStart]
+      unique: false
+      description: "Supports efficient retrieval of event history for a specific piece of equipment ordered by time"
+    - name: IX_Event_Channel_Start
+      columns: [Channel_ID, EventDateTimeStart]
+      unique: false
+      description: "Supports efficient retrieval of event history for a specific channel ordered by time"
+    - name: IX_Event_Site_Start
+      columns: [Site_ID, EventDateTimeStart]
+      unique: false
+      description: "Supports efficient retrieval of site-level events (power outages, visits) ordered by time"
+    - name: IX_Event_Start
+      columns: [EventDateTimeStart]
+      unique: false
+      description: "Supports time-range queries across all events"

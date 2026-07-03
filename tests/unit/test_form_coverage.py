@@ -32,6 +32,7 @@ from api.v1.schemas.campaigns import CampaignIn
 from api.v1.schemas.channel import ChannelIn, ParameterIn, UnitIn
 from api.v1.schemas.control_loop import ControlLoopCreateRequest
 from api.v1.schemas.equipment import EquipmentIn, EquipmentModelIn
+from api.v1.schemas.events import EventKindIn
 from api.v1.schemas.ingestion import LabPanelCreateRequest
 from api.v1.schemas.metadata import (
     CampaignKindIn,
@@ -53,6 +54,7 @@ from api.v1.schemas.signal_interface import DasCreateIn, SignalInterfaceIn
 ENTITY_SCHEMA = {
     "campaign_kind": CampaignKindIn,
     "equipment_event_kind": EquipmentEventKindIn,
+    "event_kind": EventKindIn,
     "process_unit_kind": ProcessUnitKindIn,
     "procedure_kind": ProcedureKindIn,
     "sample_kind": SampleKindIn,

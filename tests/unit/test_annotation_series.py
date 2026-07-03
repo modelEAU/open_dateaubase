@@ -72,7 +72,7 @@ def _stream_row(stream_id: int = 7, stream_kind_id: int = LAB, observation_id=No
         None,            # AuthorName
         None,            # Campaign_ID
         None,            # CampaignName
-        None,            # EquipmentEvent_ID
+        None,            # Event_ID
         FROM,            # CreatedDateTime
         None,            # ModifiedDateTime
         stream_kind_id,  # StreamKind_ID
@@ -97,7 +97,7 @@ class TestRepositoryCreate:
             end_time=TO,
             author_person_id=None,
             campaign_id=None,
-            equipment_event_id=None,
+            event_id=None,
             title=None,
             comment=None,
         )
@@ -124,7 +124,7 @@ class TestRepositoryCreate:
                 end_time=None,
                 author_person_id=None,
                 campaign_id=None,
-                equipment_event_id=None,
+                event_id=None,
                 title=None,
                 comment=None,
             )
@@ -141,7 +141,7 @@ class TestRepositoryCreate:
             end_time=None,
             author_person_id=None,
             campaign_id=None,
-            equipment_event_id=None,
+            event_id=None,
             title=None,
             comment=None,
             observation_id=61,
@@ -549,7 +549,7 @@ def _feed_row(
         None,             # AuthorName
         None,             # Campaign_ID
         None,             # CampaignName
-        None,             # EquipmentEvent_ID
+        None,             # Event_ID
         created,          # CreatedDateTime
         None,             # ModifiedDateTime
         stream_kind_id,   # StreamKind_ID

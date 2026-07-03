@@ -1633,6 +1633,67 @@ def list_sample_kinds_lookup() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# EventKind CRUD  /event-kinds
+# ---------------------------------------------------------------------------
+
+
+def list_event_kinds() -> list[dict]:
+    """Return all EventKind vocabulary entries."""
+    return _request("GET", "/event-kinds")
+
+
+def create_event_kind(data: dict) -> dict:
+    """Create a new EventKind."""
+    return _request("POST", "/event-kinds", json=data)
+
+
+def update_event_kind(event_kind_id: int, data: dict) -> dict:
+    """Replace an EventKind name/description."""
+    return _request("PUT", f"/event-kinds/{event_kind_id}", json=data)
+
+
+def delete_event_kind(event_kind_id: int) -> None:
+    """Delete an EventKind by ID."""
+    return _request("DELETE", f"/event-kinds/{event_kind_id}")
+
+
+def list_event_kinds_lookup() -> list[dict]:
+    """Return EventKinds for dropdowns (thin wrapper over list_event_kinds)."""
+    return list_event_kinds()
+
+
+# ---------------------------------------------------------------------------
+# Event CRUD  /events
+# ---------------------------------------------------------------------------
+
+
+def list_events(**filters) -> list[dict]:
+    """List Events, optionally filtered by any of the 8 arc-target FK columns."""
+    params = {k: v for k, v in filters.items() if v is not None}
+    return _request("GET", "/events", params=params or None)
+
+
+def create_event(data: dict) -> dict:
+    """Create a new Event (exactly one arc-target FK must be provided)."""
+    return _request("POST", "/events", json=data)
+
+
+def update_event(event_id: int, data: dict) -> dict:
+    """Partial-update an Event."""
+    return _request("PUT", f"/events/{event_id}", json=data)
+
+
+def delete_event(event_id: int) -> None:
+    """Hard-delete an Event by ID."""
+    return _request("DELETE", f"/events/{event_id}")
+
+
+def get_event_maintenance_drift(event_id: int) -> dict:
+    """Drift read-back for a maintenance Event (before/after + %diff). 404 if none."""
+    return _request("GET", f"/events/{event_id}/maintenance-drift")
+
+
+# ---------------------------------------------------------------------------
 # Reference-data caching
 # ---------------------------------------------------------------------------
 # The ``list_*_lookup`` functions return slowly-changing reference data that

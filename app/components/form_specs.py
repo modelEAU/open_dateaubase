@@ -67,7 +67,8 @@ def _explicit(fields: list[dict]) -> Callable[[], list[dict]]:
 FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
     # --- name/description vocab (YAML already matches *In) -------------------
     "campaign_kind": _yaml("CampaignKind"),
-    "equipment_event_kind": _yaml("EquipmentEventKind"),
+    "equipment_event_kind": _yaml("EventKind"),  # renamed in PRD-2 S1; slug + API rename in S2
+    "event_kind": _yaml("EventKind"),  # PRD-2 S4: new slug for the generalised EventKind page
     "process_unit_kind": _yaml("ProcessUnitKind"),
     "procedure_kind": _yaml("ProcedureKind"),
     "sample_kind": _yaml("SampleKind"),
@@ -128,7 +129,7 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
             {"name": "title", "type": "text", "required": False},
             {"name": "comment", "type": "textarea", "required": False},
             {"name": "campaign_id", "type": "number", "required": False},
-            {"name": "equipment_event_id", "type": "number", "required": False},
+            {"name": "event_id", "type": "number", "required": False},
             {"name": "author_person_id", "type": "number", "required": False},
         ]
     ),

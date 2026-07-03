@@ -1,0 +1,46 @@
+_format_version: "1.0"
+table:
+  name: EventKind
+  schema: dbo
+  description: >
+    Controlled vocabulary classifying the kind of operational event (Calibration,
+    Cleaning, PowerOutage, ControllerCrash, …). Generalises the former
+    EquipmentEventKind to cover all targets in the exclusive-arc Event table.
+
+  columns:
+    - name: EventKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the event kind"
+
+    - name: Description
+      logical_type: string
+      max_length: 300
+      nullable: true
+      description: "Explanation of what this kind of event involves"
+
+  primary_key: [EventKind_ID]
+
+  seed_data:
+    - { EventKind_ID: 1,  Name: "Calibration",       Description: "Adjustment of sensor output to match a known reference standard" }
+    - { EventKind_ID: 2,  Name: "Cleaning",           Description: "Physical cleaning or flushing of a sensor or sampling point to restore signal quality" }
+    - { EventKind_ID: 3,  Name: "Repair",             Description: "Corrective action performed following a recorded failure" }
+    - { EventKind_ID: 4,  Name: "PartReplacement",    Description: "Replacement of a sub-component (membrane, electrode, probe tip) without swapping the full unit" }
+    - { EventKind_ID: 5,  Name: "Replacement",        Description: "Full swap of a sensor or equipment unit" }
+    - { EventKind_ID: 6,  Name: "SoftwareUpdate",     Description: "Update to embedded firmware, driver, or control software of a device" }
+    - { EventKind_ID: 7,  Name: "Validation",         Description: "Formal check confirming that sensor outputs meet defined acceptance criteria" }
+    - { EventKind_ID: 8,  Name: "Verification",       Description: "Comparison of sensor reading against a reference under controlled conditions (in-situ or bench)" }
+    - { EventKind_ID: 9,  Name: "VisualInspection",   Description: "Non-destructive observation of equipment condition without intervention" }
+    - { EventKind_ID: 10, Name: "Commissioning",      Description: "Formal activation of equipment or a system node into operational service" }
+    - { EventKind_ID: 11, Name: "Decommissioning",    Description: "Formal retirement of equipment or a system node from operational service" }
+    - { EventKind_ID: 12, Name: "OutOfService",       Description: "Planned or unplanned removal from service (shutdown, isolation) without full decommissioning" }
+    - { EventKind_ID: 13, Name: "PowerOutage",        Description: "Loss of electrical power affecting a device, interface, or site" }
+    - { EventKind_ID: 14, Name: "ControllerCrash",    Description: "Unplanned software or hardware fault causing a controller or DAS to stop functioning" }
+    - { EventKind_ID: 15, Name: "OperationalChange",  Description: "Any deliberate change in operational configuration, set-point, or procedure not covered by a more specific kind" }
