@@ -472,6 +472,7 @@ def _equipment_event_dialog(
     end_time: str | None,
     equipment_options: list[dict],
     event_type_options: list[dict],
+    default_equipment_id: int | None = None,
 ) -> None:
     eq_map = {
         e.get("identifier", str(e["equipment_id"])): e["equipment_id"]
@@ -479,7 +480,13 @@ def _equipment_event_dialog(
     }
     et_map = {et["event_type_name"]: et["event_type_id"] for et in event_type_options}
 
-    sel_eq = st.selectbox("Equipment *", list(eq_map.keys()))
+    eq_labels = list(eq_map.keys())
+    eq_index = 0
+    if default_equipment_id is not None:
+        eq_ids = list(eq_map.values())
+        if default_equipment_id in eq_ids:
+            eq_index = eq_ids.index(default_equipment_id)
+    sel_eq = st.selectbox("Equipment *", eq_labels, index=eq_index)
     sel_et = st.selectbox("Event type *", list(et_map.keys()))
 
     col1, col2 = st.columns(2)
@@ -1277,6 +1284,10 @@ def _render_scalar_view(
             st.session_state._show_event_dialog = True
             st.session_state._ann_start = str(min(all_sel_times)) if all_sel_times else None
             st.session_state._ann_end = str(max(all_sel_times)) if all_sel_times else None
+            # Default the dialog to the selected sensor's equipment — otherwise it
+            # falls back to the first equipment in the full list and the event lands
+            # on the wrong equipment (never rendered on this channel's chart).
+            st.session_state._event_equipment_ids = list(sel_equipment.keys())
             st.rerun()  # dialog check runs before visualization area in script order
 
     # Annotations & events summary table
@@ -1966,11 +1977,13 @@ def _render_page_body(
     # --- Equipment event dialog (triggered from scalar view) ---
     if st.session_state._show_event_dialog:
         st.session_state._show_event_dialog = False
+        _sel_eq_ids = st.session_state.get("_event_equipment_ids") or []
         _equipment_event_dialog(
             start_time=st.session_state._ann_start,
             end_time=st.session_state._ann_end,
             equipment_options=equipment,
             event_type_options=event_types,
+            default_equipment_id=_sel_eq_ids[0] if _sel_eq_ids else None,
         )
 
     # --- Visualization area ---
