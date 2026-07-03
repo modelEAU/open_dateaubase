@@ -73,8 +73,9 @@ def test_selected_points_listed_in_a_table():
         at.session_state["explore_channel_meta"] = {5: _M5}
         at.session_state["explore_start"] = date(2026, 5, 1)
         at.session_state["explore_end"] = date(2026, 5, 8)
-        # Brush both points of the single sensor series (seriesIndex 0).
-        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 0, "dataIndex": [0, 1]}]
+        # Each sensor renders as a decorative line (seriesIndex 0) + a brushable
+        # marker scatter (seriesIndex 1) that carries identity. Brush the markers.
+        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 1, "dataIndex": [0, 1]}]
         at.run()
 
     assert not at.exception
@@ -102,8 +103,9 @@ def test_equipment_event_button_always_available_and_lists_selected_equipment():
         # No selection yet — the equipment-event button is still present.
         assert "btn_eq_event_p1" in [b.key for b in at.button]
 
-        # Select a CH-5 point; its equipment (EQ5) is now listed.
-        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 0, "dataIndex": [0]}]
+        # Select a CH-5 point; its equipment (EQ5) is now listed. Markers are the
+        # brushable scatter at seriesIndex 1 (seriesIndex 0 is the decorative line).
+        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 1, "dataIndex": [0]}]
         at.run()
         assert "btn_eq_event_p1" in [b.key for b in at.button]
         body = " ".join((m.value or "") for m in at.markdown)
@@ -125,8 +127,9 @@ def test_annotation_scoped_to_selected_stream_only():
         at.session_state["explore_channel_meta"] = {5: _M5, 6: _M6}
         at.session_state["explore_start"] = date(2026, 5, 1)
         at.session_state["explore_end"] = date(2026, 5, 8)
-        # seriesIndex 0 == CH-5 (first added). Select its first point only.
-        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 0, "dataIndex": [0]}]
+        # Per channel: decorative line + marker scatter. CH-5 markers are at
+        # seriesIndex 1 (0=CH-5 line, 1=CH-5 markers, 2=CH-6 line, 3=CH-6 markers).
+        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 1, "dataIndex": [0]}]
         at.run()
         at.button(key="btn_sensor_ann_p1").click().run()
 
@@ -137,3 +140,36 @@ def test_annotation_scoped_to_selected_stream_only():
     )
     # Single selected point pins to its exact observation.
     assert captured.get("observation_id") == 501
+
+
+def test_equipment_event_defaults_to_selected_equipment():
+    """Tagging an equipment event must default the dialog to the SELECTED sensor's
+    equipment, not the first equipment in the global list. The old behavior landed
+    the event on the wrong equipment, so it never rendered on this channel's chart."""
+    captured: dict = {}
+    # First equipment in the list is NOT the selected sensor's (id 5).
+    two_equipment = [
+        {"equipment_id": 9, "identifier": "Basestation"},
+        {"equipment_id": 5, "identifier": "EQ5"},
+    ]
+    with ExitStack() as stack:
+        _patches(stack)
+        stack.enter_context(patch(f"{MOD}.list_equipment_lookup", return_value=two_equipment))
+        stack.enter_context(
+            patch(f"{MOD}._equipment_event_dialog", side_effect=lambda **kw: captured.update(kw))
+        )
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_channels"] = [5]
+        at.session_state["explore_channel_meta"] = {5: _M5}
+        at.session_state["explore_start"] = date(2026, 5, 1)
+        at.session_state["explore_end"] = date(2026, 5, 8)
+        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 1, "dataIndex": [0]}]
+        at.run()
+        at.button(key="btn_eq_event_p1").click().run()
+
+    assert not at.exception
+    assert captured, "equipment event dialog not opened"
+    assert captured.get("default_equipment_id") == 5, (
+        "equipment-event dialog should default to the selected sensor's equipment 5; "
+        f"got {captured.get('default_equipment_id')}"
+    )

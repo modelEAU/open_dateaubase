@@ -194,9 +194,18 @@ def build_scalar_echarts_option(
                 color_of=lambda it: EVENT_BAND, band_color=EVENT_BAND,
             )
 
-        echarts_series.append(
-            _line_series(label, color, ec_data, spans)
-        )
+        # ECharts line series have no brushSelector — the toolbox brush cannot
+        # point-select them. So the line is a decorative (non-selectable) layer
+        # with its symbols hidden, and a companion scatter draws the markers and
+        # is the brushable layer that carries point identity. The two share a
+        # legend name so they toggle as one. The decorative line keeps a
+        # placeholder map entry so seriesIndex stays 1:1 with series_index_map.
+        line = _line_series(label, color, ec_data, spans)
+        line["showSymbol"] = False
+        echarts_series.append(line)
+        series_index_map.append({"kind": "decor"})
+
+        echarts_series.append(_sensor_marker_series(label, color, ec_data))
         series_index_map.append({"kind": "sensor", "id": ch_id, "points": points})
 
     # --- Lab AnalysisSeries: scatter (diamonds) ---
@@ -317,6 +326,17 @@ def _line_series(name: str, color: str, data: list[dict], spans: list[dict]) -> 
     return s
 
 
+def _sensor_marker_series(name: str, color: str, data: list[dict]) -> dict:
+    """Brushable point layer sitting on the decorative sensor line. Same legend
+    name as the line so the two toggle together; per-point qc colours ride on
+    each data item's itemStyle (data is shared with the line)."""
+    return {
+        "name": name, "type": "scatter", "symbol": "circle", "symbolSize": 5,
+        "itemStyle": {"color": color}, "emphasis": {"focus": "series"},
+        "data": data,
+    }
+
+
 def _scatter_series(name: str, outline: str, data: list[dict], spans: list[dict]) -> dict:
     s = {
         "name": name, "type": "scatter", "symbol": "diamond", "symbolSize": 11,
@@ -343,6 +363,8 @@ def resolve_brush_selection(payload, series_index_map: list[dict]) -> dict:
         if si is None or si < 0 or si >= len(series_index_map):
             continue
         smap = series_index_map[si]
+        if smap["kind"] not in ("sensor", "lab"):
+            continue  # decorative line layer — not a selectable identity series
         bucket = "sensor_pts" if smap["kind"] == "sensor" else "lab_pts"
         pts = smap["points"]
         for di in sel.get("dataIndex") or []:

@@ -55,15 +55,20 @@ def _build(**overrides):
 def test_option_has_line_and_scatter_with_zoom_and_brush():
     option, smap, _ = _build()
     types = [s["type"] for s in option["series"]]
-    assert types == ["line", "scatter"], types
+    # Sensor = decorative line (no symbols) + brushable marker scatter; lab = scatter.
+    # ECharts line series aren't brush-selectable, so the identity lives on scatter.
+    assert types == ["line", "scatter", "scatter"], types
+    assert option["series"][0]["showSymbol"] is False  # line is decorative only
     # dataZoom slider + inside, and a brush config (the UX wins)
     assert {z["type"] for z in option["dataZoom"]} == {"inside", "slider"}
     assert "brush" in option and option["xAxis"]["type"] == "time"
-    # series_index_map aligns with series order and carries identity
-    assert smap[0]["kind"] == "sensor" and smap[0]["id"] == 5
-    assert smap[1]["kind"] == "lab" and smap[1]["id"] == 1
-    assert [p["obs_id"] for p in smap[0]["points"]] == [901, 902]
-    assert [p["obs_id"] for p in smap[1]["points"]] == [701, 702]
+    # series_index_map aligns 1:1 with series order; the decor line is skipped,
+    # sensor identity rides on the (brushable) marker scatter at index 1.
+    assert smap[0]["kind"] == "decor"
+    assert smap[1]["kind"] == "sensor" and smap[1]["id"] == 5
+    assert smap[2]["kind"] == "lab" and smap[2]["id"] == 1
+    assert [p["obs_id"] for p in smap[1]["points"]] == [901, 902]
+    assert [p["obs_id"] for p in smap[2]["points"]] == [701, 702]
 
 
 def test_yaxis_labelled_with_parameter_and_unit_from_data():
@@ -117,8 +122,9 @@ def test_annotation_and_event_overlays_become_markareas_and_rows():
 def test_resolve_brush_selection_maps_indices_to_observations():
     _, smap, _ = _build()
     payload = [
-        {"seriesIndex": 0, "dataIndex": [1]},      # sensor 2nd point -> obs 902
-        {"seriesIndex": 1, "dataIndex": [0, 1]},   # both lab points
+        {"seriesIndex": 0, "dataIndex": [0, 1]},   # decor line — must be ignored
+        {"seriesIndex": 1, "dataIndex": [1]},      # sensor 2nd point -> obs 902
+        {"seriesIndex": 2, "dataIndex": [0, 1]},   # both lab points
     ]
     sel = ee.resolve_brush_selection(payload, smap)
     assert [p["obs_id"] for p in sel["sensor_pts"]] == [902]
