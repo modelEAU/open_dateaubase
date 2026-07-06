@@ -923,7 +923,7 @@ def _load_config(path: Path) -> dict:
 
 def mapper_page() -> None:
     st.header("Import Data (Mapper)")
-    st.caption("PRD-3 S5 — upload → pick profile → tag roles → resolve → preview → submit")
+    st.caption("Upload a file, pick a profile, map the columns, preview, and submit.")
 
     profile = st.selectbox(
         "Profile",

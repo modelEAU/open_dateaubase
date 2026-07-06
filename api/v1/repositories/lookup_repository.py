@@ -379,12 +379,12 @@ def get_equipment_events_lookup(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT ee.EquipmentEvent_ID,
+        SELECT ee.Event_ID,
                et.Name + ' \u2014 ' + e.Identifier
                  + ' (' + CONVERT(NVARCHAR, ee.EventDateTimeStart, 120) + ')' AS Label
-        FROM [dbo].[EquipmentEvent] ee
-        JOIN [dbo].[EquipmentEventKind] et
-          ON et.EquipmentEventKind_ID = ee.EquipmentEventKind_ID
+        FROM [dbo].[Event] ee
+        JOIN [dbo].[EventKind] et
+          ON et.EventKind_ID = ee.EventKind_ID
         JOIN [dbo].[Equipment] e ON e.Equipment_ID = ee.Equipment_ID
         ORDER BY ee.EventDateTimeStart DESC
         """

@@ -243,12 +243,16 @@ def delete_equipment_model(conn: pyodbc.Connection, model_id: int) -> bool:
 
 
 def get_equipment_lookup(conn: pyodbc.Connection) -> list[dict]:
-    """Return all equipment for dropdowns (id + identifier)."""
+    """Return all equipment for dropdowns (id + identifier + model)."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Equipment_ID], [Identifier] FROM [dbo].[Equipment] ORDER BY [Identifier]"
+        "SELECT [Equipment_ID], [Identifier], [EquipmentModel_ID]"
+        " FROM [dbo].[Equipment] ORDER BY [Identifier]"
     )
-    return [{"equipment_id": row[0], "identifier": row[1]} for row in cursor.fetchall()]
+    return [
+        {"equipment_id": row[0], "identifier": row[1], "model_id": row[2]}
+        for row in cursor.fetchall()
+    ]
 
 
 def get_equipment_events(
@@ -269,7 +273,7 @@ def get_equipment_events(
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventKind_ID],
+        SELECT ee.[Event_ID], ee.[EventKind_ID],
                eet.[Name],
                ee.[IsInstantaneous],
                ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
@@ -278,9 +282,9 @@ def get_equipment_events(
                ee.[RecordedByPerson_ID],
                CONCAT(rec.[FirstName], ' ', rec.[LastName]) AS RecordedByName,
                ee.[Notes]
-        FROM [dbo].[EquipmentEvent] ee
-        LEFT JOIN [dbo].[EquipmentEventKind] eet
-            ON eet.[EquipmentEventKind_ID] = ee.[EquipmentEventKind_ID]
+        FROM [dbo].[Event] ee
+        LEFT JOIN [dbo].[EventKind] eet
+            ON eet.[EventKind_ID] = ee.[EventKind_ID]
         LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = ee.[PerformedByPerson_ID]
         LEFT JOIN [dbo].[Person] rec ON rec.[Person_ID] = ee.[RecordedByPerson_ID]
         {where}
@@ -358,7 +362,7 @@ def get_equipment_event_kinds(conn: pyodbc.Connection) -> list[dict]:
     """Return all EquipmentEventKind rows for dropdowns."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [EquipmentEventKind_ID], [Name], [Description] FROM [dbo].[EquipmentEventKind] ORDER BY [Name]"
+        "SELECT [EventKind_ID], [Name], [Description] FROM [dbo].[EventKind] ORDER BY [Name]"
     )
     return [
         {"event_type_id": row[0], "event_type_name": row[1], "description": row[2]}
@@ -370,8 +374,8 @@ def insert_equipment_event_kind(conn: pyodbc.Connection, name: str) -> dict:
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO [dbo].[EquipmentEventKind] ([Name])"
-            " OUTPUT inserted.[EquipmentEventKind_ID], inserted.[Name]"
+            "INSERT INTO [dbo].[EventKind] ([Name])"
+            " OUTPUT inserted.[EventKind_ID], inserted.[Name]"
             " VALUES (?)",
             name,
         )
@@ -388,10 +392,10 @@ def update_equipment_event_kind(conn: pyodbc.Connection, event_kind_id: int, nam
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "UPDATE [dbo].[EquipmentEventKind]"
+            "UPDATE [dbo].[EventKind]"
             " SET [Name]=?"
-            " OUTPUT inserted.[EquipmentEventKind_ID], inserted.[Name]"
-            " WHERE [EquipmentEventKind_ID]=?",
+            " OUTPUT inserted.[EventKind_ID], inserted.[Name]"
+            " WHERE [EventKind_ID]=?",
             name,
             event_kind_id,
         )
@@ -409,7 +413,7 @@ def delete_equipment_event_kind(conn: pyodbc.Connection, event_kind_id: int) -> 
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "DELETE FROM [dbo].[EquipmentEventKind] WHERE [EquipmentEventKind_ID]=?",
+            "DELETE FROM [dbo].[EventKind] WHERE [EventKind_ID]=?",
             event_kind_id,
         )
         conn.commit()
@@ -424,11 +428,11 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO [dbo].[EquipmentEvent]
-            ([Equipment_ID], [EquipmentEventKind_ID], [IsInstantaneous],
+        INSERT INTO [dbo].[Event]
+            ([Equipment_ID], [EventKind_ID], [IsInstantaneous],
              [EventDateTimeStart], [EventDateTimeEnd],
              [PerformedByPerson_ID], [RecordedByPerson_ID], [Notes])
-        OUTPUT INSERTED.[EquipmentEvent_ID]
+        OUTPUT INSERTED.[Event_ID]
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         data["equipment_id"],
@@ -448,7 +452,7 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
     # Re-fetch with joins for the full response
     cursor.execute(
         """
-        SELECT ee.[EquipmentEvent_ID], ee.[EquipmentEventKind_ID],
+        SELECT ee.[Event_ID], ee.[EventKind_ID],
                eet.[Name],
                ee.[IsInstantaneous],
                ee.[EventDateTimeStart], ee.[EventDateTimeEnd],
@@ -457,11 +461,11 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
                ee.[RecordedByPerson_ID],
                CONCAT(rec.[FirstName], ' ', rec.[LastName]) AS RecordedByName,
                ee.[Notes]
-        FROM [dbo].[EquipmentEvent] ee
-        LEFT JOIN [dbo].[EquipmentEventKind] eet ON eet.[EquipmentEventKind_ID] = ee.[EquipmentEventKind_ID]
+        FROM [dbo].[Event] ee
+        LEFT JOIN [dbo].[EventKind] eet ON eet.[EventKind_ID] = ee.[EventKind_ID]
         LEFT JOIN [dbo].[Person] per ON per.[Person_ID] = ee.[PerformedByPerson_ID]
         LEFT JOIN [dbo].[Person] rec ON rec.[Person_ID] = ee.[RecordedByPerson_ID]
-        WHERE ee.[EquipmentEvent_ID] = ?
+        WHERE ee.[Event_ID] = ?
         """,
         event_id,
     )
@@ -490,7 +494,7 @@ def insert_equipment_event(conn: pyodbc.Connection, data: dict) -> dict:
 def _find_event_kind_id_by_name(conn: pyodbc.Connection, name: str) -> int | None:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [EquipmentEventKind_ID] FROM [dbo].[EquipmentEventKind]"
+        "SELECT [EventKind_ID] FROM [dbo].[EventKind]"
         " WHERE [Name] = ?",
         name,
     )
@@ -525,10 +529,10 @@ def commission_equipment(
 
     cursor.execute(
         """
-        INSERT INTO [dbo].[EquipmentEvent]
-            ([Equipment_ID], [EquipmentEventKind_ID], [EventDateTimeStart],
+        INSERT INTO [dbo].[Event]
+            ([Equipment_ID], [EventKind_ID], [EventDateTimeStart],
              [PerformedByPerson_ID], [Notes])
-        OUTPUT INSERTED.[EquipmentEvent_ID]
+        OUTPUT INSERTED.[Event_ID]
         VALUES (?, ?, SYSUTCDATETIME(), ?, ?)
         """,
         equipment_id,
@@ -570,10 +574,10 @@ def decommission_equipment(
 
     cursor.execute(
         """
-        INSERT INTO [dbo].[EquipmentEvent]
-            ([Equipment_ID], [EquipmentEventKind_ID], [EventDateTimeStart],
+        INSERT INTO [dbo].[Event]
+            ([Equipment_ID], [EventKind_ID], [EventDateTimeStart],
              [PerformedByPerson_ID], [Notes])
-        OUTPUT INSERTED.[EquipmentEvent_ID]
+        OUTPUT INSERTED.[Event_ID]
         VALUES (?, ?, SYSUTCDATETIME(), ?, ?)
         """,
         equipment_id,
@@ -774,11 +778,11 @@ def get_equipment_story(conn: pyodbc.Connection, equipment_id: int) -> dict | No
     # --- Lifecycle events -------------------------------------------------
     cur.execute(
         """
-        SELECT ev.[EquipmentEvent_ID], eek.[Name], ev.[EventDateTimeStart],
+        SELECT ev.[Event_ID], eek.[Name], ev.[EventDateTimeStart],
                ev.[EventDateTimeEnd], ev.[IsInstantaneous], ev.[Notes]
-        FROM [dbo].[EquipmentEvent] ev
-        LEFT JOIN [dbo].[EquipmentEventKind] eek
-            ON eek.[EquipmentEventKind_ID] = ev.[EquipmentEventKind_ID]
+        FROM [dbo].[Event] ev
+        LEFT JOIN [dbo].[EventKind] eek
+            ON eek.[EventKind_ID] = ev.[EventKind_ID]
         WHERE ev.[Equipment_ID] = ?
         ORDER BY ev.[EventDateTimeStart] DESC
         """,

@@ -43,7 +43,7 @@ _SAMPLING_POINTS = [
 ]
 _CAMPAIGNS = [{"campaign_id": 10, "name": "Summer 2024"}]
 _SIGNAL_INTERFACES = [{"signal_interface_id": 5, "name": "AI_01", "das_name": "DAS-001"}]
-_EVENT_KINDS = [{"event_type_id": 1, "event_type_name": "Maintenance"}]
+_EVENT_KINDS = [{"event_kind_id": 1, "name": "Maintenance"}]
 # Current location: SP-Alpha (id=1); used to trigger same-destination guard
 _LOCATION_RESPONSE = {
     "equipment_id": 1,
@@ -70,7 +70,7 @@ _WIRING_RESPONSE = {
 
 _LOOKUP_SPECS = [
     (f"{MOD}.list_equipment_lookup", _EQUIPMENT),
-    (f"{MOD}.list_equipment_event_kinds", _EVENT_KINDS),
+    (f"{MOD}.list_event_kinds_lookup", _EVENT_KINDS),
     (f"{MOD}.list_sampling_points_lookup", _SAMPLING_POINTS),
     (f"{MOD}.list_campaigns_lookup", _CAMPAIGNS),
     (f"{MOD}.list_signal_interfaces_lookup", _SIGNAL_INTERFACES),
@@ -102,8 +102,8 @@ def mock_apis():
             "rewire_equipment": stack.enter_context(
                 patch(f"{MOD}.rewire_equipment", return_value={})
             ),
-            "create_equipment_event": stack.enter_context(
-                patch(f"{MOD}.create_equipment_event", return_value={})
+            "create_event": stack.enter_context(
+                patch(f"{MOD}.create_event", return_value={})
             ),
         }
         yield mocks
@@ -238,10 +238,10 @@ class TestRelocateConfirm:
         at.button(key="mv_next_4").click().run()
 
         mock_apis["relocate_equipment"].assert_called_once()
-        mock_apis["create_equipment_event"].assert_called_once()
-        event_payload = mock_apis["create_equipment_event"].call_args[0][0]
+        mock_apis["create_event"].assert_called_once()
+        event_payload = mock_apis["create_event"].call_args[0][0]
         assert event_payload["equipment_id"] == 1
-        assert event_payload["event_type_id"] == 1
+        assert event_payload["event_kind_id"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +324,7 @@ class TestRewireConfirm:
         at.button(key="mw_next_4").click().run()
 
         mock_apis["rewire_equipment"].assert_called_once()
-        mock_apis["create_equipment_event"].assert_called_once()
-        event_payload = mock_apis["create_equipment_event"].call_args[0][0]
+        mock_apis["create_event"].assert_called_once()
+        event_payload = mock_apis["create_event"].call_args[0][0]
         assert event_payload["equipment_id"] == 1
         assert event_payload["is_instantaneous"] is True

@@ -12,7 +12,7 @@ Change Wiring tab:
   Step 3: Optionally record an equipment event alongside the rewire.
   Step 4: Review and confirm.
 
-In v4.0.0, location and wiring are tracked per Equipment via history tables.
+Location and wiring are tracked per Equipment via history tables.
 Relocating or rewiring an equipment automatically affects all channels wired to it.
 """
 
@@ -30,11 +30,11 @@ import streamlit as st
 
 from app.api_client import (
     APIError,
-    create_equipment_event,
+    create_event,
     get_location_at_time,
     get_wiring_at_time,
     list_campaigns_lookup,
-    list_equipment_event_kinds,
+    list_event_kinds_lookup,
     list_equipment_lookup,
     list_sampling_points_lookup,
     list_signal_interface_ports,
@@ -570,7 +570,7 @@ def _step_equipment_event(
     is_instantaneous: bool = False
 
     if add_event:
-        et_map = {et["event_type_name"]: et["event_type_id"] for et in event_types}
+        et_map = {et["name"]: et["event_kind_id"] for et in event_types}
         et_labels = list(et_map.keys())
 
         if not et_labels:
@@ -689,10 +689,10 @@ def _step_review() -> None:
 
         if not errors and st.session_state.mv_add_event and st.session_state.mv_event_type_id:
             try:
-                create_equipment_event(
+                create_event(
                     {
                         "equipment_id": st.session_state.mv_equipment_id,
-                        "event_type_id": st.session_state.mv_event_type_id,
+                        "event_kind_id": st.session_state.mv_event_type_id,
                         "start_datetime": move_ts,
                         "is_instantaneous": st.session_state.get("mv_event_is_instantaneous", False),
                         "notes": st.session_state.get("mv_event_notes") or None,
@@ -805,10 +805,10 @@ def _step_mw_review() -> None:
 
         if not errors and st.session_state.mw_add_event and st.session_state.mw_event_type_id:
             try:
-                create_equipment_event(
+                create_event(
                     {
                         "equipment_id": st.session_state.mw_equipment_id,
-                        "event_type_id": st.session_state.mw_event_type_id,
+                        "event_kind_id": st.session_state.mw_event_type_id,
                         "start_datetime": rewire_ts,
                         "is_instantaneous": st.session_state.get("mw_event_is_instantaneous", False),
                         "notes": st.session_state.get("mw_event_notes") or None,
@@ -864,7 +864,7 @@ st.markdown(
     "Guided workflow to relocate equipment to a new sampling point, "
     "change its wiring to a new signal interface, "
     "and optionally log an equipment event. "
-    "In v4.0.0, location and wiring are tracked per equipment; "
+    "Location and wiring are tracked per equipment; "
     "all associated channels are affected automatically."
 )
 
@@ -873,7 +873,7 @@ _init()
 # Load shared lookups
 try:
     with st.spinner("Loading…"):
-        _event_types = list_equipment_event_kinds()
+        _event_types = list_event_kinds_lookup()
         _equipment_lookup = list_equipment_lookup()
 except APIError as e:
     st.error(f"Cannot load lookup data: {e.message}")

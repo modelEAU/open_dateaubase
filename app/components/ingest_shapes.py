@@ -50,7 +50,7 @@ def _timezone_selector(key: str, label: str = "CSV timezone", help: str | None =
     )
     return zoneinfo.ZoneInfo(selected_tz_name)
 
-from app.api_client import APIError
+from app.api_client import APIError, list_model_parameters, list_parameter_units
 
 Context = Literal["sensor", "lab"]
 
@@ -74,6 +74,96 @@ def _sensor_provenance_name(lookups: dict) -> str:
         {"name": "Sensor"},
     )
     return sensor_provenance["name"]
+
+
+def _params_for_model(model_id: int | None, all_params: list[dict]) -> tuple[list[dict], str | None]:
+    """Parameters configured for an equipment model, else all (with a note).
+
+    Cached per model_id in session_state. A model with no configured parameters
+    falls back to the full list rather than blocking the user.
+    """
+    if model_id is None:
+        return all_params, None
+    cache = f"_ingest_model_params_{model_id}"
+    if cache not in st.session_state:
+        try:
+            st.session_state[cache] = list_model_parameters(model_id)
+        except APIError:
+            st.session_state[cache] = []
+    got = st.session_state[cache]
+    if got:
+        return got, None
+    return all_params, "No parameters configured for this equipment model — showing all."
+
+
+def _units_for_param(parameter_id: int | None, all_units: list[dict]) -> tuple[list[dict], str | None]:
+    """Units valid for a parameter, else all (with a note). Cached per parameter."""
+    if parameter_id is None:
+        return all_units, None
+    cache = f"_ingest_param_units_{parameter_id}"
+    if cache not in st.session_state:
+        try:
+            st.session_state[cache] = list_parameter_units(parameter_id)
+        except APIError:
+            st.session_state[cache] = []
+    got = st.session_state[cache]
+    if got:
+        return got, None
+    return all_units, "No units configured for this parameter — showing all."
+
+
+def _parameter_unit_selects(
+    key_prefix: str,
+    parameters_lookup: list[dict],
+    units_lookup: list[dict],
+    model_id: int | None,
+) -> tuple[str | None, str | None]:
+    """Render the cascading Parameter + Unit selects.
+
+    Parameters are scoped to the equipment model (when known);
+    units are scoped to the chosen parameter. Returns (parameter_name, unit_name).
+    Stale selections that fall outside the narrowed option set are dropped so the
+    selectbox never errors on a value not in ``options``.
+    """
+    params, param_note = _params_for_model(model_id, parameters_lookup)
+    param_id_by_label = {p["parameter_name"]: p["parameter_id"] for p in params}
+    param_labels = list(param_id_by_label)
+
+    col2, col3 = st.columns(2)
+    with col2:
+        pkey = f"{key_prefix}_parameter"
+        if st.session_state.get(pkey) not in param_labels:
+            st.session_state.pop(pkey, None)
+        parameter_name = st.selectbox(
+            "Parameter",
+            options=param_labels,
+            index=None,
+            placeholder="Select parameter...",
+            key=pkey,
+            help="Measured analyte or parameter (e.g. TSS, pH)",
+        )
+        if param_note:
+            st.caption(param_note)
+
+    parameter_id = param_id_by_label.get(parameter_name)
+    units, unit_note = _units_for_param(parameter_id, units_lookup)
+    unit_labels = [u["unit"] for u in units]
+    with col3:
+        ukey = f"{key_prefix}_unit"
+        if st.session_state.get(ukey) not in unit_labels:
+            st.session_state.pop(ukey, None)
+        unit_name = st.selectbox(
+            "Unit",
+            options=unit_labels,
+            index=None,
+            placeholder="Select unit...",
+            key=ukey,
+            help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
+        )
+        if unit_note:
+            st.caption(unit_note)
+
+    return parameter_name, unit_name
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +221,7 @@ def scalar_ingest_block(
                     )
             with col_equip:
                 equipment_options = [
-                    {"id": e["equipment_id"], "label": e["identifier"]}
+                    {"id": e["equipment_id"], "label": e["identifier"], "model_id": e.get("model_id")}
                     for e in equipment_lookup
                 ]
                 equipment_labels = [opt["label"] for opt in equipment_options]
@@ -144,6 +234,10 @@ def scalar_ingest_block(
                     help="Physical instrument this channel is directly connected to",
                 )
             scalar_equipment_name = selected_equipment_label
+            _scalar_model_id = next(
+                (o["model_id"] for o in equipment_options if o["label"] == selected_equipment_label),
+                None,
+            )
             scalar_tag = None
             scalar_channel_role = None
         else:
@@ -203,34 +297,11 @@ def scalar_ingest_block(
                     key=f"{key_prefix}_channel_role",
                 )
             scalar_equipment_name = None
+            _scalar_model_id = None
 
-        col2, col3 = st.columns(2)
-        with col2:
-            parameter_options = [
-                {"id": p["parameter_id"], "label": p["parameter_name"]}
-                for p in parameters_lookup
-            ]
-            parameter_labels = [opt["label"] for opt in parameter_options]
-            scalar_parameter_name = st.selectbox(
-                "Parameter",
-                options=parameter_labels,
-                index=None,
-                placeholder="Select parameter...",
-                key=f"{key_prefix}_parameter",
-                help="Measured analyte or parameter (e.g. TSS, pH)",
-            )
-
-        with col3:
-            unit_options = [{"id": u["unit_id"], "label": u["unit"]} for u in units_lookup]
-            unit_labels = [opt["label"] for opt in unit_options]
-            scalar_unit_name = st.selectbox(
-                "Unit",
-                options=unit_labels,
-                index=None,
-                placeholder="Select unit...",
-                key=f"{key_prefix}_unit",
-                help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
-            )
+        scalar_parameter_name, scalar_unit_name = _parameter_unit_selects(
+            key_prefix, parameters_lookup, units_lookup, _scalar_model_id
+        )
 
         col4, col5 = st.columns(2)
         with col4:
@@ -486,7 +557,8 @@ def vector_ingest_block(
                     )
             with col_equip:
                 equipment_options = [
-                    {"id": e["equipment_id"], "label": e["identifier"]} for e in equipment_lookup
+                    {"id": e["equipment_id"], "label": e["identifier"], "model_id": e.get("model_id")}
+                    for e in equipment_lookup
                 ]
                 equipment_labels = [opt["label"] for opt in equipment_options]
                 selected_equipment_label = st.selectbox(
@@ -498,6 +570,10 @@ def vector_ingest_block(
                     help="Physical instrument this channel is directly connected to",
                 )
             vector_equipment_name = selected_equipment_label
+            _vector_model_id = next(
+                (o["model_id"] for o in equipment_options if o["label"] == selected_equipment_label),
+                None,
+            )
             vector_tag = None
             vector_channel_role = None
         else:
@@ -551,32 +627,11 @@ def vector_ingest_block(
                     key=f"{key_prefix}_channel_role",
                 )
             vector_equipment_name = None
+            _vector_model_id = None
 
-        col2, col3 = st.columns(2)
-        with col2:
-            parameter_options = [
-                {"id": p["parameter_id"], "label": p["parameter_name"]} for p in parameters_lookup
-            ]
-            parameter_labels = [opt["label"] for opt in parameter_options]
-            vector_parameter_name = st.selectbox(
-                "Parameter",
-                options=parameter_labels,
-                index=None,
-                placeholder="Select parameter...",
-                key=f"{key_prefix}_parameter",
-                help="Measured analyte or parameter (e.g. TSS, pH)",
-            )
-        with col3:
-            unit_options = [{"id": u["unit_id"], "label": u["unit"]} for u in units_lookup]
-            unit_labels = [opt["label"] for opt in unit_options]
-            vector_unit_name = st.selectbox(
-                "Unit",
-                options=unit_labels,
-                index=None,
-                placeholder="Select unit...",
-                key=f"{key_prefix}_unit",
-                help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
-            )
+        vector_parameter_name, vector_unit_name = _parameter_unit_selects(
+            key_prefix, parameters_lookup, units_lookup, _vector_model_id
+        )
 
         col4, col5, col6 = st.columns(3)
         with col4:
@@ -866,7 +921,8 @@ def matrix_ingest_block(
                     )
             with col_equip:
                 equipment_options = [
-                    {"id": e["equipment_id"], "label": e["identifier"]} for e in equipment_lookup
+                    {"id": e["equipment_id"], "label": e["identifier"], "model_id": e.get("model_id")}
+                    for e in equipment_lookup
                 ]
                 equipment_labels = [opt["label"] for opt in equipment_options]
                 selected_equipment_label = st.selectbox(
@@ -878,6 +934,10 @@ def matrix_ingest_block(
                     help="Physical instrument this channel is directly connected to",
                 )
             matrix_equipment_name = selected_equipment_label
+            _matrix_model_id = next(
+                (o["model_id"] for o in equipment_options if o["label"] == selected_equipment_label),
+                None,
+            )
             matrix_tag = None
             matrix_channel_role = None
         else:
@@ -931,32 +991,11 @@ def matrix_ingest_block(
                     key=f"{key_prefix}_channel_role",
                 )
             matrix_equipment_name = None
+            _matrix_model_id = None
 
-        col2, col3 = st.columns(2)
-        with col2:
-            parameter_options = [
-                {"id": p["parameter_id"], "label": p["parameter_name"]} for p in parameters_lookup
-            ]
-            parameter_labels = [opt["label"] for opt in parameter_options]
-            matrix_parameter_name = st.selectbox(
-                "Parameter",
-                options=parameter_labels,
-                index=None,
-                placeholder="Select parameter...",
-                key=f"{key_prefix}_parameter",
-                help="Measured analyte or parameter (e.g. TSS, pH)",
-            )
-        with col3:
-            unit_options = [{"id": u["unit_id"], "label": u["unit"]} for u in units_lookup]
-            unit_labels = [opt["label"] for opt in unit_options]
-            matrix_unit_name = st.selectbox(
-                "Unit",
-                options=unit_labels,
-                index=None,
-                placeholder="Select unit...",
-                key=f"{key_prefix}_unit",
-                help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
-            )
+        matrix_parameter_name, matrix_unit_name = _parameter_unit_selects(
+            key_prefix, parameters_lookup, units_lookup, _matrix_model_id
+        )
 
         col4, col5, col6 = st.columns(3)
         with col4:
@@ -1326,9 +1365,11 @@ def image_ingest_block(
                         "Tag", value="", placeholder="e.g. PLC1.cam", key=f"{key_prefix}_tag"
                     )
                 img_equipment_name = None
+                _img_model_id = None
             else:
                 equipment_options = [
-                    {"id": e["equipment_id"], "label": e["identifier"]} for e in equipment_lookup
+                    {"id": e["equipment_id"], "label": e["identifier"], "model_id": e.get("model_id")}
+                    for e in equipment_lookup
                 ]
                 equipment_labels = [opt["label"] for opt in equipment_options]
                 img_equipment_name = st.selectbox(
@@ -1339,29 +1380,15 @@ def image_ingest_block(
                     key=f"{key_prefix}_equipment",
                     help="Physical instrument this channel is directly connected to",
                 )
+                _img_model_id = next(
+                    (o["model_id"] for o in equipment_options if o["label"] == img_equipment_name),
+                    None,
+                )
                 img_tag = None
 
-        col2, col3 = st.columns(2)
-        with col2:
-            parameter_labels = [p["parameter_name"] for p in parameters_lookup]
-            img_parameter_name = st.selectbox(
-                "Parameter",
-                options=parameter_labels,
-                index=None,
-                placeholder="Select parameter...",
-                key=f"{key_prefix}_parameter",
-                help="Measured analyte or parameter (e.g. TSS, pH)",
-            )
-        with col3:
-            unit_labels = [u["unit"] for u in units_lookup]
-            img_unit_name = st.selectbox(
-                "Unit",
-                options=unit_labels,
-                index=None,
-                placeholder="Select unit...",
-                key=f"{key_prefix}_unit",
-                help="Unit of measurement (e.g. mg/L, NTU)",
-            )
+        img_parameter_name, img_unit_name = _parameter_unit_selects(
+            key_prefix, parameters_lookup, units_lookup, _img_model_id
+        )
 
     with st.container(border=True):
         st.subheader("Timestamp")

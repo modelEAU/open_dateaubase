@@ -565,9 +565,9 @@ def get_campaign_overview(conn: pyodbc.Connection, campaign_id: int) -> dict:
             e.[Equipment_ID], e.[Identifier], em.[EquipmentModel] AS model,
             ce.[Role], sp.[SamplingPoint] AS location, e.[IsActive],
             (SELECT TOP 1 eek.[Name]
-             FROM [dbo].[EquipmentEvent] ev
-             JOIN [dbo].[EquipmentEventKind] eek
-                 ON eek.[EquipmentEventKind_ID] = ev.[EquipmentEventKind_ID]
+             FROM [dbo].[Event] ev
+             JOIN [dbo].[EventKind] eek
+                 ON eek.[EventKind_ID] = ev.[EventKind_ID]
              WHERE ev.[Equipment_ID] = e.[Equipment_ID]
                AND ev.[EventDateTimeEnd] IS NULL
                AND ev.[IsInstantaneous] = 0

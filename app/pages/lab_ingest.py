@@ -16,29 +16,35 @@ if _project_root not in sys.path:
 
 import pandas as pd
 import streamlit as st
-import tzlocal
 
 try:
     import zoneinfo
 except ImportError:
     from backports import zoneinfo  # type: ignore[no-retype]
 
-_KNOWN_TIMEZONES = sorted(zoneinfo.available_timezones())
-
 
 def _lab_timezone_selector(key: str) -> zoneinfo.ZoneInfo:
-    """Render a collapsed timezone selectbox pre-filled with local timezone."""
-    local_tz_name = tzlocal.get_localzone_name() or "UTC"
-    selected_tz_name = st.selectbox(
+    """Show the browser's timezone (read-only) and record it under ``key``.
+
+    The experiment happens where the user is, so the zone is inferred from the
+    browser (``st.context.timezone``) rather than picked — one less thing to get
+    wrong. The name is stored in session_state so the UTC conversion downstream
+    keeps working.
+    """
+    tz_name = st.context.timezone or "UTC"
+    try:
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except Exception:  # unknown/legacy zone name → safe default
+        tz_name, tz = "UTC", zoneinfo.ZoneInfo("UTC")
+    st.session_state[key] = tz_name
+    st.text_input(
         "TZ",
-        options=_KNOWN_TIMEZONES,
-        index=_KNOWN_TIMEZONES.index(local_tz_name) if local_tz_name in _KNOWN_TIMEZONES else _KNOWN_TIMEZONES.index("UTC"),
-        key=key,
-        help="Timezone of the date/time above. Converted to UTC on submit.",
+        value=tz_name,
+        disabled=True,
         label_visibility="collapsed",
+        help="Timezone inferred from your browser. Timestamps are converted to UTC on submit.",
     )
-    st.caption(selected_tz_name)
-    return zoneinfo.ZoneInfo(selected_tz_name)
+    return tz
 
 from app.api_client import (
     APIError,
