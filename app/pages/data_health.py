@@ -1,6 +1,6 @@
 """Data Health — broken-link reports (consistency audit F5, F11).
 
-Surfaces the reconciling views added in schema 2.3.0:
+Surfaces the reconciling views added in schema 2.1.0:
   - Unlinked channels (F5): ingested channels carrying data but never wired to
     equipment, so their observations resolve to no equipment / no location.
   - Live references to deactivated parents (F11): active wiring rows still

@@ -3,7 +3,7 @@
   GET /data-health/unlinked-channels            — raw channels needing wiring (F5)
   GET /data-health/inactive-parent-references   — live wiring on soft-deleted parents (F11)
 
-Both read the reconciling views added in schema 2.3.0; they are reports, not
+Both read the reconciling views added in schema 2.1.0; they are reports, not
 mutations, so the app can show a "N channels need wiring" banner or confirm
 before deactivating a parent that still has live children.
 """

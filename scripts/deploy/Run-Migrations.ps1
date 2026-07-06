@@ -138,13 +138,13 @@ $MigrationCatalogue = @(
     # Fresh installs start at v2.0.0 via Deploy-Database.ps1 (full create script).
     # This catalogue covers incremental upgrades from that baseline.
     # Add new entries here as each future release ships a migration script.
-    # @{
-    #     From           = 'v2.0.0'
-    #     To             = 'v2.1.0'
-    #     Script         = 'migrations\v2.0.0_to_v2.1.0_mssql.sql'
-    #     Description    = 'Migration v2.0.0 → v2.1.0'
-    #     RollbackScript = 'migrations\v2.0.0_to_v2.1.0_mssql_rollback.sql'
-    # }
+    @{
+        From           = 'v2.0.0'
+        To             = 'v2.1.0'
+        Script         = 'migrations\v2.0.0_to_v2.1.0_mssql.sql'
+        Description    = 'Migration v2.0.0 → v2.1.0'
+        RollbackScript = 'migrations\v2.0.0_to_v2.1.0_mssql_rollback.sql'
+    }
 )
 
 $LatestVersion = if ($MigrationCatalogue.Count -gt 0) { $MigrationCatalogue[-1].To } else { 'v2.0.0' }

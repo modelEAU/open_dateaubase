@@ -1,6 +1,6 @@
 -- Seed data for schema v2.1.0
 -- Platform: mssql
--- Generated: 2026-06-29 12:00:55 UTC
+-- Generated: 2026-07-06 16:57:56 UTC
 -- AnnotationKind
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (1, N'Fault', N'Sensor or process fault', N'#FF4444');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (2, N'Maintenance', N'Sensor under maintenance', N'#FFA500');
@@ -63,18 +63,24 @@ INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Descri
 INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (6, N'Forecast', N'Future-dated value produced by a forecasting model');
 INSERT INTO [dbo].[DataProvenanceKind] ([DataProvenanceKind_ID], [Name], [Description]) VALUES (7, N'Derived', N'Value produced by applying a data-processing algorithm to one or more existing channels.');
 SET IDENTITY_INSERT [dbo].[DataProvenanceKind] OFF;
--- EquipmentEventKind
-SET IDENTITY_INSERT [dbo].[EquipmentEventKind] ON;
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (1, N'Calibration', N'Adjustment of sensor output to match a known reference standard');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (2, N'Commissioning', N'Formal activation of equipment into operational service');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (3, N'Maintenance', N'Physical cleaning, inspection, or servicing of equipment');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (4, N'Installation', N'First-time mounting or connection of equipment at its deployment site');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (5, N'Removal', N'Decommissioning or retrieval of equipment from its deployment site');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (6, N'Firmware Update', N'Update to the embedded software or firmware of the device');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (7, N'Failure', N'Unplanned malfunction or breakdown requiring corrective action');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (8, N'Repair', N'Corrective action performed following a recorded failure');
-INSERT INTO [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID], [Name], [Description]) VALUES (9, N'Decommissioning', N'Formal retirement of equipment from operational service');
-SET IDENTITY_INSERT [dbo].[EquipmentEventKind] OFF;
+-- EventKind
+SET IDENTITY_INSERT [dbo].[EventKind] ON;
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (1, N'Calibration', N'Adjustment of sensor output to match a known reference standard');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (2, N'Cleaning', N'Physical cleaning or flushing of a sensor or sampling point to restore signal quality');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (3, N'Repair', N'Corrective action performed following a recorded failure');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (4, N'PartReplacement', N'Replacement of a sub-component (membrane, electrode, probe tip) without swapping the full unit');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (5, N'Replacement', N'Full swap of a sensor or equipment unit');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (6, N'SoftwareUpdate', N'Update to embedded firmware, driver, or control software of a device');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (7, N'Validation', N'Formal check confirming that sensor outputs meet defined acceptance criteria');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (8, N'Verification', N'Comparison of sensor reading against a reference under controlled conditions (in-situ or bench)');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (9, N'VisualInspection', N'Non-destructive observation of equipment condition without intervention');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (10, N'Commissioning', N'Formal activation of equipment or a system node into operational service');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (11, N'Decommissioning', N'Formal retirement of equipment or a system node from operational service');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (12, N'OutOfService', N'Planned or unplanned removal from service (shutdown, isolation) without full decommissioning');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (13, N'PowerOutage', N'Loss of electrical power affecting a device, interface, or site');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (14, N'ControllerCrash', N'Unplanned software or hardware fault causing a controller or DAS to stop functioning');
+INSERT INTO [dbo].[EventKind] ([EventKind_ID], [Name], [Description]) VALUES (15, N'OperationalChange', N'Any deliberate change in operational configuration, set-point, or procedure not covered by a more specific kind');
+SET IDENTITY_INSERT [dbo].[EventKind] OFF;
 -- OperationKind
 INSERT INTO [dbo].[OperationKind] ([OperationKind_ID], [Name], [Description]) VALUES (1, N'Unprocessed', N'No operations applied — used for the raw channel trait only');
 INSERT INTO [dbo].[OperationKind] ([OperationKind_ID], [Name], [Description]) VALUES (2, N'OutlierRemoval', N'Spikes and statistical outliers removed or flagged');
@@ -163,6 +169,8 @@ INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multi
 INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (13, N'm', N'https://qudt.org/vocab/unit/M', N'1,0,0,0,0,0,0', 1.0, NULL);
 INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (14, N'Nm³/h', NULL, N'3,0,-1,0,0,0,0', 0.000277778, NULL);
 INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (15, N'%', N'https://qudt.org/vocab/unit/PERCENT', N'0,0,0,0,0,0,0', 0.01, NULL);
+INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (16, N'm/h', N'https://qudt.org/vocab/unit/M-PER-HR', N'1,0,-1,0,0,0,0', 0.000277778, NULL);
+INSERT INTO [dbo].[Unit] ([Unit_ID], [Unit], [QUDT_IRI], [UnitVector], [SI_Multiplier], [SI_Offset]) VALUES (17, N'RU', NULL, NULL, NULL, NULL);
 SET IDENTITY_INSERT [dbo].[Unit] OFF;
 -- ValueKind
 SET IDENTITY_INSERT [dbo].[ValueKind] ON;
@@ -195,6 +203,8 @@ INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO
 INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'NOx-N concentration', 20, N'Total oxidized nitrogen (NO3-N + NO2-N)', NULL, 1, N'http://qudt.org/vocab/quantitykind/MassConcentration');
 INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Air flow', 21, N'Volumetric air/gas flow rate', NULL, 1, N'http://qudt.org/vocab/quantitykind/VolumeFlowRate');
 INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Valve position', 22, N'Control valve analog output position (0-100%)', NULL, 1, NULL);
+INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'TSS mass fraction', 23, N'Fraction of total suspended-solids mass in a settling-velocity class (ViCAs distribution, vector over m/h axis)', NULL, 2, N'http://qudt.org/vocab/quantitykind/DimensionlessRatio');
+INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Fluorescence', 24, N'Fluorescence excitation-emission matrix (EEM) intensity, matrix over excitation-nm x emission-nm axes', NULL, 3, NULL);
 SET IDENTITY_INSERT [dbo].[Parameter] OFF;
 -- Procedures
 SET IDENTITY_INSERT [dbo].[Procedures] ON;
@@ -226,3 +236,6 @@ INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (20, 1);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (21, 12);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (21, 14);
 INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (22, 15);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (23, 11);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (23, 15);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (24, 17);

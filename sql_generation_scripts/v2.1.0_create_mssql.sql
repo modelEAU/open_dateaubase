@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.1.0
 -- Platform: mssql
--- Generated: 2026-06-29 12:00:55 UTC
+-- Generated: 2026-07-06 16:57:56 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -59,13 +59,6 @@ CREATE TABLE [dbo].[DataProvenanceKind] (
     CONSTRAINT [PK_DataProvenanceKind] PRIMARY KEY ([DataProvenanceKind_ID])
 );
 
-CREATE TABLE [dbo].[EquipmentEventKind] (
-    [EquipmentEventKind_ID] INT IDENTITY(1,1) NOT NULL,
-    [Name] NVARCHAR(100) NOT NULL,
-    [Description] NVARCHAR(300),
-    CONSTRAINT [PK_EquipmentEventKind] PRIMARY KEY ([EquipmentEventKind_ID])
-);
-
 CREATE TABLE [dbo].[EquipmentModel] (
     [EquipmentModel_ID] INT IDENTITY(1,1) NOT NULL,
     [EquipmentModel] NVARCHAR(100),
@@ -74,6 +67,13 @@ CREATE TABLE [dbo].[EquipmentModel] (
     [Manufacturer] NVARCHAR(100),
     [ManualLocation] NVARCHAR(1000),
     CONSTRAINT [PK_EquipmentModel] PRIMARY KEY ([EquipmentModel_ID])
+);
+
+CREATE TABLE [dbo].[EventKind] (
+    [EventKind_ID] INT IDENTITY(1,1) NOT NULL,
+    [Name] NVARCHAR(100) NOT NULL,
+    [Description] NVARCHAR(300),
+    CONSTRAINT [PK_EventKind] PRIMARY KEY ([EventKind_ID])
 );
 
 CREATE TABLE [dbo].[OperationKind] (
@@ -223,7 +223,7 @@ CREATE TABLE [dbo].[Annotation] (
     [EndTime] DATETIME2(7),
     [AuthorPerson_ID] INT,
     [Campaign_ID] INT,
-    [EquipmentEvent_ID] INT,
+    [Event_ID] INT,
     [Title] NVARCHAR(200),
     [Comment] NVARCHAR(MAX),
     [CreatedDateTime] DATETIME2(7) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -246,7 +246,6 @@ CREATE TABLE [dbo].[AuditLog] (
 CREATE TABLE [dbo].[Campaign] (
     [Campaign_ID] INT IDENTITY(1,1) NOT NULL,
     [CampaignKind_ID] INT NOT NULL,
-    [Site_ID] INT NOT NULL,
     [Name] NVARCHAR(200) NOT NULL,
     [Description] NVARCHAR(2000),
     [CampaignStartDateTime] DATETIME2(7),
@@ -331,7 +330,7 @@ CREATE TABLE [dbo].[ControlLoopApplication] (
 CREATE TABLE [dbo].[ControlLoopPort] (
     [ControlLoopPort_ID] INT IDENTITY(1,1) NOT NULL,
     [ControlLoop_ID] INT NOT NULL,
-    [Channel_ID] INT NOT NULL,
+    [Stream_ID] INT NOT NULL,
     [ControlLoopPortKind_ID] INT NOT NULL,
     CONSTRAINT [PK_ControlLoopPort] PRIMARY KEY ([ControlLoopPort_ID])
 );
@@ -386,19 +385,6 @@ CREATE TABLE [dbo].[Equipment] (
     CONSTRAINT [PK_Equipment] PRIMARY KEY ([Equipment_ID])
 );
 
-CREATE TABLE [dbo].[EquipmentEvent] (
-    [EquipmentEvent_ID] INT IDENTITY(1,1) NOT NULL,
-    [Equipment_ID] INT NOT NULL,
-    [EquipmentEventKind_ID] INT NOT NULL,
-    [EventDateTimeStart] DATETIME2(7) NOT NULL,
-    [IsInstantaneous] BIT NOT NULL DEFAULT 0,
-    [EventDateTimeEnd] DATETIME2(7),
-    [PerformedByPerson_ID] INT,
-    [RecordedByPerson_ID] INT,
-    [Notes] NVARCHAR(MAX),
-    CONSTRAINT [PK_EquipmentEvent] PRIMARY KEY ([EquipmentEvent_ID])
-);
-
 CREATE TABLE [dbo].[EquipmentLocationHistory] (
     [EquipmentLocationHistory_ID] INT IDENTITY(1,1) NOT NULL,
     [Equipment_ID] INT NOT NULL,
@@ -431,6 +417,34 @@ CREATE TABLE [dbo].[EquipmentWiringHistory] (
     [ValidTo] DATETIME2(7),
     [Note] NVARCHAR(MAX),
     CONSTRAINT [PK_EquipmentWiringHistory] PRIMARY KEY ([EquipmentWiringHistory_ID])
+);
+
+CREATE TABLE [dbo].[Event] (
+    [Event_ID] INT IDENTITY(1,1) NOT NULL,
+    [Channel_ID] INT,
+    [Equipment_ID] INT,
+    [SignalInterface_ID] INT,
+    [DataAcquisitionSystem_ID] INT,
+    [SamplingPoint_ID] INT,
+    [ProcessUnit_ID] INT,
+    [Site_ID] INT,
+    [Campaign_ID] INT,
+    [EventKind_ID] INT NOT NULL,
+    [EventDateTimeStart] DATETIME2(7) NOT NULL,
+    [IsInstantaneous] BIT NOT NULL DEFAULT 0,
+    [EventDateTimeEnd] DATETIME2(7),
+    [PerformedByPerson_ID] INT,
+    [RecordedByPerson_ID] INT,
+    [Notes] NVARCHAR(MAX),
+    CONSTRAINT [PK_Event] PRIMARY KEY ([Event_ID]),
+    CONSTRAINT [CK_Event_ExclusiveArc] CHECK ((CASE WHEN [Channel_ID] IS NOT NULL THEN 1 ELSE 0 END +
+ CASE WHEN [Equipment_ID] IS NOT NULL THEN 1 ELSE 0 END +
+ CASE WHEN [SignalInterface_ID] IS NOT NULL THEN 1 ELSE 0 END +
+ CASE WHEN [DataAcquisitionSystem_ID] IS NOT NULL THEN 1 ELSE 0 END +
+ CASE WHEN [SamplingPoint_ID] IS NOT NULL THEN 1 ELSE 0 END +
+ CASE WHEN [ProcessUnit_ID] IS NOT NULL THEN 1 ELSE 0 END +
+ CASE WHEN [Site_ID] IS NOT NULL THEN 1 ELSE 0 END +
+ CASE WHEN [Campaign_ID] IS NOT NULL THEN 1 ELSE 0 END) = 1)
 );
 
 CREATE TABLE [dbo].[HydrologicalCharacteristics] (
@@ -777,7 +791,7 @@ CREATE INDEX [IX_ChannelTrait_Stream] ON [dbo].[ChannelTrait] ([Stream_ID]);
 
 CREATE UNIQUE INDEX [UQ_ControlLoopApplication_ActiveRow] ON [dbo].[ControlLoopApplication] ([ControlLoop_ID]) WHERE [EndTime] IS NULL;
 
-CREATE UNIQUE INDEX [UQ_ControlLoopPort_LoopChannel] ON [dbo].[ControlLoopPort] ([ControlLoop_ID], [Channel_ID]);
+CREATE UNIQUE INDEX [UQ_ControlLoopPort_LoopStream] ON [dbo].[ControlLoopPort] ([ControlLoop_ID], [Stream_ID]);
 
 CREATE UNIQUE INDEX [UQ_DASLocationHistory_ActivePerDAS] ON [dbo].[DASLocationHistory] ([DataAcquisitionSystem_ID]) WHERE [ValidTo] IS NULL;
 CREATE INDEX [IX_DASLocationHistory_Site_ValidFrom] ON [dbo].[DASLocationHistory] ([Site_ID], [ValidFrom]);
@@ -786,8 +800,6 @@ CREATE INDEX [IX_DASLocationHistory_Site_ValidFrom] ON [dbo].[DASLocationHistory
 
 
 
-CREATE INDEX [IX_EquipmentEvent_Equipment_Start] ON [dbo].[EquipmentEvent] ([Equipment_ID], [EventDateTimeStart]);
-
 CREATE UNIQUE INDEX [UQ_EquipmentLocationHistory_ActiveRow] ON [dbo].[EquipmentLocationHistory] ([Equipment_ID]) WHERE [ValidTo] IS NULL;
 CREATE INDEX [IX_EquipmentLocationHistory_SamplingPoint] ON [dbo].[EquipmentLocationHistory] ([SamplingPoint_ID], [ValidFrom]);
 
@@ -795,6 +807,11 @@ CREATE INDEX [IX_EquipmentLocationHistory_SamplingPoint] ON [dbo].[EquipmentLoca
 
 CREATE UNIQUE INDEX [UQ_EquipmentWiringHistory_ActiveRow] ON [dbo].[EquipmentWiringHistory] ([Equipment_ID]) WHERE [ValidTo] IS NULL;
 CREATE INDEX [IX_EquipmentWiringHistory_Interface] ON [dbo].[EquipmentWiringHistory] ([SignalInterface_ID], [ValidFrom]);
+
+CREATE INDEX [IX_Event_Equipment_Start] ON [dbo].[Event] ([Equipment_ID], [EventDateTimeStart]);
+CREATE INDEX [IX_Event_Channel_Start] ON [dbo].[Event] ([Channel_ID], [EventDateTimeStart]);
+CREATE INDEX [IX_Event_Site_Start] ON [dbo].[Event] ([Site_ID], [EventDateTimeStart]);
+CREATE INDEX [IX_Event_Start] ON [dbo].[Event] ([EventDateTimeStart]);
 
 
 
@@ -841,11 +858,10 @@ ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Stream_ID] FOREIGN 
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_AnnotationKind_ID] FOREIGN KEY ([AnnotationKind_ID]) REFERENCES [dbo].[AnnotationKind] ([AnnotationKind_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_AuthorPerson_ID] FOREIGN KEY ([AuthorPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
-ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_EquipmentEvent_ID] FOREIGN KEY ([EquipmentEvent_ID]) REFERENCES [dbo].[EquipmentEvent] ([EquipmentEvent_ID]);
+ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Event_ID] FOREIGN KEY ([Event_ID]) REFERENCES [dbo].[Event] ([Event_ID]);
 ALTER TABLE [dbo].[Annotation] ADD CONSTRAINT [FK_Annotation_Observation_ID] FOREIGN KEY ([Observation_ID]) REFERENCES [dbo].[Observation] ([Observation_ID]);
 ALTER TABLE [dbo].[AuditLog] ADD CONSTRAINT [FK_AuditLog_UserAccount_ID] FOREIGN KEY ([UserAccount_ID]) REFERENCES [dbo].[UserAccount] ([UserAccount_ID]);
 ALTER TABLE [dbo].[Campaign] ADD CONSTRAINT [FK_Campaign_CampaignKind_ID] FOREIGN KEY ([CampaignKind_ID]) REFERENCES [dbo].[CampaignKind] ([CampaignKind_ID]);
-ALTER TABLE [dbo].[Campaign] ADD CONSTRAINT [FK_Campaign_Site_ID] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
 ALTER TABLE [dbo].[Campaign] ADD CONSTRAINT [FK_Campaign_ResponsiblePerson_ID] FOREIGN KEY ([ResponsiblePerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[CampaignEquipment] ADD CONSTRAINT [FK_CampaignEquipment_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
 ALTER TABLE [dbo].[CampaignEquipment] ADD CONSTRAINT [FK_CampaignEquipment_Equipment_ID] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
@@ -871,7 +887,7 @@ ALTER TABLE [dbo].[ControlLoop] ADD CONSTRAINT [FK_ControlLoop_FallbackControlLo
 ALTER TABLE [dbo].[ControlLoopApplication] ADD CONSTRAINT [FK_ControlLoopApplication_ControlLoop_ID] FOREIGN KEY ([ControlLoop_ID]) REFERENCES [dbo].[ControlLoop] ([ControlLoop_ID]);
 ALTER TABLE [dbo].[ControlLoopApplication] ADD CONSTRAINT [FK_ControlLoopApplication_AppliedByPerson_ID] FOREIGN KEY ([AppliedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_ControlLoop_ID] FOREIGN KEY ([ControlLoop_ID]) REFERENCES [dbo].[ControlLoop] ([ControlLoop_ID]);
-ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_Channel_ID] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Stream_ID]);
+ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_Stream_ID] FOREIGN KEY ([Stream_ID]) REFERENCES [dbo].[Stream] ([Stream_ID]);
 ALTER TABLE [dbo].[ControlLoopPort] ADD CONSTRAINT [FK_ControlLoopPort_ControlLoopPortKind_ID] FOREIGN KEY ([ControlLoopPortKind_ID]) REFERENCES [dbo].[ControlLoopPortKind] ([ControlLoopPortKind_ID]);
 ALTER TABLE [dbo].[DASLocationHistory] ADD CONSTRAINT [FK_DASLocationHistory_DataAcquisitionSystem_ID] FOREIGN KEY ([DataAcquisitionSystem_ID]) REFERENCES [dbo].[DataAcquisitionSystem] ([DataAcquisitionSystem_ID]);
 ALTER TABLE [dbo].[DASLocationHistory] ADD CONSTRAINT [FK_DASLocationHistory_Site_ID] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
@@ -882,10 +898,6 @@ ALTER TABLE [dbo].[Dataset] ADD CONSTRAINT [FK_Dataset_CreatedByPerson_ID] FOREI
 ALTER TABLE [dbo].[DatasetChannel] ADD CONSTRAINT [FK_DatasetChannel_Dataset_ID] FOREIGN KEY ([Dataset_ID]) REFERENCES [dbo].[Dataset] ([Dataset_ID]);
 ALTER TABLE [dbo].[DatasetChannel] ADD CONSTRAINT [FK_DatasetChannel_Channel_ID] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Stream_ID]);
 ALTER TABLE [dbo].[Equipment] ADD CONSTRAINT [FK_Equipment_EquipmentModel_ID] FOREIGN KEY ([EquipmentModel_ID]) REFERENCES [dbo].[EquipmentModel] ([EquipmentModel_ID]);
-ALTER TABLE [dbo].[EquipmentEvent] ADD CONSTRAINT [FK_EquipmentEvent_Equipment_ID] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
-ALTER TABLE [dbo].[EquipmentEvent] ADD CONSTRAINT [FK_EquipmentEvent_EquipmentEventKind_ID] FOREIGN KEY ([EquipmentEventKind_ID]) REFERENCES [dbo].[EquipmentEventKind] ([EquipmentEventKind_ID]);
-ALTER TABLE [dbo].[EquipmentEvent] ADD CONSTRAINT [FK_EquipmentEvent_PerformedByPerson_ID] FOREIGN KEY ([PerformedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
-ALTER TABLE [dbo].[EquipmentEvent] ADD CONSTRAINT [FK_EquipmentEvent_RecordedByPerson_ID] FOREIGN KEY ([RecordedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[EquipmentLocationHistory] ADD CONSTRAINT [FK_EquipmentLocationHistory_Equipment_ID] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
 ALTER TABLE [dbo].[EquipmentLocationHistory] ADD CONSTRAINT [FK_EquipmentLocationHistory_SamplingPoint_ID] FOREIGN KEY ([SamplingPoint_ID]) REFERENCES [dbo].[SamplingPoint] ([SamplingPoint_ID]);
 ALTER TABLE [dbo].[EquipmentLocationHistory] ADD CONSTRAINT [FK_EquipmentLocationHistory_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
@@ -896,6 +908,17 @@ ALTER TABLE [dbo].[EquipmentModelHasProcedures] ADD CONSTRAINT [FK_EquipmentMode
 ALTER TABLE [dbo].[EquipmentWiringHistory] ADD CONSTRAINT [FK_EquipmentWiringHistory_Equipment_ID] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
 ALTER TABLE [dbo].[EquipmentWiringHistory] ADD CONSTRAINT [FK_EquipmentWiringHistory_SignalInterface_ID] FOREIGN KEY ([SignalInterface_ID]) REFERENCES [dbo].[SignalInterface] ([SignalInterface_ID]);
 ALTER TABLE [dbo].[EquipmentWiringHistory] ADD CONSTRAINT [FK_EquipmentWiringHistory_SignalInterfacePort_ID] FOREIGN KEY ([SignalInterfacePort_ID]) REFERENCES [dbo].[SignalInterfacePort] ([SignalInterfacePort_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_Channel_ID] FOREIGN KEY ([Channel_ID]) REFERENCES [dbo].[Channel] ([Stream_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_Equipment_ID] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_SignalInterface_ID] FOREIGN KEY ([SignalInterface_ID]) REFERENCES [dbo].[SignalInterface] ([SignalInterface_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_DataAcquisitionSystem_ID] FOREIGN KEY ([DataAcquisitionSystem_ID]) REFERENCES [dbo].[DataAcquisitionSystem] ([DataAcquisitionSystem_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_SamplingPoint_ID] FOREIGN KEY ([SamplingPoint_ID]) REFERENCES [dbo].[SamplingPoint] ([SamplingPoint_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_ProcessUnit_ID] FOREIGN KEY ([ProcessUnit_ID]) REFERENCES [dbo].[ProcessUnit] ([ProcessUnit_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_Site_ID] FOREIGN KEY ([Site_ID]) REFERENCES [dbo].[Site] ([Site_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_EventKind_ID] FOREIGN KEY ([EventKind_ID]) REFERENCES [dbo].[EventKind] ([EventKind_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_PerformedByPerson_ID] FOREIGN KEY ([PerformedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
+ALTER TABLE [dbo].[Event] ADD CONSTRAINT [FK_Event_RecordedByPerson_ID] FOREIGN KEY ([RecordedByPerson_ID]) REFERENCES [dbo].[Person] ([Person_ID]);
 ALTER TABLE [dbo].[HydrologicalCharacteristics] ADD CONSTRAINT [FK_HydrologicalCharacteristics_Watershed_ID] FOREIGN KEY ([Watershed_ID]) REFERENCES [dbo].[Watershed] ([Watershed_ID]);
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_LabExperiment_ID] FOREIGN KEY ([LabExperiment_ID]) REFERENCES [dbo].[LabExperiment] ([LabExperiment_ID]);
 ALTER TABLE [dbo].[LabAnalysis] ADD CONSTRAINT [FK_LabAnalysis_AnalysisSeries_ID] FOREIGN KEY ([AnalysisSeries_ID]) REFERENCES [dbo].[AnalysisSeries] ([Stream_ID]);
@@ -960,6 +983,98 @@ ALTER TABLE [dbo].[Watershed] ADD CONSTRAINT [FK_Watershed_ParentWatershed_ID] F
 
 -- Views
 GO
+CREATE OR ALTER VIEW [dbo].[vw_ChannelResolved] AS
+SELECT
+    c.[Stream_ID],
+    c.[SignalInterface_ID],
+    c.[TagName],
+    cph.[SignalInterfacePort_ID],
+    c.[ParentChannel_ID],
+    c.[ChannelKind_ID],
+    c.[Parameter_ID],
+    c.[DataProvenanceKind_ID],
+    c.[ProducedByStep_ID],
+    c.[ValueKind_ID],
+    c.[Unit_ID]
+FROM [dbo].[Channel] c
+LEFT JOIN [dbo].[ChannelPortHistory] cph
+    ON cph.[Channel_ID] = c.[Stream_ID]
+    AND cph.[ValidTo] IS NULL;
+
+GO
+CREATE OR ALTER VIEW [dbo].[vw_DeploymentCoherence] AS
+SELECT
+    dlh.[DataAcquisitionSystem_ID]      AS DAS_ID,
+    das.[Name]                          AS DASName,
+    dlh.[Site_ID]                       AS DASSite_ID,
+    dsite.[Name]                        AS DASSiteName,
+    e.[Equipment_ID]                    AS Equipment_ID,
+    e.[Identifier]                      AS EquipmentName,
+    sp.[Site_ID]                        AS EquipmentSite_ID,
+    esite.[Name]                        AS EquipmentSiteName,
+    sp.[SamplingPoint_ID]               AS SamplingPoint_ID,
+    sp.[SamplingPoint]                  AS SamplingPointName
+FROM [dbo].[DASLocationHistory] dlh
+JOIN [dbo].[DataAcquisitionSystem] das ON das.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
+JOIN [dbo].[SignalInterface] si        ON si.[DataAcquisitionSystem_ID] = dlh.[DataAcquisitionSystem_ID]
+JOIN [dbo].[EquipmentWiringHistory] ewh ON ewh.[SignalInterface_ID] = si.[SignalInterface_ID]
+                                       AND ewh.[ValidTo] IS NULL
+JOIN [dbo].[Equipment] e               ON e.[Equipment_ID] = ewh.[Equipment_ID]
+JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = e.[Equipment_ID]
+                                       AND elh.[ValidTo] IS NULL
+JOIN [dbo].[SamplingPoint] sp          ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+LEFT JOIN [dbo].[Site] dsite           ON dsite.[Site_ID] = dlh.[Site_ID]
+LEFT JOIN [dbo].[Site] esite           ON esite.[Site_ID] = sp.[Site_ID]
+WHERE dlh.[ValidTo] IS NULL
+  AND sp.[Site_ID] <> dlh.[Site_ID];
+
+GO
+CREATE OR ALTER VIEW [dbo].[vw_InactiveParentReferences] AS
+SELECT
+    N'active-wiring->interface' AS ReferenceType,
+    ewh.[EquipmentWiringHistory_ID] AS WiringHistoryID,
+    ewh.[Equipment_ID]              AS EquipmentID,
+    si.[SignalInterface_ID]         AS ParentID,
+    si.[Name]                       AS ParentLabel
+FROM [dbo].[EquipmentWiringHistory] ewh
+JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = ewh.[SignalInterface_ID]
+WHERE ewh.[ValidTo] IS NULL
+  AND si.[IsActive] = 0
+UNION ALL
+SELECT
+    N'active-wiring->port'  AS ReferenceType,
+    ewh.[EquipmentWiringHistory_ID] AS WiringHistoryID,
+    ewh.[Equipment_ID]              AS EquipmentID,
+    sip.[SignalInterfacePort_ID]    AS ParentID,
+    sip.[PortIdentifier]            AS ParentLabel
+FROM [dbo].[EquipmentWiringHistory] ewh
+JOIN [dbo].[SignalInterfacePort] sip ON sip.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
+WHERE ewh.[ValidTo] IS NULL
+  AND sip.[IsActive] = 0;
+
+GO
+CREATE OR ALTER VIEW [dbo].[vw_UnlinkedChannels] AS
+SELECT
+    c.[Stream_ID]          AS ChannelID,
+    c.[TagName]            AS TagName,
+    c.[SignalInterface_ID] AS SignalInterfaceID,
+    si.[Name]              AS SignalInterfaceName,
+    COUNT(o.[Observation_ID]) AS ObservationCount,
+    MIN(o.[Timestamp])     AS FirstObservation,
+    MAX(o.[Timestamp])     AS LastObservation
+FROM [dbo].[Channel] c
+JOIN [dbo].[Observation] o ON o.[Channel_ID] = c.[Stream_ID]
+LEFT JOIN [dbo].[SignalInterface] si ON si.[SignalInterface_ID] = c.[SignalInterface_ID]
+WHERE c.[SignalInterface_ID] IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM [dbo].[EquipmentWiringHistory] ewh
+      WHERE ewh.[SignalInterface_ID] = c.[SignalInterface_ID]
+        AND ewh.[ValidTo] IS NULL
+  )
+GROUP BY c.[Stream_ID], c.[TagName], c.[SignalInterface_ID], si.[Name];
+
+GO
 CREATE OR ALTER VIEW [dbo].[vw_ChannelEquipmentAtTime] AS
 WITH channel_wiring AS (
     SELECT
@@ -1001,40 +1116,6 @@ SELECT
 FROM channel_wiring cw
 LEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = cw.EquipmentID
 WHERE cw.rn = 1;
-
-GO
-CREATE OR ALTER VIEW [dbo].[vw_ChannelLocationAtTime] AS
-SELECT
-    cea.ObservationID,
-    cea.ChannelID,
-    cea.Timestamp,
-    cea.EquipmentID,
-    elh.[SamplingPoint_ID] AS SamplingPointID,
-    sp.[SamplingPoint]     AS SamplingPointName
-FROM [dbo].[vw_ChannelEquipmentAtTime] cea
-LEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID
-                                              AND elh.[ValidFrom]   <= cea.Timestamp
-                                              AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > cea.Timestamp)
-LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID];
-
-GO
-CREATE OR ALTER VIEW [dbo].[vw_ChannelResolved] AS
-SELECT
-    c.[Stream_ID],
-    c.[SignalInterface_ID],
-    c.[TagName],
-    cph.[SignalInterfacePort_ID],
-    c.[ParentChannel_ID],
-    c.[ChannelKind_ID],
-    c.[Parameter_ID],
-    c.[DataProvenanceKind_ID],
-    c.[ProducedByStep_ID],
-    c.[ValueKind_ID],
-    c.[Unit_ID]
-FROM [dbo].[Channel] c
-LEFT JOIN [dbo].[ChannelPortHistory] cph
-    ON cph.[Channel_ID] = c.[Stream_ID]
-    AND cph.[ValidTo] IS NULL;
 
 GO
 CREATE OR ALTER VIEW [dbo].[vw_ChannelStatus] AS
@@ -1086,8 +1167,29 @@ JOIN [dbo].[EquipmentWiringHistory] ewh
 JOIN [dbo].[Equipment]    e       ON e.[Equipment_ID]     = ewh.[Equipment_ID]
 WHERE role.[Name] = N'Status';
 
+GO
+CREATE OR ALTER VIEW [dbo].[vw_ChannelLocationAtTime] AS
+SELECT
+    cea.ObservationID,
+    cea.ChannelID,
+    cea.Timestamp,
+    cea.EquipmentID,
+    cea.Resolution,
+    elh.[SamplingPoint_ID] AS SamplingPointID,
+    sp.[SamplingPoint]     AS SamplingPointName,
+    CASE
+        WHEN cea.EquipmentID IS NULL              THEN N'no-equipment'
+        WHEN elh.[SamplingPoint_ID] IS NOT NULL   THEN N'resolved'
+        ELSE N'no-location'
+    END AS LocationResolution
+FROM [dbo].[vw_ChannelEquipmentAtTime] cea
+LEFT JOIN [dbo].[EquipmentLocationHistory] elh ON elh.[Equipment_ID] = cea.EquipmentID
+                                              AND elh.[ValidFrom]   <= cea.Timestamp
+                                              AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > cea.Timestamp)
+LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID];
+
 
 GO
 -- Schema version stamp (from schema_dictionary/version.yaml)
 INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])
-VALUES (N'2.1.0', N'Consistency hardening. Drops the denormalised Channel.SignalInterfacePort_ID column (F3): the current port is now resolved from the active ChannelPortHistory row via the new vw_ChannelResolved view, giving a single source of truth that cannot drift. Pre-release, fresh install only — no migration provided.');
+VALUES (N'2.1.0', N'Consolidated release covering all schema work since the 2.0.0 baseline: Stream supertype (Channel/AnalysisSeries repoint PK to Stream_ID), OperationKind replaces ProcessingKind, EquipmentEvent generalised into an 8-FK exclusive-arc Event table, LabAnalysis review workflow, multi-site campaigns, and broken-link/DAS-move coherence visibility views. See migrations/v2.0.0_to_v2.1.0_mssql.sql for the full change list.');
