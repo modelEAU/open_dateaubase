@@ -77,16 +77,16 @@ from app.components.explore_provenance import (  # noqa: E402,F401
 from app.components.explore_vector import (  # noqa: F401
     _bin_label,
     _vector_value_label,
-    _build_vector_heatmap,
-    _build_vector_slice_time,
-    _build_vector_slice_bin,
+    build_vector_heatmap_option,
+    build_vector_surface_option,
+    build_vector_slice_time_option,
+    build_vector_slice_bin_option,
 )
 from app.components.explore_matrix import (  # noqa: F401
     _matrix_axis_label_map,
-    _build_matrix_timeslice,
-    _build_matrix_slice_line,
+    build_matrix_timeslice_option,
+    build_matrix_slice_line_option,
 )
-from app.components.explore_scalar import _build_scalar_figure  # noqa: F401
 from app.components.explore_echarts import (  # noqa: F401
     BRUSH_SELECTED_JS,
     CLICK_SELECTED_JS,
@@ -1344,8 +1344,18 @@ def _render_vector_view(
         st.info("No data in the selected time range.")
         return
 
-    fig = _build_vector_heatmap(data, as_3d=as_3d)
-    st.plotly_chart(fig, use_container_width=True, key="vector_chart")
+    if as_3d:
+        st_echarts(
+            options=build_vector_surface_option(data),
+            height="520px",
+            key="vector_chart_3d",
+        )
+    else:
+        st_echarts(
+            options=build_vector_heatmap_option(data),
+            height="440px",
+            key="vector_chart_2d",
+        )
 
     st.subheader("Slice view")
     slice_type = st.radio(
@@ -1357,8 +1367,11 @@ def _render_vector_view(
     if slice_type == "Time slice (value vs bin)":
         timestamps = sorted({str(r.get("timestamp", "")) for r in rows})
         sel_ts = st.select_slider("Timestamp", options=timestamps, key="vec_slice_ts")
-        slice_fig = _build_vector_slice_time(data, sel_ts)
-        st.plotly_chart(slice_fig, use_container_width=True, key="vec_slice_time_chart")
+        st_echarts(
+            options=build_vector_slice_time_option(data, sel_ts),
+            height="320px",
+            key="vec_slice_time_chart",
+        )
     elif slice_type == "Bin slice (value vs time)":
         df_rows = pd.DataFrame(rows)
         bin_label_map = (
@@ -1369,8 +1382,11 @@ def _render_vector_view(
         bin_options = {str(lbl): idx for idx, lbl in sorted(bin_label_map.items())}
         sel_bin_label = st.select_slider("Bin", options=list(bin_options.keys()), key="vec_slice_bin")
         sel_bin_idx = bin_options[sel_bin_label]
-        slice_fig = _build_vector_slice_bin(data, sel_bin_idx)
-        st.plotly_chart(slice_fig, use_container_width=True, key="vec_slice_bin_chart")
+        st_echarts(
+            options=build_vector_slice_bin_option(data, sel_bin_idx),
+            height="320px",
+            key="vec_slice_bin_chart",
+        )
 
     if trace[0] == "channel":
         if st.button("Create Annotation", key="vec_ann_btn"):
@@ -1426,24 +1442,33 @@ def _render_matrix_view(
 
     if view_mode == "Time slice (heatmap at timestamp)":
         sel_ts = st.select_slider("Timestamp", options=timestamps, key="mat_ts_slider")
-        fig = _build_matrix_timeslice(data, sel_ts)
-        st.plotly_chart(fig, use_container_width=True, key="matrix_chart")
+        st_echarts(
+            options=build_matrix_timeslice_option(data, sel_ts),
+            height="440px",
+            key="matrix_chart",
+        )
 
     elif view_mode == "Row slice (time series)":
         row_label_map = _matrix_axis_label_map(df, "row")
         row_options = {str(label): idx for idx, label in sorted(row_label_map.items())}
         sel_row_label = st.selectbox("Row bin", list(row_options.keys()), key="mat_row_sel")
         sel_row = row_options[sel_row_label]
-        fig = _build_matrix_slice_line(data, "row", sel_row)
-        st.plotly_chart(fig, use_container_width=True, key="matrix_row_chart")
+        st_echarts(
+            options=build_matrix_slice_line_option(data, "row", sel_row),
+            height="380px",
+            key="matrix_row_chart",
+        )
 
     else:
         col_label_map = _matrix_axis_label_map(df, "col")
         col_options = {str(label): idx for idx, label in sorted(col_label_map.items())}
         sel_col_label = st.selectbox("Column bin", list(col_options.keys()), key="mat_col_sel")
         sel_col = col_options[sel_col_label]
-        fig = _build_matrix_slice_line(data, "col", sel_col)
-        st.plotly_chart(fig, use_container_width=True, key="matrix_col_chart")
+        st_echarts(
+            options=build_matrix_slice_line_option(data, "col", sel_col),
+            height="380px",
+            key="matrix_col_chart",
+        )
 
 
 

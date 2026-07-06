@@ -1,16 +1,16 @@
-"""Matrix value-type figure builders for the Explore page.
+"""Matrix value-type ECharts option builders for the Explore page.
 
-Pure data→figure helpers extracted from explore.py (Phase 5): a time-slice
-heatmap over (row × col) bins and a row/column time-series slice. Callers load
-the data and pass it in. Re-exported from explore.py so existing references
-resolve unchanged.
+Pure data→option helpers: a time-slice heatmap over (row × col) bins and a
+row/column time-series slice. Callers load the data and pass it in. Re-exported
+from explore.py so existing references resolve unchanged.
 """
 
 from __future__ import annotations
 
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+
+from app.components.explore_echarts import heatmap_option, line_option, pivot_cells
 
 
 def _matrix_axis_label_map(df: "pd.DataFrame", axis: str) -> dict:
@@ -39,70 +39,63 @@ def _matrix_axis_label_map(df: "pd.DataFrame", axis: str) -> dict:
     return result
 
 
-def _build_matrix_timeslice(data: dict, timestamp: str) -> go.Figure:
-    """Build a 2D heatmap for a specific timestamp slice of matrix data."""
+def _axis_label(data: dict, axis: str) -> str:
+    """Label for a matrix axis: its binning-axis name + unit (e.g. "Wavelength
+    (nm)"), falling back to "Row bin"/"Column bin"."""
+    first = (data.get("data") or [{}])[0]
+    name = first.get(f"{axis}_axis_name")
+    unit = first.get(f"{axis}_axis_unit")
+    if name and unit:
+        return f"{name} ({unit})"
+    return name or unit or ("Row bin" if axis == "row" else "Column bin")
+
+
+def build_matrix_timeslice_option(data: dict, timestamp: str) -> dict:
+    """ECharts heatmap for a specific timestamp slice of matrix data."""
     rows = data.get("data", [])
     if not rows:
-        return go.Figure()
-
+        return {}
     df = pd.DataFrame(rows)
-    ts_col = "timestamp"
-    df[ts_col] = df[ts_col].astype(str)
-    slice_df = df[df[ts_col] == timestamp]
+    df["timestamp"] = df["timestamp"].astype(str)
+    slice_df = df[df["timestamp"] == timestamp]
     if slice_df.empty:
         st.warning(f"No data at {timestamp}")
-        return go.Figure()
-
+        return {}
     row_labels = _matrix_axis_label_map(df, "row")
     col_labels = _matrix_axis_label_map(df, "col")
     slice_df = slice_df.copy()
     slice_df["row_label"] = slice_df["row_bin_index"].map(row_labels)
     slice_df["col_label"] = slice_df["col_bin_index"].map(col_labels)
-
     pivot = slice_df.pivot_table(
         index="row_label", columns="col_label", values="value", aggfunc="first"
     )
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=pivot.values.tolist(),
-            x=pivot.columns.tolist(),
-            y=pivot.index.tolist(),
-            colorscale="Viridis",
-        )
+    x = [str(c) for c in pivot.columns.tolist()]
+    y = [str(v) for v in pivot.index.tolist()]
+    return heatmap_option(
+        x, y, pivot_cells(pivot), "Value",
+        _axis_label(data, "col"), _axis_label(data, "row"),
     )
-    fig.update_layout(
-        xaxis_title="Column bin",
-        yaxis_title="Row bin",
-        title=f"Matrix at {timestamp}",
-        height=420,
-    )
-    return fig
 
 
-def _build_matrix_slice_line(data: dict, axis: str, bin_idx: int) -> go.Figure:
-    """Build a time-series line chart for a fixed row or column slice of matrix data."""
+def build_matrix_slice_line_option(data: dict, axis: str, bin_idx: int) -> dict:
+    """ECharts time-series line for a fixed row or column slice of matrix data."""
     rows = data.get("data", [])
     if not rows:
-        return go.Figure()
-
+        return {}
     df = pd.DataFrame(rows)
     label_map = _matrix_axis_label_map(df, axis)
     bin_label = label_map.get(bin_idx, bin_idx)
-
     if axis == "row":
         slice_df = df[df["row_bin_index"] == bin_idx]
-        trace_label = f"Row {bin_label}"
+        name = f"Row {bin_label}"
     else:
         slice_df = df[df["col_bin_index"] == bin_idx]
-        trace_label = f"Col {bin_label}"
-
-    fig = go.Figure(
-        go.Scatter(
-            x=slice_df["timestamp"].tolist(),
-            y=slice_df["value"].tolist(),
-            mode="lines+markers",
-            name=trace_label,
-        )
+        name = f"Col {bin_label}"
+    slice_df = slice_df.sort_values("timestamp")
+    return line_option(
+        slice_df["timestamp"].astype(str).tolist(),
+        slice_df["value"].tolist(),
+        "Time",
+        "Value",
+        name=name,
     )
-    fig.update_layout(xaxis_title="Time", yaxis_title="Value", height=380)
-    return fig

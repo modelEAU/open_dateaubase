@@ -41,7 +41,6 @@ api = [
 app = [
     "streamlit>=1.40",
     "httpx>=0.28",
-    "plotly>=5.24",
     # Pinned to the classic components.v1 release: 0.7.x switched to the
     # bleeding-edge st.components.v2 API and fails to import on Streamlit 1.55.
     "streamlit-echarts==0.4.0",

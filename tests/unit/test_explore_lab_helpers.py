@@ -6,12 +6,7 @@ main() because of the _in_streamlit_run() guard (no script-run context here).
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 from app.pages import explore
-# _build_scalar_figure moved to explore_scalar; it resolves the data loaders in
-# that module's namespace, so patch the loaders there (not on `explore`).
-from app.components import explore_scalar
 
 
 _SERIES = [
@@ -99,35 +94,5 @@ class TestKindOptions:
         assert ("series", 4) in set(opts_vec.values())
 
 
-class TestScalarFigureOverlay:
-    def test_sensor_line_and_lab_markers_on_one_figure(self):
-        channel_meta = {5: {"value_kind_id": 1, "equipment_identifier": "EQ5",
-                            "parameter_name": "TSS", "unit_name": "mg/L",
-                            "equipment_id": 5}}
-        series_meta = {1: _SERIES[0]}
-        ch_data = {"data": [
-            {"timestamp": "2026-05-02T00:00:00", "value": 10.0, "quality_code": 1},
-        ]}
-        s_data = {"data": [
-            {"timestamp": "2026-05-01T00:00:00", "value": 11.0, "quality_code": 1},
-            {"timestamp": "2026-05-08T00:00:00", "value": 13.0, "quality_code": 1},
-        ]}
-        with patch.object(explore_scalar, "_load_timeseries", return_value=ch_data), \
-             patch.object(explore_scalar, "_load_annotations", return_value=[]), \
-             patch.object(explore_scalar, "_load_series_annotations", return_value=[]), \
-             patch.object(explore_scalar, "_load_equipment_events", return_value=[]), \
-             patch.object(explore_scalar, "_load_series_timeseries", return_value=s_data):
-            fig, _ = explore._build_scalar_figure(
-                [5], channel_meta, "extract", [1], series_meta
-            )
-
-        names = [tr.name or "" for tr in fig.data]
-        assert any(n.startswith("CH-5") for n in names), names
-        assert any(n.startswith("LAB-1") for n in names), names
-
-        ch_trace = next(tr for tr in fig.data if (tr.name or "").startswith("CH-5"))
-        lab_trace = next(tr for tr in fig.data if (tr.name or "").startswith("LAB-1"))
-        assert ch_trace.mode == "lines+markers"
-        assert lab_trace.mode == "markers"  # discrete lab samples
-        # Both replicates plotted as individual points.
-        assert len(lab_trace.x) == 2
+# Scalar sensor+lab figure assembly is covered by test_explore_echarts.py
+# (build_scalar_echarts_option) since the Plotly builder was removed.

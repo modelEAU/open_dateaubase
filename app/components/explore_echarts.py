@@ -374,3 +374,136 @@ def resolve_brush_selection(payload, series_index_map: list[dict]) -> dict:
                     {"x": p["x"], "y": p["y"], "obs_id": p["obs_id"], "id": smap["id"]}
                 )
     return out
+
+
+# ---------------------------------------------------------------------------
+# Generic option builders (vector / matrix heatmaps + slice lines)
+# ---------------------------------------------------------------------------
+
+# Approximate Viridis stops for the heatmap visualMap.
+VIRIDIS = ["#440154", "#414487", "#2a788e", "#22a884", "#7ad151", "#fde725"]
+
+
+def pivot_cells(pivot) -> list[list]:
+    """Flatten a pandas pivot table into ECharts heatmap ``[x_i, y_i, value]``
+    cells, skipping NaN/None gaps. Rows = y (index), columns = x."""
+    import pandas as pd
+
+    z = pivot.values
+    cells: list[list] = []
+    for yi in range(z.shape[0]):
+        for xi in range(z.shape[1]):
+            v = z[yi][xi]
+            if v is None or (isinstance(v, (int, float)) and pd.isna(v)):
+                continue
+            cells.append([xi, yi, round(float(v), 6)])
+    return cells
+
+
+def heatmap_option(
+    x_labels: list[str],
+    y_labels: list[str],
+    cells: list[list],
+    value_label: str = "Value",
+    x_name: str = "",
+    y_name: str = "",
+) -> dict:
+    """Generic ECharts heatmap option. ``cells`` = ``[x_index, y_index, value]``."""
+    values = [c[2] for c in cells]
+    vmin = min(values) if values else 0
+    vmax = max(values) if values else 1
+    return {
+        "tooltip": {"position": "top"},
+        "grid": {"height": "68%", "top": "6%", "left": "12%", "right": "14%"},
+        "xAxis": {"type": "category", "data": x_labels, "name": x_name, "axisLabel": {"rotate": 45}},
+        "yAxis": {"type": "category", "data": y_labels, "name": y_name},
+        "visualMap": {
+            "min": vmin,
+            "max": vmax,
+            "calculable": True,
+            "orient": "vertical",
+            "right": "2%",
+            "top": "center",
+            "text": [value_label, ""],
+            "inRange": {"color": VIRIDIS},
+        },
+        "series": [
+            {
+                "type": "heatmap",
+                "data": cells,
+                "progressive": 2000,
+                "emphasis": {"itemStyle": {"borderColor": "#333", "borderWidth": 1}},
+            }
+        ],
+    }
+
+
+def line_option(
+    x: list,
+    y: list,
+    x_name: str = "",
+    y_name: str = "Value",
+    name: str | None = None,
+) -> dict:
+    """Generic ECharts line option (value vs a categorical/time axis)."""
+    return {
+        "tooltip": {"trigger": "axis"},
+        "grid": {"left": "10%", "right": "5%", "bottom": "14%"},
+        "xAxis": {
+            "type": "category",
+            "data": [str(v) for v in x],
+            "name": x_name,
+            "axisLabel": {"rotate": 45},
+        },
+        "yAxis": {"type": "value", "name": y_name},
+        "series": [
+            {
+                "type": "line",
+                "name": name or y_name,
+                "data": [None if v is None else float(v) for v in y],
+                "showSymbol": True,
+            }
+        ],
+    }
+
+
+def surface_option(
+    x_labels: list[str],
+    y_labels: list[str],
+    cells: list[list],
+    zmin: float,
+    zmax: float,
+    value_label: str = "Value",
+    x_name: str = "",
+    y_name: str = "",
+) -> dict:
+    """Generic echarts-gl 3D surface. ``cells`` = ``[x_index, y_index, z_value]``.
+
+    Requires the echarts-gl bundle (shipped with streamlit-echarts 0.4.0 — the
+    'surface' series + grid3D are registered there).
+    """
+    return {
+        "tooltip": {},
+        "visualMap": {
+            "show": True,
+            "dimension": 2,
+            "min": zmin,
+            "max": zmax,
+            "calculable": True,
+            "right": "2%",
+            "top": "center",
+            "text": [value_label, ""],
+            "inRange": {"color": VIRIDIS},
+        },
+        "xAxis3D": {"type": "category", "data": x_labels, "name": x_name},
+        "yAxis3D": {"type": "category", "data": y_labels, "name": y_name},
+        "zAxis3D": {"type": "value", "name": value_label},
+        "grid3D": {
+            "boxWidth": 100,
+            "boxDepth": 80,
+            "viewControl": {"autoRotate": False},
+        },
+        "series": [
+            {"type": "surface", "data": cells, "shading": "color", "wireframe": {"show": False}}
+        ],
+    }

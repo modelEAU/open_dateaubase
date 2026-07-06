@@ -26,9 +26,11 @@ from app.api_client import (
     list_campaigns_lookup,
     list_channels,
 )
+from streamlit_echarts import st_echarts
+
 from app.components import entity_story as story
 from app.components import theme
-from app.components.explore_scalar import _build_scalar_figure
+from app.components.explore_echarts import build_scalar_echarts_option
 
 _MAX_PLOT_CHANNELS = 12  # chart-noise ceiling; lab series added on top
 _MAX_PLOT_SERIES = 8
@@ -69,9 +71,9 @@ def _plot_window(overview: dict, campaign: dict) -> tuple[date, date]:
 def _seed_explore_state(start: date, end: date) -> None:
     """Seed the session-state keys the reused Explore figure builder reads.
 
-    ``_build_scalar_figure`` pulls data through explore_data's loaders, which
-    read a time window and per-entity caches from session state. This page isn't
-    Explore, so it must provide them; the window is the campaign's own span.
+    ``build_scalar_echarts_option`` pulls data through explore_data's loaders,
+    which read a time window and per-entity caches from session state. This page
+    isn't Explore, so it must provide them; the window is the campaign's own span.
     """
     st.session_state["explore_start"] = start
     st.session_state["explore_end"] = end
@@ -232,10 +234,10 @@ with st.container(border=True):
         # state; seed them to the streams' actual data span so series show.
         win_start, win_end = _plot_window(ov, camp)
         _seed_explore_state(win_start, win_end)
-        fig, _ = _build_scalar_figure(
+        option, _, _ = build_scalar_echarts_option(
             active_channels, channel_meta, "viz", active_series, series_meta
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st_echarts(options=option, height="480px", key="campaign_story_scalar")
         if n_sensor > len(active_channels):
             st.caption(f"Showing {len(active_channels)} of {n_sensor} sensor streams (value channels).")
     else:

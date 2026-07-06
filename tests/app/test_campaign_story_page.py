@@ -10,7 +10,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import plotly.graph_objects as go
 from streamlit.testing.v1 import AppTest
 
 PAGE = str(Path(__file__).parent.parent.parent / "app" / "pages" / "campaign_story.py")
@@ -62,7 +61,11 @@ def _run():
         patch("app.api_client.list_campaigns_lookup", return_value=_CAMPAIGNS),
         patch("app.api_client.get_campaign_overview", return_value=_OVERVIEW),
         patch("app.api_client.list_channels", return_value=_CHANNELS),
-        patch("app.components.explore_scalar._build_scalar_figure", return_value=(go.Figure(), [])),
+        patch(
+            "app.components.explore_echarts.build_scalar_echarts_option",
+            return_value=({}, [], []),
+        ),
+        patch("streamlit_echarts.st_echarts", return_value=None),
     ):
         return AppTest.from_file(PAGE).run()
 
