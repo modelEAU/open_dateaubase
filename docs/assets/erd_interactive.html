@@ -1387,7 +1387,7 @@
     {
       "id": "ControlLoopPort",
       "label": "ControlLoopPort",
-      "description": "Association between a ControlLoop and its participating Channels, with an explicit role for each channel. The unique constraint ensures each channel appears at most once per loop. Cascade control is modelled by using the same Channel_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner).\n",
+      "description": "Association between a ControlLoop and its participating Streams (any time-series identity \u2014 a sensor Channel or a lab AnalysisSeries), with an explicit role for each stream. The unique constraint ensures each stream appears at most once per loop. Cascade control is modelled by using the same Stream_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner).\n",
       "fields": [
         {
           "name": "ControlLoopPort_ID",
@@ -1408,13 +1408,13 @@
           "description": "The control loop this association belongs to"
         },
         {
-          "name": "Channel_ID",
+          "name": "Stream_ID",
           "sql_type": "INT",
           "is_pk": false,
           "is_fk": true,
           "is_required": true,
-          "fk_target": "Channel.Stream_ID",
-          "description": "The Channel participating in this control loop"
+          "fk_target": "Stream.Stream_ID",
+          "description": "The Stream (sensor Channel or lab AnalysisSeries) participating in this control loop"
         },
         {
           "name": "ControlLoopPortKind_ID",
@@ -1423,7 +1423,7 @@
           "is_fk": true,
           "is_required": true,
           "fk_target": "ControlLoopPortKind.ControlLoopPortKind_ID",
-          "description": "The functional kind of this channel within the loop"
+          "description": "The functional kind of this stream within the loop"
         }
       ],
       "group_name": "Control Loops",
@@ -5838,8 +5838,8 @@
     },
     {
       "from_table": "ControlLoopPort",
-      "to_table": "Channel",
-      "from_field": "Channel_ID",
+      "to_table": "Stream",
+      "from_field": "Stream_ID",
       "to_field": "Stream_ID",
       "relationship_type": null
     },

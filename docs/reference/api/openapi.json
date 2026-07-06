@@ -12993,7 +12993,7 @@
           "control-loops"
         ],
         "summary": "Add Port",
-        "description": "Associate a Channel with a ControlLoop.\n\nProvide ``role_id`` (integer PK) or ``role_name`` (case-insensitive name lookup).\nThe (ControlLoop_ID, Channel_ID) pair must be unique across all ports of the loop.",
+        "description": "Associate a Stream (sensor Channel or lab AnalysisSeries) with a ControlLoop.\n\nProvide ``role_id`` (integer PK) or ``role_name`` (case-insensitive name lookup).\nThe (ControlLoop_ID, Stream_ID) pair must be unique across all ports of the loop.",
         "operationId": "add_port_api_v1_control_loops__loop_id__ports_post",
         "parameters": [
           {
@@ -16544,6 +16544,773 @@
         }
       }
     },
+    "/api/v1/events": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "List Events",
+        "description": "List events, optionally filtered by any of the 8 arc-target FK columns.",
+        "operationId": "list_events_api_v1_events_get",
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channel Id"
+            }
+          },
+          {
+            "name": "equipment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Equipment Id"
+            }
+          },
+          {
+            "name": "signal_interface_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signal Interface Id"
+            }
+          },
+          {
+            "name": "data_acquisition_system_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Data Acquisition System Id"
+            }
+          },
+          {
+            "name": "sampling_point_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sampling Point Id"
+            }
+          },
+          {
+            "name": "process_unit_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Process Unit Id"
+            }
+          },
+          {
+            "name": "site_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Site Id"
+            }
+          },
+          {
+            "name": "campaign_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventOut"
+                  },
+                  "title": "Response List Events Api V1 Events Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Create Event",
+        "description": "Create a new Event (exactly one arc-target FK must be provided).",
+        "operationId": "create_event_api_v1_events_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Get Event",
+        "description": "Retrieve a single Event by ID.",
+        "operationId": "get_event_api_v1_events__event_id__get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Update Event",
+        "description": "Partial-update an Event (fields omitted or None are left unchanged).",
+        "operationId": "update_event_api_v1_events__event_id__put",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Delete Event",
+        "description": "Hard-delete an Event by ID.",
+        "operationId": "delete_event_api_v1_events__event_id__delete",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/maintenance-drift": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Drift since last cleaning for a maintenance Event",
+        "description": "Read-back (PRD-4 S4): the before/after readings derived from the source stream around this Event's window, via its linked maintenance-drift Channel. 404 if the Event has no drift Channel.",
+        "operationId": "get_event_maintenance_drift_api_v1_events__event_id__maintenance_drift_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceDriftReadback"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/event-kinds": {
+      "get": {
+        "tags": [
+          "event-kinds"
+        ],
+        "summary": "List Event Kinds",
+        "description": "List all EventKind vocabulary entries.",
+        "operationId": "list_event_kinds_api_v1_event_kinds_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventKindOut"
+                  },
+                  "title": "Response List Event Kinds Api V1 Event Kinds Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "event-kinds"
+        ],
+        "summary": "Create Event Kind",
+        "description": "Create a new EventKind.",
+        "operationId": "create_event_kind_api_v1_event_kinds_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventKindIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventKindOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/event-kinds/{event_kind_id}": {
+      "put": {
+        "tags": [
+          "event-kinds"
+        ],
+        "summary": "Update Event Kind",
+        "description": "Replace an EventKind name/description.",
+        "operationId": "update_event_kind_api_v1_event_kinds__event_kind_id__put",
+        "parameters": [
+          {
+            "name": "event_kind_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Kind Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventKindIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventKindOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "event-kinds"
+        ],
+        "summary": "Delete Event Kind",
+        "description": "Delete an EventKind by ID.",
+        "operationId": "delete_event_kind_api_v1_event_kinds__event_kind_id__delete",
+        "parameters": [
+          {
+            "name": "event_kind_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Kind Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channels/derived/maintenance-drift": {
+      "post": {
+        "tags": [
+          "channels",
+          "channels"
+        ],
+        "summary": "Create a maintenance-drift derived Channel",
+        "description": "Model maintenance drift as a first-class derived Channel. Creates a ProcessingStep storing source_channel_id + event_ids in MethodParameters JSON, then mints a derived Channel linked to that step. Value computation (%diff points) is S2 scope and is not performed here.",
+        "operationId": "create_maintenance_drift_channel_api_v1_channels_derived_maintenance_drift_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceDriftIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceDriftOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "tags": [
@@ -16971,7 +17738,7 @@
             ],
             "title": "Campaign Id"
           },
-          "equipment_event_id": {
+          "event_id": {
             "anyOf": [
               {
                 "type": "integer"
@@ -16980,7 +17747,7 @@
                 "type": "null"
               }
             ],
-            "title": "Equipment Event Id"
+            "title": "Event Id"
           },
           "author_person_id": {
             "anyOf": [
@@ -17252,7 +18019,7 @@
             ],
             "title": "Campaign Name"
           },
-          "equipment_event_id": {
+          "event_id": {
             "anyOf": [
               {
                 "type": "integer"
@@ -17261,7 +18028,7 @@
                 "type": "null"
               }
             ],
-            "title": "Equipment Event Id"
+            "title": "Event Id"
           },
           "created_at": {
             "type": "string",
@@ -17962,10 +18729,6 @@
             "type": "integer",
             "title": "Campaign Kind Id"
           },
-          "site_id": {
-            "type": "integer",
-            "title": "Site Id"
-          },
           "description": {
             "anyOf": [
               {
@@ -18014,8 +18777,7 @@
         "type": "object",
         "required": [
           "name",
-          "campaign_kind_id",
-          "site_id"
+          "campaign_kind_id"
         ],
         "title": "CampaignIn"
       },
@@ -18094,20 +18856,21 @@
             ],
             "title": "Campaign Kind Name"
           },
-          "site_id": {
-            "type": "integer",
-            "title": "Site Id"
+          "site_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Site Ids",
+            "default": []
           },
-          "site_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Site Name"
+          "site_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Site Names",
+            "default": []
           },
           "name": {
             "type": "string",
@@ -18176,8 +18939,6 @@
           "campaign_id",
           "campaign_kind_id",
           "campaign_kind_name",
-          "site_id",
-          "site_name",
           "name",
           "description",
           "start_date",
@@ -18297,17 +19058,6 @@
               }
             ],
             "title": "Campaign Kind Id"
-          },
-          "site_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Site Id"
           },
           "description": {
             "anyOf": [
@@ -19352,9 +20102,9 @@
       },
       "ControlLoopPortAddRequest": {
         "properties": {
-          "channel_id": {
+          "stream_id": {
             "type": "integer",
-            "title": "Channel Id"
+            "title": "Stream Id"
           },
           "role_id": {
             "anyOf": [
@@ -19381,10 +20131,10 @@
         },
         "type": "object",
         "required": [
-          "channel_id"
+          "stream_id"
         ],
         "title": "ControlLoopPortAddRequest",
-        "description": "Associate a Channel with a loop.\n\nProvide either ``role_id`` (int) or ``role_name`` (string matching a\nControlLoopPortKind.Name). If both are given, ``role_id`` takes precedence."
+        "description": "Associate a Stream (sensor Channel or lab AnalysisSeries) with a loop.\n\nProvide either ``role_id`` (int) or ``role_name`` (string matching a\nControlLoopPortKind.Name). If both are given, ``role_id`` takes precedence."
       },
       "ControlLoopPortOut": {
         "properties": {
@@ -19396,9 +20146,9 @@
             "type": "integer",
             "title": "Control Loop Id"
           },
-          "channel_id": {
+          "stream_id": {
             "type": "integer",
-            "title": "Channel Id"
+            "title": "Stream Id"
           },
           "role_id": {
             "type": "integer",
@@ -19413,7 +20163,7 @@
         "required": [
           "control_loop_port_id",
           "control_loop_id",
-          "channel_id",
+          "stream_id",
           "role_id",
           "role_name"
         ],
@@ -20463,6 +21213,33 @@
         ],
         "title": "DeviceStatus",
         "description": "Device-level status."
+      },
+      "DriftReadbackPoint": {
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "value"
+        ],
+        "title": "DriftReadbackPoint",
+        "description": "A single source-stream reading (used for the before/after values)."
       },
       "EquipmentEventCreate": {
         "properties": {
@@ -21648,6 +22425,563 @@
         "title": "EquipmentStoryOut",
         "description": "Read-only Equipment Story aggregate (see equipment_repository.get_equipment_story)."
       },
+      "EventIn": {
+        "properties": {
+          "event_kind_id": {
+            "type": "integer",
+            "title": "Event Kind Id"
+          },
+          "is_instantaneous": {
+            "type": "boolean",
+            "title": "Is Instantaneous",
+            "default": false
+          },
+          "start_datetime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Datetime"
+          },
+          "end_datetime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Datetime"
+          },
+          "performed_by_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performed By Person Id"
+          },
+          "recorded_by_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded By Person Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "channel_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Id"
+          },
+          "equipment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Id"
+          },
+          "signal_interface_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Interface Id"
+          },
+          "data_acquisition_system_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Acquisition System Id"
+          },
+          "sampling_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Id"
+          },
+          "process_unit_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Unit Id"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_kind_id",
+          "start_datetime"
+        ],
+        "title": "EventIn"
+      },
+      "EventKindIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "EventKindIn"
+      },
+      "EventKindOut": {
+        "properties": {
+          "event_kind_id": {
+            "type": "integer",
+            "title": "Event Kind Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_kind_id",
+          "name"
+        ],
+        "title": "EventKindOut"
+      },
+      "EventOut": {
+        "properties": {
+          "event_id": {
+            "type": "integer",
+            "title": "Event Id"
+          },
+          "event_kind_id": {
+            "type": "integer",
+            "title": "Event Kind Id"
+          },
+          "event_kind_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Kind Name"
+          },
+          "is_instantaneous": {
+            "type": "boolean",
+            "title": "Is Instantaneous"
+          },
+          "start_datetime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Datetime"
+          },
+          "end_datetime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Datetime"
+          },
+          "performed_by_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performed By Person Id"
+          },
+          "recorded_by_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded By Person Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "channel_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Id"
+          },
+          "equipment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Id"
+          },
+          "signal_interface_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Interface Id"
+          },
+          "data_acquisition_system_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Acquisition System Id"
+          },
+          "sampling_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Id"
+          },
+          "process_unit_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Unit Id"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "event_kind_id",
+          "is_instantaneous",
+          "start_datetime"
+        ],
+        "title": "EventOut"
+      },
+      "EventPatch": {
+        "properties": {
+          "event_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Kind Id"
+          },
+          "is_instantaneous": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Instantaneous"
+          },
+          "start_datetime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Datetime"
+          },
+          "end_datetime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Datetime"
+          },
+          "performed_by_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performed By Person Id"
+          },
+          "recorded_by_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded By Person Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "channel_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Id"
+          },
+          "equipment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Id"
+          },
+          "signal_interface_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Interface Id"
+          },
+          "data_acquisition_system_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Acquisition System Id"
+          },
+          "sampling_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Id"
+          },
+          "process_unit_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Unit Id"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
+          }
+        },
+        "type": "object",
+        "title": "EventPatch",
+        "description": "Partial update \u2014 all fields optional, arc-FK invariant re-checked if any FK provided."
+      },
       "FallbackChainResponse": {
         "properties": {
           "root_loop_id": {
@@ -22805,6 +24139,141 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MaintenanceDriftIn": {
+        "properties": {
+          "source_channel_id": {
+            "type": "integer",
+            "title": "Source Channel Id"
+          },
+          "event_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Event Ids"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "performed_by_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performed By Person Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_channel_id",
+          "event_ids",
+          "name"
+        ],
+        "title": "MaintenanceDriftIn",
+        "description": "Request body for POST /channels/derived/maintenance-drift."
+      },
+      "MaintenanceDriftOut": {
+        "properties": {
+          "channel_id": {
+            "type": "integer",
+            "title": "Channel Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "produced_by_step_id": {
+            "type": "integer",
+            "title": "Produced By Step Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel_id",
+          "name",
+          "produced_by_step_id"
+        ],
+        "title": "MaintenanceDriftOut",
+        "description": "Response after creating a maintenance-drift derived Channel."
+      },
+      "MaintenanceDriftReadback": {
+        "properties": {
+          "event_id": {
+            "type": "integer",
+            "title": "Event Id"
+          },
+          "drift_channel_id": {
+            "type": "integer",
+            "title": "Drift Channel Id"
+          },
+          "source_channel_id": {
+            "type": "integer",
+            "title": "Source Channel Id"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "window_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window End"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DriftReadbackPoint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DriftReadbackPoint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "percent_diff": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent Diff"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "drift_channel_id",
+          "source_channel_id",
+          "window_start"
+        ],
+        "title": "MaintenanceDriftReadback",
+        "description": "Read-back (PRD-4 S4): drift since last cleaning for a maintenance Event.\n\nThe before/after readings are derived from the *source* stream around the\nevent window (last sample before the start, first sample after the end)."
       },
       "MatrixObservation": {
         "properties": {

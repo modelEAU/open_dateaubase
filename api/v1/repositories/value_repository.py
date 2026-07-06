@@ -185,10 +185,13 @@ def _vector_values_by_source(
     cursor.execute(
         f"""
         SELECT o.[Timestamp], vb.[BinIndex], vb.[LowerBound], vb.[UpperBound],
-               vb.[NominalValue], vv.[Value], vv.[QualityCode]
+               vb.[NominalValue], vv.[Value], vv.[QualityCode],
+               vba.[Name], au.[Unit]
         FROM [dbo].[ValueVector] vv
         JOIN [dbo].[Observation] o  ON o.[Observation_ID]  = vv.[Observation_ID]
         JOIN [dbo].[ValueBin]    vb ON vb.[ValueBin_ID]    = vv.[ValueBin_ID]
+        JOIN [dbo].[ValueBinningAxis] vba ON vba.[ValueBinningAxis_ID] = vb.[ValueBinningAxis_ID]
+        LEFT JOIN [dbo].[Unit] au ON au.[Unit_ID] = vba.[Unit_ID]
         {source_join}
         {where}
         ORDER BY o.[Timestamp], vb.[BinIndex]
@@ -204,6 +207,8 @@ def _vector_values_by_source(
             "nominal_value": row[4],
             "value": row[5],
             "quality_code": row[6],
+            "axis_name": row[7],
+            "axis_unit": row[8],
         }
         for row in cursor.fetchall()
     ]
@@ -253,11 +258,17 @@ def _matrix_values_by_source(
                rb.[UpperBound] AS RowUpperBound, rb.[NominalValue] AS RowNominalValue,
                cb.[BinIndex] AS ColBinIndex, cb.[LowerBound] AS ColLowerBound,
                cb.[UpperBound] AS ColUpperBound, cb.[NominalValue] AS ColNominalValue,
-               vm.[Value], vm.[QualityCode]
+               vm.[Value], vm.[QualityCode],
+               rba.[Name] AS RowAxisName, ru.[Unit] AS RowAxisUnit,
+               cba.[Name] AS ColAxisName, cu.[Unit] AS ColAxisUnit
         FROM [dbo].[ValueMatrix] vm
         JOIN [dbo].[Observation] o  ON o.[Observation_ID]   = vm.[Observation_ID]
         JOIN [dbo].[ValueBin]    rb ON rb.[ValueBin_ID]     = vm.[RowValueBin_ID]
         JOIN [dbo].[ValueBin]    cb ON cb.[ValueBin_ID]     = vm.[ColValueBin_ID]
+        JOIN [dbo].[ValueBinningAxis] rba ON rba.[ValueBinningAxis_ID] = rb.[ValueBinningAxis_ID]
+        JOIN [dbo].[ValueBinningAxis] cba ON cba.[ValueBinningAxis_ID] = cb.[ValueBinningAxis_ID]
+        LEFT JOIN [dbo].[Unit] ru ON ru.[Unit_ID] = rba.[Unit_ID]
+        LEFT JOIN [dbo].[Unit] cu ON cu.[Unit_ID] = cba.[Unit_ID]
         {source_join}
         {where}
         ORDER BY o.[Timestamp], rb.[BinIndex], cb.[BinIndex]
@@ -277,6 +288,10 @@ def _matrix_values_by_source(
             "col_nominal_value": row[8],
             "value": row[9],
             "quality_code": row[10],
+            "row_axis_name": row[11],
+            "row_axis_unit": row[12],
+            "col_axis_name": row[13],
+            "col_axis_unit": row[14],
         }
         for row in cursor.fetchall()
     ]

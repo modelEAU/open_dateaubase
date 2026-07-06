@@ -336,7 +336,7 @@ Temporal history of a ControlLoop's active configuration — tuning events and p
 
 ### ControlLoopPort
 
-Association between a ControlLoop and its participating Channels, with an explicit role for each channel. The unique constraint ensures each channel appears at most once per loop. Cascade control is modelled by using the same Channel_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner).
+Association between a ControlLoop and its participating Streams (any time-series identity — a sensor Channel or a lab AnalysisSeries), with an explicit role for each stream. The unique constraint ensures each stream appears at most once per loop. Cascade control is modelled by using the same Stream_ID in two different loops with different roles (ManipulatedVariable in outer, SetPoint in inner).
 
 
 
@@ -346,8 +346,8 @@ Association between a ControlLoop and its participating Channels, with an explic
 |-------|----------|-----------|----------|-------------|-------------|
 | ControlLoopPort_ID | INT **(PK)** | - | ✓ | <span id="ControlLoopPort_ID"></span>Surrogate primary key | - |
 | ControlLoop_ID | INT | - | ✓ | <span id="ControlLoop_ID"></span>The control loop this association belongs to | FK → [ControlLoop.ControlLoop_ID](#ControlLoop) |
-| Channel_ID | INT | - | ✓ | <span id="Channel_ID"></span>The Channel participating in this control loop | FK → [Channel.Stream_ID](#Channel) |
-| ControlLoopPortKind_ID | INT | - | ✓ | <span id="ControlLoopPortKind_ID"></span>The functional kind of this channel within the loop | FK → [ControlLoopPortKind.ControlLoopPortKind_ID](#ControlLoopPortKind) |
+| Stream_ID | INT | - | ✓ | <span id="Stream_ID"></span>The Stream (sensor Channel or lab AnalysisSeries) participating in this control loop | FK → [Stream.Stream_ID](#Stream) |
+| ControlLoopPortKind_ID | INT | - | ✓ | <span id="ControlLoopPortKind_ID"></span>The functional kind of this stream within the loop | FK → [ControlLoopPortKind.ControlLoopPortKind_ID](#ControlLoopPortKind) |
 
 <span id="ControlLoopPortKind"></span>
 

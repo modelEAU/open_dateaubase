@@ -395,6 +395,113 @@ INSERT INTO [dbo].[ValueVector] ([Observation_ID], [ValueBin_ID], [Value], [Qual
 SELECT @ObsID, vb.[ValueBin_ID], ROUND(EXP(-POWER(CAST(vb.[BinIndex] AS FLOAT) - 4.0, 2) / 2.0), 4), 1
 FROM [dbo].[ValueBin] vb WHERE vb.[ValueBinningAxis_ID] = @LabUVAxis;
 
+-- --- Vector: ViCAs settling-velocity distributions (real data, SOP-018) ---
+-- ViCAs (Vitesse de Chute en Assainissement) measures the mass fraction of TSS
+-- per settling-velocity class — a 1-D distribution over a single velocity axis,
+-- so it is genuinely VECTOR data (like the UV-Vis spectrum above). Numbers are
+-- the measured TSS fractions (as %) from elutriation_analysis.xlsx, 3 campaigns.
+-- Bins run fast (index 0) to slow (index 6); nominal = representative m/h.
+DECLARE @ViCAsAxis INT, @AS_ViCAs INT, @ExpViCAs INT;
+DECLARE @U_mh INT = (SELECT [Unit_ID] FROM [dbo].[Unit] WHERE [Unit] = N'm/h');
+DECLARE @U_pct INT = (SELECT [Unit_ID] FROM [dbo].[Unit] WHERE [Unit] = N'%');
+DECLARE @P_vicas INT = (SELECT [Parameter_ID] FROM [dbo].[Parameter] WHERE [Parameter] = N'TSS mass fraction');
+
+INSERT INTO [dbo].[ValueBinningAxis] ([Name], [Description], [NumberOfBins], [Unit_ID], [BinKind_ID])
+VALUES (N'TEST_ ViCAs settling velocity', N'7-class settling-velocity grid for the ViCAs distribution demo', 7, @U_mh, 3); -- m/h, nominal
+SET @ViCAsAxis = SCOPE_IDENTITY();
+INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [NominalValue]) VALUES
+    (@ViCAsAxis, 0, 55.0), (@ViCAsAxis, 1, 38.2), (@ViCAsAxis, 2, 20.3),
+    (@ViCAsAxis, 3, 8.0),  (@ViCAsAxis, 4, 3.8),  (@ViCAsAxis, 5, 2.0), (@ViCAsAxis, 6, 0.7);
+
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_ViCAs = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_ViCAs, N'TEST_ ViCAs TSS settling-velocity distribution at Influent', @P_vicas, @SP_FinalEff, 2, @U_pct, @CampExpID); -- % mass fraction, Vector
+INSERT INTO [dbo].[AnalysisSeriesAxis] ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (@AS_ViCAs, 0, @ViCAsAxis);
+
+INSERT INTO [dbo].[LabExperiment] ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID])
+VALUES (N'TEST_ ViCAs elutriation campaigns 2023', @CampExpID, '2023-08-07T09:00:00', N'ViCAs settling-column tests (SOP-018) on WRRF influent grabs', @PersonProfID);
+SET @ExpViCAs = SCOPE_IDENTITY();
+
+-- 3 experiment dates; each a vector observation, values are measured TSS fractions (%).
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart]) VALUES (@SP_FinalEff, @PersonTechID, @CampExpID, '2023-08-07T08:00:00'); SET @SmpID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate], [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [AnalysisDateTime]) VALUES (@ExpViCAs, @AS_ViCAs, @SmpID, 1, 1, @LaboratoryID, @PersonTechID, '2023-08-07T09:00:00'); SET @LaID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID]) VALUES (NULL, @LaID, '2023-08-07T08:00:00', 2); SET @ObsID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[ValueVector] ([Observation_ID], [ValueBin_ID], [Value], [QualityCode])
+SELECT @ObsID, vb.[ValueBin_ID], v.frac, 1 FROM [dbo].[ValueBin] vb
+JOIN (VALUES (0,2.00),(1,3.40),(2,31.62),(3,25.97),(4,8.20),(5,6.81),(6,22.02)) AS v(idx, frac) ON v.idx = vb.[BinIndex]
+WHERE vb.[ValueBinningAxis_ID] = @ViCAsAxis;
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart]) VALUES (@SP_FinalEff, @PersonTechID, @CampExpID, '2023-08-21T08:00:00'); SET @SmpID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate], [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [AnalysisDateTime]) VALUES (@ExpViCAs, @AS_ViCAs, @SmpID, 1, 1, @LaboratoryID, @PersonTechID, '2023-08-21T09:00:00'); SET @LaID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID]) VALUES (NULL, @LaID, '2023-08-21T08:00:00', 2); SET @ObsID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[ValueVector] ([Observation_ID], [ValueBin_ID], [Value], [QualityCode])
+SELECT @ObsID, vb.[ValueBin_ID], v.frac, 1 FROM [dbo].[ValueBin] vb
+JOIN (VALUES (0,4.23),(1,11.80),(2,23.50),(3,24.13),(4,7.65),(5,5.92),(6,22.78)) AS v(idx, frac) ON v.idx = vb.[BinIndex]
+WHERE vb.[ValueBinningAxis_ID] = @ViCAsAxis;
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart]) VALUES (@SP_FinalEff, @PersonTechID, @CampExpID, '2023-10-30T08:00:00'); SET @SmpID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate], [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [AnalysisDateTime]) VALUES (@ExpViCAs, @AS_ViCAs, @SmpID, 1, 1, @LaboratoryID, @PersonTechID, '2023-10-30T09:00:00'); SET @LaID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID]) VALUES (NULL, @LaID, '2023-10-30T08:00:00', 2); SET @ObsID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[ValueVector] ([Observation_ID], [ValueBin_ID], [Value], [QualityCode])
+SELECT @ObsID, vb.[ValueBin_ID], v.frac, 1 FROM [dbo].[ValueBin] vb
+JOIN (VALUES (0,8.02),(1,4.59),(2,17.44),(3,20.66),(4,7.93),(5,5.98),(6,35.38)) AS v(idx, frac) ON v.idx = vb.[BinIndex]
+WHERE vb.[ValueBinningAxis_ID] = @ViCAsAxis;
+
+-- --- Matrix: fluorescence excitation-emission matrices (EEM) ---
+-- Genuinely 2-axis binned data (excitation-nm × emission-nm × intensity-RU): the
+-- one shape ViCAs cannot provide. Synthesised as two DOM fluorophore peaks —
+-- protein-like (Ex 275 / Em 340) and humic-like (Ex 340 / Em 440) — over a
+-- 5×7 wavelength grid, at 2 sample times. Values from a 2-D Gaussian mixture.
+DECLARE @EEMExAxis INT, @EEMEmAxis INT, @AS_EEM INT, @ExpEEM INT;
+DECLARE @U_nm INT = (SELECT [Unit_ID] FROM [dbo].[Unit] WHERE [Unit] = N'nm');
+DECLARE @U_RU INT = (SELECT [Unit_ID] FROM [dbo].[Unit] WHERE [Unit] = N'RU');
+DECLARE @P_fluor INT = (SELECT [Parameter_ID] FROM [dbo].[Parameter] WHERE [Parameter] = N'Fluorescence');
+
+INSERT INTO [dbo].[ValueBinningAxis] ([Name], [Description], [NumberOfBins], [Unit_ID], [BinKind_ID])
+VALUES (N'TEST_ EEM excitation wavelength', N'5-point excitation grid for the fluorescence EEM demo', 5, @U_nm, 3);
+SET @EEMExAxis = SCOPE_IDENTITY();
+INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [NominalValue]) VALUES
+    (@EEMExAxis, 0, 250), (@EEMExAxis, 1, 275), (@EEMExAxis, 2, 300), (@EEMExAxis, 3, 340), (@EEMExAxis, 4, 380);
+
+INSERT INTO [dbo].[ValueBinningAxis] ([Name], [Description], [NumberOfBins], [Unit_ID], [BinKind_ID])
+VALUES (N'TEST_ EEM emission wavelength', N'7-point emission grid for the fluorescence EEM demo', 7, @U_nm, 3);
+SET @EEMEmAxis = SCOPE_IDENTITY();
+INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [NominalValue]) VALUES
+    (@EEMEmAxis, 0, 300), (@EEMEmAxis, 1, 340), (@EEMEmAxis, 2, 380), (@EEMEmAxis, 3, 420),
+    (@EEMEmAxis, 4, 460), (@EEMEmAxis, 5, 500), (@EEMEmAxis, 6, 540);
+
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_EEM = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_EEM, N'TEST_ Fluorescence EEM at Final effluent', @P_fluor, @SP_FinalEff, 3, @U_RU, @CampExpID); -- RU, Matrix
+INSERT INTO [dbo].[AnalysisSeriesAxis] ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (@AS_EEM, 0, @EEMExAxis); -- row = excitation
+INSERT INTO [dbo].[AnalysisSeriesAxis] ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (@AS_EEM, 1, @EEMEmAxis); -- col = emission
+
+INSERT INTO [dbo].[LabExperiment] ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID])
+VALUES (N'TEST_ Fluorescence EEM scans', @CampExpID, '2026-02-18T10:00:00', N'Bench spectrofluorometer EEM scans of final-effluent grabs', @PersonProfID);
+SET @ExpEEM = SCOPE_IDENTITY();
+
+-- Two EEM observations; the second ages the humic peak up (×1.4) to give the
+-- time-slice selector visible variation. Values are a 2-D Gaussian mixture.
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart]) VALUES (@SP_FinalEff, @PersonTechID, @CampExpID, '2026-02-16T23:50:00'); SET @SmpID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate], [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [AnalysisDateTime]) VALUES (@ExpEEM, @AS_EEM, @SmpID, 1, 1, @LaboratoryID, @PersonTechID, '2026-02-18T10:00:00'); SET @LaID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID]) VALUES (NULL, @LaID, '2026-02-16T23:50:00', 3); SET @ObsID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[ValueMatrix] ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID], [Value], [QualityCode])
+SELECT @ObsID, rb.[ValueBin_ID], cb.[ValueBin_ID],
+  ROUND(100.0*EXP(-(POWER(rb.[NominalValue]-275,2)/800.0 + POWER(cb.[NominalValue]-340,2)/1800.0))
+      +  60.0*EXP(-(POWER(rb.[NominalValue]-340,2)/1250.0 + POWER(cb.[NominalValue]-440,2)/3200.0)), 3), 1
+FROM [dbo].[ValueBin] rb CROSS JOIN [dbo].[ValueBin] cb
+WHERE rb.[ValueBinningAxis_ID] = @EEMExAxis AND cb.[ValueBinningAxis_ID] = @EEMEmAxis;
+
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart]) VALUES (@SP_FinalEff, @PersonTechID, @CampExpID, '2026-02-17T02:30:00'); SET @SmpID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate], [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [AnalysisDateTime]) VALUES (@ExpEEM, @AS_EEM, @SmpID, 1, 1, @LaboratoryID, @PersonTechID, '2026-02-18T10:00:00'); SET @LaID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID]) VALUES (NULL, @LaID, '2026-02-17T02:30:00', 3); SET @ObsID = SCOPE_IDENTITY();
+INSERT INTO [dbo].[ValueMatrix] ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID], [Value], [QualityCode])
+SELECT @ObsID, rb.[ValueBin_ID], cb.[ValueBin_ID],
+  ROUND(100.0*EXP(-(POWER(rb.[NominalValue]-275,2)/800.0 + POWER(cb.[NominalValue]-340,2)/1800.0))
+      +  84.0*EXP(-(POWER(rb.[NominalValue]-340,2)/1250.0 + POWER(cb.[NominalValue]-440,2)/3200.0)), 3), 1
+FROM [dbo].[ValueBin] rb CROSS JOIN [dbo].[ValueBin] cb
+WHERE rb.[ValueBinningAxis_ID] = @EEMExAxis AND cb.[ValueBinningAxis_ID] = @EEMEmAxis;
+
 -- ============================================================
 -- Sensor deployment chain
 -- One Turbidity sensor (SOLITAX sc) wired to a monEAU basestation,
@@ -629,4 +736,4 @@ SELECT r.obs_id, d.smooth_val, 1 FROM @ReconObs r JOIN #turb_deriv d ON d.ts = r
 
 DROP TABLE #turb_deriv;
 
-PRINT 'Demo seed loaded: 3 persons, 1 site, 6 process units, 6 sampling points, 2 campaigns, 15 analysis series, 1 lab panel, scalar COD (final eff + influent) + vector UV-Vis lab data + 1 Turbidity sensor chain (1 680 hourly obs, Apr-Jun 2026) + 10 COD influent grab samples + provenance showcase DAG (3 derived Turbidity channels + lab grab series across 3 processing steps).';
+PRINT 'Demo seed loaded: 3 persons, 1 site, 6 process units, 6 sampling points, 2 campaigns, 17 analysis series, 1 lab panel, scalar COD (final eff + influent) + vector UV-Vis + vector ViCAs settling-velocity + matrix fluorescence-EEM lab data + 1 Turbidity sensor chain (1 680 hourly obs, Apr-Jun 2026) + 10 COD influent grab samples + provenance showcase DAG (3 derived Turbidity channels + lab grab series across 3 processing steps).';

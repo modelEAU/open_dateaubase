@@ -1,8 +1,8 @@
-schema_version: "2.5.0"
+schema_version: "2.6.0"
 description: >
-  PRD-2 S1 — Rename EquipmentEvent to Event with 8-FK exclusive arc (CHECK
-  exactly-one non-NULL: Channel, Equipment, SignalInterface, DAS, SamplingPoint,
-  ProcessUnit, Site, Campaign). Rename EquipmentEventKind to EventKind; expand
-  seed vocab (Calibration/Cleaning/Repair/…15 kinds). Annotation FK repointed
-  to Event. Pre-release, fresh install only — no migration.
-date: "2026-06-30"
+  ControlLoopPort now references Stream (any time-series identity — a sensor
+  Channel or a lab AnalysisSeries) instead of Channel: column Channel_ID →
+  Stream_ID with FK to Stream, and unique index renamed to
+  UQ_ControlLoopPort_LoopStream. A control loop can now wire lab streams, not
+  just sensor channels. Pre-release, fresh install only — no migration.
+date: "2026-07-03"

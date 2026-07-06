@@ -52,3 +52,5 @@ table:
     - { Unit_ID: 13, Unit: "m",           QUDT_IRI: "https://qudt.org/vocab/unit/M",                UnitVector: "1,0,0,0,0,0,0",   SI_Multiplier: 1.0,        SI_Offset: null }
     - { Unit_ID: 14, Unit: "Nm³/h",      QUDT_IRI: null,                                           UnitVector: "3,0,-1,0,0,0,0",  SI_Multiplier: 2.77778e-4,  SI_Offset: null }
     - { Unit_ID: 15, Unit: "%",          QUDT_IRI: "https://qudt.org/vocab/unit/PERCENT",           UnitVector: "0,0,0,0,0,0,0",   SI_Multiplier: 0.01,        SI_Offset: null }
+    - { Unit_ID: 16, Unit: "m/h",        QUDT_IRI: "https://qudt.org/vocab/unit/M-PER-HR",         UnitVector: "1,0,-1,0,0,0,0",  SI_Multiplier: 2.77778e-4,  SI_Offset: null }
+    - { Unit_ID: 17, Unit: "RU",         QUDT_IRI: null,                                           UnitVector: null,              SI_Multiplier: null,        SI_Offset: null }
