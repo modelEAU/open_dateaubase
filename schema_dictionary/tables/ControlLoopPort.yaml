@@ -3,10 +3,11 @@ table:
   name: ControlLoopPort
   schema: dbo
   description: >
-    Association between a ControlLoop and its participating Channels, with
-    an explicit role for each channel. The unique constraint ensures each
-    channel appears at most once per loop. Cascade control is modelled by
-    using the same Channel_ID in two different loops with different roles
+    Association between a ControlLoop and its participating Streams (any
+    time-series identity — a sensor Channel or a lab AnalysisSeries), with an
+    explicit role for each stream. The unique constraint ensures each stream
+    appears at most once per loop. Cascade control is modelled by using the
+    same Stream_ID in two different loops with different roles
     (ManipulatedVariable in outer, SetPoint in inner).
 
   columns:
@@ -24,26 +25,26 @@ table:
         table: ControlLoop
         column: ControlLoop_ID
 
-    - name: Channel_ID
+    - name: Stream_ID
       logical_type: integer
       nullable: false
-      description: "The Channel participating in this control loop"
+      description: "The Stream (sensor Channel or lab AnalysisSeries) participating in this control loop"
       foreign_key:
-        table: Channel
+        table: Stream
         column: Stream_ID
 
     - name: ControlLoopPortKind_ID
       logical_type: integer
       nullable: false
-      description: "The functional kind of this channel within the loop"
+      description: "The functional kind of this stream within the loop"
       foreign_key:
         table: ControlLoopPortKind
         column: ControlLoopPortKind_ID
 
   indexes:
-    - name: UQ_ControlLoopPort_LoopChannel
-      columns: [ControlLoop_ID, Channel_ID]
+    - name: UQ_ControlLoopPort_LoopStream
+      columns: [ControlLoop_ID, Stream_ID]
       unique: true
-      description: "Each channel appears at most once per control loop"
+      description: "Each stream appears at most once per control loop"
 
   primary_key: [ControlLoopPort_ID]

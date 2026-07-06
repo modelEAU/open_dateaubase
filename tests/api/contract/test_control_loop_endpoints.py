@@ -153,7 +153,7 @@ class TestAddPort:
     _PORT_ROW = {
         "ControlLoopPort_ID": 5,
         "ControlLoop_ID": 1,
-        "Channel_ID": 20,
+        "Stream_ID": 20,
         "ControlLoopPortKind_ID": 1,
         "role_name": "MeasuredVariable",
     }
@@ -167,7 +167,7 @@ class TestAddPort:
             resp = client.post(
                 "/api/v1/control-loops/1/ports",
                 json={
-                    "channel_id": 20,
+                    "stream_id": 20,
                     "role_id": 1,
                 },
             )
@@ -184,7 +184,7 @@ class TestAddPort:
             resp = client.post(
                 "/api/v1/control-loops/1/ports",
                 json={
-                    "channel_id": 20,
+                    "stream_id": 20,
                     "role_name": "MeasuredVariable",
                 },
             )
@@ -198,7 +198,7 @@ class TestAddPort:
             resp = client.post(
                 "/api/v1/control-loops/1/ports",
                 json={
-                    "channel_id": 20,
+                    "stream_id": 20,
                     "role_name": "Nonexistent",
                 },
             )
@@ -209,7 +209,7 @@ class TestAddPort:
             resp = client.post(
                 "/api/v1/control-loops/1/ports",
                 json={
-                    "channel_id": 20,
+                    "stream_id": 20,
                 },
             )
         assert resp.status_code == 422

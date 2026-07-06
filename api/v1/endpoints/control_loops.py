@@ -148,7 +148,7 @@ def list_loop_ports(loop_id: int, conn=Depends(get_db)):
             ControlLoopPortOut(
                 control_loop_port_id=r["ControlLoopPort_ID"],
                 control_loop_id=r["ControlLoop_ID"],
-                channel_id=r["Channel_ID"],
+                stream_id=r["Stream_ID"],
                 role_id=r["ControlLoopPortKind_ID"],
                 role_name=r["role_name"],
             )
@@ -167,10 +167,10 @@ def add_port(
     body: ControlLoopPortAddRequest,
     conn=Depends(get_db),
 ):
-    """Associate a Channel with a ControlLoop.
+    """Associate a Stream (sensor Channel or lab AnalysisSeries) with a ControlLoop.
 
     Provide ``role_id`` (integer PK) or ``role_name`` (case-insensitive name lookup).
-    The (ControlLoop_ID, Channel_ID) pair must be unique across all ports of the loop.
+    The (ControlLoop_ID, Stream_ID) pair must be unique across all ports of the loop.
     """
     if control_loop_repository.get_control_loop(conn, loop_id) is None:
         raise HTTPException(status_code=404, detail=f"ControlLoop {loop_id} not found.")
@@ -193,14 +193,14 @@ def add_port(
         port_id = control_loop_repository.add_loop_port(
             conn,
             loop_id=loop_id,
-            channel_id=body.channel_id,
+            stream_id=body.stream_id,
             role_id=role_id,
         )
     except pyodbc.IntegrityError as exc:
         raise HTTPException(
             status_code=409,
             detail=(
-                f"Channel {body.channel_id} is already assigned to ControlLoop {loop_id}. "
+                f"Stream {body.stream_id} is already assigned to ControlLoop {loop_id}. "
                 f"Database error: {exc}"
             ),
         ) from exc
@@ -211,7 +211,7 @@ def add_port(
     return ControlLoopPortOut(
         control_loop_port_id=port_row["ControlLoopPort_ID"],
         control_loop_id=port_row["ControlLoop_ID"],
-        channel_id=port_row["Channel_ID"],
+        stream_id=port_row["Stream_ID"],
         role_id=port_row["ControlLoopPortKind_ID"],
         role_name=port_row["role_name"],
     )
