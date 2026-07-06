@@ -25,8 +25,8 @@ from pathlib import Path
 
 import yaml
 
-from .diff import diff_schemas
-from .loader import load_schema, SchemaLoadError
+from .diff import diff_schemas, diff_seed_data, diff_views
+from .loader import load_schema, load_views, SchemaLoadError
 from .render import render_create_script, render_migration
 from .validate import validate_schema
 
@@ -133,14 +133,35 @@ def cmd_migrate(
         print(f"ERROR loading new schema: {exc}", file=sys.stderr)
         return 2
 
+    # Views live as a sibling `views/` directory next to `tables/`, matching
+    # the convention cmd_create already relies on for version.yaml.
+    old_views = load_views(from_dir.parent / "views")
+    new_views = load_views(to_dir.parent / "views")
+
     diff = diff_schemas(old_schema, new_schema)
+    diff.new_views, diff.dropped_views, diff.altered_views = diff_views(old_views, new_views)
+    diff.new_seed_rows, diff.dropped_seed_rows = diff_seed_data(old_schema, new_schema)
 
     if diff.is_empty():
         print("No schema changes detected; no migration scripts generated.")
         return 0
 
+    version_yaml = to_dir.parent / "version.yaml"
+    description = ""
+    if version_yaml.exists():
+        with version_yaml.open(encoding="utf-8") as fh:
+            description = str(yaml.safe_load(fh).get("description", "")).strip()
+
     migration_sql, rollback_sql = render_migration(
-        diff, new_schema, from_version, to_version, platform
+        diff,
+        new_schema,
+        from_version,
+        to_version,
+        platform,
+        old_schema=old_schema,
+        old_views=old_views,
+        new_views=new_views,
+        description=description,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)

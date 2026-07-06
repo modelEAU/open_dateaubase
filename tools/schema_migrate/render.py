@@ -243,6 +243,89 @@ def _render_drop_fk(table_name: str, fk: dict, table_dict: dict, platform: str) 
     )
 
 
+def _render_add_unique(table_name: str, uq: dict, table_dict: dict, platform: str) -> str:
+    tbl = table_dict["table"]
+    schema = tbl.get("schema", "dbo")
+    cols = ", ".join(_q(c, platform) for c in uq["columns"])
+    return (
+        f"ALTER TABLE {_q(schema, platform)}.{_q(table_name, platform)} "
+        f"ADD CONSTRAINT {_q(uq['name'], platform)} UNIQUE ({cols});"
+    )
+
+
+def _render_drop_unique(table_name: str, uq: dict, table_dict: dict, platform: str) -> str:
+    tbl = table_dict["table"]
+    schema = tbl.get("schema", "dbo")
+    keyword = "CONSTRAINT" if platform == "mssql" else "CONSTRAINT"
+    return (
+        f"ALTER TABLE {_q(schema, platform)}.{_q(table_name, platform)} "
+        f"DROP {keyword} {_q(uq['name'], platform)};"
+    )
+
+
+def _render_add_check(table_name: str, ck: dict, table_dict: dict, platform: str) -> str:
+    tbl = table_dict["table"]
+    schema = tbl.get("schema", "dbo")
+    return (
+        f"ALTER TABLE {_q(schema, platform)}.{_q(table_name, platform)} "
+        f"ADD CONSTRAINT {_q(ck['name'], platform)} CHECK ({ck.get('expression', '')});"
+    )
+
+
+def _render_drop_check(table_name: str, ck: dict, table_dict: dict, platform: str) -> str:
+    tbl = table_dict["table"]
+    schema = tbl.get("schema", "dbo")
+    return (
+        f"ALTER TABLE {_q(schema, platform)}.{_q(table_name, platform)} "
+        f"DROP CONSTRAINT {_q(ck['name'], platform)};"
+    )
+
+
+def _render_drop_default_constraint(table_name: str, col_name: str, schema: str = "dbo") -> str:
+    """Render a dynamic-SQL block dropping a column's DEFAULT constraint, if any.
+
+    MSSQL auto-names DEFAULT constraints (e.g. ``DF__Table__Col__1A2B3C4D``)
+    unless one is explicitly named in the CREATE TABLE, so the exact name
+    can't be predicted at generation time. A column can't be dropped while
+    such a constraint references it, so this looks the name up from
+    ``sys.default_constraints`` and drops it if present — a no-op otherwise.
+    """
+    return (
+        "DECLARE @df NVARCHAR(200);\n"
+        "SELECT @df = dc.name FROM sys.default_constraints dc\n"
+        "JOIN sys.columns c ON c.default_object_id = dc.object_id AND c.object_id = dc.parent_object_id\n"
+        f"WHERE dc.parent_object_id = OBJECT_ID('{schema}.{table_name}') AND c.name = '{col_name}';\n"
+        f"IF @df IS NOT NULL EXEC('ALTER TABLE [{schema}].[{table_name}] DROP CONSTRAINT [' + @df + ']');"
+    )
+
+
+def _render_delete_seed_rows(
+    table_name: str, table_dict: dict, rows: list[dict], platform: str
+) -> str:
+    """Render a DELETE statement removing seed rows by primary-key value.
+
+    Args:
+        table_name: Name of the table.
+        table_dict: Full file-level dict (including ``_format_version`` key).
+        rows: Seed rows to delete (each must contain the table's PK column).
+        platform: ``'mssql'`` or ``'postgres'``.
+
+    Returns:
+        A single DELETE statement, or ``""`` if the table has no primary key
+        or ``rows`` is empty.
+    """
+    tbl = table_dict["table"]
+    pk = (tbl.get("primary_key") or [None])[0]
+    if not pk or not rows:
+        return ""
+    schema = tbl.get("schema", "dbo")
+    ids = ", ".join(_render_seed_value(row[pk]) for row in rows if pk in row)
+    return (
+        f"DELETE FROM {_q(schema, platform)}.{_q(table_name, platform)} "
+        f"WHERE {_q(pk, platform)} IN ({ids});"
+    )
+
+
 def _render_create_index(table_name: str, idx: dict, table_dict: dict, platform: str) -> str:
     tbl = table_dict["table"]
     schema = tbl.get("schema", "dbo")
@@ -297,6 +380,14 @@ def _sort_tables_fk_safe(table_names: list[str], schema: dict[str, dict]) -> lis
     return no_fk + has_fk
 
 
+def _column_defs_by_name(table_dict: dict) -> dict[str, dict]:
+    """Return {column_name: column_dict} for a table, or {} if not given."""
+    return {
+        col["name"]: col
+        for col in table_dict.get("table", {}).get("columns", []) or []
+    }
+
+
 def _header(from_version: str, to_version: str, platform: str, is_rollback: bool = False) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     if is_rollback:
@@ -320,6 +411,10 @@ def render_migration(
     from_version: str,
     to_version: str,
     platform: str,
+    old_schema: dict[str, dict] | None = None,
+    old_views: dict[str, dict] | None = None,
+    new_views: dict[str, dict] | None = None,
+    description: str = "",
 ) -> tuple[str, str]:
     """Render forward migration and rollback SQL scripts.
 
@@ -329,10 +424,22 @@ def render_migration(
         from_version: Source schema version string (e.g. ``'1.0.0'``).
         to_version: Target schema version string (e.g. ``'1.0.1'``).
         platform: ``'mssql'`` or ``'postgres'``.
+        old_schema: The old (source) schema dict. Required to actually drop
+            (rather than just comment) removed tables and to restore them —
+            plus removed columns — on rollback. Omit only for callers that
+            don't have it; the migration still renders, just with manual-TODO
+            placeholders for those two cases.
+        old_views: Old (source) views dict from ``load_views``, needed to
+            render view drops/restores.
+        new_views: New (target) views dict from ``load_views``, needed to
+            render view creates/alters.
+        description: Human-readable description stamped into the
+            ``dbo.SchemaVersion`` row this migration inserts.
 
     Returns:
         A tuple ``(migration_sql, rollback_sql)`` — both as plain strings.
     """
+    old_schema = old_schema or {}
     fwd: list[str] = [_header(from_version, to_version, platform, is_rollback=False)]
     rbk: list[str] = [_header(from_version, to_version, platform, is_rollback=True)]
 
@@ -371,19 +478,52 @@ def render_migration(
                     f'ALTER COLUMN "{col_name}" TYPE {new_type};'
                 )
 
+    # ── DROP FK (existing tables) — must precede DROP INDEX/COLUMN/TABLE ────
+    for table_name, fks in diff.dropped_fks.items():
+        for fk in fks:
+            fwd.append(_render_drop_fk(table_name, fk, new_schema[table_name], platform))
+
+    # ── DROP UNIQUE CONSTRAINT (existing tables) ─────────────────────────────
+    for table_name, uqs in diff.dropped_unique_constraints.items():
+        for uq in uqs:
+            fwd.append(_render_drop_unique(table_name, uq, new_schema[table_name], platform))
+
+    # ── DROP CHECK CONSTRAINT (existing tables) ──────────────────────────────
+    for table_name, cks in diff.dropped_check_constraints.items():
+        for ck in cks:
+            fwd.append(_render_drop_check(table_name, ck, new_schema[table_name], platform))
+
+    # ── DROP INDEX ───────────────────────────────────────────────────────────
+    for table_name, indexes in diff.dropped_indexes.items():
+        for idx in indexes:
+            fwd.append(_render_drop_index(table_name, idx, new_schema[table_name], platform))
+
     # ── DROP COLUMN ──────────────────────────────────────────────────────────
     for table_name, col_names in diff.dropped_columns.items():
         tbl = new_schema.get(table_name, {}).get("table", {})
         schema = tbl.get("schema", "dbo")
         for col_name in col_names:
             if platform == "mssql":
+                # MSSQL auto-names DEFAULT constraints, so the exact name
+                # can't be known at generation time — look it up and drop it
+                # dynamically before dropping a column that might carry one.
+                # Each such block gets its own batch (GO) since the same
+                # @df variable name is reused across dropped columns.
+                fwd.append("GO")
+                fwd.append(_render_drop_default_constraint(table_name, col_name, schema))
+                fwd.append("GO")
                 fwd.append(f"ALTER TABLE [{schema}].[{table_name}] DROP COLUMN [{col_name}];")
             else:
                 fwd.append(f'ALTER TABLE "{schema}"."{table_name}" DROP COLUMN "{col_name}";')
 
-    # ── DROP TABLE ───────────────────────────────────────────────────────────
-    for table_name in diff.dropped_tables:
-        fwd.append(f"-- DROP TABLE {table_name} (was removed from schema)")
+    # ── DROP TABLE (FK-safe order: a table FKing another dropped table first) ─
+    if diff.dropped_tables and old_schema:
+        drop_order = list(reversed(_sort_tables_fk_safe(diff.dropped_tables, old_schema)))
+        for table_name in drop_order:
+            fwd.append(_render_drop_table(table_name, old_schema[table_name], platform))
+    else:
+        for table_name in diff.dropped_tables:
+            fwd.append(f"-- DROP TABLE {table_name} (was removed from schema)")
 
     # ── CREATE INDEX (existing tables) ───────────────────────────────────────
     for table_name, indexes in diff.new_indexes.items():
@@ -396,10 +536,22 @@ def render_migration(
         for idx in tbl.get("indexes", []) or []:
             fwd.append(_render_create_index(table_name, idx, new_schema[table_name], platform))
 
-    # ── DROP INDEX ───────────────────────────────────────────────────────────
-    for table_name, indexes in diff.dropped_indexes.items():
-        for idx in indexes:
-            fwd.append(_render_drop_index(table_name, idx, new_schema[table_name], platform))
+    # ── ADD UNIQUE CONSTRAINT (existing tables; new tables get theirs inline) ─
+    for table_name, uqs in diff.new_unique_constraints.items():
+        for uq in uqs:
+            fwd.append(_render_add_unique(table_name, uq, new_schema[table_name], platform))
+
+    # ── ADD CHECK CONSTRAINT (existing tables; new tables get theirs inline) ──
+    # MSSQL binds a CHECK expression's column references against the schema
+    # as of the start of the batch, not incrementally — so a column added
+    # earlier in this same script isn't visible yet without a fresh batch.
+    for table_name, cks in diff.new_check_constraints.items():
+        for ck in cks:
+            if platform == "mssql":
+                fwd.append("GO")
+            fwd.append(_render_add_check(table_name, ck, new_schema[table_name], platform))
+            if platform == "mssql":
+                fwd.append("GO")
 
     # ── ADD FK (existing tables) ─────────────────────────────────────────────
     for table_name, fks in diff.new_fks.items():
@@ -411,14 +563,72 @@ def render_migration(
         for fk in _table_fks(new_schema[table_name]):
             fwd.append(_render_add_fk(table_name, fk, new_schema[table_name], platform))
 
-    # ── DROP FK ──────────────────────────────────────────────────────────────
-    for table_name, fks in diff.dropped_fks.items():
-        for fk in fks:
-            fwd.append(_render_drop_fk(table_name, fk, new_schema[table_name], platform))
+    # ── SEED DATA: insert new vocab rows, delete rows removed from surviving
+    #    tables (rows on fully-dropped tables already vanished with the table) ─
+    for table_name in _sort_tables_fk_safe(list(diff.new_seed_rows), new_schema):
+        fwd.append(
+            _render_insert_block(
+                table_name, new_schema[table_name], platform, rows=diff.new_seed_rows[table_name]
+            )
+        )
+    for table_name, rows in diff.dropped_seed_rows.items():
+        if table_name in diff.dropped_tables:
+            continue
+        stmt = _render_delete_seed_rows(table_name, new_schema[table_name], rows, platform)
+        if stmt:
+            fwd.append(stmt)
+
+    # ── VIEWS: drop obsolete, then create/alter to their final definition ────
+    # CREATE (OR ALTER) VIEW must be the sole statement in its sqlcmd batch on
+    # MSSQL, so each one gets wrapped in its own GO...GO block.
+    if old_views and diff.dropped_views:
+        for view_name in reversed(_order_views_by_dependency(old_views)):
+            if view_name in diff.dropped_views:
+                if platform == "mssql":
+                    fwd.append("GO")
+                fwd.append(render_drop_view(view_name, old_views[view_name], platform))
+                if platform == "mssql":
+                    fwd.append("GO")
+    if new_views:
+        for view_name in _order_views_by_dependency(new_views):
+            if view_name in diff.new_views or view_name in diff.altered_views:
+                if platform == "mssql":
+                    fwd.append("GO")
+                fwd.append(render_create_view(view_name, new_views[view_name], platform))
+                if platform == "mssql":
+                    fwd.append("GO")
+
+    # ── SchemaVersion bookkeeping ─────────────────────────────────────────────
+    version_desc = _render_seed_value(description or f"Migration v{from_version} -> v{to_version}")
+    if platform == "mssql":
+        fwd.append(
+            f"INSERT INTO [dbo].[SchemaVersion] ([Version], [Description]) "
+            f"VALUES (N'{to_version}', {version_desc});"
+        )
+    else:
+        fwd.append(
+            f'INSERT INTO "dbo"."SchemaVersion" ("Version", "Description") '
+            f"VALUES ('{to_version}', {version_desc});"
+        )
 
     # ── ROLLBACK (built separately for correct dependency ordering) ──────────
 
-    # 1. Drop FKs first (from new tables, then from existing tables)
+    # 0. Remove the SchemaVersion row this migration stamped.
+    if platform == "mssql":
+        rbk.append(f"DELETE FROM [dbo].[SchemaVersion] WHERE [Version] = N'{to_version}';")
+    else:
+        rbk.append(f"DELETE FROM \"dbo\".\"SchemaVersion\" WHERE \"Version\" = '{to_version}';")
+
+    # 1. Seed data: delete rows this migration inserted into surviving tables
+    #    (rows on brand-new tables disappear when the table itself is dropped).
+    for table_name, rows in diff.new_seed_rows.items():
+        if table_name in diff.new_tables:
+            continue
+        stmt = _render_delete_seed_rows(table_name, new_schema[table_name], rows, platform)
+        if stmt:
+            rbk.append(stmt)
+
+    # 2. Drop FKs first (from new tables, then from existing tables)
     for table_name in sorted_new:
         for fk in _table_fks(new_schema[table_name]):
             rbk.append(_render_drop_fk(table_name, fk, new_schema[table_name], platform))
@@ -426,12 +636,22 @@ def render_migration(
         for fk in fks:
             rbk.append(_render_drop_fk(table_name, fk, new_schema[table_name], platform))
 
-    # 2. Re-add dropped FKs
-    for table_name, fks in diff.dropped_fks.items():
-        for fk in fks:
-            rbk.append(_render_add_fk(table_name, fk, new_schema[table_name], platform))
+    # 3. Re-adding dropped FKs waits until after column restoration below —
+    #    one may reference a column, like AnalysisSeries.ProcessingKind_ID,
+    #    that doesn't exist again yet.
 
-    # 3. Drop new indexes (on new tables and on existing tables)
+    # 4. Drop unique/check constraints this migration added. (Re-adding the
+    #    ones it dropped waits until after column restoration below — they
+    #    may reference a column, like Annotation.Channel_ID, that doesn't
+    #    exist again yet.)
+    for table_name, uqs in diff.new_unique_constraints.items():
+        for uq in uqs:
+            rbk.append(_render_drop_unique(table_name, uq, new_schema[table_name], platform))
+    for table_name, cks in diff.new_check_constraints.items():
+        for ck in cks:
+            rbk.append(_render_drop_check(table_name, ck, new_schema[table_name], platform))
+
+    # 5. Drop new indexes (on new tables and on existing tables)
     for table_name in sorted_new:
         tbl = new_schema[table_name]["table"]
         for idx in tbl.get("indexes", []) or []:
@@ -440,16 +660,48 @@ def render_migration(
         for idx in indexes:
             rbk.append(_render_drop_index(table_name, idx, new_schema[table_name], platform))
 
-    # 4. Re-add dropped indexes
+    # 6. Re-adding dropped indexes waits until after column restoration below
+    #    — one may cover a column, like Annotation.Channel_ID, that doesn't
+    #    exist again yet.
+
+    # 7. Restore dropped columns (from old_schema when available)
+    for table_name, col_names in diff.dropped_columns.items():
+        old_cols = _column_defs_by_name(old_schema.get(table_name, {}))
+        tbl = new_schema[table_name]["table"]
+        schema = tbl.get("schema", "dbo")
+        for col_name in col_names:
+            old_col = old_cols.get(col_name)
+            if not old_col:
+                rbk.append(f"-- TODO: restore dropped column {col_name} on {table_name} manually.")
+                continue
+            col_def = render_column_def(old_col, platform)
+            if platform == "mssql":
+                rbk.append(f"ALTER TABLE [{schema}].[{table_name}] ADD {col_def};")
+            else:
+                rbk.append(f'ALTER TABLE "{schema}"."{table_name}" ADD COLUMN {col_def};')
+
+    # 7a. Re-add indexes this migration dropped — now that any column they
+    #     cover has been restored above. (FKs wait until after step 11: one
+    #     may reference a fully-dropped table, like ProcessingKind, that
+    #     doesn't exist again until then.)
     for table_name, indexes in diff.dropped_indexes.items():
         for idx in indexes:
             rbk.append(_render_create_index(table_name, idx, new_schema[table_name], platform))
 
-    # 5. Reverse column changes on existing tables
-    for table_name, col_names in diff.dropped_columns.items():
-        for col_name in col_names:
-            rbk.append(f"-- TODO: restore dropped column {col_name} on {table_name} manually.")
+    # 7b. Re-add unique/check constraints this migration dropped — now that
+    #     any column they reference has been restored above.
+    for table_name, uqs in diff.dropped_unique_constraints.items():
+        for uq in uqs:
+            rbk.append(_render_add_unique(table_name, uq, new_schema[table_name], platform))
+    for table_name, cks in diff.dropped_check_constraints.items():
+        for ck in cks:
+            if platform == "mssql":
+                rbk.append("GO")
+            rbk.append(_render_add_check(table_name, ck, new_schema[table_name], platform))
+            if platform == "mssql":
+                rbk.append("GO")
 
+    # 8. Reverse column type/nullability changes
     for table_name, alterations in diff.altered_columns.items():
         tbl = new_schema[table_name]["table"]
         schema = tbl.get("schema", "dbo")
@@ -467,22 +719,73 @@ def render_migration(
                     f'ALTER COLUMN "{col_name}" TYPE {old_type};'
                 )
 
+    # 9. Drop columns this migration added
     for table_name, cols in diff.new_columns.items():
         tbl = new_schema[table_name]["table"]
         schema = tbl.get("schema", "dbo")
         for col in cols:
             if platform == "mssql":
+                rbk.append("GO")
+                rbk.append(_render_drop_default_constraint(table_name, col["name"], schema))
+                rbk.append("GO")
                 rbk.append(f"ALTER TABLE [{schema}].[{table_name}] DROP COLUMN [{col['name']}];")
             else:
                 rbk.append(f'ALTER TABLE "{schema}"."{table_name}" DROP COLUMN "{col["name"]}";')
 
-    # 6. Drop new tables (reverse FK-safe order so dependent tables drop first)
+    # 10. Drop new tables (reverse FK-safe order so dependent tables drop first)
     for table_name in reversed(sorted_new):
         rbk.append(_render_drop_table(table_name, new_schema[table_name], platform))
 
-    # 7. Restore dropped tables
-    for table_name in diff.dropped_tables:
-        rbk.append(f"-- TODO: restore dropped table {table_name} manually.")
+    # 11. Restore dropped tables (bodies, then indexes, then FKs) — parent-first
+    if diff.dropped_tables and old_schema:
+        restore_order = _sort_tables_fk_safe(diff.dropped_tables, old_schema)
+        for table_name in restore_order:
+            rbk.append(_render_create_table(table_name, old_schema[table_name], platform))
+        for table_name in restore_order:
+            tbl = old_schema[table_name]["table"]
+            for idx in tbl.get("indexes", []) or []:
+                rbk.append(_render_create_index(table_name, idx, old_schema[table_name], platform))
+        for table_name in restore_order:
+            for fk in _table_fks(old_schema[table_name]):
+                rbk.append(_render_add_fk(table_name, fk, old_schema[table_name], platform))
+    else:
+        for table_name in diff.dropped_tables:
+            rbk.append(f"-- TODO: restore dropped table {table_name} manually.")
+
+    # 11a. Re-add FKs this migration dropped — deferred until every table and
+    #      column they might reference (including a fully-dropped table
+    #      restored just above) exists again.
+    for table_name, fks in diff.dropped_fks.items():
+        for fk in fks:
+            rbk.append(_render_add_fk(table_name, fk, new_schema[table_name], platform))
+
+    # 12. Restore seed rows removed by this migration (on now-restored dropped
+    #     tables and on surviving tables that lost specific rows)
+    for table_name, rows in diff.dropped_seed_rows.items():
+        table_dict = new_schema.get(table_name) or old_schema.get(table_name)
+        if not table_dict:
+            continue
+        block = _render_insert_block(table_name, table_dict, platform, rows=rows)
+        if block:
+            rbk.append(block)
+
+    # 13. Views: undo — drop what forward created, restore old definitions
+    if new_views and diff.new_views:
+        for view_name in reversed(_order_views_by_dependency(new_views)):
+            if view_name in diff.new_views:
+                if platform == "mssql":
+                    rbk.append("GO")
+                rbk.append(render_drop_view(view_name, new_views[view_name], platform))
+                if platform == "mssql":
+                    rbk.append("GO")
+    if old_views:
+        for view_name in _order_views_by_dependency(old_views):
+            if view_name in diff.altered_views or view_name in diff.dropped_views:
+                if platform == "mssql":
+                    rbk.append("GO")
+                rbk.append(render_create_view(view_name, old_views[view_name], platform))
+                if platform == "mssql":
+                    rbk.append("GO")
 
     return "\n\n".join(fwd) + "\n", "\n\n".join(rbk) + "\n"
 
@@ -669,21 +972,25 @@ def _render_seed_value(value: object) -> str:
     return f"N'{escaped}'"
 
 
-def _render_insert_block(table_name: str, table_dict: dict, platform: str) -> str:
-    """Render all INSERT statements for a single table's seed_data.
+def _render_insert_block(
+    table_name: str, table_dict: dict, platform: str, rows: list[dict] | None = None
+) -> str:
+    """Render INSERT statements for a table's seed_data (or an explicit row subset).
 
     Args:
         table_name: Name of the table.
         table_dict: Full file-level dict (including ``_format_version`` key).
         platform: ``'mssql'`` or ``'postgres'``.
+        rows: Explicit rows to render (e.g. only the rows added by a
+            migration). Defaults to the table's full ``seed_data``.
 
     Returns:
         Multi-line SQL string with all INSERTs (and IDENTITY_INSERT wrappers
-        where needed), or ``""`` if the table has no seed_data.
+        where needed), or ``""`` if there are no rows to render.
     """
     tbl = table_dict["table"]
     schema = tbl.get("schema", "dbo")
-    seed_rows: list[dict] = tbl.get("seed_data") or []
+    seed_rows: list[dict] = rows if rows is not None else (tbl.get("seed_data") or [])
 
     if not seed_rows:
         return ""

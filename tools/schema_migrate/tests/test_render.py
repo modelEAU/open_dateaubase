@@ -2,7 +2,7 @@
 
 import pytest
 
-from tools.schema_migrate.diff import SchemaDiff, diff_schemas
+from tools.schema_migrate.diff import SchemaDiff, diff_schemas, diff_views
 from tools.schema_migrate.render import (
     LOGICAL_TYPE_MAP,
     _render_create_index,
@@ -16,7 +16,13 @@ from tools.schema_migrate.render import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _table(name: str, columns: list[dict], schema: str = "dbo") -> dict:
+def _table(
+    name: str,
+    columns: list[dict],
+    schema: str = "dbo",
+    check_constraints: list[dict] | None = None,
+    indexes: list[dict] | None = None,
+) -> dict:
     return {
         "_format_version": "1.0",
         "table": {
@@ -25,8 +31,8 @@ def _table(name: str, columns: list[dict], schema: str = "dbo") -> dict:
             "description": f"Test {name}",
             "columns": columns,
             "primary_key": [columns[0]["name"]] if columns else [],
-            "indexes": [],
-            "check_constraints": [],
+            "indexes": indexes or [],
+            "check_constraints": check_constraints or [],
         },
     }
 
@@ -275,3 +281,241 @@ class TestRenderCreateIndexFilter:
             "EquipmentLocationHistory", idx, self._tbl, "postgres"
         )
         assert sql.endswith('("Equipment_ID") WHERE ValidTo IS NULL;')
+
+
+# ---------------------------------------------------------------------------
+# Dropped-table + FK-before-drop ordering tests
+# ---------------------------------------------------------------------------
+
+class TestDropColumnWithCheckConstraint:
+    """A CHECK constraint referencing a dropped column must be dropped first —
+    real failure hit against a live server: 'CK_Annotation_Source is
+    dependent on column Channel_ID'."""
+
+    old = {
+        "T": _table(
+            "T", [_col("ID"), _col("A"), _col("B")],
+            check_constraints=[{"name": "CK_T", "expression": "[A] IS NOT NULL OR [B] IS NOT NULL"}],
+        )
+    }
+    new = {"T": _table("T", [_col("ID"), _col("B")])}
+
+    def test_check_constraint_dropped_before_column(self):
+        diff = diff_schemas(self.old, self.new)
+        fwd, _ = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql")
+        assert fwd.index("DROP CONSTRAINT [CK_T]") < fwd.index("DROP COLUMN [A]")
+
+    def test_rollback_restores_column_before_readding_check_constraint(self):
+        """Mirror bug caught against a live server: rollback re-added
+        CK_Annotation_Source before Annotation.Channel_ID existed again."""
+        diff = diff_schemas(self.old, self.new)
+        _, rbk = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql", old_schema=self.old)
+        assert rbk.index("ADD [A]") < rbk.index("ADD CONSTRAINT [CK_T]")
+
+
+class TestDropColumnWithDefault:
+    """Dropping a column with a DEFAULT requires dropping the (MSSQL
+    auto-named) default constraint first — real failure hit against a live
+    server: 'DF__AnalysisS__Proce__6B24EA82 is dependent on column'."""
+
+    old = {"T": _table("T", [_col("ID"), _col("WithDefault", default=1)])}
+    new = {"T": _table("T", [_col("ID")])}
+
+    def test_forward_drops_default_constraint_before_column(self):
+        diff = diff_schemas(self.old, self.new)
+        fwd, _ = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql", old_schema=self.old)
+        assert "sys.default_constraints" in fwd
+        assert fwd.index("sys.default_constraints") < fwd.index("DROP COLUMN [WithDefault]")
+
+    def test_rollback_of_added_defaulted_column_also_guards(self):
+        diff = diff_schemas(self.new, self.old)  # WithDefault is now the "new" column
+        # forward ADD needs no guard; but its own rollback (drop-added-column) does
+        _, rbk = render_migration(diff, self.old, "1.0.0", "1.1.0", "mssql")
+        assert "sys.default_constraints" in rbk
+
+
+class TestDroppedTableMigration:
+    """A table that's referenced by another dropped column/FK must actually
+    drop (and restore), and the FK must go before the column/table it's on."""
+
+    old = {
+        "Parent": _table("Parent", [_col("Parent_ID", nullable=False)]),
+        "Child": _table("Child", [
+            _col("Child_ID", nullable=False),
+            _col("Parent_ID", foreign_key={"table": "Parent", "column": "Parent_ID"}),
+        ]),
+    }
+    new = {"Child": _table("Child", [_col("Child_ID", nullable=False)])}
+
+    def test_drop_fk_precedes_drop_column_and_drop_table(self):
+        diff = diff_schemas(self.old, self.new)
+        fwd, _ = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql", old_schema=self.old)
+        fk_pos = fwd.index("DROP CONSTRAINT")
+        col_pos = fwd.index("DROP COLUMN")
+        table_pos = fwd.index("DROP TABLE")
+        assert fk_pos < col_pos < table_pos
+
+    def test_table_is_actually_dropped(self):
+        diff = diff_schemas(self.old, self.new)
+        fwd, _ = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql", old_schema=self.old)
+        assert "DROP TABLE [dbo].[Parent];" in fwd
+        assert "-- DROP TABLE" not in fwd
+
+    def test_rollback_restores_dropped_table(self):
+        diff = diff_schemas(self.old, self.new)
+        _, rbk = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql", old_schema=self.old)
+        assert "CREATE TABLE" in rbk
+        assert "[Parent]" in rbk
+        assert "TODO: restore dropped table" not in rbk
+
+    def test_without_old_schema_falls_back_to_comment(self):
+        diff = diff_schemas(self.old, self.new)
+        fwd, rbk = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql")
+        assert "-- DROP TABLE Parent" in fwd
+        assert "TODO: restore dropped table" in rbk
+
+
+class TestDroppedColumnWithFkRollback:
+    """Real failure hit against a live server: rollback re-added
+    FK_AnalysisSeries_ProcessingKind_ID before ProcessingKind_ID existed
+    again on AnalysisSeries — the FK-referencing column must be restored
+    first."""
+
+    old = {
+        "Ref": _table("Ref", [_col("Ref_ID", nullable=False)]),
+        "T": _table("T", [
+            _col("ID", nullable=False),
+            _col("Ref_ID", foreign_key={"table": "Ref", "column": "Ref_ID"}),
+        ]),
+    }
+    new = {
+        "Ref": _table("Ref", [_col("Ref_ID", nullable=False)]),
+        "T": _table("T", [_col("ID", nullable=False)]),
+    }
+
+    def test_rollback_restores_column_before_readding_fk(self):
+        diff = diff_schemas(self.old, self.new)
+        _, rbk = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql", old_schema=self.old)
+        assert rbk.index("ADD [Ref_ID]") < rbk.index("ADD CONSTRAINT")
+
+
+class TestDroppedColumnWithIndexRollback:
+    """Real failure hit against a live server: rollback re-created
+    IX_Annotation_Channel_Time before Channel_ID existed again — an index
+    covering a dropped column must wait for the column to be restored."""
+
+    old = {
+        "T": _table(
+            "T", [_col("ID", nullable=False), _col("A")],
+            indexes=[{"name": "IX_T_A", "columns": ["A"], "unique": False}],
+        )
+    }
+    new = {"T": _table("T", [_col("ID", nullable=False)])}
+
+    def test_rollback_restores_column_before_readding_index(self):
+        diff = diff_schemas(self.old, self.new)
+        _, rbk = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql", old_schema=self.old)
+        assert rbk.index("ADD [A]") < rbk.index("CREATE INDEX [IX_T_A]")
+
+
+class TestDroppedTableWithFkRollback:
+    """Real failure hit against a live server: rollback re-added
+    FK_AnalysisSeries_ProcessingKind_ID before the fully-dropped ProcessingKind
+    table itself had been recreated — an FK to a dropped table must wait for
+    the table restore, not just for column restoration."""
+
+    old = {
+        "Ref": _table("Ref", [_col("Ref_ID", nullable=False)]),
+        "T": _table("T", [
+            _col("ID", nullable=False),
+            _col("Ref_ID", foreign_key={"table": "Ref", "column": "Ref_ID"}),
+        ]),
+    }
+    new = {"T": _table("T", [_col("ID", nullable=False), _col("Ref_ID")])}
+
+    def test_rollback_restores_table_before_readding_fk(self):
+        diff = diff_schemas(self.old, self.new)
+        _, rbk = render_migration(diff, self.new, "1.0.0", "1.1.0", "mssql", old_schema=self.old)
+        assert rbk.index("CREATE TABLE") < rbk.index("ADD CONSTRAINT [FK_T_Ref_ID]")
+
+
+# ---------------------------------------------------------------------------
+# View migration tests
+# ---------------------------------------------------------------------------
+
+def _view(name: str, definition: str) -> dict:
+    return {
+        "_format_version": "1.0",
+        "view": {"name": name, "schema": "dbo", "view_definition": definition},
+    }
+
+
+class TestViewMigration:
+    old_views = {"vw_Old": _view("vw_Old", "SELECT 1 AS X")}
+    new_views = {
+        "vw_Old": _view("vw_Old", "SELECT 2 AS X"),
+        "vw_New": _view("vw_New", "SELECT 1 AS Y"),
+    }
+
+    def _diff(self):
+        diff = SchemaDiff()
+        diff.new_views, diff.dropped_views, diff.altered_views = diff_views(
+            self.old_views, self.new_views
+        )
+        return diff
+
+    def test_forward_creates_new_and_altered_views(self):
+        diff = self._diff()
+        fwd, _ = render_migration(
+            diff, {}, "1.0.0", "1.1.0", "mssql",
+            old_views=self.old_views, new_views=self.new_views,
+        )
+        assert "CREATE OR ALTER VIEW [dbo].[vw_New]" in fwd
+        assert "SELECT 2 AS X" in fwd  # altered definition, not the old one
+
+    def test_rollback_restores_old_view_definition_and_drops_new(self):
+        diff = self._diff()
+        _, rbk = render_migration(
+            diff, {}, "1.0.0", "1.1.0", "mssql",
+            old_views=self.old_views, new_views=self.new_views,
+        )
+        assert "DROP VIEW [dbo].[vw_New];" in rbk
+        assert "SELECT 1 AS X" in rbk  # restored old vw_Old definition
+
+
+# ---------------------------------------------------------------------------
+# Seed data + SchemaVersion footer tests
+# ---------------------------------------------------------------------------
+
+class TestSeedDataMigration:
+    schema = {
+        "Kind": _table("Kind", [_col("Kind_ID", nullable=False), _col("Name", "string")])
+    }
+
+    def test_forward_inserts_new_rows(self):
+        diff = SchemaDiff(new_seed_rows={"Kind": [{"Kind_ID": 3, "Name": "New"}]})
+        fwd, _ = render_migration(diff, self.schema, "1.0.0", "1.1.0", "mssql")
+        assert "INSERT INTO [dbo].[Kind]" in fwd
+        assert "N'New'" in fwd
+
+    def test_rollback_deletes_inserted_rows(self):
+        diff = SchemaDiff(new_seed_rows={"Kind": [{"Kind_ID": 3, "Name": "New"}]})
+        _, rbk = render_migration(diff, self.schema, "1.0.0", "1.1.0", "mssql")
+        assert "DELETE FROM [dbo].[Kind]" in rbk
+        assert "[Kind_ID] IN (3)" in rbk
+
+
+class TestSchemaVersionFooter:
+    def test_forward_stamps_new_version(self):
+        diff = SchemaDiff(new_tables=["T"])
+        schema = {"T": _table("T", [_col("ID")])}
+        fwd, _ = render_migration(diff, schema, "1.0.0", "1.1.0", "mssql", description="test bump")
+        assert "INSERT INTO [dbo].[SchemaVersion]" in fwd
+        assert "N'1.1.0'" in fwd
+        assert "test bump" in fwd
+
+    def test_rollback_removes_version_row(self):
+        diff = SchemaDiff(new_tables=["T"])
+        schema = {"T": _table("T", [_col("ID")])}
+        _, rbk = render_migration(diff, schema, "1.0.0", "1.1.0", "mssql")
+        assert "DELETE FROM [dbo].[SchemaVersion] WHERE [Version] = N'1.1.0';" in rbk

@@ -16,9 +16,15 @@ class SchemaDiff:
     dropped_indexes: dict[str, list[dict]] = field(default_factory=dict)
     new_fks: dict[str, list[dict]] = field(default_factory=dict)
     dropped_fks: dict[str, list[dict]] = field(default_factory=dict)
+    new_unique_constraints: dict[str, list[dict]] = field(default_factory=dict)
+    dropped_unique_constraints: dict[str, list[dict]] = field(default_factory=dict)
+    new_check_constraints: dict[str, list[dict]] = field(default_factory=dict)
+    dropped_check_constraints: dict[str, list[dict]] = field(default_factory=dict)
     new_views: list[str] = field(default_factory=list)
     dropped_views: list[str] = field(default_factory=list)
     altered_views: list[str] = field(default_factory=list)
+    new_seed_rows: dict[str, list[dict]] = field(default_factory=dict)
+    dropped_seed_rows: dict[str, list[dict]] = field(default_factory=dict)
 
     def is_empty(self) -> bool:
         """Return True when there are no detected differences."""
@@ -32,9 +38,15 @@ class SchemaDiff:
             self.dropped_indexes,
             self.new_fks,
             self.dropped_fks,
+            self.new_unique_constraints,
+            self.dropped_unique_constraints,
+            self.new_check_constraints,
+            self.dropped_check_constraints,
             self.new_views,
             self.dropped_views,
             self.altered_views,
+            self.new_seed_rows,
+            self.dropped_seed_rows,
         ])
 
 
@@ -73,6 +85,46 @@ def _fk_list(table_dict: dict) -> list[dict]:
 def _fk_map(table_dict: dict) -> dict[str, dict]:
     """Return {column_name: fk_dict} for all FK columns."""
     return {fk["column"]: fk for fk in _fk_list(table_dict)}
+
+
+def _fk_target(fk: dict) -> tuple:
+    """Return the (ref_table, ref_column) an FK points at."""
+    return (fk["ref_table"], fk["ref_column"])
+
+
+def _unique_constraint_map(table_dict: dict) -> dict[str, dict]:
+    """Return {constraint_name: constraint_dict} for a table's unique constraints.
+
+    Covers both the dedicated ``unique_constraints`` list and any entries in
+    the generic ``constraints`` list with ``type: unique``.
+    """
+    tbl = table_dict.get("table", {})
+    constraints = list(tbl.get("unique_constraints", []) or [])
+    constraints += [c for c in (tbl.get("constraints", []) or []) if c.get("type") == "unique"]
+    return {c["name"]: c for c in constraints}
+
+
+def _check_constraint_map(table_dict: dict) -> dict[str, dict]:
+    """Return {constraint_name: constraint_dict} for a table's check constraints."""
+    return {
+        c["name"]: c
+        for c in table_dict.get("table", {}).get("check_constraints", []) or []
+    }
+
+
+def _seed_pk(table_dict: dict) -> str | None:
+    """Return the primary-key column name used to key a table's seed_data rows."""
+    pk = table_dict.get("table", {}).get("primary_key") or []
+    return pk[0] if pk else None
+
+
+def _seed_map(table_dict: dict) -> dict:
+    """Return {pk_value: row} for a table's seed_data, keyed by its primary key."""
+    pk = _seed_pk(table_dict)
+    if not pk:
+        return {}
+    rows = table_dict.get("table", {}).get("seed_data") or []
+    return {row[pk]: row for row in rows if pk in row}
 
 
 def _column_type_sig(col: dict) -> tuple:
@@ -149,19 +201,111 @@ def diff_schemas(old: dict[str, dict], new: dict[str, dict]) -> SchemaDiff:
         if dropped_idx:
             diff.dropped_indexes[table_name] = dropped_idx
 
-        # Foreign keys (tracked per column)
+        # Foreign keys (tracked per column; a re-pointed target on the same
+        # column — e.g. Channel_ID moving from Channel.Channel_ID to
+        # Channel.Stream_ID — is a drop-old + add-new, not a no-op)
         old_fk = _fk_map(old[table_name])
         new_fk = _fk_map(new[table_name])
 
-        added_fks = [new_fk[c] for c in new_fk if c not in old_fk]
+        added_fks = [
+            new_fk[c] for c in new_fk
+            if c not in old_fk or _fk_target(old_fk[c]) != _fk_target(new_fk[c])
+        ]
         if added_fks:
             diff.new_fks[table_name] = added_fks
 
-        dropped_fks = [old_fk[c] for c in old_fk if c not in new_fk]
+        dropped_fks = [
+            old_fk[c] for c in old_fk
+            if c not in new_fk or _fk_target(old_fk[c]) != _fk_target(new_fk[c])
+        ]
         if dropped_fks:
             diff.dropped_fks[table_name] = dropped_fks
 
+        # Unique constraints (a changed column list is a drop-old + add-new)
+        old_uq = _unique_constraint_map(old[table_name])
+        new_uq = _unique_constraint_map(new[table_name])
+
+        added_uq = [
+            new_uq[name] for name in new_uq
+            if name not in old_uq or old_uq[name].get("columns") != new_uq[name].get("columns")
+        ]
+        if added_uq:
+            diff.new_unique_constraints[table_name] = added_uq
+
+        dropped_uq = [
+            old_uq[name] for name in old_uq
+            if name not in new_uq or old_uq[name].get("columns") != new_uq[name].get("columns")
+        ]
+        if dropped_uq:
+            diff.dropped_unique_constraints[table_name] = dropped_uq
+
+        # Check constraints (a changed expression is a drop-old + add-new)
+        old_ck = _check_constraint_map(old[table_name])
+        new_ck = _check_constraint_map(new[table_name])
+
+        added_ck = [
+            new_ck[name] for name in new_ck
+            if name not in old_ck or old_ck[name].get("expression") != new_ck[name].get("expression")
+        ]
+        if added_ck:
+            diff.new_check_constraints[table_name] = added_ck
+
+        dropped_ck = [
+            old_ck[name] for name in old_ck
+            if name not in new_ck or old_ck[name].get("expression") != new_ck[name].get("expression")
+        ]
+        if dropped_ck:
+            diff.dropped_check_constraints[table_name] = dropped_ck
+
     return diff
+
+
+def diff_seed_data(
+    old: dict[str, dict], new: dict[str, dict]
+) -> tuple[dict[str, list[dict]], dict[str, list[dict]]]:
+    """Compare ``seed_data`` rows (keyed by each table's primary key) between two schemas.
+
+    Args:
+        old: Schema dict returned by ``load_schema`` for the previous version.
+        new: Schema dict returned by ``load_schema`` for the new version.
+
+    Returns:
+        ``(new_seed_rows, dropped_seed_rows)``. ``new_seed_rows`` covers rows
+        added to tables present in both versions plus the full seed_data of
+        brand-new tables. ``dropped_seed_rows`` covers rows removed from
+        tables present in both versions plus the full seed_data of dropped
+        tables (so a rollback can restore them after recreating the table).
+    """
+    new_rows: dict[str, list[dict]] = {}
+    dropped_rows: dict[str, list[dict]] = {}
+
+    for table_name, table_dict in new.items():
+        if table_name not in old:
+            seed = table_dict.get("table", {}).get("seed_data") or []
+            if seed:
+                new_rows[table_name] = list(seed)
+            continue
+
+        if not _seed_pk(table_dict):
+            continue
+
+        old_seed = _seed_map(old[table_name])
+        new_seed = _seed_map(table_dict)
+
+        added = [new_seed[k] for k in new_seed if k not in old_seed]
+        if added:
+            new_rows[table_name] = added
+
+        removed = [old_seed[k] for k in old_seed if k not in new_seed]
+        if removed:
+            dropped_rows[table_name] = removed
+
+    for table_name in set(old) - set(new):
+        seed = old[table_name].get("table", {}).get("seed_data") or []
+        if seed:
+            dropped_rows[table_name] = list(seed)
+
+    return new_rows, dropped_rows
 
 
 def diff_views(old: dict[str, dict], new: dict[str, dict]) -> tuple[list[str], list[str], list[str]]:
