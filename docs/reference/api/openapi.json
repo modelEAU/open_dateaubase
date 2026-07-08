@@ -9071,9 +9071,25 @@
           "ingestion-lab"
         ],
         "summary": "List Lab Panels",
-        "description": "Return all panels with series count.",
+        "description": "Return panels with series count, optionally scoped to a campaign's\nsampling locations (see repository docstring).",
         "operationId": "list_lab_panels_api_v1_ingest_lab_templates_get",
         "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Campaign Id"
+            }
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -14104,6 +14120,237 @@
             "schema": {
               "type": "integer",
               "title": "Sample Kind Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample-material-kinds": {
+      "get": {
+        "tags": [
+          "sample-materials"
+        ],
+        "summary": "List Sample Material Kinds",
+        "description": "Return all sample materials/matrices.",
+        "operationId": "list_sample_material_kinds_api_v1_sample_material_kinds_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SampleMaterialKindOut"
+                  },
+                  "title": "Response List Sample Material Kinds Api V1 Sample Material Kinds Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sample-materials"
+        ],
+        "summary": "Create Sample Material Kind",
+        "description": "Create a new SampleMaterialKind.",
+        "operationId": "create_sample_material_kind_api_v1_sample_material_kinds_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleMaterialKindIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleMaterialKindOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample-material-kinds/{sample_material_kind_id}": {
+      "put": {
+        "tags": [
+          "sample-materials"
+        ],
+        "summary": "Update Sample Material Kind",
+        "description": "Update an existing SampleMaterialKind.",
+        "operationId": "update_sample_material_kind_api_v1_sample_material_kinds__sample_material_kind_id__put",
+        "parameters": [
+          {
+            "name": "sample_material_kind_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sample Material Kind Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleMaterialKindIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleMaterialKindOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sample-materials"
+        ],
+        "summary": "Delete Sample Material Kind",
+        "description": "Delete a SampleMaterialKind by ID.",
+        "operationId": "delete_sample_material_kind_api_v1_sample_material_kinds__sample_material_kind_id__delete",
+        "parameters": [
+          {
+            "name": "sample_material_kind_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sample Material Kind Id"
             }
           },
           {
@@ -23569,6 +23816,28 @@
             ],
             "title": "Default Sample Equipment Id"
           },
+          "default_sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Kind Id"
+          },
+          "default_sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Material Kind Id"
+          },
           "series_ids": {
             "items": {
               "type": "integer"
@@ -23627,6 +23896,28 @@
               }
             ],
             "title": "Default Sample Equipment Id"
+          },
+          "default_sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Kind Id"
+          },
+          "default_sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Material Kind Id"
           },
           "series": {
             "items": {
@@ -23690,6 +23981,28 @@
               }
             ],
             "title": "Default Sample Equipment Id"
+          },
+          "default_sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Kind Id"
+          },
+          "default_sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Material Kind Id"
           },
           "series_ids": {
             "anyOf": [
@@ -23763,6 +24076,28 @@
               }
             ],
             "title": "Default Sample Equipment Id"
+          },
+          "default_sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Kind Id"
+          },
+          "default_sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Material Kind Id"
           },
           "series_count": {
             "type": "integer",
@@ -26344,6 +26679,28 @@
             ],
             "title": "Sample Collection Kind Id"
           },
+          "sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Kind Id"
+          },
+          "sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Material Kind Id"
+          },
           "sample_equipment_id": {
             "anyOf": [
               {
@@ -26442,6 +26799,60 @@
           "description"
         ],
         "title": "SampleKindOut"
+      },
+      "SampleMaterialKindIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "SampleMaterialKindIn"
+      },
+      "SampleMaterialKindOut": {
+        "properties": {
+          "sample_material_kind_id": {
+            "type": "integer",
+            "title": "Sample Material Kind Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sample_material_kind_id",
+          "name",
+          "description"
+        ],
+        "title": "SampleMaterialKindOut"
       },
       "SamplingLocationIn": {
         "properties": {
