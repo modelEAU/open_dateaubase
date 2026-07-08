@@ -72,6 +72,7 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
     "process_unit_kind": _yaml("ProcessUnitKind"),
     "procedure_kind": _yaml("ProcedureKind"),
     "sample_kind": _yaml("SampleKind"),
+    "sample_material_kind": _yaml("SampleMaterialKind"),
     "sample_collection_kind": _yaml("SampleCollectionKind"),
     "site_kind": _yaml("SiteKind"),
     "quality_code": _yaml("QualityCode"),
@@ -152,6 +153,8 @@ FORM_FIELD_BUILDERS: dict[str, Callable[[], list[dict]]] = {
             {"name": "created_by_person_id", "type": "select", "required": False},
             {"name": "default_sample_collection_kind_id", "type": "select", "required": False},
             {"name": "default_sample_equipment_id", "type": "select", "required": False},
+            {"name": "default_sample_kind_id", "type": "select", "required": False},
+            {"name": "default_sample_material_kind_id", "type": "select", "required": False},
             {"name": "series_ids", "type": "multiselect", "required": True},
         ]
     ),

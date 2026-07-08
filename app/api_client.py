@@ -1136,6 +1136,27 @@ def delete_sample_kind(sample_kind_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# SampleMaterialKind
+# ---------------------------------------------------------------------------
+
+
+def list_sample_material_kinds() -> list[dict]:
+    return _request("GET", "/sample-material-kinds")
+
+
+def create_sample_material_kind(data: dict) -> dict:
+    return _request("POST", "/sample-material-kinds", json=data)
+
+
+def update_sample_material_kind(sample_material_kind_id: int, data: dict) -> dict:
+    return _request("PUT", f"/sample-material-kinds/{sample_material_kind_id}", json=data)
+
+
+def delete_sample_material_kind(sample_material_kind_id: int) -> None:
+    return _request("DELETE", f"/sample-material-kinds/{sample_material_kind_id}")
+
+
+# ---------------------------------------------------------------------------
 # SampleCollectionKind
 # ---------------------------------------------------------------------------
 
@@ -1407,6 +1428,10 @@ def list_sample_kind_lookup() -> list[dict]:
     return list_sample_kinds()
 
 
+def list_sample_material_kind_lookup() -> list[dict]:
+    return list_sample_material_kinds()
+
+
 def list_sample_collection_kind_lookup() -> list[dict]:
     return list_sample_collection_kinds()
 
@@ -1586,9 +1611,11 @@ def create_analysis_series(data: dict) -> dict:
     return _request("POST", "/ingest/lab/analysis-series", json=data)
 
 
-def list_lab_panels() -> list[dict]:
-    """Return templates with series count."""
-    return _request("GET", "/ingest/lab/templates")
+def list_lab_panels(campaign_id: int | None = None) -> list[dict]:
+    """Return templates with series count, optionally scoped to a campaign's
+    sampling locations."""
+    params = {"campaign_id": campaign_id} if campaign_id is not None else None
+    return _request("GET", "/ingest/lab/templates", params=params)
 
 
 def get_lab_panel(template_id: int) -> dict:

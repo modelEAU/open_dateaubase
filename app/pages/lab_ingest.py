@@ -1,5 +1,10 @@
-"""Lab Analysis Ingest page — accordion layout with experiment context,
-sample creation, and per-series measurement entry.
+"""Lab Analysis Ingest page — compact header + wide measurement grid.
+
+One row per sample, one column per assigned (non-image) AnalysisSeries,
+grouped by sampling point. Samples are created automatically at submit time
+from populated grid rows. Image-kind series still use a separate
+per-sampling-point sample step + upload tab (D3 in
+.tasks/lab_wide_table_plan.md).
 
 Uses the LabIngestRequest / LabImageIngestResponse API.
 """
@@ -38,10 +43,9 @@ def _lab_timezone_selector(key: str) -> zoneinfo.ZoneInfo:
         tz_name, tz = "UTC", zoneinfo.ZoneInfo("UTC")
     st.session_state[key] = tz_name
     st.text_input(
-        "TZ",
+        "Timezone",
         value=tz_name,
         disabled=True,
-        label_visibility="collapsed",
         help="Timezone inferred from your browser. Timestamps are converted to UTC on submit.",
     )
     return tz
@@ -64,6 +68,8 @@ from app.api_client import (
     list_persons,
     list_quality_codes,
     list_sample_collection_kinds,
+    list_sample_kind_lookup,
+    list_sample_material_kind_lookup,
     list_samples_lookup,
     list_sampling_points_lookup,
     list_units_lookup,
@@ -90,8 +96,17 @@ try:
             for p in _persons_full
         ]
         _collection_kinds = list_sample_collection_kinds()
+        _sample_kinds = list_sample_kind_lookup()
+        _material_kinds = list_sample_material_kind_lookup()
         _equipment = list_equipment_lookup()
-        _templates = list_lab_panels()
+        # Panels are scoped to the selected campaign's sampling locations
+        # (derived — panels have no Campaign_ID). Read the persisted campaign
+        # here at fetch time; the campaign selectbox triggers a rerun, so the
+        # next run reflects a fresh selection. A "show all" toggle bypasses it.
+        _panel_campaign_id = None if st.session_state.get("lab_panels_show_all") else (
+            (st.session_state.get("lab_session") or {}).get("campaign_id")
+        )
+        _templates = list_lab_panels(campaign_id=_panel_campaign_id)
         _all_series = list_analysis_series_lookup()
         _experiments = list_lab_experiments_lookup()
         _quality_codes = list_quality_codes()
@@ -100,7 +115,6 @@ try:
             for qc in _quality_codes
             if qc.get("is_usable", True)
         }
-        _qc_id_to_label = {v: k for k, v in _qc_label_to_id.items()}
         _qc_labels = list(_qc_label_to_id.keys())
         # Reverse-lookup dicts
         _param_name_to_id = {
@@ -108,6 +122,20 @@ try:
         }
         _unit_name_to_id = {u["unit"]: u["unit_id"] for u in _units}
         _sp_label_to_id = {s["label"]: s["sampling_point_id"] for s in _sp}
+        _ck_label_to_id = {
+            c.get("name", ""): (c.get("sample_collection_kind_id") or c.get("id"))
+            for c in _collection_kinds
+        }
+        _sk_name_to_id = {
+            k.get("name", ""): k.get("sample_kind_id") for k in _sample_kinds
+        }
+        _mk_name_to_id = {
+            m.get("name", ""): m.get("sample_material_kind_id") for m in _material_kinds
+        }
+        _eq_label_to_id = {
+            e.get("identifier", ""): (e.get("equipment_id") or e.get("id"))
+            for e in _equipment
+        }
         # Default person from authenticated user email
         _current_email = (st.session_state.get("user") or {}).get("email") or ""
         _default_person_id = next(
@@ -147,6 +175,11 @@ if "lab_session" not in st.session_state:
 
 def _reset_form() -> None:
     st.session_state.lab_session = dict(_SESSION_DEFAULTS)
+    # Samples/Measurements grid seeds live outside lab_session — purge them too
+    # (mirrors binning_axes.py's "Cancel" cleanup).
+    for k in list(st.session_state.keys()):
+        if k.startswith("lab_samples_") or k.startswith("lab_values_"):
+            del st.session_state[k]
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +220,36 @@ def _series_short_label(s: dict) -> str:
     return f"{pk}@{sp_label} ({unit}, {vk})"
 
 
+def _has_value(v) -> bool:
+    if v is None:
+        return False
+    if isinstance(v, str):
+        return bool(v.strip())
+    try:
+        if pd.isna(v):  # covers float NaN and pd.NaT (datetime columns coerce to NaT)
+            return False
+    except (TypeError, ValueError):
+        pass
+    return True
+
+
+def _localize_to_utc(dt) -> str | None:
+    """Convert a data_editor DatetimeColumn cell to a UTC ISO string.
+
+    Cells come back tz-naive; treat them as being in the browser timezone
+    captured by the header's TZ field (same assumption the old per-sample
+    date/time inputs made).
+    """
+    if not _has_value(dt):
+        return None
+    if hasattr(dt, "to_pydatetime"):
+        dt = dt.to_pydatetime()
+    if dt.tzinfo is None:
+        tz_name = st.session_state.get("lab_exp_tz") or "UTC"
+        dt = dt.replace(tzinfo=zoneinfo.ZoneInfo(tz_name))
+    return dt.astimezone(timezone.utc).isoformat()
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -194,10 +257,17 @@ def _series_short_label(s: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _render_experiment_step() -> None:
+def _render_header() -> None:
+    """Compact header: mode, campaign, panel/experiment picker, experiment
+    identity fields, and series assignment.
+
+    Replaces the old "1. Experiment" expander (Phase 1 of the wide-table
+    redesign, .tasks/lab_wide_table_plan.md) — same widget keys and logic,
+    laid out in columns instead of a full-width accordion section.
+    """
     sess = st.session_state.lab_session
 
-    col1, col2 = st.columns([1, 3])
+    col1, col_camp, col2 = st.columns([1, 1, 2])
     with col1:
         mode = st.radio(
             "Mode",
@@ -212,6 +282,23 @@ def _render_experiment_step() -> None:
         "Add to existing": "existing",
     }
     sess["mode"] = _mode_map.get(mode, "new")
+
+    with col_camp:
+        if sess["mode"] != "existing":
+            _camp_opts = [{"id": None, "label": "— none —"}] + [
+                {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
+            ]
+            _sel_camp = st.selectbox(
+                "Campaign",
+                options=[o["label"] for o in _camp_opts],
+                index=next(
+                    (i for i, o in enumerate(_camp_opts) if o["id"] == sess.get("campaign_id")), 0
+                ),
+                key="lab_top_campaign",
+            )
+            sess["campaign_id"] = next(
+                (o["id"] for o in _camp_opts if o["label"] == _sel_camp), None
+            )
 
     with col2:
         if sess["mode"] == "panel":
@@ -228,6 +315,15 @@ def _render_experiment_step() -> None:
                 index=0,
                 key="lab_template_sel",
             )
+            if sess.get("campaign_id"):
+                st.checkbox(
+                    "Show panels from all campaigns",
+                    key="lab_panels_show_all",
+                    help="Panels are reusable across campaigns. By default only "
+                    "panels with a series at this campaign's sampling locations "
+                    "are listed; tick to browse every panel.",
+                )
+
             t_id = next((o["id"] for o in opts if o["label"] == sel), None)
             panel_name = next(
                 (t["name"] for t in _templates if t["lab_panel_id"] == t_id), ""
@@ -240,6 +336,8 @@ def _render_experiment_step() -> None:
                     sess["series"] = list(detail.get("series", []))
                     sess["default_sample_collection_kind_id"] = detail.get("default_sample_collection_kind_id")
                     sess["default_sample_equipment_id"] = detail.get("default_sample_equipment_id")
+                    sess["default_sample_kind_id"] = detail.get("default_sample_kind_id")
+                    sess["default_sample_material_kind_id"] = detail.get("default_sample_material_kind_id")
                 except APIError:
                     st.warning("Could not load template series.")
                 # Auto-populate name from panel + today's date
@@ -514,14 +612,284 @@ def _render_add_series_row(sess: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 2: Sample — one section per unique sampling point in the series list
+# Wide grid — one row per sample, one column per (non-image) assigned series,
+# grouped by sampling point (D1). Samples are created automatically at
+# submit time from populated rows — see _build_grid_measurements.
 # ---------------------------------------------------------------------------
 
 
-def _unique_sps_from_series(sess: dict) -> list[tuple[int, str]]:
+def _grid_groups(sess: dict) -> dict[int, list[dict]]:
+    """Non-image series grouped by sampling point, in first-seen order."""
+    groups: dict[int, list[dict]] = {}
+    for s in _grid_series(sess):
+        sp_id = s.get("sampling_point_id")
+        if sp_id is not None:
+            groups.setdefault(sp_id, []).append(s)
+    return groups
+
+
+def _grid_value_columns(series_list: list[dict]) -> dict[str, dict]:
+    """Map data_editor column key -> series dict, for a group's value columns."""
+    return {f"val_{s['analysis_series_id']}": s for s in series_list}
+
+
+_SAMPLES_COLS = [
+    "sample_no", "sample_label", "sample_kind", "sample_material", "start", "end",
+    "collection_kind", "equipment",
+]
+_SAMPLES_DTYPES = {
+    "sample_no": "Int64",
+    "sample_label": "object",
+    "sample_kind": "object",
+    "sample_material": "object",
+    "start": "datetime64[ns]",
+    "end": "datetime64[ns]",
+    "collection_kind": "object",
+    "equipment": "object",
+}
+
+
+def _coerce(df: pd.DataFrame, dtypes: dict[str, str]) -> pd.DataFrame:
+    """Coerce ``df`` to the given per-column dtypes.
+
+    An all-`object` DataFrame (what ``pd.DataFrame(columns=...)`` yields, even
+    with zero rows) makes Arrow infer STRING, which DatetimeColumn/NumberColumn
+    reject. Coercing up front — with or without rows — is what lets the empty
+    grid render instead of raising StreamlitAPIException.
+    """
+    out = df.reindex(columns=list(dtypes.keys()))
+    for col, dt in dtypes.items():
+        if dt == "datetime64[ns]":
+            out[col] = pd.to_datetime(out[col], errors="coerce")
+        elif dt == "float64":
+            out[col] = pd.to_numeric(out[col], errors="coerce")
+        elif dt == "Int64":
+            out[col] = pd.to_numeric(out[col], errors="coerce").astype("Int64")
+        else:
+            out[col] = out[col].astype(object).where(out[col].notna(), None)
+    return out
+
+
+def _values_dtypes(value_cols: dict[str, dict]) -> dict[str, str]:
+    d: dict[str, str] = {"sample_no": "Int64"}
+    for col_key, s in value_cols.items():
+        d[col_key] = "float64" if s.get("value_kind_id", 1) == 1 else "object"
+    d["replicate"] = "Int64"
+    d["quality_code"] = "object"
+    d["notes"] = "object"
+    return d
+
+
+def _render_wide_grid() -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
+    """Render a Samples grid + a Measurements grid per sampling point.
+
+    Returns ``{sp_id: (samples_edited_df, values_edited_df)}`` collected from
+    each ``st.data_editor`` return value in this same render — the state flows
+    forward to submit rather than being written back into ``lab_session``.
+    """
+    sess = st.session_state.lab_session
+    groups = _grid_groups(sess)
+    grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
+    if not groups:
+        st.caption("Assign at least one AnalysisSeries above to enter measurements.")
+        return grid_state
+
+    st.markdown("**Samples & Measurements**")
+    st.caption(
+        "Register each physical sample in the **Samples** grid, then record its "
+        "observations in the **Measurements** grid, referencing the sample by its "
+        "number. Two rows with the same sample number = replicates of one sample."
+    )
+
+    for sp_id, series_list in groups.items():
+        sp_label = next(
+            (sp["label"] for sp in _sp if sp["sampling_point_id"] == sp_id), f"SP {sp_id}"
+        )
+        st.markdown(f"*{sp_label}*")
+        grid_state[sp_id] = _render_sp_grids(sess, sp_id, series_list)
+    return grid_state
+
+
+def _render_sp_grids(
+    sess: dict, sp_id: int, series_list: list[dict]
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    value_cols = _grid_value_columns(series_list)
+
+    # --- Samples grid (stable seed, initialized once) ---
+    samples_seed_key = f"lab_samples_seed_{sp_id}"
+    samples_editor_key = f"lab_samples_editor_{sp_id}"
+    if samples_seed_key not in st.session_state:
+        st.session_state[samples_seed_key] = _coerce(pd.DataFrame(), _SAMPLES_DTYPES)
+
+    default_ck_label = next(
+        (
+            c.get("name")
+            for c in _collection_kinds
+            if (c.get("sample_collection_kind_id") or c.get("id"))
+            == sess.get("default_sample_collection_kind_id")
+        ),
+        None,
+    )
+    default_eq_label = next(
+        (
+            e.get("identifier")
+            for e in _equipment
+            if (e.get("equipment_id") or e.get("id")) == sess.get("default_sample_equipment_id")
+        ),
+        None,
+    )
+    default_sk_label = next(
+        (
+            k.get("name")
+            for k in _sample_kinds
+            if k.get("sample_kind_id") == sess.get("default_sample_kind_id")
+        ),
+        None,
+    )
+    default_material_label = next(
+        (
+            m.get("name")
+            for m in _material_kinds
+            if m.get("sample_material_kind_id") == sess.get("default_sample_material_kind_id")
+        ),
+        None,
+    )
+
+    if st.button("+ Add sample", key=f"lab_add_sample_{sp_id}"):
+        df = st.session_state[samples_seed_key]
+        nos = df["sample_no"].dropna()
+        next_no = int(nos.max()) + 1 if len(nos) else 1
+        new_row = _coerce(pd.DataFrame([{c: None for c in _SAMPLES_COLS}]), _SAMPLES_DTYPES)
+        new_row.loc[0, "sample_no"] = next_no
+        st.session_state[samples_seed_key] = pd.concat([df, new_row], ignore_index=True)
+        st.session_state.pop(samples_editor_key, None)
+        st.rerun()
+
+    samples_config = {
+        "sample_no": st.column_config.NumberColumn("Sample #", min_value=1, step=1),
+        "sample_label": st.column_config.TextColumn("Label"),
+        "sample_kind": st.column_config.SelectboxColumn(
+            "Sample kind",
+            options=[k.get("name", "") for k in _sample_kinds],
+            default=default_sk_label,
+        ),
+        "sample_material": st.column_config.SelectboxColumn(
+            "Sample material",
+            options=[m.get("name", "") for m in _material_kinds],
+            default=default_material_label,
+        ),
+        "start": st.column_config.DatetimeColumn("Start *", required=True),
+        "end": st.column_config.DatetimeColumn("End"),
+        "collection_kind": st.column_config.SelectboxColumn(
+            "Collection kind",
+            options=[c.get("name", "") for c in _collection_kinds],
+            default=default_ck_label,
+        ),
+        "equipment": st.column_config.SelectboxColumn(
+            "Equipment",
+            options=[e.get("identifier", "") for e in _equipment],
+            default=default_eq_label,
+        ),
+    }
+    samples_edited = st.data_editor(
+        st.session_state[samples_seed_key],
+        column_config=samples_config,
+        use_container_width=True,
+        num_rows="dynamic",
+        key=samples_editor_key,
+    )
+
+    # --- Measurements grid (stable seed, reinit only when series set changes) ---
+    values_seed_key = f"lab_values_seed_{sp_id}"
+    values_editor_key = f"lab_values_editor_{sp_id}"
+    values_sig_key = f"lab_values_sig_{sp_id}"
+    col_sig = tuple(sorted(value_cols.keys()))
+    if (
+        values_seed_key not in st.session_state
+        or st.session_state.get(values_sig_key) != col_sig
+    ):
+        old = st.session_state.get(values_seed_key)
+        base = old if old is not None else pd.DataFrame()
+        st.session_state[values_seed_key] = _coerce(base, _values_dtypes(value_cols))
+        st.session_state[values_sig_key] = col_sig
+
+    # Options = sample numbers currently in the Samples grid, unioned with any
+    # already referenced in the values seed (so a persisted pick never falls out
+    # of the option set and crashes SelectboxColumn). Recomputed fresh each
+    # render — a UI hint, not part of the persisted seed.
+    live_nos = {int(n) for n in samples_edited["sample_no"].dropna().tolist()}
+    seed_nos = {int(n) for n in st.session_state[values_seed_key]["sample_no"].dropna().tolist()}
+    sample_no_options = sorted(live_nos | seed_nos)
+
+    if st.button(
+        "+ Duplicate last row",
+        key=f"lab_values_dup_{sp_id}",
+        help="Copy the last row forward and bump its replicate — the quick way to add a replicate.",
+        disabled=st.session_state[values_seed_key].empty,
+    ):
+        df = st.session_state[values_seed_key]
+        last = df.iloc[[-1]].copy()
+        rep = last["replicate"].fillna(1).astype(int) + 1
+        last["replicate"] = rep.astype("Int64")
+        st.session_state[values_seed_key] = pd.concat([df, last], ignore_index=True)
+        st.session_state.pop(values_editor_key, None)
+        st.rerun()
+
+    values_config = {
+        "sample_no": st.column_config.SelectboxColumn(
+            "Sample #", options=sample_no_options, required=True
+        ),
+    }
+    for col_key, s in value_cols.items():
+        pk = next(
+            (p["parameter_name"] for p in _parameters if p["parameter_id"] == s.get("parameter_id")),
+            "?",
+        )
+        unit = next((u["unit"] for u in _units if u["unit_id"] == s.get("unit_id")), "?")
+        label = f"{pk} ({unit})"
+        values_config[col_key] = (
+            st.column_config.NumberColumn(label)
+            if s.get("value_kind_id", 1) == 1
+            else st.column_config.TextColumn(label)
+        )
+    values_config["replicate"] = st.column_config.NumberColumn(
+        "Replicate", default=1, min_value=1, step=1
+    )
+    values_config["quality_code"] = st.column_config.SelectboxColumn(
+        "Quality Code", options=_qc_labels, default=None
+    )
+    values_config["notes"] = st.column_config.TextColumn("Notes")
+
+    values_edited = st.data_editor(
+        st.session_state[values_seed_key],
+        column_config=values_config,
+        use_container_width=True,
+        num_rows="dynamic",
+        key=values_editor_key,
+    )
+
+    return samples_edited, values_edited
+
+
+# ---------------------------------------------------------------------------
+# Image samples — one section per unique sampling point among *image* series
+# only (D3: image series stay on the old per-sample-then-upload path; every
+# other value kind gets its sample created automatically by the wide grid).
+# ---------------------------------------------------------------------------
+
+
+def _image_series(sess: dict) -> list[dict]:
+    return [s for s in sess.get("series", []) if s.get("value_kind_id") == 4]
+
+
+def _grid_series(sess: dict) -> list[dict]:
+    return [s for s in sess.get("series", []) if s.get("value_kind_id") != 4]
+
+
+def _unique_sps_from_series(series_list: list[dict]) -> list[tuple[int, str]]:
     """Return ordered list of (sampling_point_id, label) deduplicated from series."""
     seen: dict[int, str] = {}
-    for s in sess.get("series", []):
+    for s in series_list:
         sp_id = s.get("sampling_point_id")
         if sp_id and sp_id not in seen:
             label = next(
@@ -535,9 +903,12 @@ def _unique_sps_from_series(sess: dict) -> list[tuple[int, str]]:
 def _render_sample_step() -> None:
     sess = st.session_state.lab_session
 
-    unique_sps = _unique_sps_from_series(sess)
+    unique_sps = _unique_sps_from_series(_image_series(sess))
     if not unique_sps:
-        st.caption("Assign series in Step 1 to enable sample creation.")
+        st.caption(
+            "No image series assigned. Samples for other series are created "
+            "automatically from the grid below."
+        )
         return
 
     # Sync sess["samples"] to match current unique SPs (preserve resolved entries)
@@ -678,21 +1049,23 @@ def _render_sp_sample_section(sess: dict, sample_entry: dict, sp_idx: int) -> No
 
 
 # ---------------------------------------------------------------------------
-# Step 3: Measurement Values
+# Image uploads — one tab per image-kind series (D3: images stay a separate
+# upload tab, not a grid cell; all other value kinds go through the wide grid).
 # ---------------------------------------------------------------------------
 
 
 def _render_measurement_step() -> None:
     sess = st.session_state.lab_session
     series = sess.get("series", [])
+    image_indices = [i for i, s in enumerate(series) if s.get("value_kind_id") == 4]
 
-    if not series:
+    if not image_indices:
         st.caption(
-            "Assign at least one AnalysisSeries in Step 1 before entering measurements."
+            "No image series assigned. Other measurements are entered in the grid above."
         )
         return
 
-    unique_sp_ids = {s.get("sampling_point_id") for s in series if s.get("sampling_point_id")}
+    unique_sp_ids = {series[i]["sampling_point_id"] for i in image_indices}
     resolved_sp_ids = {
         e["sampling_point_id"] for e in sess.get("samples", []) if e.get("sample_id")
     }
@@ -705,26 +1078,16 @@ def _render_measurement_step() -> None:
         st.caption(f"Create samples for: {', '.join(missing_labels)}")
         return
 
-    tab_labels = [_series_short_label(s) for s in series]
+    tab_labels = [_series_short_label(series[i]) for i in image_indices]
     tabs = st.tabs(tab_labels)
 
-    for i, tab in enumerate(tabs):
+    for tab, i in zip(tabs, image_indices):
         with tab:
-            _render_series_tab(sess, series[i], i)
+            _render_image_tab(sess, series[i], i)
 
 
-def _render_series_tab(sess: dict, series_item: dict, idx: int) -> None:
-    """Render one tab: data editor for measurements of a single series."""
-    s_key = str(idx)
-
-    # Ensure measurements list exists for this series
-    if s_key not in sess["measurements"]:
-        sess["measurements"][s_key] = []
-
-    rows = sess["measurements"][s_key]
-    vk = series_item.get("value_kind_id", 1)
-
-    # Show series identity
+def _render_image_tab(sess: dict, series_item: dict, idx: int) -> None:
+    """Series identity caption + image upload for an Image value-kind series."""
     pk = next(
         (
             p["parameter_name"]
@@ -739,66 +1102,9 @@ def _render_series_tab(sess: dict, series_item: dict, idx: int) -> None:
     )
     st.caption(
         f"**{series_item.get('name', '')}** — {pk}  |  Unit: {unit}  |  "
-        f"Kind: {_VALUE_KIND_LABELS.get(vk, '?')}"
+        f"Kind: {_VALUE_KIND_LABELS.get(series_item.get('value_kind_id', 1), '?')}"
     )
 
-    if vk == 4:  # Image — different handling
-        _render_image_tab(sess, series_item, idx)
-        return
-
-    editor_key = f"lab_measure_editor_{idx}"
-
-    # Column config for the data editor
-    col_config = {
-        "value": st.column_config.NumberColumn("Value *", required=True, default=None),
-        "replicate": st.column_config.NumberColumn("Replicate", default=1, min_value=1),
-        "quality_code_id": st.column_config.SelectboxColumn(
-            "Quality Code", options=_qc_labels, default=None, required=False,
-        ),
-        "notes": st.column_config.TextColumn("Notes"),
-    }
-    if vk in (2, 3):
-        col_config["value"] = st.column_config.TextColumn(
-            "Value *",
-            required=True,
-            default=None,
-        )
-
-    is_scalar = vk == 1
-
-    # For scalar series: explicit Add Row button with auto-incrementing replicate.
-    # Clears the editor key so the new row is seeded from session on next render.
-    if is_scalar:
-        next_rep = max((r.get("replicate") or 0 for r in rows), default=0) + 1
-        if st.button("+ Add row", key=f"lab_add_row_{idx}"):
-            rows.append({"value": None, "replicate": next_rep, "quality_code_id": None, "notes": None})
-            st.session_state.pop(editor_key, None)
-            st.rerun()
-
-    # Always pass the current rows DataFrame. Streamlit applies the incoming
-    # edit event on top of this data, so committed edits are never lost.
-    # Sync-back below keeps rows up-to-date after every render.
-    _empty_schema = pd.DataFrame(columns=["value", "replicate", "quality_code_id", "notes"])
-    seed_df = pd.DataFrame(rows) if rows else _empty_schema
-
-    edited = st.data_editor(
-        seed_df,
-        column_config=col_config,
-        use_container_width=True,
-        num_rows="fixed" if is_scalar else "dynamic",
-        key=editor_key,
-    )
-
-    # Sync back to session
-    if not edited.empty:
-        edited = edited.dropna(how="all")
-        sess["measurements"][s_key] = edited.to_dict("records")
-    else:
-        sess["measurements"][s_key] = []
-
-
-def _render_image_tab(sess: dict, _series_item: dict, idx: int) -> None:
-    """Simple image upload for Image value-kind series."""
     uploaded = st.file_uploader(
         "Select image file(s)",
         type=["jpg", "jpeg", "png", "tif", "tiff", "bmp"],
@@ -823,7 +1129,113 @@ def _render_image_tab(sess: dict, _series_item: dict, idx: int) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _render_submit() -> None:
+def _build_grid_measurements(
+    sess: dict, grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]]
+) -> list[dict]:
+    """Resolve Samples-grid rows referenced by populated Measurements rows into
+    created Samples, then build one LabMeasurementItem per populated value cell.
+
+    Each sample is created at most once (cached by ``sample_no``); a missing or
+    start-less sample surfaces its error once, not once per measurement row.
+    """
+    measurements: list[dict] = []
+    for sp_id, series_list in _grid_groups(sess).items():
+        value_cols = _grid_value_columns(series_list)
+        pair = grid_state.get(sp_id)
+        if pair is None:
+            continue
+        samples_df, values_df = pair
+
+        samples_by_no: dict[int, dict] = {}
+        for _, srow in samples_df.iterrows():
+            no = srow.get("sample_no")
+            if _has_value(no):
+                samples_by_no[int(no)] = srow
+
+        created: dict[int, int] = {}  # sample_no -> created sample_id
+        blocked: set[int] = set()
+
+        for _, vrow in values_df.iterrows():
+            populated = {k: vrow.get(k) for k in value_cols if _has_value(vrow.get(k))}
+            if not populated:
+                continue
+            no = vrow.get("sample_no")
+            if not _has_value(no):
+                st.error(f"A measurement row has no sample number (sampling point {sp_id}).")
+                continue
+            no = int(no)
+            if no in blocked:
+                continue
+            if no not in created:
+                srow = samples_by_no.get(no)
+                if srow is None:
+                    st.error(
+                        f"Measurement references sample #{no}, which isn't defined "
+                        f"in the Samples grid (sampling point {sp_id})."
+                    )
+                    blocked.add(no)
+                    continue
+                start_iso = _localize_to_utc(srow.get("start"))
+                if not start_iso:
+                    st.error(f"Sample #{no} has no start time (sampling point {sp_id}).")
+                    blocked.add(no)
+                    continue
+                kind_label = srow.get("sample_kind")
+                material_label = srow.get("sample_material")
+                label = srow.get("sample_label")
+                try:
+                    result = create_sample(
+                        {
+                            "sampling_point_id": sp_id,
+                            "campaign_id": sess.get("campaign_id"),
+                            "sample_datetime_start": start_iso,
+                            "sample_datetime_end": _localize_to_utc(srow.get("end")),
+                            "sample_collection_kind_id": _ck_label_to_id.get(
+                                srow.get("collection_kind")
+                            ),
+                            "sample_kind_id": _sk_name_to_id.get(kind_label)
+                            if _has_value(kind_label)
+                            else None,
+                            "sample_material_kind_id": _mk_name_to_id.get(material_label)
+                            if _has_value(material_label)
+                            else None,
+                            "sample_equipment_id": _eq_label_to_id.get(srow.get("equipment")),
+                            "description": label if _has_value(label) else None,
+                            "sampled_by_person_id": sess.get("created_by_person_id"),
+                        }
+                    )
+                except APIError as e:
+                    st.error(f"Failed to create sample #{no}: {e.message}")
+                    blocked.add(no)
+                    continue
+                created[no] = result["sample_id"]
+            sample_id = created[no]
+
+            replicate = vrow.get("replicate")
+            replicate = int(replicate) if _has_value(replicate) else 1
+            qc_label = vrow.get("quality_code")
+            quality_code_id = _qc_label_to_id.get(qc_label) if _has_value(qc_label) else None
+            notes = vrow.get("notes") if _has_value(vrow.get("notes")) else None
+            for col_key, value in populated.items():
+                s = value_cols[col_key]
+                measurements.append(
+                    {
+                        "parameter_id": s["parameter_id"],
+                        "sampling_point_id": sp_id,
+                        "unit_id": s["unit_id"],
+                        "value_kind_id": s.get("value_kind_id", 1),
+                        "series_name": s.get("name", ""),
+                        "sample_id": sample_id,
+                        "value": value,
+                        "replicate": replicate,
+                        "quality_code_id": quality_code_id,
+                        "notes": notes,
+                    }
+                )
+    return measurements
+
+
+def _render_submit(grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]]) -> None:
     sess = st.session_state.lab_session
 
     if not sess.get("series"):
@@ -831,15 +1243,19 @@ def _render_submit() -> None:
             "Submit", disabled=True, help="Assign at least one AnalysisSeries first."
         )
         return
-    _unique_sp_ids = {s.get("sampling_point_id") for s in sess.get("series", []) if s.get("sampling_point_id")}
+    _image_sp_ids = {
+        s.get("sampling_point_id") for s in _image_series(sess) if s.get("sampling_point_id")
+    }
     _resolved_sp_ids = {e["sampling_point_id"] for e in sess.get("samples", []) if e.get("sample_id")}
-    if not _unique_sp_ids.issubset(_resolved_sp_ids):
-        st.button("Submit", disabled=True, help="Create samples for all sampling points first.")
+    if not _image_sp_ids.issubset(_resolved_sp_ids):
+        st.button("Submit", disabled=True, help="Create samples for all image sampling points first.")
         return
 
-    total_measurements = sum(len(v) for v in sess["measurements"].values())
+    total_grid_rows = sum(len(v[1].index) for v in grid_state.values())
+    total_image_rows = sum(len(v) for v in sess["measurements"].values())
     st.caption(
-        f"Ready: {len(sess['series'])} series, {total_measurements} measurement row(s)."
+        f"Ready: {len(sess['series'])} series, {total_grid_rows} measurement row(s), "
+        f"{total_image_rows} image row(s)."
     )
 
     col_a, col_b = st.columns([1, 1])
@@ -851,10 +1267,12 @@ def _render_submit() -> None:
         st.button("🔄  Clear form", on_click=_reset_form, use_container_width=True)
 
     if submitted:
-        _do_submit(sess)
+        _do_submit(sess, grid_state)
 
 
-def _do_submit(sess: dict) -> None:
+def _do_submit(
+    sess: dict, grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]]
+) -> None:
     """Build LabIngestRequest and call the API."""
     if sess["mode"] in ("new", "panel") and not sess.get("name"):
         st.error("Experiment name is required.")
@@ -864,42 +1282,7 @@ def _do_submit(sess: dict) -> None:
         st.error("Select an experiment to append to.")
         return
 
-    measurements = []
-    for s_key, rows in sess["measurements"].items():
-        try:
-            idx = int(s_key)
-        except (ValueError, TypeError):
-            continue
-        if idx >= len(sess["series"]):
-            continue
-        series_item = sess["series"][idx]
-
-        sp_id = series_item.get("sampling_point_id")
-        sample_entry = next(
-            (e for e in sess.get("samples", []) if e["sampling_point_id"] == sp_id), None
-        )
-        sample_id = sample_entry["sample_id"] if sample_entry else None
-
-        for row in rows:
-            if row.get("file"):
-                # Image row — handled separately
-                continue
-            value = row.get("value")
-            vk = series_item.get("value_kind_id", 1)
-            measurements.append(
-                {
-                    "parameter_id": series_item["parameter_id"],
-                    "sampling_point_id": sp_id,
-                    "unit_id": series_item["unit_id"],
-                    "value_kind_id": vk,
-                    "series_name": series_item.get("name", ""),
-                    "sample_id": sample_id,
-                    "value": value,
-                    "replicate": row.get("replicate", 1),
-                    "quality_code_id": _qc_label_to_id.get(row.get("quality_code_id")) if row.get("quality_code_id") else None,
-                    "notes": row.get("notes"),
-                }
-            )
+    measurements = _build_grid_measurements(sess, grid_state)
 
     has_images = any(
         r.get("file")
@@ -1001,35 +1384,22 @@ def _do_submit(sess: dict) -> None:
 # ---------------------------------------------------------------------------
 
 st.title("Lab Analysis Ingest")
-st.markdown("Record laboratory analysis results. Expand each section, then submit.")
+st.markdown("Record laboratory analysis results, then submit.")
 
-_sess = st.session_state.lab_session
-if _sess.get("mode", "new") != "existing":
-    _camp_opts = [{"id": None, "label": "— none —"}] + [
-        {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
-    ]
-    _sel_camp = st.selectbox(
-        "Campaign",
-        options=[o["label"] for o in _camp_opts],
-        index=next((i for i, o in enumerate(_camp_opts) if o["id"] == _sess.get("campaign_id")), 0),
-        key="lab_top_campaign",
-    )
-    _sess["campaign_id"] = next((o["id"] for o in _camp_opts if o["label"] == _sel_camp), None)
+_render_header()
+st.divider()
 
-with st.expander("**1. Experiment**", expanded=True):
-    _render_experiment_step()
+_grid_state = _render_wide_grid()
 
-with st.expander(
-    "**2. Sample**",
-    expanded=bool(st.session_state.lab_session.get("series")),
-):
-    _render_sample_step()
+if _image_series(st.session_state.lab_session):
+    with st.expander("**Image samples**", expanded=True):
+        _render_sample_step()
 
-with st.expander(
-    "**3. Measurement Values**",
-    expanded=any(e.get("sample_id") for e in st.session_state.lab_session.get("samples", [])),
-):
-    _render_measurement_step()
+    with st.expander(
+        "**Image uploads**",
+        expanded=any(e.get("sample_id") for e in st.session_state.lab_session.get("samples", [])),
+    ):
+        _render_measurement_step()
 
 st.divider()
-_render_submit()
+_render_submit(_grid_state)
