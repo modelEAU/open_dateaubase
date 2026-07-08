@@ -1,0 +1,57 @@
+_format_version: "1.0"
+table:
+  name: SampleMaterialKind
+  schema: dbo
+  description: >
+    Controlled vocabulary describing the physical matrix (material) of a sample,
+    independent of its analytical role (see SampleKind). Referenced by
+    Sample.SampleMaterialKind_ID. Seeded with common wastewater-treatment-plant
+    matrices; extend via the CRUD UI as needed.
+
+  columns:
+    - name: SampleMaterialKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 50
+      nullable: false
+      description: "Sample material name (e.g. 'mixed liquor', 'tap water')"
+
+    - name: Description
+      logical_type: string
+      max_length: 200
+      nullable: true
+      description: "Explanation of what this sample material represents"
+
+  primary_key: [SampleMaterialKind_ID]
+
+  seed_data:
+    - { SampleMaterialKind_ID: 1,  Name: "grit",                     Description: "Sand, gravel, and heavy inert solids removed at the headworks" }
+    - { SampleMaterialKind_ID: 2,  Name: "domestic wastewater",      Description: "Sanitary sewage of primarily domestic origin" }
+    - { SampleMaterialKind_ID: 3,  Name: "combined wastewater",      Description: "Mixed sanitary and stormwater flow from a combined sewer" }
+    - { SampleMaterialKind_ID: 4,  Name: "stormwater",               Description: "Runoff collected from rainfall or snowmelt" }
+    - { SampleMaterialKind_ID: 5,  Name: "preliminary effluent",     Description: "Flow after preliminary treatment (screening, grit removal)" }
+    - { SampleMaterialKind_ID: 6,  Name: "primary effluent",         Description: "Clarified flow leaving primary settling" }
+    - { SampleMaterialKind_ID: 7,  Name: "secondary effluent",       Description: "Clarified flow leaving secondary (biological) treatment" }
+    - { SampleMaterialKind_ID: 8,  Name: "tertiary effluent",        Description: "Flow leaving tertiary/advanced treatment or final polishing" }
+    - { SampleMaterialKind_ID: 9,  Name: "mixed liquor",             Description: "Aerated mixture of wastewater and activated sludge in the bioreactor" }
+    - { SampleMaterialKind_ID: 10, Name: "settled activated sludge", Description: "Settled biomass returned or wasted from clarifiers (RAS/WAS)" }
+    - { SampleMaterialKind_ID: 11, Name: "floating activated sludge",Description: "Poorly-settling (bulking) flocs floating at the surface of basins or clarifiers" }
+    - { SampleMaterialKind_ID: 12, Name: "sludge blanket",           Description: "Settled sludge layer at the bottom of a clarifier or thickener" }
+    - { SampleMaterialKind_ID: 13, Name: "scum/foam",                Description: "Floating scum or biological foam skimmed from tank surfaces" }
+    - { SampleMaterialKind_ID: 14, Name: "digester sludge",          Description: "Sludge inside an anaerobic or aerobic digester" }
+    - { SampleMaterialKind_ID: 15, Name: "digestate",                Description: "Combined liquid/solid output of a digestion process" }
+    - { SampleMaterialKind_ID: 16, Name: "digested sludge",          Description: "Stabilised sludge withdrawn after digestion" }
+    - { SampleMaterialKind_ID: 17, Name: "dewatered sludge",         Description: "Sludge cake after mechanical dewatering" }
+    - { SampleMaterialKind_ID: 18, Name: "dried sludge",             Description: "Thermally or air-dried sludge solids" }
+    - { SampleMaterialKind_ID: 19, Name: "concentrate",              Description: "Reject/retentate stream from a membrane process" }
+    - { SampleMaterialKind_ID: 20, Name: "permeate",                 Description: "Filtered stream passing through a membrane" }
+    - { SampleMaterialKind_ID: 21, Name: "tap water",                Description: "Potable water from the distribution network" }
+    - { SampleMaterialKind_ID: 22, Name: "demineralized water",      Description: "Water with dissolved minerals removed" }
+    - { SampleMaterialKind_ID: 23, Name: "deionized water",          Description: "Water with ions removed by ion exchange" }
+    - { SampleMaterialKind_ID: 24, Name: "nanofiltered water",       Description: "Water treated by nanofiltration" }
+    - { SampleMaterialKind_ID: 25, Name: "ultrafiltered water",      Description: "Water treated by ultrafiltration" }

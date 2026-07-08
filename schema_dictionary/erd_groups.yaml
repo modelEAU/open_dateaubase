@@ -78,6 +78,7 @@ groups:
       - LabPanelSeries
       - Sample
       - SampleKind
+      - SampleMaterialKind
       - SampleCollectionKind
       - ReviewStatus
 

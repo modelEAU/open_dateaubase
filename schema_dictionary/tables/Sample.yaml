@@ -20,10 +20,17 @@ table:
     - name: SampleKind_ID
       logical_type: integer
       nullable: true
-      description: "Nature of the sample (FK to SampleKind lookup table)"
+      description: "Analytical role of the sample (FK to SampleKind lookup table, e.g. Field/Blank/Standard)"
       foreign_key:
         table: SampleKind
         column: SampleKind_ID
+    - name: SampleMaterialKind_ID
+      logical_type: integer
+      nullable: true
+      description: "Physical matrix/material of the sample (FK to SampleMaterialKind lookup table, e.g. wastewater/mixed liquor)"
+      foreign_key:
+        table: SampleMaterialKind
+        column: SampleMaterialKind_ID
     - name: SamplingPoint_ID
       logical_type: integer
       nullable: false
