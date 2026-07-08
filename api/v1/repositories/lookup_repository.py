@@ -638,6 +638,39 @@ def delete_sample_kind(conn: pyodbc.Connection, sample_kind_id: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# SampleMaterialKind (physical matrix vocabulary; IDENTITY PK, CRUD-editable)
+# ---------------------------------------------------------------------------
+
+
+def get_sample_material_kinds(conn: pyodbc.Connection) -> list[dict]:
+    return _list_kinds(
+        conn, "SampleMaterialKind", "SampleMaterialKind_ID", "sample_material_kind_id"
+    )
+
+
+def insert_sample_material_kind(
+    conn: pyodbc.Connection, name: str, description: str | None = None
+) -> dict:
+    return _insert_kind(
+        conn, "SampleMaterialKind", "SampleMaterialKind_ID", "sample_material_kind_id",
+        name, description,
+    )
+
+
+def update_sample_material_kind(
+    conn: pyodbc.Connection, sample_material_kind_id: int, name: str, description: str | None = None
+) -> dict | None:
+    return _update_kind(
+        conn, "SampleMaterialKind", "SampleMaterialKind_ID", "sample_material_kind_id",
+        sample_material_kind_id, name, description,
+    )
+
+
+def delete_sample_material_kind(conn: pyodbc.Connection, sample_material_kind_id: int) -> bool:
+    return _delete_kind(conn, "SampleMaterialKind", "SampleMaterialKind_ID", sample_material_kind_id)
+
+
+# ---------------------------------------------------------------------------
 # SampleCollectionKind
 # ---------------------------------------------------------------------------
 

@@ -688,6 +688,8 @@ def insert_sample(
     sample_datetime_start: datetime,
     sample_datetime_end: datetime | None,
     sample_collection_kind_id: int | None = None,
+    sample_kind_id: int | None = None,
+    sample_material_kind_id: int | None = None,
     sample_equipment_id: int | None = None,
     description: str | None,
 ) -> int:
@@ -698,10 +700,10 @@ def insert_sample(
         INSERT INTO [dbo].[Sample]
             ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID],
              [SampleDateTimeStart], [SampleDateTimeEnd],
-             [SampleCollectionKind_ID], [SampleEquipment_ID],
-             [Description])
+             [SampleCollectionKind_ID], [SampleKind_ID], [SampleMaterialKind_ID],
+             [SampleEquipment_ID], [Description])
         OUTPUT INSERTED.[Sample_ID]
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         sampling_point_id,
         sampled_by_person_id,
@@ -709,6 +711,8 @@ def insert_sample(
         sample_datetime_start,
         sample_datetime_end,
         sample_collection_kind_id,
+        sample_kind_id,
+        sample_material_kind_id,
         sample_equipment_id,
         description,
     )
@@ -934,8 +938,17 @@ def create_analysis_series(
     return stream_id
 
 
-def list_lab_panels(conn: pyodbc.Connection) -> list[dict]:
-    """Return templates with series count."""
+def list_lab_panels(
+    conn: pyodbc.Connection, campaign_id: int | None = None
+) -> list[dict]:
+    """Return templates with series count.
+
+    When ``campaign_id`` is given, only panels *relevant to that campaign* are
+    returned — a panel is relevant if any of its series sit at a sampling point
+    the campaign samples (LabPanelSeries → AnalysisSeries.SamplingPoint_ID →
+    CampaignSamplingLocation). Panels have no Campaign_ID of their own (they're
+    reusable across campaigns), so the scoping is derived through location.
+    """
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -946,11 +959,23 @@ def list_lab_panels(conn: pyodbc.Connection) -> list[dict]:
             t.[CreatedByPerson_ID],
             t.[DefaultSampleCollectionKind_ID],
             t.[DefaultSampleEquipment_ID],
+            t.[DefaultSampleKind_ID],
+            t.[DefaultSampleMaterialKind_ID],
             (SELECT COUNT(*) FROM [dbo].[LabPanelSeries] ts
              WHERE ts.[LabPanel_ID] = t.[LabPanel_ID]) AS [SeriesCount]
         FROM [dbo].[LabPanel] t
+        WHERE (? IS NULL) OR EXISTS (
+            SELECT 1
+            FROM [dbo].[LabPanelSeries] lps
+            JOIN [dbo].[AnalysisSeries] a ON a.[Stream_ID] = lps.[AnalysisSeries_ID]
+            JOIN [dbo].[CampaignSamplingLocation] csl
+                ON csl.[SamplingPoint_ID] = a.[SamplingPoint_ID]
+            WHERE lps.[LabPanel_ID] = t.[LabPanel_ID] AND csl.[Campaign_ID] = ?
+        )
         ORDER BY t.[Name]
-        """
+        """,
+        campaign_id,
+        campaign_id,
     )
     return [
         {
@@ -960,7 +985,9 @@ def list_lab_panels(conn: pyodbc.Connection) -> list[dict]:
             "created_by_person_id": r[3],
             "default_sample_collection_kind_id": r[4],
             "default_sample_equipment_id": r[5],
-            "series_count": r[6],
+            "default_sample_kind_id": r[6],
+            "default_sample_material_kind_id": r[7],
+            "series_count": r[8],
         }
         for r in cursor.fetchall()
     ]
@@ -1017,6 +1044,8 @@ def create_lab_panel(
     created_by_person_id: int | None = None,
     default_sample_collection_kind_id: int | None = None,
     default_sample_equipment_id: int | None = None,
+    default_sample_kind_id: int | None = None,
+    default_sample_material_kind_id: int | None = None,
     series_ids: list[int],
 ) -> int:
     """Insert a template and its series rows in a transaction. Returns Template_ID."""
@@ -1025,15 +1054,18 @@ def create_lab_panel(
         """
         INSERT INTO [dbo].[LabPanel]
             ([Name], [Description], [CreatedByPerson_ID],
-             [DefaultSampleCollectionKind_ID], [DefaultSampleEquipment_ID])
+             [DefaultSampleCollectionKind_ID], [DefaultSampleEquipment_ID],
+             [DefaultSampleKind_ID], [DefaultSampleMaterialKind_ID])
         OUTPUT INSERTED.[LabPanel_ID]
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         name,
         description,
         created_by_person_id,
         default_sample_collection_kind_id,
         default_sample_equipment_id,
+        default_sample_kind_id,
+        default_sample_material_kind_id,
     )
     template_id: int = cursor.fetchone()[0]
     for sid in series_ids:
@@ -1115,6 +1147,12 @@ def patch_lab_panel(
     if "default_sample_equipment_id" in data:
         fields.append("[DefaultSampleEquipment_ID]=?")
         values.append(data["default_sample_equipment_id"])
+    if "default_sample_kind_id" in data:
+        fields.append("[DefaultSampleKind_ID]=?")
+        values.append(data["default_sample_kind_id"])
+    if "default_sample_material_kind_id" in data:
+        fields.append("[DefaultSampleMaterialKind_ID]=?")
+        values.append(data["default_sample_material_kind_id"])
 
     if fields:
         values.append(lab_panel_id)

@@ -37,6 +37,7 @@ from .endpoints.persons import router as persons_router
 from .endpoints.quality_codes import router as quality_codes_router
 from .endpoints.lab_lookup import (
     sample_kinds_router,
+    sample_material_kinds_router,
     sample_collection_kinds_router,
 )
 from .endpoints.process_units import (
@@ -114,6 +115,9 @@ protected.include_router(
 )
 protected.include_router(
     sample_kinds_router, prefix="/sample-kinds", tags=["sample-types"]
+)
+protected.include_router(
+    sample_material_kinds_router, prefix="/sample-material-kinds", tags=["sample-materials"]
 )
 protected.include_router(
     sample_collection_kinds_router, prefix="/sample-collection-kinds", tags=["sample-methods"]
