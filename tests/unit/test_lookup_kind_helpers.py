@@ -82,3 +82,15 @@ def test_named_wrapper_targets_correct_table_and_key():
     rows = lr.get_das_kinds(conn)
     assert rows == [{"das_kind_id": 5, "name": "SCADA", "description": None}]
     assert "FROM [dbo].[DataAcquisitionSystemKind]" in _sql(cursor)
+
+
+def test_sample_material_kind_wrappers_target_table_and_key():
+    conn, cursor = _conn(fetchall=[(10, "mixed liquor", "desc")])
+    rows = lr.get_sample_material_kinds(conn)
+    assert rows == [{"sample_material_kind_id": 10, "name": "mixed liquor", "description": "desc"}]
+    assert "FROM [dbo].[SampleMaterialKind]" in _sql(cursor)
+
+    conn, cursor = _conn(fetchone=(11, "digestate", None))
+    out = lr.insert_sample_material_kind(conn, "digestate")
+    assert out == {"sample_material_kind_id": 11, "name": "digestate", "description": None}
+    assert "INSERT INTO [dbo].[SampleMaterialKind]" in _sql(cursor)
