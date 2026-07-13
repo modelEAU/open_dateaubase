@@ -24,6 +24,7 @@ from app.api_client import (
 )
 from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
+from app.components.labels import ALL_LABEL
 
 st.set_page_config(page_title="Process Units", layout="wide")
 
@@ -43,7 +44,7 @@ site_options = {s["name"]: s["id"] for s in sites_list}
 
 selected_site_name = st.selectbox(
     "Filter by site",
-    options=["(all sites)"] + list(site_options.keys()),
+    options=[ALL_LABEL] + list(site_options.keys()),
     key="pu_site_filter",
     help="Show only process units belonging to this site",
 )

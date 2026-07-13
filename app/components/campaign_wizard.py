@@ -36,7 +36,10 @@ from app.api_client import (
     list_process_units_lookup,
     register_equipment_at_interface,
 )
+from app.components.kind_select import kind_caption, kind_options
 from app.components.location_picker import render_location_picker
+from app.components.labels import NONE_LABEL
+from app.components.schema_registry import describe, describe_table
 
 STEPS = [
     "Campaign basics",
@@ -313,22 +316,39 @@ def _eq_display_label(eq_wiz_id: int) -> str:
 
 def _step_campaign(lookups: dict) -> None:
     _restore_snapshot(0)
-    type_opts = [
-        {"id": t["campaign_kind_id"], "label": t["name"]}
-        for t in lookups["campaign_kinds"]
-    ]
+    type_opts = kind_options(lookups["campaign_kinds"], "campaign_kind_id")
     type_labels = [o["label"] for o in type_opts]
     person_opts: list[dict] = lookups.get("persons", [])
     person_labels = [p["label"] for p in person_opts]
 
-    st.text_input("Campaign name *", key="wiz_s0_name")
+    st.text_input(
+        "Campaign name *", key="wiz_s0_name", help=describe("Campaign", "name")
+    )
     if type_labels:
-        st.selectbox("Campaign type *", type_labels, key="wiz_s0_campaign_type")
+        st.selectbox(
+            "Campaign type *",
+            type_labels,
+            key="wiz_s0_campaign_type",
+            help=describe("Campaign", "campaign_kind_id"),
+        )
+        kind_caption(type_opts, st.session_state.get("wiz_s0_campaign_type"))
     else:
         st.warning("No campaign types found in the database.")
-    st.date_input("Start date", key="wiz_s0_start_date", value=None)
-    st.date_input("End date", key="wiz_s0_end_date", value=None)
-    st.text_area("Description", key="wiz_s0_description")
+    st.date_input(
+        "Start date",
+        key="wiz_s0_start_date",
+        value=None,
+        help=describe("Campaign", "campaign_start_date_time"),
+    )
+    st.date_input(
+        "End date",
+        key="wiz_s0_end_date",
+        value=None,
+        help=describe("Campaign", "campaign_end_date_time"),
+    )
+    st.text_area(
+        "Description", key="wiz_s0_description", help=describe("Campaign", "description")
+    )
 
     # Responsible person — required
     person_mode = st.radio(
@@ -336,6 +356,10 @@ def _step_campaign(lookups: dict) -> None:
         ["Select existing", "Create new"],
         key="wiz_s0_person_mode",
         horizontal=True,
+        help=(
+            "Pick a person already in the database, or switch to Create new to fill in "
+            "the fields below — a new Person record is then written along with the campaign."
+        ),
     )
     if person_mode == "Select existing":
         if person_labels:
@@ -343,22 +367,41 @@ def _step_campaign(lookups: dict) -> None:
                 "Select person *",
                 person_labels,
                 key="wiz_s0_responsible_person",
+                help=describe("Campaign", "responsible_person_id"),
             )
         else:
             st.info("No persons found. Switch to **Create new** to add one.")
     else:
         col_fn, col_ln = st.columns(2)
         with col_fn:
-            st.text_input("First name", key="wiz_s0_person_first_name")
+            st.text_input(
+                "First name",
+                key="wiz_s0_person_first_name",
+                help=describe("Person", "first_name"),
+            )
         with col_ln:
-            st.text_input("Last name", key="wiz_s0_person_last_name")
-        st.text_input("Email", key="wiz_s0_person_email")
-        st.text_input("Role / function", key="wiz_s0_person_role")
+            st.text_input(
+                "Last name",
+                key="wiz_s0_person_last_name",
+                help=describe("Person", "last_name"),
+            )
+        st.text_input(
+            "Email", key="wiz_s0_person_email", help=describe("Person", "email")
+        )
+        st.text_input(
+            "Role / function", key="wiz_s0_person_role", help=describe("Person", "role")
+        )
         col_org, col_ph = st.columns(2)
         with col_org:
-            st.text_input("Organization", key="wiz_s0_person_organization")
+            st.text_input(
+                "Organization",
+                key="wiz_s0_person_organization",
+                help=describe("Person", "company"),
+            )
         with col_ph:
-            st.text_input("Phone", key="wiz_s0_person_phone")
+            st.text_input(
+                "Phone", key="wiz_s0_person_phone", help=describe("Person", "phone")
+            )
 
     def on_next() -> list[str]:
         errors: list[str] = []
@@ -396,7 +439,14 @@ def _step_site(lookups: dict) -> None:
     site_labels = [o["label"] for o in site_opts]
 
     mode = st.radio(
-        "Site", ["Use existing", "Create new"], key="wiz_s1_mode", horizontal=True
+        "Site",
+        ["Use existing", "Create new"],
+        key="wiz_s1_mode",
+        horizontal=True,
+        help=(
+            "Use existing attaches the campaign to a site already in the database; "
+            "Create new writes a new Site record from the fields below when you confirm."
+        ),
     )
 
     def _sync_site_label() -> None:
@@ -416,6 +466,7 @@ def _step_site(lookups: dict) -> None:
                 site_labels,
                 key="wiz_s1_site_label",
                 on_change=_sync_site_label,
+                help=describe_table("Site"),
             )
             # Initialize store if absent (covers first render before on_change).
             if "wiz_s1_site_label_store" not in st.session_state:
@@ -426,23 +477,30 @@ def _step_site(lookups: dict) -> None:
             st.info("No sites found. Switch to **Create new** to add one.")
     else:
         st.text_input(
-            "Site name *", key="wiz_s1_site_name", on_change=_sync_site_name
+            "Site name *",
+            key="wiz_s1_site_name",
+            on_change=_sync_site_name,
+            help=describe("Site", "name"),
         )
         if "wiz_s1_site_name_store" not in st.session_state:
             st.session_state["wiz_s1_site_name_store"] = st.session_state.get(
                 "wiz_s1_site_name"
             )
-        site_type_opts = [
-            {"id": t["id"], "label": t["name"]} for t in lookups["site_kinds"]
-        ]
+        site_type_opts = kind_options(lookups["site_kinds"], "id")
         site_type_labels = [""] + [o["label"] for o in site_type_opts]
         st.selectbox(
             "Site type",
             options=site_type_labels,
             index=0,
             key="wiz_s1_site_type_label",
+            help=describe("Site", "site_kind_id"),
         )
-        st.text_area("Description", key="wiz_s1_site_description")
+        kind_caption(site_type_opts, st.session_state.get("wiz_s1_site_type_label"))
+        st.text_area(
+            "Description",
+            key="wiz_s1_site_description",
+            help=describe("Site", "description"),
+        )
         st.divider()
         st.write("**Location**")
         render_location_picker(key_prefix="wiz_site")
@@ -528,6 +586,11 @@ def _step_sampling_locations(lookups: dict) -> None:
                     ["New", "Existing"],
                     key=f"wiz_sl_{sl_id}_mode",
                     horizontal=True,
+                    help=(
+                        "New creates a sampling location on the selected site; "
+                        "Existing reuses one already recorded there and only links it "
+                        "to this campaign."
+                    ),
                 )
             else:
                 mode = "New"
@@ -545,6 +608,7 @@ def _step_sampling_locations(lookups: dict) -> None:
                     sl_labels,
                     key=f"wiz_sl_{sl_id}_existing_label",
                     on_change=_sync_existing,
+                    help=describe_table("SamplingPoint"),
                 )
                 # Initialize store if needed
                 if f"wiz_sl_{sl_id}_existing_label_store" not in st.session_state:
@@ -564,12 +628,16 @@ def _step_sampling_locations(lookups: dict) -> None:
                     )
 
                 st.text_input(
-                    "Name *", key=f"wiz_sl_{sl_id}_name", on_change=_sync_name
+                    "Name *",
+                    key=f"wiz_sl_{sl_id}_name",
+                    on_change=_sync_name,
+                    help=describe("SamplingPoint", "sampling_point"),
                 )
                 st.text_area(
                     "Description",
                     key=f"wiz_sl_{sl_id}_description",
                     on_change=_sync_desc,
+                    help=describe("SamplingPoint", "description"),
                 )
 
                 # Process unit — Existing or New
@@ -578,6 +646,11 @@ def _step_sampling_locations(lookups: dict) -> None:
                     ["None", "Existing", "New"],
                     key=f"wiz_sl_{sl_id}_pu_mode",
                     horizontal=True,
+                    help=(
+                        "Whether this sampling location sits inside a process unit, and "
+                        "whether that unit already exists or is created here. None leaves "
+                        "the location unattached to any unit."
+                    ),
                 )
                 if pu_mode == "Existing":
                     pu_opts = lookups.get("process_units", [])
@@ -586,15 +659,20 @@ def _step_sampling_locations(lookups: dict) -> None:
                             "Select process unit *",
                             [p["name"] for p in pu_opts],
                             key=f"wiz_sl_{sl_id}_pu_existing",
+                            help=describe("SamplingPoint", "process_unit_id"),
                         )
                     else:
                         st.info("No process units found. Switch to **New**.")
                 elif pu_mode == "New":
-                    st.text_input("Process unit name *", key=f"wiz_sl_{sl_id}_pu_name")
+                    st.text_input(
+                        "Process unit name *",
+                        key=f"wiz_sl_{sl_id}_pu_name",
+                        help=describe("ProcessUnit", "name"),
+                    )
                     st.text_input(
                         "P&ID Tag *",
                         key=f"wiz_sl_{sl_id}_pu_tag",
-                        help="Short identifier, e.g. PU-001",
+                        help=describe("ProcessUnit", "tag"),
                     )
 
                 st.file_uploader(
@@ -727,6 +805,11 @@ def _step_das(lookups: dict) -> None:
                 ["Existing", "New"],
                 key=f"wiz_das_{das_id}_mode",
                 horizontal=True,
+                help=(
+                    "Existing reuses a Data Acquisition System already in the database "
+                    "(and warns if it is currently active at another site); New registers "
+                    "one from the name below."
+                ),
             )
 
             if mode == "Existing":
@@ -735,6 +818,7 @@ def _step_das(lookups: dict) -> None:
                         "Select Data Acquisition System *",
                         das_labels,
                         key=f"wiz_das_{das_id}_das_label",
+                        help=describe_table("DataAcquisitionSystem"),
                     )
                     # Conflict check: warn if this DAS is currently active at a different site.
                     selected_label = st.session_state.get(f"wiz_das_{das_id}_das_label")
@@ -841,10 +925,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
         {"id": p["parameter_id"], "label": p["parameter_name"]}
         for p in lookups["parameters"]
     ]
-    pd_opts = [
-        {"id": p["operation_kind_id"], "label": p["name"]}
-        for p in lookups["operation_kinds"]
-    ]
+    pd_opts = kind_options(lookups["operation_kinds"], "operation_kind_id")
     param_labels = [o["label"] for o in param_opts]
     pd_labels = [o["label"] for o in pd_opts]
     vt_labels = [o["label"] for o in _VALUE_TYPES]
@@ -911,6 +992,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                     ["Existing", "New"],
                     key=f"wiz_eq_{item_id}_mode",
                     horizontal=True,
+                    help="Reuse a piece of equipment already in the database, or register one that isn't there yet.",
                 )
 
                 if eq_mode == "Existing":
@@ -919,6 +1001,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                             "Select equipment *",
                             eq_labels,
                             key=f"wiz_eq_{item_id}_eq_label",
+                            help=describe_table("Equipment"),
                         )
                     else:
                         st.info("No existing equipment found. Switch to **New**.")
@@ -928,6 +1011,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                         ["Select existing", "Create new"],
                         key=f"wiz_eq_{item_id}_model_mode",
                         horizontal=True,
+                        help=describe_table("EquipmentModel"),
                     )
                     if model_mode == "Select existing":
                         if model_labels:
@@ -935,6 +1019,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                                 "Equipment model *",
                                 model_labels,
                                 key=f"wiz_eq_{item_id}_model",
+                                help=describe("Equipment", "equipment_model_id"),
                             )
                         else:
                             st.warning(
@@ -942,10 +1027,14 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                             )
                     else:
                         st.text_input(
-                            "Manufacturer", key=f"wiz_eq_{item_id}_model_manufacturer"
+                            "Manufacturer",
+                            key=f"wiz_eq_{item_id}_model_manufacturer",
+                            help=describe("EquipmentModel", "manufacturer"),
                         )
                         st.text_input(
-                            "Model name *", key=f"wiz_eq_{item_id}_model_name_new"
+                            "Model name *",
+                            key=f"wiz_eq_{item_id}_model_name_new",
+                            help=describe("EquipmentModel", "equipment_model"),
                         )
                         # Measurable parameters for new equipment model
                         if param_labels:
@@ -956,9 +1045,15 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                                 help="Select the parameters this equipment model can measure",
                             )
                     st.text_input(
-                        "Identifier / tag *", key=f"wiz_eq_{item_id}_identifier"
+                        "Identifier / tag *",
+                        key=f"wiz_eq_{item_id}_identifier",
+                        help=describe("Equipment", "identifier"),
                     )
-                    st.text_input("Serial number", key=f"wiz_eq_{item_id}_serial")
+                    st.text_input(
+                        "Serial number",
+                        key=f"wiz_eq_{item_id}_serial",
+                        help=describe("Equipment", "serial_number"),
+                    )
 
                 if sl_named_ids:
                     # Build label->ID mapping for reliable selection
@@ -984,6 +1079,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                         sl_label_list,
                         index=default_index,
                         key=f"wiz_eq_{item_id}_sp_label",
+                        help="Where this equipment is installed — one of the sampling locations you defined in step 2.",
                     )
                     # Always sync the ID from the selected label
                     selected_idx = sl_label_list.index(selected_label)
@@ -1016,6 +1112,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                     ["Existing", "New"],
                     key=f"wiz_tag_{tid}_mode",
                     horizontal=True,
+                    help=describe_table("SignalInterface"),
                 )
 
                 if tag_mode == "Existing":
@@ -1024,6 +1121,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                             "Signal Interface *",
                             existing_si_labels,
                             key=f"wiz_tag_{tid}_existing_label",
+                            help=describe("Channel", "signal_interface_id"),
                         )
                     else:
                         st.info(
@@ -1041,6 +1139,7 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                             "Parameter *",
                             param_labels,
                             key=f"wiz_tag_{tid}_parameter",
+                            help=describe("Channel", "parameter_id"),
                         )
                     else:
                         st.warning("No parameters found in the database.")
@@ -1048,9 +1147,10 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                         "Value type *",
                         vt_labels,
                         key=f"wiz_tag_{tid}_value_type",
+                        help=describe("Channel", "value_kind_id"),
                     )
                     if pd_labels:
-                        _pd_all = ["(none)"] + pd_labels
+                        _pd_all = [NONE_LABEL] + pd_labels
                         _pd_key = f"wiz_tag_{tid}_operation_kind"
                         if _pd_key not in st.session_state:
                             # Pre-seed "Unprocessed" as default without using
@@ -1068,7 +1168,9 @@ def _step_equipment_and_tags(lookups: dict) -> None:
                             "Operation kind",
                             _pd_all,
                             key=_pd_key,
+                            help=describe("ProcessingStep", "operation_kind_id"),
                         )
+                        kind_caption(pd_opts, st.session_state.get(_pd_key))
 
         # Add buttons row - mutually exclusive choice
         col_eq, col_tag = st.columns(2)
@@ -1299,7 +1401,7 @@ def _step_review(lookups: dict) -> None:
             st.markdown("**Will be created:**")
             for eid in new_eq:
                 sp_wid = st.session_state.get(f"wiz_eq_{eid}_sp_id")
-                sp = _sl_display_label(sp_wid) if sp_wid is not None else "(none)"
+                sp = _sl_display_label(sp_wid) if sp_wid is not None else NONE_LABEL
                 das_wid = st.session_state.get(f"wiz_eq_{eid}_das_wiz_id")
                 das_lbl = _das_display_label(das_wid) if das_wid is not None else "?"
                 st.markdown(
@@ -1310,7 +1412,7 @@ def _step_review(lookups: dict) -> None:
             st.markdown("**Already exists / will be linked:**")
             for eid in exist_eq:
                 sp_wid = st.session_state.get(f"wiz_eq_{eid}_sp_id")
-                sp = _sl_display_label(sp_wid) if sp_wid is not None else "(none)"
+                sp = _sl_display_label(sp_wid) if sp_wid is not None else NONE_LABEL
                 st.markdown(f"- **{_eq_display_label(eid)}** (sampling point: {sp})")
 
     # Channels (standalone)

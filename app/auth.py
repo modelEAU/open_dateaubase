@@ -96,8 +96,17 @@ def _show_auth_page() -> None:
 
     with tab_login:
         with st.form("login_form"):
-            email = st.text_input("Email", key="login_email")
-            password = st.text_input("Password", type="password", key="login_password")
+            email = st.text_input(
+                "Email",
+                key="login_email",
+                help="The email address your account was created with.",
+            )
+            password = st.text_input(
+                "Password",
+                type="password",
+                key="login_password",
+                help="Signing in stores an access token for this browser session.",
+            )
             submitted = st.form_submit_button("Sign in")
 
         if submitted:
@@ -113,11 +122,27 @@ def _show_auth_page() -> None:
 
     with tab_signup:
         with st.form("signup_form"):
-            full_name = st.text_input("Full name", key="signup_full_name")
-            email = st.text_input("Email", key="signup_email")
-            password = st.text_input("Password", type="password", key="signup_password")
+            full_name = st.text_input(
+                "Full name",
+                key="signup_full_name",
+                help="Shown next to the records you create and in the audit log.",
+            )
+            email = st.text_input(
+                "Email",
+                key="signup_email",
+                help="Identifies your account; you sign in with it.",
+            )
+            password = st.text_input(
+                "Password",
+                type="password",
+                key="signup_password",
+                help="Must be at least 8 characters.",
+            )
             confirm_password = st.text_input(
-                "Confirm password", type="password", key="signup_confirm_password"
+                "Confirm password",
+                type="password",
+                key="signup_confirm_password",
+                help="Must match the password above, or the account is not created.",
             )
             submitted = st.form_submit_button("Create account")
 

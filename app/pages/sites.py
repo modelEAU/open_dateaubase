@@ -25,6 +25,7 @@ from app.api_client import (
 )
 from app.api_client import list_site_sampling_locations
 from app.components.crud_form import render_form_field
+from app.components.schema_registry import describe
 from app.components.id_format import humanize_id_columns
 from app.components.location_picker import render_location_picker, _clear_location_state
 
@@ -136,6 +137,7 @@ def _render_sampling_locations(site_id: int) -> None:
                     "Upload photo",
                     type=["jpg", "jpeg", "png"],
                     key=f"sp_upload_{sp_id}",
+                    help=describe("SamplingPoint", "picture_path"),
                 )
                 if uploaded is not None:
                     try:

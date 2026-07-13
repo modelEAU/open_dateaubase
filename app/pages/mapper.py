@@ -25,6 +25,8 @@ import pandas as pd
 import streamlit as st
 
 import app.api_client as api
+from app.components.labels import NONE_LABEL
+from app.components.schema_registry import describe
 from app.components.resolver import (
     TARGET_LEVELS,
     EntityResolver,
@@ -965,7 +967,13 @@ def mapper_page() -> None:
             return
 
         if len(sheet_names) > 1:
-            sheet_name = st.selectbox("Sheet", options=sheet_names, index=0, key="mapper_sheet")
+            sheet_name = st.selectbox(
+                "Sheet",
+                options=sheet_names,
+                index=0,
+                key="mapper_sheet",
+                help="Which worksheet of the uploaded workbook to map.",
+            )
         else:
             sheet_name = sheet_names[0]
             st.info(f"Sheet: **{sheet_name}**")
@@ -1038,6 +1046,7 @@ def mapper_page() -> None:
                     options=active_roles,
                     index=0,
                     key=f"mapper_role_{col_name}",
+                    help=f"What '{col_name}' holds in the data model — pick the role this spreadsheet column plays, or leave it unmapped to ignore the column.",
                 )
                 role_map[col_name] = role
 
@@ -1076,6 +1085,7 @@ def mapper_page() -> None:
                 options=config_files,
                 format_func=lambda p: p.stem,
                 key="mapper_cfg_select",
+                help="Reload a column-to-role mapping you saved earlier for a spreadsheet of this shape.",
             )
             if st.button("Load", key="mapper_cfg_load") and selected_cfg_path is not None:
                 try:
@@ -1278,11 +1288,13 @@ def mapper_page() -> None:
         "Experiment name",
         value=f"Mapper import {datetime.now(tz=timezone.utc).strftime('%Y-%m-%d %H:%M')}",
         key="mapper_exp_name",
+        help=describe("LabExperiment", "name"),
     )
     exp_datetime = st.text_input(
         "Experiment datetime (ISO, UTC)",
         value=datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
         key="mapper_exp_datetime",
+        help=describe("LabExperiment", "experiment_date_time"),
     )
 
     col_submit, col_info = st.columns([1, 3])
@@ -1648,13 +1660,15 @@ def _logbook_resolve_and_submit(
                         options=level_names,
                         index=level_names.index(guess) if guess in level_names else 0,
                         key=f"mapper_logbook_lvl_{ri}",
+                        help="Which kind of entity this logbook row is about. It decides what the Target list offers.",
                     )
                 opts = pools.get(level, [])
                 with ent_col:
                     choice = st.selectbox(
                         "Target",
-                        options=["— pick —"] + [o["label"] for o in opts],
+                        options=[NONE_LABEL] + [o["label"] for o in opts],
                         key=f"mapper_logbook_ent_{ri}",
+                        help="The specific entity this logbook row attaches to.",
                     )
                 col_apply, col_bulk = st.columns(2)
                 picked = next((o for o in opts if o["label"] == choice), None)
@@ -1800,9 +1814,11 @@ def _maintenance_resolve_and_submit(
     lvl_col, ent_col = st.columns(2)
     with lvl_col:
         level = st.selectbox(
-            "Target level", level_names,
+            "Target level",
+            level_names,
             index=level_names.index(default_level),
             key="mapper_maint_level",
+            help="Which kind of entity this maintenance record is about. It decides what the Target list offers.",
         )
     opts = pools.get(level, [])
     labels = [o["label"] for o in opts]
@@ -1811,10 +1827,16 @@ def _maintenance_resolve_and_submit(
         return
     default_ix = labels.index(guess["label"]) if guess and guess["level"] == level and guess["label"] in labels else 0
     with ent_col:
-        choice = st.selectbox("Target", labels, index=default_ix, key="mapper_maint_entity")
+        choice = st.selectbox(
+            "Target",
+            labels,
+            index=default_ix,
+            key="mapper_maint_entity",
+            help="The specific entity this maintenance record attaches to.",
+        )
     picked = next(o for o in opts if o["label"] == choice)
     sheet_target = _make_target(level, picked)
-    st.caption(f"Subject **{subject or '(none)'}** → **{level}: {picked['label']}**")
+    st.caption(f"Subject **{subject or NONE_LABEL}** → **{level}: {picked['label']}**")
 
     kind_label = st.selectbox(
         "Event kind",

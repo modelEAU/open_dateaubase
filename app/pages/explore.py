@@ -54,6 +54,7 @@ from app.api_client import (
 )
 from app.components import entity_story as story
 from app.components import explore_export as export
+from app.components.schema_registry import describe
 
 # Provenance inspector lives in its own module (Phase 5 split). Re-exported here
 # so the panel is callable as before and tests can reach the helpers via
@@ -287,6 +288,7 @@ def _plot_move_control(col, kind: str, sid: int) -> None:
     sel = col.selectbox(
         "Plot", list(labels), index=list(labels).index(cur_label),
         key=f"move_{kind}_{sid}", label_visibility="collapsed",
+        help="Moves this stream to another plot in the workspace.",
     )
     if labels[sel] != current:
         _assign_stream_to_plot(kind, sid, labels[sel])
@@ -339,7 +341,11 @@ def _annotation_dialog(
             )
 
         type_options = {at["name"]: at["id"] for at in annotation_types}
-        sel_type_name = st.selectbox("Annotation type *", list(type_options.keys()))
+        sel_type_name = st.selectbox(
+            "Annotation type *",
+            list(type_options.keys()),
+            help=describe("Annotation", "annotation_kind_id"),
+        )
 
         col1, col2 = st.columns(2)
         with col1:
@@ -347,14 +353,22 @@ def _annotation_dialog(
                 "Start time (ISO)",
                 value=start_time or datetime.now(timezone.utc).isoformat(),
                 key="ann_start",
+                help=describe("Annotation", "start_time"),
             )
         with col2:
             t_end = st.text_input(
-                "End time (ISO, optional)", value=end_time or "", key="ann_end"
+                "End time (ISO, optional)",
+                value=end_time or "",
+                key="ann_end",
+                help=describe("Annotation", "end_time"),
             )
 
-        title = st.text_input("Title (optional)")
-        comment = st.text_area("Comment (optional)")
+        title = st.text_input(
+            "Title (optional)", help=describe("Annotation", "title")
+        )
+        comment = st.text_area(
+            "Comment (optional)", help=describe("Annotation", "comment")
+        )
 
         if st.button("Save Annotation", type="primary", key="btn_save_ann"):
             payload: dict = {
@@ -424,7 +438,12 @@ def _annotation_dialog(
                 for qc in qc_list
             }
 
-            sel_qc_label = st.selectbox("Quality code *", list(qc_options.keys()), key="qc_sel")
+            sel_qc_label = st.selectbox(
+                "Quality code *",
+                list(qc_options.keys()),
+                key="qc_sel",
+                help=describe("Value", "QualityCode"),
+            )
 
             col1, col2 = st.columns(2)
             with col1:
@@ -432,12 +451,22 @@ def _annotation_dialog(
                     "Start time (ISO)",
                     value=start_time or datetime.now(timezone.utc).isoformat(),
                     key="qc_start",
+                    help=(
+                        "First timestamp of the range the quality code is written to. "
+                        "Every data point at or after it (up to the end time) on every "
+                        "selected channel is re-flagged."
+                    ),
                 )
             with col2:
                 qc_end = st.text_input(
                     "End time (ISO)",
                     value=end_time or datetime.now(timezone.utc).isoformat(),
                     key="qc_end",
+                    help=(
+                        "Last timestamp of the range the quality code is written to. "
+                        "Unlike an annotation, this rewrites the stored quality flag on "
+                        "each data point in the range."
+                    ),
                 )
 
             if st.button("Apply Quality Code", type="primary", key="btn_apply_qc"):
@@ -486,19 +515,30 @@ def _equipment_event_dialog(
         eq_ids = list(eq_map.values())
         if default_equipment_id in eq_ids:
             eq_index = eq_ids.index(default_equipment_id)
-    sel_eq = st.selectbox("Equipment *", eq_labels, index=eq_index)
-    sel_et = st.selectbox("Event type *", list(et_map.keys()))
+    sel_eq = st.selectbox(
+        "Equipment *", eq_labels, index=eq_index,
+        help=describe("Event", "equipment_id"),
+    )
+    sel_et = st.selectbox(
+        "Event type *", list(et_map.keys()),
+        help=describe("Event", "event_kind_id"),
+    )
 
     col1, col2 = st.columns(2)
     with col1:
         t_start = st.text_input(
             "Start time (ISO)",
             value=start_time or datetime.now(timezone.utc).isoformat(),
+            help=describe("Event", "event_date_time_start"),
         )
     with col2:
-        t_end = st.text_input("End time (ISO, optional)", value=end_time or "")
+        t_end = st.text_input(
+            "End time (ISO, optional)",
+            value=end_time or "",
+            help=describe("Event", "event_date_time_end"),
+        )
 
-    notes = st.text_area("Notes (optional)")
+    notes = st.text_area("Notes (optional)", help=describe("Event", "notes"))
 
     if st.button("Save Event", type="primary"):
         payload = {
@@ -534,6 +574,11 @@ def _render_top_bar() -> None:
             index=0 if st.session_state.explore_mode == "viz" else 1,
             key="mode_radio",
             horizontal=True,
+            help=(
+                f"Viz draws at most {VIZ_MAX_POINTS} points per sensor series "
+                "(LTTB downsampling, for display only); Extract plots every raw "
+                "point in the range. Exports always contain the full-resolution data."
+            ),
         )
         st.session_state.explore_mode = "viz" if mode_val == "Viz" else "extract"
 
@@ -626,12 +671,21 @@ def _render_time_strip(
                 "From",
                 key="explore_start",
                 on_change=_invalidate_data_cache,
+                help=(
+                    "Start of the time window every chart, annotation overlay and "
+                    "export uses. Changing it refetches the data for all active streams."
+                ),
             )
         with to_col:
             st.date_input(
                 "To",
                 key="explore_end",
                 on_change=_invalidate_data_cache,
+                help=(
+                    "End of the time window (inclusive, to end of day) every chart, "
+                    "annotation overlay and export uses. Changing it refetches the "
+                    "data for all active streams."
+                ),
             )
 
 
@@ -859,23 +913,48 @@ def _render_unified_picker(
             opts: dict[str, int | None],
             current: int | None,
             key: str,
+            help: str | None = None,
         ) -> int | None:
             labels = list(opts.keys())
             cur_label = next((l for l, v in opts.items() if v == current), labels[0])
-            sel = col.selectbox(label, labels, index=labels.index(cur_label), key=key)
+            sel = col.selectbox(
+                label, labels, index=labels.index(cur_label), key=key, help=help
+            )
             return opts[sel]
 
-        new_campaign = _selectbox_id(c1, "Campaign", campaign_opts, campaign_id, "upicker_campaign")
-        new_location = _selectbox_id(c2, "Location", location_opts, location_id, "upicker_location")
-        new_parameter = _selectbox_id(c3, "Parameter", parameter_opts, parameter_id, "upicker_parameter")
-        new_equipment = _selectbox_id(c4, "Equipment", equipment_opts, equipment_id, "upicker_equipment")
+        new_campaign = _selectbox_id(
+            c1, "Campaign", campaign_opts, campaign_id, "upicker_campaign",
+            help="Narrows the stream list below to streams measured under this campaign.",
+        )
+        new_location = _selectbox_id(
+            c2, "Location", location_opts, location_id, "upicker_location",
+            help="Narrows the stream list below to streams sampled at this sampling point.",
+        )
+        new_parameter = _selectbox_id(
+            c3, "Parameter", parameter_opts, parameter_id, "upicker_parameter",
+            help="Narrows the stream list below to streams measuring this parameter.",
+        )
+        new_equipment = _selectbox_id(
+            c4, "Equipment", equipment_opts, equipment_id, "upicker_equipment",
+            help=(
+                "Narrows the stream list below to sensor channels on this equipment. "
+                "Lab series have no equipment, so picking one hides them."
+            ),
+        )
 
         vtype_labels = list(_VALUE_TYPE_OPTIONS.keys())
         cur_vtype_label = next(
             (l for l, v in _VALUE_TYPE_OPTIONS.items() if v == vtype_id), vtype_labels[0]
         )
         new_vtype = _VALUE_TYPE_OPTIONS[
-            c5.selectbox("Type", vtype_labels, index=vtype_labels.index(cur_vtype_label), key="upicker_vtype")
+            c5.selectbox(
+                "Type", vtype_labels, index=vtype_labels.index(cur_vtype_label),
+                key="upicker_vtype",
+                help=(
+                    "Narrows the stream list below to streams of this value shape. "
+                    + describe("Channel", "value_kind_id")
+                ),
+            )
         ]
 
         # Persist filter changes
@@ -901,6 +980,11 @@ def _render_unified_picker(
             placeholder="type location, parameter, equipment, or campaign…",
             key="upicker_search",
             label_visibility="collapsed",
+            help=(
+                "Free-text filter on the stream list below: a stream is kept when the "
+                "text appears in its campaign, location, parameter or equipment name. "
+                "It applies on top of the dropdown filters."
+            ),
         )
         if new_search != search_text:
             st.session_state.picker_search_text = new_search
@@ -941,6 +1025,11 @@ def _render_unified_picker(
                 list(options.keys()),
                 key="upicker_trace_select",
                 label_visibility="collapsed",
+                help=(
+                    "The streams left by the filters above. The one picked here is what "
+                    "'+ Add to plot' adds to the target plot; (Lab) entries are analysis "
+                    "series, the others are sensor channels."
+                ),
             )
             sel_kind, sel_item = options[sel_label]
 
@@ -1329,11 +1418,19 @@ def _render_vector_view(
         return
 
     sel_label = st.selectbox(
-        "Select stream to display", list(options.keys()), key="vec_chan_sel"
+        "Select stream to display",
+        list(options.keys()),
+        key="vec_chan_sel",
+        help="Which of the selected vector streams to plot. Vector streams store one array of values per timestamp (e.g. a particle-size distribution).",
     )
     trace = options[sel_label]
 
-    as_3d = st.toggle("Show as 3D surface", value=False, key="vec_3d")
+    as_3d = st.toggle(
+        "Show as 3D surface",
+        value=False,
+        key="vec_3d",
+        help="Plot bin × time × value as a surface instead of a stack of 2D lines.",
+    )
 
     data = _load_trace_data(trace)
     if data is None:
@@ -1363,6 +1460,7 @@ def _render_vector_view(
         ["None", "Time slice (value vs bin)", "Bin slice (value vs time)"],
         horizontal=True,
         key="vec_slice_type",
+        help="Cut the vector series along one axis: a time slice shows every bin at one timestamp; a bin slice shows one bin over time.",
     )
     if slice_type == "Time slice (value vs bin)":
         timestamps = sorted({str(r.get("timestamp", "")) for r in rows})
@@ -1414,7 +1512,10 @@ def _render_matrix_view(
         return
 
     sel_label = st.selectbox(
-        "Select stream", list(options.keys()), key="mat_chan_sel"
+        "Select stream",
+        list(options.keys()),
+        key="mat_chan_sel",
+        help="Which of the selected matrix streams to plot. Matrix streams store a 2D grid of values per timestamp (e.g. a fluorescence EEM).",
     )
     trace = options[sel_label]
 
@@ -1434,6 +1535,7 @@ def _render_matrix_view(
             "Column slice (time series)",
         ],
         key="mat_view_mode",
+        help="Cut the matrix along one axis: a time slice shows the whole grid at one timestamp; a row or column slice follows a single bin over time.",
         horizontal=True,
     )
 
@@ -1451,7 +1553,12 @@ def _render_matrix_view(
     elif view_mode == "Row slice (time series)":
         row_label_map = _matrix_axis_label_map(df, "row")
         row_options = {str(label): idx for idx, label in sorted(row_label_map.items())}
-        sel_row_label = st.selectbox("Row bin", list(row_options.keys()), key="mat_row_sel")
+        sel_row_label = st.selectbox(
+            "Row bin",
+            list(row_options.keys()),
+            key="mat_row_sel",
+            help="Which row of the matrix to follow over time.",
+        )
         sel_row = row_options[sel_row_label]
         st_echarts(
             options=build_matrix_slice_line_option(data, "row", sel_row),
@@ -1462,7 +1569,12 @@ def _render_matrix_view(
     else:
         col_label_map = _matrix_axis_label_map(df, "col")
         col_options = {str(label): idx for idx, label in sorted(col_label_map.items())}
-        sel_col_label = st.selectbox("Column bin", list(col_options.keys()), key="mat_col_sel")
+        sel_col_label = st.selectbox(
+            "Column bin",
+            list(col_options.keys()),
+            key="mat_col_sel",
+            help="Which column of the matrix to follow over time.",
+        )
         sel_col = col_options[sel_col_label]
         st_echarts(
             options=build_matrix_slice_line_option(data, "col", sel_col),
@@ -1490,7 +1602,10 @@ def _render_image_view(
         return
 
     sel_label = st.selectbox(
-        "Select image stream", list(options.keys()), key="img_chan_sel"
+        "Select image stream",
+        list(options.keys()),
+        key="img_chan_sel",
+        help="Which of the selected image streams to browse. Image streams store one picture per timestamp.",
     )
     trace = options[sel_label]
     is_channel = trace[0] == "channel"
@@ -1524,6 +1639,7 @@ def _render_image_view(
                 value=ts_str in selected_ts,
                 key=f"img_sel_{wkey}",
                 label_visibility="collapsed",
+                help="Tick to include this image in the download.",
             )
             if is_checked and ts_str not in selected_ts:
                 selected_ts.append(ts_str)

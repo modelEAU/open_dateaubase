@@ -111,6 +111,7 @@ labels = {c["campaign_id"]: c["name"] for c in campaigns}
 cid = st.selectbox(
     "Campaign",
     options=list(labels),
+    help="Which campaign to tell the story of.",
     format_func=lambda i: labels[i],
     key="campaign_story_pick",
 )

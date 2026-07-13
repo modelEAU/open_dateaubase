@@ -21,6 +21,7 @@ from app.api_client import (
     list_units_lookup,
     update_binning_axis,
 )
+from app.components.schema_registry import describe
 
 
 
@@ -63,10 +64,16 @@ def _bin_kind_columns(mode: str) -> list[str]:
 def _editor_column_config(mode: str) -> dict:
     cfg: dict = {}
     if mode in ("interval", "interval_with_nominal"):
-        cfg["lower_bound"] = st.column_config.NumberColumn("Lower Bound", required=True)
-        cfg["upper_bound"] = st.column_config.NumberColumn("Upper Bound", required=True)
+        cfg["lower_bound"] = st.column_config.NumberColumn(
+            "Lower Bound", required=True, help=describe("ValueBin", "lower_bound")
+        )
+        cfg["upper_bound"] = st.column_config.NumberColumn(
+            "Upper Bound", required=True, help=describe("ValueBin", "upper_bound")
+        )
     if mode in ("interval_with_nominal", "nominal"):
-        cfg["nominal_value"] = st.column_config.NumberColumn("Nominal Value", required=True)
+        cfg["nominal_value"] = st.column_config.NumberColumn(
+            "Nominal Value", required=True, help=describe("ValueBin", "nominal_value")
+        )
     return cfg
 
 
@@ -167,6 +174,7 @@ def new_axis_dialog():
     bin_kind = st.radio(
         "How are bins defined?",
         options=BIN_MODE_OPTIONS,
+        help=describe("ValueBinningAxis", "bin_kind_id"),
         format_func=lambda x: BIN_MODE_LABELS[x],
         horizontal=True,
     )
@@ -268,7 +276,10 @@ def edit_axis_dialog():
 
     st.markdown("### Bins")
     st.caption(f"Current bin mode: **{BIN_MODE_LABELS.get(current_mode, current_mode)}** — {current['number_of_bins']} bins")
-    replace_bins = st.checkbox("Replace bin definitions")
+    replace_bins = st.checkbox(
+        "Replace bin definitions",
+        help="Discard every bin on this axis and define the set again from scratch.",
+    )
 
     new_bins: list | None = None
     new_mode: str = current_mode
@@ -277,6 +288,7 @@ def edit_axis_dialog():
         new_mode = st.radio(
             "New bin mode",
             options=BIN_MODE_OPTIONS,
+            help=describe("ValueBinningAxis", "bin_kind_id"),
             format_func=lambda x: BIN_MODE_LABELS[x],
             index=BIN_MODE_OPTIONS.index(current_mode),
             horizontal=True,

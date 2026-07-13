@@ -339,6 +339,7 @@ def _step_move_details(sp_opts: list[dict], campaign_opts: list[dict]) -> None:
             "Move date *",
             value=st.session_state.mv_date or date.today(),
             key="mv_date_widget",
+            help="When the equipment physically moved. The old deployment is closed and the new one opened at this instant.",
         )
     with col_time:
         move_time = st.time_input(
@@ -347,6 +348,7 @@ def _step_move_details(sp_opts: list[dict], campaign_opts: list[dict]) -> None:
             or _now_utc().time().replace(second=0, microsecond=0),
             key="mv_time_widget",
             step=60,
+            help="Time of day of the move, in UTC.",
         )
 
     notes = st.text_area(
@@ -476,6 +478,7 @@ def _step_mw_wiring_details(si_opts: list[dict]) -> None:
             "Rewire date *",
             value=st.session_state.mw_date or date.today(),
             key="mw_date_widget",
+            help="When the equipment was rewired to the new signal interface.",
         )
     with col_time:
         rewire_time = st.time_input(
@@ -484,6 +487,7 @@ def _step_mw_wiring_details(si_opts: list[dict]) -> None:
             or _now_utc().time().replace(second=0, microsecond=0),
             key="mw_time_widget",
             step=60,
+            help="Time of day of the rewire, in UTC.",
         )
 
     notes = st.text_area(
@@ -561,6 +565,7 @@ def _step_equipment_event(
         "Record an equipment event alongside this move",
         value=st.session_state.get(add_event_key, False),
         key=f"{prefix}_add_event_widget",
+        help="Also log an Event against this equipment (e.g. the calibration or cleaning done while it was out).",
     )
 
     et_labels: list[str] = []

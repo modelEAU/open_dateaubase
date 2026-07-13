@@ -15,6 +15,9 @@ from app.api_client import (
     list_site_sampling_locations,
     list_sites_lookup,
 )
+from app.components.kind_select import kind_caption, kind_options
+from app.components.labels import NONE_LABEL
+from app.components.schema_registry import describe, describe_table
 from app.components.wizard_helpers import (
     clear_wizard,
     nav,
@@ -100,50 +103,95 @@ def _step_details(lookups: dict) -> None:
 
     _render_prerequisites(lookups)
 
-    kind_opts = [
-        {"id": k["campaign_kind_id"], "label": k["name"]}
-        for k in lookups["campaign_kinds"]
-    ]
+    kind_opts = kind_options(lookups["campaign_kinds"], "campaign_kind_id")
     kind_labels = [o["label"] for o in kind_opts]
     person_opts: list[dict] = lookups.get("persons", [])
     person_labels = [p["label"] for p in person_opts]
 
-    st.text_input("Campaign name *", key=f"{_WIZ}_s0_name")
+    st.text_input(
+        "Campaign name *",
+        key=f"{_WIZ}_s0_name",
+        help=describe("Campaign", "name"),
+    )
     if kind_labels:
-        st.selectbox("Campaign type *", kind_labels, key=f"{_WIZ}_s0_kind")
+        st.selectbox(
+            "Campaign type *",
+            kind_labels,
+            key=f"{_WIZ}_s0_kind",
+            help=describe("Campaign", "campaign_kind_id"),
+        )
+        kind_caption(kind_opts, st.session_state.get(f"{_WIZ}_s0_kind"))
     else:
         st.warning("No campaign types found — add one in Vocabulary → Campaign Kinds first.")
     col_start, col_end = st.columns(2)
     with col_start:
-        st.date_input("Start date", key=f"{_WIZ}_s0_start_date", value=None)
+        st.date_input(
+            "Start date",
+            key=f"{_WIZ}_s0_start_date",
+            value=None,
+            help=describe("Campaign", "campaign_start_date_time"),
+        )
     with col_end:
-        st.date_input("End date", key=f"{_WIZ}_s0_end_date", value=None)
-    st.text_area("Description", key=f"{_WIZ}_s0_description")
+        st.date_input(
+            "End date",
+            key=f"{_WIZ}_s0_end_date",
+            value=None,
+            help=describe("Campaign", "campaign_end_date_time"),
+        )
+    st.text_area(
+        "Description",
+        key=f"{_WIZ}_s0_description",
+        help=describe("Campaign", "description"),
+    )
 
     person_mode = st.radio(
         "Responsible person *",
         ["Select existing", "Create new"],
         key=f"{_WIZ}_s0_person_mode",
         horizontal=True,
+        help=describe("Campaign", "responsible_person_id"),
     )
     if person_mode == "Select existing":
         if person_labels:
-            st.selectbox("Person *", person_labels, key=f"{_WIZ}_s0_person_label")
+            st.selectbox(
+                "Person *",
+                person_labels,
+                key=f"{_WIZ}_s0_person_label",
+                help=describe("Campaign", "responsible_person_id"),
+            )
         else:
             st.info("No persons found. Switch to **Create new**.")
     else:
         col_fn, col_ln = st.columns(2)
         with col_fn:
-            st.text_input("First name", key=f"{_WIZ}_s0_person_first_name")
+            st.text_input(
+                "First name",
+                key=f"{_WIZ}_s0_person_first_name",
+                help=describe("Person", "first_name"),
+            )
         with col_ln:
-            st.text_input("Last name", key=f"{_WIZ}_s0_person_last_name")
-        st.text_input("Email", key=f"{_WIZ}_s0_person_email")
+            st.text_input(
+                "Last name",
+                key=f"{_WIZ}_s0_person_last_name",
+                help=describe("Person", "last_name"),
+            )
+        st.text_input(
+            "Email", key=f"{_WIZ}_s0_person_email", help=describe("Person", "email")
+        )
         col_role, col_org = st.columns(2)
         with col_role:
-            st.text_input("Role", key=f"{_WIZ}_s0_person_role")
+            st.text_input(
+                "Role", key=f"{_WIZ}_s0_person_role", help=describe("Person", "role")
+            )
         with col_org:
-            st.text_input("Organization", key=f"{_WIZ}_s0_person_org")
-        st.text_input("Phone", key=f"{_WIZ}_s0_person_phone")
+            st.text_input(
+                "Organization",
+                key=f"{_WIZ}_s0_person_org",
+                help=describe("Person", "company"),
+            )
+        st.text_input(
+            "Phone", key=f"{_WIZ}_s0_person_phone", help=describe("Person", "phone")
+        )
 
     def on_next() -> list[str]:
         errors: list[str] = []
@@ -213,7 +261,10 @@ def _step_site_and_sls(lookups: dict) -> None:
             head, rm = st.columns([6, 1])
             with head:
                 selected_site = st.selectbox(
-                    "Site *", site_labels, key=f"{_WIZ}_s1_site_{b}"
+                    "Site *",
+                    site_labels,
+                    key=f"{_WIZ}_s1_site_{b}",
+                    help=describe_table("Site"),
                 )
             with rm:
                 st.write("")
@@ -241,6 +292,7 @@ def _step_site_and_sls(lookups: dict) -> None:
                     "Sampling locations in scope",
                     [sl["name"] for sl in sls],
                     key=f"{_WIZ}_s1_sls_{b}",
+                    help="The sampling locations at this site that the campaign covers.",
                 )
 
     if st.button("➕ Add another site", key=f"{_WIZ}_s1_add_site"):
@@ -316,8 +368,9 @@ def _step_equipment_deployments(lookups: dict) -> None:
             for sl in selected_sls:
                 st.selectbox(
                     f"Equipment at **{sl['name']}** ({sl['site_name']})",
-                    ["(none)"] + eq_labels,
+                    [NONE_LABEL] + eq_labels,
                     key=f"{_WIZ}_s2_sl_{sl['id']}_eq",
+                    help=describe_table("CampaignDeployment"),
                 )
 
     nav(
@@ -371,7 +424,7 @@ def _step_review(lookups: dict) -> None:
     equipment = lookups.get("equipment", [])
     deployments = []
     for sl in selected_sls:
-        eq_label = st.session_state.get(f"{_WIZ}_s2_sl_{sl['id']}_eq") or "(none)"
+        eq_label = st.session_state.get(f"{_WIZ}_s2_sl_{sl['id']}_eq") or NONE_LABEL
         eq_record = next((e for e in equipment if e["identifier"] == eq_label), None)
         if eq_record:
             deployments.append((sl, eq_record))
@@ -482,8 +535,8 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
 
     # 3. Create deployments (across every site block's selected locations)
     for sl in _selected_sls(lookups):
-        eq_label = st.session_state.get(f"{_WIZ}_s2_sl_{sl['id']}_eq") or "(none)"
-        eq_id = resolve_id(eq_label, eq_opts) if eq_label != "(none)" else None
+        eq_label = st.session_state.get(f"{_WIZ}_s2_sl_{sl['id']}_eq") or NONE_LABEL
+        eq_id = resolve_id(eq_label, eq_opts) if eq_label != NONE_LABEL else None
         if eq_id is not None:
             try:
                 create_campaign_deployment(

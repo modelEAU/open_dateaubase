@@ -205,7 +205,7 @@ def _render_channel_picker(all_channels: list[dict]) -> None:
     """Sidebar: pick drift channel and (optional) source channel."""
     st.sidebar.header("Channel selection")
 
-    channel_opts: dict[str, int | None] = {"— select —": None}
+    channel_opts: dict[str, int | None] = {NONE_LABEL: None}
     for ch in all_channels:
         label = (
             f"CH-{ch['channel_id']}: "
@@ -384,7 +384,12 @@ def _render_drift_readback() -> None:
         "derived from the source stream around its window."
     )
     event_id = st.number_input(
-        "Maintenance Event ID", min_value=0, value=0, step=1, key="mcc_event_id"
+        "Maintenance Event ID",
+        min_value=0,
+        value=0,
+        step=1,
+        key="mcc_event_id",
+        help="The id of the maintenance Event to chart. The window around it is taken from the event's start and end times.",
     )
     if not event_id:
         return

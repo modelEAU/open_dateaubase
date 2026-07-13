@@ -25,6 +25,7 @@ from app.api_client import (
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
 from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
+from app.components.labels import ALL_LABEL
 
 
 st.title("Channels")
@@ -60,7 +61,7 @@ filter_col1, filter_col2, filter_col3 = st.columns(3)
 
 with filter_col1:
     signal_interface_filter_options = [
-        {"id": None, "label": "All"}
+        {"id": None, "label": ALL_LABEL}
     ] + signal_interface_options
     selected_signal_interface_label = st.selectbox(
         "Signal Interface",
@@ -79,7 +80,7 @@ with filter_col1:
     )
 
 with filter_col2:
-    parameter_filter_options = [{"id": None, "label": "All"}] + parameter_options
+    parameter_filter_options = [{"id": None, "label": ALL_LABEL}] + parameter_options
     selected_parameter_label = st.selectbox(
         "Parameter",
         options=[opt["label"] for opt in parameter_filter_options],

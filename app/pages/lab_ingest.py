@@ -50,6 +50,10 @@ def _lab_timezone_selector(key: str) -> zoneinfo.ZoneInfo:
     )
     return tz
 
+from app.components.labels import NONE_LABEL
+from app.components.kind_select import kind_options, kind_select, select_or_none
+from app.components.param_unit import unit_select
+from app.components.schema_registry import describe, describe_table
 from app.api_client import (
     APIError,
     create_analysis_series,
@@ -120,7 +124,6 @@ try:
         _param_name_to_id = {
             p["parameter_name"]: p["parameter_id"] for p in _parameters
         }
-        _unit_name_to_id = {u["unit"]: u["unit_id"] for u in _units}
         _sp_label_to_id = {s["label"]: s["sampling_point_id"] for s in _sp}
         _ck_label_to_id = {
             c.get("name", ""): (c.get("sample_collection_kind_id") or c.get("id"))
@@ -275,6 +278,10 @@ def _render_header() -> None:
             horizontal=False,
             index=["new", "panel", "existing"].index(sess.get("mode", "new")),
             key="lab_mode",
+            help="Where this session's series and identity come from: 'New' starts "
+            "with an empty series list, 'From panel' pre-fills it from a saved "
+            "panel, and 'Add to existing' hides the identity fields and appends "
+            "the measurements to an experiment that already exists.",
         )
     _mode_map = {
         "New": "new",
@@ -285,7 +292,7 @@ def _render_header() -> None:
 
     with col_camp:
         if sess["mode"] != "existing":
-            _camp_opts = [{"id": None, "label": "— none —"}] + [
+            _camp_opts = [{"id": None, "label": NONE_LABEL}] + [
                 {"id": c["campaign_id"], "label": c["name"]} for c in _campaigns
             ]
             _sel_camp = st.selectbox(
@@ -295,6 +302,7 @@ def _render_header() -> None:
                     (i for i, o in enumerate(_camp_opts) if o["id"] == sess.get("campaign_id")), 0
                 ),
                 key="lab_top_campaign",
+                help=describe("LabExperiment", "campaign_id"),
             )
             sess["campaign_id"] = next(
                 (o["id"] for o in _camp_opts if o["label"] == _sel_camp), None
@@ -302,7 +310,7 @@ def _render_header() -> None:
 
     with col2:
         if sess["mode"] == "panel":
-            opts = [{"id": None, "label": "— select —"}] + [
+            opts = [{"id": None, "label": NONE_LABEL}] + [
                 {
                     "id": t["lab_panel_id"],
                     "label": f"{t['name']} ({t['series_count']} series)",
@@ -314,6 +322,7 @@ def _render_header() -> None:
                 options=[o["label"] for o in opts],
                 index=0,
                 key="lab_template_sel",
+                help=describe("LabExperiment", "lab_panel_id"),
             )
             if sess.get("campaign_id"):
                 st.checkbox(
@@ -347,7 +356,7 @@ def _render_header() -> None:
             sess["experiment_id"] = None
 
         elif sess["mode"] == "existing":
-            opts = [{"id": None, "label": "— select —"}] + [
+            opts = [{"id": None, "label": NONE_LABEL}] + [
                 {
                     "id": e["lab_experiment_id"],
                     "label": f"{e['name']} ({e.get('experiment_datetime', '')[:10]})",
@@ -359,6 +368,9 @@ def _render_header() -> None:
                 options=[o["label"] for o in opts],
                 index=0,
                 key="lab_existing_exp_sel",
+                help="The already-recorded lab experiment these measurements are "
+                "appended to. Its series list is loaded below and no new experiment "
+                "is created on submit.",
             )
             e_id = next((o["id"] for o in opts if o["label"] == sel), None)
             if e_id and e_id != sess.get("experiment_id"):
@@ -395,15 +407,22 @@ def _render_header() -> None:
         sess["name"] = st.text_input(
             "Experiment name *",
             key="lab_exp_name",
+            help=describe("LabExperiment", "name"),
         )
 
+        _exp_dt_help = describe("LabExperiment", "experiment_date_time")
         col_c, col_d, col_tz = st.columns([2, 2, 1])
         with col_c:
             d = st.date_input(
-                "Date *", value=sess.get("datetime", datetime.now(timezone.utc)), key="lab_exp_date"
+                "Date *",
+                value=sess.get("datetime", datetime.now(timezone.utc)),
+                key="lab_exp_date",
+                help=_exp_dt_help,
             )
         with col_d:
-            t = st.time_input("Time *", value=time(12, 0), key="lab_exp_time")
+            t = st.time_input(
+                "Time *", value=time(12, 0), key="lab_exp_time", help=_exp_dt_help
+            )
         with col_tz:
             lab_source_tz = _lab_timezone_selector(key="lab_exp_tz")
         sess["datetime"] = datetime.combine(d, t).replace(tzinfo=lab_source_tz).astimezone(timezone.utc)
@@ -413,9 +432,10 @@ def _render_header() -> None:
             value=sess.get("description", ""),
             max_chars=500,
             key="lab_exp_desc",
+            help=describe("LabExperiment", "description"),
         )
 
-        person_opts = [{"id": None, "label": "— select —"}] + [
+        person_opts = [{"id": None, "label": NONE_LABEL}] + [
             {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))}
             for p in _persons
         ]
@@ -427,6 +447,7 @@ def _render_header() -> None:
             options=[o["label"] for o in person_opts],
             index=default_person_idx,
             key="lab_exp_person",
+            help=describe("LabExperiment", "created_by_person_id"),
         )
         sess["created_by_person_id"] = next(
             (o["id"] for o in person_opts if o["label"] == sel_person), None
@@ -448,8 +469,13 @@ def _render_header() -> None:
                 "Panel name *",
                 value=sess.get("name", ""),
                 key="lab_save_panel_name",
+                help=describe("LabPanel", "name"),
             )
-            panel_desc = st.text_area("Description (optional)", key="lab_save_panel_desc")
+            panel_desc = st.text_area(
+                "Description (optional)",
+                key="lab_save_panel_desc",
+                help=describe("LabPanel", "description"),
+            )
             if st.button("Save", type="primary", key="lab_save_panel_btn"):
                 _panel_name = (panel_name or "").strip()
                 _panel_desc = (panel_desc or "").strip() or None
@@ -478,19 +504,28 @@ def _render_header() -> None:
         col_p, col_sp = st.columns(2)
         with col_p:
             param_names = [p["parameter_name"] for p in _parameters]
-            sel_param = st.selectbox(
-                "Parameter *", options=param_names, index=None, key="lab_quick_param"
+            sel_param = select_or_none(
+                "Parameter *",
+                param_names,
+                key="lab_quick_param",
+                help=describe("AnalysisSeries", "parameter_id"),
             )
         with col_sp:
             sp_labels = [s["label"] for s in _sp]
-            sel_sp = st.selectbox(
-                "Sampling point *", options=sp_labels, index=None, key="lab_quick_sp"
+            sel_sp = select_or_none(
+                "Sampling point *",
+                sp_labels,
+                key="lab_quick_sp",
+                help=describe("AnalysisSeries", "sampling_point_id"),
             )
         col_u, col_vk = st.columns(2)
         with col_u:
-            unit_names = [u["unit"] for u in _units]
-            sel_unit = st.selectbox(
-                "Unit *", options=unit_names, index=None, key="lab_quick_unit"
+            unit_id = unit_select(
+                "Unit *",
+                parameter_id=_param_name_to_id.get(sel_param or ""),
+                all_units=_units,
+                key="lab_quick_unit",
+                help=describe("AnalysisSeries", "unit_id"),
             )
         with col_vk:
             vk_opts = {"Scalar": 1, "Vector": 2, "Matrix": 3, "Image": 4}
@@ -499,16 +534,20 @@ def _render_header() -> None:
                 options=list(vk_opts.keys()),
                 index=0,
                 key="lab_quick_vk",
+                help=describe("AnalysisSeries", "value_kind_id"),
             )
         auto_name = _auto_series_name(sel_param, sel_sp)
         if auto_name:
             st.session_state["lab_quick_series_name"] = auto_name
-        series_name = st.text_input("Series name", key="lab_quick_series_name")
+        series_name = st.text_input(
+            "Series name",
+            key="lab_quick_series_name",
+            help=describe("AnalysisSeries", "name"),
+        )
 
         if st.button("Create & Add", type="primary", key="lab_quick_create"):
             param_id = _param_name_to_id.get(sel_param or "")
             sp_id = _sp_label_to_id.get(sel_sp or "")
-            unit_id = _unit_name_to_id.get(sel_unit or "")
             vk_id = vk_opts.get(sel_vk, 1)
             if not (param_id and sp_id and unit_id and series_name):
                 st.error("Parameter, sampling point, unit, and name are required.")
@@ -589,20 +628,19 @@ def _render_add_series_row(sess: dict) -> None:
     available = [o for o in _all_series if o["analysis_series_id"] not in already_ids]
     if not available:
         return
-    opts = [{"id": None, "label": "— select —"}] + [
-        {
-            "id": a["analysis_series_id"],
-            "label": f"{a.get('name', '')} — {a.get('parameter_name', '')} @ {a.get('sampling_point_label', '')}",
-        }
+    series_ids = {
+        f"{a.get('name', '')} — {a.get('parameter_name', '')} @ {a.get('sampling_point_label', '')}": a[
+            "analysis_series_id"
+        ]
         for a in available
-    ]
-    sel = st.selectbox(
+    }
+    sel = select_or_none(
         "Add existing series",
-        options=[o["label"] for o in opts],
-        index=0,
+        list(series_ids),
         key="lab_add_series_sel",
+        help=describe_table("AnalysisSeries"),
     )
-    s_id = next((o["id"] for o in opts if o["label"] == sel), None)
+    s_id = series_ids.get(sel or "")
     if s_id:
         # Find full dict
         found = next((a for a in _all_series if a["analysis_series_id"] == s_id), None)
@@ -766,29 +804,44 @@ def _render_sp_grids(
         st.rerun()
 
     samples_config = {
-        "sample_no": st.column_config.NumberColumn("Sample #", min_value=1, step=1),
-        "sample_label": st.column_config.TextColumn("Label"),
+        "sample_no": st.column_config.NumberColumn(
+            "Sample #",
+            min_value=1,
+            step=1,
+            help="Row number used to line samples up with the values grid below.",
+        ),
+        "sample_label": st.column_config.TextColumn(
+            "Label", help="Your name for this sample (e.g. the bottle or tube ID)."
+        ),
         "sample_kind": st.column_config.SelectboxColumn(
             "Sample kind",
             options=[k.get("name", "") for k in _sample_kinds],
             default=default_sk_label,
+            help=describe("Sample", "sample_kind_id"),
         ),
         "sample_material": st.column_config.SelectboxColumn(
             "Sample material",
             options=[m.get("name", "") for m in _material_kinds],
             default=default_material_label,
+            help=describe("Sample", "sample_material_kind_id"),
         ),
-        "start": st.column_config.DatetimeColumn("Start *", required=True),
-        "end": st.column_config.DatetimeColumn("End"),
+        "start": st.column_config.DatetimeColumn(
+            "Start *", required=True, help=describe("Sample", "sample_date_time_start")
+        ),
+        "end": st.column_config.DatetimeColumn(
+            "End", help=describe("Sample", "sample_date_time_end")
+        ),
         "collection_kind": st.column_config.SelectboxColumn(
             "Collection kind",
             options=[c.get("name", "") for c in _collection_kinds],
             default=default_ck_label,
+            help=describe("Sample", "sample_collection_kind_id"),
         ),
         "equipment": st.column_config.SelectboxColumn(
             "Equipment",
             options=[e.get("identifier", "") for e in _equipment],
             default=default_eq_label,
+            help=describe("Sample", "sample_equipment_id"),
         ),
     }
     samples_edited = st.data_editor(
@@ -837,7 +890,10 @@ def _render_sp_grids(
 
     values_config = {
         "sample_no": st.column_config.SelectboxColumn(
-            "Sample #", options=sample_no_options, required=True
+            "Sample #",
+            options=sample_no_options,
+            required=True,
+            help="Which sample from the grid above this row of results belongs to.",
         ),
     }
     for col_key, s in value_cols.items():
@@ -847,18 +903,28 @@ def _render_sp_grids(
         )
         unit = next((u["unit"] for u in _units if u["unit_id"] == s.get("unit_id")), "?")
         label = f"{pk} ({unit})"
+        col_help = f"{describe('Value', 'value')} for {pk}, in {unit}."
         values_config[col_key] = (
-            st.column_config.NumberColumn(label)
+            st.column_config.NumberColumn(label, help=col_help)
             if s.get("value_kind_id", 1) == 1
-            else st.column_config.TextColumn(label)
+            else st.column_config.TextColumn(label, help=col_help)
         )
     values_config["replicate"] = st.column_config.NumberColumn(
-        "Replicate", default=1, min_value=1, step=1
+        "Replicate",
+        default=1,
+        min_value=1,
+        step=1,
+        help="Which repeat measurement of the same sample this row is. 1 unless the analysis was run more than once.",
     )
     values_config["quality_code"] = st.column_config.SelectboxColumn(
-        "Quality Code", options=_qc_labels, default=None
+        "Quality Code",
+        options=_qc_labels,
+        default=None,
+        help=describe("Value", "quality_code"),
     )
-    values_config["notes"] = st.column_config.TextColumn("Notes")
+    values_config["notes"] = st.column_config.TextColumn(
+        "Notes", help="Free-text remarks about this result (e.g. dilution, re-run)."
+    )
 
     values_edited = st.data_editor(
         st.session_state[values_seed_key],
@@ -946,19 +1012,18 @@ def _render_sp_sample_section(sess: dict, sample_entry: dict, sp_idx: int) -> No
         horizontal=True,
         label_visibility="collapsed",
         key=mode_key,
+        help="Attach these results to a sample that already exists, or record a new one.",
     )
 
     if sample_mode == "Use existing sample":
-        opts = [{"id": None, "label": "— none —"}] + [
-            {"id": s["sample_id"], "label": s["label"]} for s in _samples
-        ]
-        sel = st.selectbox(
+        sample_ids = {s["label"]: s["sample_id"] for s in _samples}
+        sel = select_or_none(
             "Select sample",
-            options=[o["label"] for o in opts],
-            index=0,
+            list(sample_ids),
             key=f"lab_sp_existing_{sp_idx}",
+            help=describe_table("Sample"),
         )
-        chosen_id = next((o["id"] for o in opts if o["label"] == sel), None)
+        chosen_id = sample_ids.get(sel or "")
         if st.button("Use this sample", key=f"lab_sp_use_{sp_idx}", disabled=chosen_id is None):
             sample_entry["sample_id"] = chosen_id
             st.rerun()
@@ -967,44 +1032,58 @@ def _render_sp_sample_section(sess: dict, sample_entry: dict, sp_idx: int) -> No
     # --- Create new sample ---
     st.caption(f"Sampling point: **{sp_label}**")
 
-    ck_opts = [{"id": None, "label": "— none —"}] + [
-        {"id": c.get("sample_collection_kind_id") or c.get("id"), "label": c.get("name", str(c))}
-        for c in _collection_kinds
-    ]
-    default_ck_id = sess.get("default_sample_collection_kind_id")
-    default_ck_idx = next((i for i, o in enumerate(ck_opts) if o["id"] == default_ck_id), 0)
-    sel_ck = st.selectbox(
+    ck_id = kind_select(
         "Collection kind",
-        options=[o["label"] for o in ck_opts],
-        index=default_ck_idx,
+        kind_options(_collection_kinds, "sample_collection_kind_id"),
+        id_field="id",
+        name_field="label",
+        default_id=sess.get("default_sample_collection_kind_id"),
+        allow_empty=True,
         key=f"lab_sp_ck_{sp_idx}",
+        help=describe("Sample", "sample_collection_kind_id"),
     )
-    ck_id = next((o["id"] for o in ck_opts if o["label"] == sel_ck), None)
 
-    eq_opts = [{"id": None, "label": "— none —"}] + [
-        {"id": e.get("equipment_id") or e.get("id"), "label": e.get("identifier", str(e))}
-        for e in _equipment
-    ]
-    default_eq_id = sess.get("default_sample_equipment_id")
-    default_eq_idx = next((i for i, o in enumerate(eq_opts) if o["id"] == default_eq_id), 0)
-    sel_eq = st.selectbox(
+    eq_names = {
+        e.get("identifier", str(e)): e.get("equipment_id") or e.get("id") for e in _equipment
+    }
+    sel_eq = select_or_none(
         "Equipment",
-        options=[o["label"] for o in eq_opts],
-        index=default_eq_idx,
+        list(eq_names),
         key=f"lab_sp_eq_{sp_idx}",
+        help=describe("Sample", "sample_equipment_id"),
     )
-    eq_id = next((o["id"] for o in eq_opts if o["label"] == sel_eq), None)
+    eq_id = eq_names.get(sel_eq or "")
 
     col_a, col_b = st.columns(2)
     with col_a:
-        start_date = st.date_input("Start date *", value=datetime.now(timezone.utc), key=f"lab_sp_sd_{sp_idx}")
-        start_time = st.time_input("Start time *", value=time(12, 0), key=f"lab_sp_st_{sp_idx}")
+        start_date = st.date_input(
+            "Start date *",
+            value=datetime.now(timezone.utc),
+            key=f"lab_sp_sd_{sp_idx}",
+            help=describe("Sample", "sample_date_time_start"),
+        )
+        start_time = st.time_input(
+            "Start time *",
+            value=time(12, 0),
+            key=f"lab_sp_st_{sp_idx}",
+            help=describe("Sample", "sample_date_time_start"),
+        )
         sample_start = datetime.combine(start_date, start_time)
         if selected_tz_name := st.session_state.get("lab_exp_tz"):
             sample_start = sample_start.replace(tzinfo=zoneinfo.ZoneInfo(selected_tz_name)).astimezone(timezone.utc)
     with col_b:
-        end_date = st.date_input("End date (optional)", value=None, key=f"lab_sp_ed_{sp_idx}")
-        end_time = st.time_input("End time (optional)", value=None, key=f"lab_sp_et_{sp_idx}")
+        end_date = st.date_input(
+            "End date (optional)",
+            value=None,
+            key=f"lab_sp_ed_{sp_idx}",
+            help=describe("Sample", "sample_date_time_end"),
+        )
+        end_time = st.time_input(
+            "End time (optional)",
+            value=None,
+            key=f"lab_sp_et_{sp_idx}",
+            help=describe("Sample", "sample_date_time_end"),
+        )
         if end_date and end_time:
             sample_end = datetime.combine(end_date, end_time)
             if selected_tz_name := st.session_state.get("lab_exp_tz"):
@@ -1012,19 +1091,20 @@ def _render_sp_sample_section(sess: dict, sample_entry: dict, sp_idx: int) -> No
         else:
             sample_end = None
 
-    person_opts = [{"id": None, "label": "— none —"}] + [
-        {"id": p["person_id"], "label": p.get("label", str(p["person_id"]))} for p in _persons
-    ]
-    sel_person = st.selectbox(
+    person_ids = {p.get("label", str(p["person_id"])): p["person_id"] for p in _persons}
+    sel_person = select_or_none(
         "Sampled by",
-        options=[o["label"] for o in person_opts],
-        index=0,
+        list(person_ids),
         key=f"lab_sp_person_{sp_idx}",
+        help=describe("Sample", "sampled_by_person_id"),
     )
-    sampled_by_id = next((o["id"] for o in person_opts if o["label"] == sel_person), None)
+    sampled_by_id = person_ids.get(sel_person or "")
 
     description = st.text_area(
-        "Description (optional)", max_chars=500, key=f"lab_sp_desc_{sp_idx}"
+        "Description (optional)",
+        max_chars=500,
+        key=f"lab_sp_desc_{sp_idx}",
+        help=describe("Sample", "description"),
     )
 
     if st.button("Create Sample", type="secondary", key=f"lab_sp_create_{sp_idx}"):
@@ -1110,6 +1190,7 @@ def _render_image_tab(sess: dict, series_item: dict, idx: int) -> None:
         type=["jpg", "jpeg", "png", "tif", "tiff", "bmp"],
         accept_multiple_files=True,
         key=f"lab_img_upload_{idx}",
+        help="One image per sample, in the same order as the samples grid above.",
     )
 
     if uploaded:

@@ -26,6 +26,7 @@ from app.api_client import (
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
 from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
+from app.components.labels import ALL_LABEL
 
 
 st.title("Signal Interfaces")
@@ -62,7 +63,7 @@ st.markdown("### Filters")
 filter_col1, filter_col2 = st.columns([3, 9])
 
 with filter_col1:
-    das_filter_options = [{"id": None, "label": "All"}] + das_options
+    das_filter_options = [{"id": None, "label": ALL_LABEL}] + das_options
     selected_das_label = st.selectbox(
         "Data Acquisition System",
         options=[opt["label"] for opt in das_filter_options],

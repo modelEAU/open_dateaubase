@@ -25,6 +25,8 @@ from app.api_client import (
 )
 from app.auth import require_auth
 from app.components.geo_utils import maybe_prefill_area, normalize_geojson_for_folium, validate_geojson
+from app.components.labels import NONE_LABEL
+from app.components.schema_registry import describe
 
 require_auth()
 
@@ -111,20 +113,36 @@ id_to_name = {w["watershed_id"]: w["name"] or f"#{w['watershed_id']}" for w in i
 
 with st.expander("➕ Create new watershed", expanded=False):
     with st.form("ws_create_form", clear_on_submit=True):
-        c_name = st.text_input("Name")
-        c_desc = st.text_area("Description")
+        c_name = st.text_input("Name", help=describe("Watershed", "name"))
+        c_desc = st.text_area("Description", help=describe("Watershed", "description"))
         c_surface = st.number_input(
             "Surface area (ha)",
             min_value=0.0,
             value=None,
             key="ws_create_surface",
-            help="Auto-filled from uploaded GeoJSON; edit to override.",
+            help=f'{describe("Watershed", "surface_area")} Auto-filled from uploaded GeoJSON; edit to override.',
         )
-        c_conc = st.number_input("Concentration time (min)", min_value=0, step=1, value=None)
-        c_imp = st.number_input("Impervious surface (%)", min_value=0.0, max_value=100.0, value=None)
+        c_conc = st.number_input(
+            "Concentration time (min)",
+            min_value=0,
+            step=1,
+            value=None,
+            help=describe("Watershed", "concentration_time"),
+        )
+        c_imp = st.number_input(
+            "Impervious surface (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=None,
+            help=describe("Watershed", "impervious_surface"),
+        )
 
-        parent_labels = ["(none)"] + [f"{v} (#{k})" for k, v in id_to_name.items()]
-        c_parent_label = st.selectbox("Parent watershed", parent_labels)
+        parent_labels = [NONE_LABEL] + [f"{v} (#{k})" for k, v in id_to_name.items()]
+        c_parent_label = st.selectbox(
+            "Parent watershed",
+            parent_labels,
+            help=describe("Watershed", "parent_watershed_id"),
+        )
 
         st.subheader("Land Use (%)", divider=False)
         st.caption("Leave blank if unknown. Values represent percentage of watershed area.")
@@ -132,7 +150,12 @@ with st.expander("➕ Create new watershed", expanded=False):
         lu_cols = st.columns(3)
         for i, (field, label) in enumerate(_LAND_USE_FIELDS):
             c_land_use[field] = lu_cols[i % 3].number_input(
-                label, min_value=0.0, max_value=100.0, value=None, key=f"c_lu_{field}"
+                label,
+                min_value=0.0,
+                max_value=100.0,
+                value=None,
+                key=f"c_lu_{field}",
+                help=describe("LandUse", field),
             )
 
         submitted = st.form_submit_button("Create")
@@ -147,7 +170,7 @@ with st.expander("➕ Create new watershed", expanded=False):
 
     if submitted:
         parent_id: int | None = None
-        if c_parent_label and c_parent_label != "(none)":
+        if c_parent_label and c_parent_label != NONE_LABEL:
             pid_str = c_parent_label.rsplit("(#", 1)[-1].rstrip(")")
             try:
                 parent_id = int(pid_str)
@@ -233,39 +256,52 @@ col_form, col_map = st.columns([1, 1])
 
 with col_form:
     with st.form("ws_edit_form"):
-        e_name = st.text_input("Name", value=selected.get("name") or "")
-        e_desc = st.text_area("Description", value=selected.get("description") or "")
+        e_name = st.text_input(
+            "Name", value=selected.get("name") or "", help=describe("Watershed", "name")
+        )
+        e_desc = st.text_area(
+            "Description",
+            value=selected.get("description") or "",
+            help=describe("Watershed", "description"),
+        )
         e_surface_key = f"ws_edit_{selected['watershed_id']}_surface"
         e_surface = st.number_input(
             "Surface area (ha)",
             min_value=0.0,
             value=float(selected["surface_area"]) if selected["surface_area"] is not None else None,
             key=e_surface_key,
-            help="Auto-filled when you upload a new GeoJSON; edit to override.",
+            help=f'{describe("Watershed", "surface_area")} Auto-filled when you upload a new GeoJSON; edit to override.',
         )
         e_conc = st.number_input(
             "Concentration time (min)",
             min_value=0,
             step=1,
             value=int(selected["concentration_time"]) if selected["concentration_time"] is not None else None,
+            help=describe("Watershed", "concentration_time"),
         )
         e_imp = st.number_input(
             "Impervious surface (%)",
             min_value=0.0,
             max_value=100.0,
             value=float(selected["impervious_surface"]) if selected["impervious_surface"] is not None else None,
+            help=describe("Watershed", "impervious_surface"),
         )
 
         # Parent watershed dropdown (exclude self)
         other_ws = {k: v for k, v in id_to_name.items() if k != selected["watershed_id"]}
-        parent_opts = ["(none)"] + [f"{v} (#{k})" for k, v in other_ws.items()]
+        parent_opts = [NONE_LABEL] + [f"{v} (#{k})" for k, v in other_ws.items()]
         current_parent = selected.get("parent_watershed_id")
         default_parent_idx = 0
         if current_parent and current_parent in other_ws:
             label = f"{other_ws[current_parent]} (#{current_parent})"
             if label in parent_opts:
                 default_parent_idx = parent_opts.index(label)
-        e_parent_label = st.selectbox("Parent watershed", parent_opts, index=default_parent_idx)
+        e_parent_label = st.selectbox(
+            "Parent watershed",
+            parent_opts,
+            index=default_parent_idx,
+            help=describe("Watershed", "parent_watershed_id"),
+        )
 
         st.subheader("Land Use (%)", divider=False)
         st.caption("Leave blank if unknown.")
@@ -279,6 +315,7 @@ with col_form:
                 max_value=100.0,
                 value=float(existing_val) if existing_val is not None else None,
                 key=f"e_lu_{field}",
+                help=describe("LandUse", field),
             )
 
         save_btn = st.form_submit_button("Save changes")
@@ -300,7 +337,7 @@ with col_map:
 # Handle save
 if save_btn:
     e_parent_id: int | None = None
-    if e_parent_label and e_parent_label != "(none)":
+    if e_parent_label and e_parent_label != NONE_LABEL:
         pid_str = e_parent_label.rsplit("(#", 1)[-1].rstrip(")")
         try:
             e_parent_id = int(pid_str)

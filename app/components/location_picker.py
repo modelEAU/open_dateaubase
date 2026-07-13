@@ -10,6 +10,8 @@ import streamlit as st
 from streamlit_folium import st_folium
 from streamlit_searchbox import st_searchbox
 
+from app.components.schema_registry import describe
+
 _NOMINATIM_BASE = "https://nominatim.openstreetmap.org"
 _HEADERS = {"User-Agent": "open_datEAUbase/2.1.0 (water quality database)"}
 _DEFAULT_LAT = 45.5017
@@ -199,6 +201,7 @@ def render_location_picker(
             format="%.6f",
             step=0.000001,
             key=k_lat,
+            help=describe("Site", "latitude_wgs84"),
         )
     with col_lng:
         st.number_input(
@@ -208,16 +211,19 @@ def render_location_picker(
             format="%.6f",
             step=0.000001,
             key=k_lng,
+            help=describe("Site", "longitude_wgs84"),
         )
 
     # --- Address text fields ---
     col_c, col_p, col_co = st.columns(3)
     with col_c:
-        st.text_input("City", key=k_city)
+        st.text_input("City", key=k_city, help=describe("Site", "city"))
     with col_p:
-        st.text_input("Province / State", key=k_province)
+        st.text_input(
+            "Province / State", key=k_province, help=describe("Site", "province")
+        )
     with col_co:
-        st.text_input("Country", key=k_country)
+        st.text_input("Country", key=k_country, help=describe("Site", "country"))
 
     return {
         "lat_wgs84": st.session_state[k_lat],

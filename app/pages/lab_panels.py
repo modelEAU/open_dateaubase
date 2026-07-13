@@ -53,7 +53,7 @@ except APIError as e:
     st.error(f"Cannot load data: {e.message}")
     st.stop()
 
-_ck_options = [{"id": None, "label": "— none —"}] + [
+_ck_options = [
     {
         "id": c.get("sample_collection_kind_id") or c.get("id"),
         "label": c.get("name", ""),
@@ -61,7 +61,7 @@ _ck_options = [{"id": None, "label": "— none —"}] + [
     for c in _collection_kinds
 ]
 
-_eq_options = [{"id": None, "label": "— none —"}] + [
+_eq_options = [
     {
         "id": e.get("equipment_id") or e.get("id"),
         "label": e.get("identifier", str(e)),
@@ -69,16 +69,16 @@ _eq_options = [{"id": None, "label": "— none —"}] + [
     for e in _equipment
 ]
 
-_sk_options = [{"id": None, "label": "— none —"}] + [
+_sk_options = [
     {"id": k.get("sample_kind_id"), "label": k.get("name", "")} for k in _sample_kinds
 ]
 
-_mk_options = [{"id": None, "label": "— none —"}] + [
+_mk_options = [
     {"id": m.get("sample_material_kind_id"), "label": m.get("name", "")}
     for m in _material_kinds
 ]
 
-_person_options = [{"id": None, "label": "— none —"}] + [
+_person_options = [
     {"id": p["person_id"], "label": p["label"]} for p in list_persons_lookup()
 ]
 

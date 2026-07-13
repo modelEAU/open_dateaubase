@@ -50,9 +50,31 @@ def _timezone_selector(key: str, label: str = "CSV timezone", help: str | None =
     )
     return zoneinfo.ZoneInfo(selected_tz_name)
 
-from app.api_client import APIError, list_model_parameters, list_parameter_units
+from app.api_client import APIError, list_model_parameters
+from app.components.kind_select import kind_options, select_or_none
+from app.components.param_unit import units_for_parameter
+from app.components.schema_registry import describe
 
 Context = Literal["sensor", "lab"]
+
+# Tooltips reused across the four ingest blocks.
+_HELP_INGEST_MODE = (
+    "Tagless channels connect straight to the instrument; tagged channels are "
+    "read from a SCADA tag."
+)
+_HELP_INPUT_METHOD = (
+    "Paste rows into a text box, or upload a .csv file — both are parsed the "
+    "same way and previewed below."
+)
+_HELP_CSV_UPLOAD = (
+    "The .csv is parsed in the browser session only; nothing is stored until "
+    "you click Submit to Database."
+)
+_HELP_DAS = describe("DataAcquisitionSystem", "name")
+_HELP_TAG = describe("Channel", "tag_name")
+_HELP_CHANNEL_ROLE = describe("Channel", "channel_kind_id")
+_HELP_PROCESSING = describe("ChannelTrait", "operation_kind_id")
+_HELP_AXIS = describe("ChannelAxis", "value_binning_axis_id")
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +87,16 @@ def _ensure_state(key_prefix: str, *suffixes: str) -> None:
         key = f"{key_prefix}_{s}"
         if key not in st.session_state:
             st.session_state[key] = [] if s.endswith(("_rows", "_errors", "parsed")) else ""
+
+
+def _describe_option(options: list[dict], label: str | None) -> None:
+    """Caption the picked option's definition (options come from ``kind_options``)."""
+    desc = next(
+        (o.get("description") for o in options if o["label"] == label and o.get("description")),
+        "",
+    )
+    if desc:
+        st.caption(desc)
 
 
 def _sensor_provenance_name(lookups: dict) -> str:
@@ -96,22 +128,6 @@ def _params_for_model(model_id: int | None, all_params: list[dict]) -> tuple[lis
     return all_params, "No parameters configured for this equipment model — showing all."
 
 
-def _units_for_param(parameter_id: int | None, all_units: list[dict]) -> tuple[list[dict], str | None]:
-    """Units valid for a parameter, else all (with a note). Cached per parameter."""
-    if parameter_id is None:
-        return all_units, None
-    cache = f"_ingest_param_units_{parameter_id}"
-    if cache not in st.session_state:
-        try:
-            st.session_state[cache] = list_parameter_units(parameter_id)
-        except APIError:
-            st.session_state[cache] = []
-    got = st.session_state[cache]
-    if got:
-        return got, None
-    return all_units, "No units configured for this parameter — showing all."
-
-
 def _parameter_unit_selects(
     key_prefix: str,
     parameters_lookup: list[dict],
@@ -122,8 +138,8 @@ def _parameter_unit_selects(
 
     Parameters are scoped to the equipment model (when known);
     units are scoped to the chosen parameter. Returns (parameter_name, unit_name).
-    Stale selections that fall outside the narrowed option set are dropped so the
-    selectbox never errors on a value not in ``options``.
+    Stale selections that fall outside the narrowed option set are dropped by
+    ``select_or_none``, so the selectbox never errors on a value not in ``options``.
     """
     params, param_note = _params_for_model(model_id, parameters_lookup)
     param_id_by_label = {p["parameter_name"]: p["parameter_id"] for p in params}
@@ -132,13 +148,9 @@ def _parameter_unit_selects(
     col2, col3 = st.columns(2)
     with col2:
         pkey = f"{key_prefix}_parameter"
-        if st.session_state.get(pkey) not in param_labels:
-            st.session_state.pop(pkey, None)
-        parameter_name = st.selectbox(
+        parameter_name = select_or_none(
             "Parameter",
-            options=param_labels,
-            index=None,
-            placeholder="Select parameter...",
+            param_labels,
             key=pkey,
             help="Measured analyte or parameter (e.g. TSS, pH)",
         )
@@ -146,17 +158,13 @@ def _parameter_unit_selects(
             st.caption(param_note)
 
     parameter_id = param_id_by_label.get(parameter_name)
-    units, unit_note = _units_for_param(parameter_id, units_lookup)
+    units, unit_note = units_for_parameter(parameter_id, units_lookup)
     unit_labels = [u["unit"] for u in units]
     with col3:
         ukey = f"{key_prefix}_unit"
-        if st.session_state.get(ukey) not in unit_labels:
-            st.session_state.pop(ukey, None)
-        unit_name = st.selectbox(
+        unit_name = select_or_none(
             "Unit",
-            options=unit_labels,
-            index=None,
-            placeholder="Select unit...",
+            unit_labels,
             key=ukey,
             help="Unit of measurement for values stored in this channel (e.g. mg/L, NTU)",
         )
@@ -195,6 +203,7 @@ def scalar_ingest_block(
             ["Tagless (direct-connect)", "Tagged (SCADA)"],
             horizontal=True,
             key=f"{key_prefix}_ingest_mode",
+            help=_HELP_INGEST_MODE,
         )
 
         _das_lookup = lookups.get("das", [])
@@ -205,12 +214,11 @@ def scalar_ingest_block(
             with col_das:
                 if _das_lookup:
                     _das_names_tl = [d["name"] for d in _das_lookup]
-                    _sel_das_tl = st.selectbox(
+                    _sel_das_tl = select_or_none(
                         "DAS",
-                        options=_das_names_tl,
-                        index=None,
-                        placeholder="Select DAS...",
+                        _das_names_tl,
                         key=f"{key_prefix}_das_name_tagless",
+                        help=_HELP_DAS,
                     )
                     scalar_das_name = _sel_das_tl or ""
                 else:
@@ -218,6 +226,7 @@ def scalar_ingest_block(
                         "DAS name",
                         value="DirectConnect",
                         key=f"{key_prefix}_das_name_tagless",
+                        help=_HELP_DAS,
                     )
             with col_equip:
                 equipment_options = [
@@ -225,11 +234,9 @@ def scalar_ingest_block(
                     for e in equipment_lookup
                 ]
                 equipment_labels = [opt["label"] for opt in equipment_options]
-                selected_equipment_label = st.selectbox(
+                selected_equipment_label = select_or_none(
                     "Equipment",
-                    options=equipment_labels,
-                    index=None,
-                    placeholder="Select equipment...",
+                    equipment_labels,
                     key=f"{key_prefix}_equipment_tagless",
                     help="Physical instrument this channel is directly connected to",
                 )
@@ -245,12 +252,11 @@ def scalar_ingest_block(
             with col_das:
                 if _das_lookup:
                     _das_names_tg = [d["name"] for d in _das_lookup]
-                    _sel_das_tg = st.selectbox(
+                    _sel_das_tg = select_or_none(
                         "DAS",
-                        options=_das_names_tg,
-                        index=None,
-                        placeholder="Select DAS...",
+                        _das_names_tg,
                         key=f"{key_prefix}_das_name_tagged",
+                        help=_HELP_DAS,
                     )
                     scalar_das_name = _sel_das_tg or ""
                     _scalar_das_id = next(
@@ -263,6 +269,7 @@ def scalar_ingest_block(
                         value="",
                         placeholder="e.g. SCADA_OPC",
                         key=f"{key_prefix}_das_name_tagged",
+                        help=_HELP_DAS,
                     )
                     _scalar_das_id = None
             with col_tag:
@@ -275,12 +282,11 @@ def scalar_ingest_block(
                             ]
                         except Exception:
                             st.session_state[_tag_cache_key] = []
-                    scalar_tag = st.selectbox(
+                    scalar_tag = select_or_none(
                         "Tag",
-                        options=st.session_state[_tag_cache_key],
-                        index=None,
-                        placeholder="Select tag...",
+                        st.session_state[_tag_cache_key],
                         key=f"{key_prefix}_tag",
+                        help=_HELP_TAG,
                     )
                 else:
                     scalar_tag = st.text_input(
@@ -288,6 +294,7 @@ def scalar_ingest_block(
                         value="",
                         placeholder="e.g. PLC1.pH_sensor",
                         key=f"{key_prefix}_tag",
+                        help=_HELP_TAG,
                     )
             with col_spt:
                 scalar_channel_role = st.selectbox(
@@ -295,6 +302,7 @@ def scalar_ingest_block(
                     options=["value", "status", "alarm", "uncertainty"],
                     index=0,
                     key=f"{key_prefix}_channel_role",
+                    help=_HELP_CHANNEL_ROLE,
                 )
             scalar_equipment_name = None
             _scalar_model_id = None
@@ -308,18 +316,16 @@ def scalar_ingest_block(
             st.markdown(f"**Data Provenance:** {sensor_provenance_name}")
             scalar_data_provenance_id = 1
         with col5:
-            processing_options = [
-                {"id": d["operation_kind_id"], "label": d["name"]}
-                for d in processing_degrees_lookup
-            ]
+            processing_options = kind_options(processing_degrees_lookup, "operation_kind_id")
             processing_labels = [opt["label"] for opt in processing_options]
             selected_processing_label = st.selectbox(
                 "Processing Degree",
                 options=processing_labels,
                 index=0,
-                help="Auto-created if new channel",
+                help=_HELP_PROCESSING or "Auto-created if new channel",
                 key=f"{key_prefix}_processing",
             )
+            _describe_option(processing_options, selected_processing_label)
             scalar_operation_kind_id = next(
                 (opt["id"] for opt in processing_options if opt["label"] == selected_processing_label),
                 None,
@@ -334,6 +340,7 @@ def scalar_ingest_block(
             ["Paste CSV", "Upload CSV file"],
             horizontal=True,
             key=f"{key_prefix}_input_mode",
+            help=_HELP_INPUT_METHOD,
         )
 
         scalar_raw_csv = ""
@@ -346,11 +353,15 @@ def scalar_ingest_block(
 2024-01-15T08:30:00,7.51,""",
                 height=200,
                 key=f"{key_prefix}_text_area",
+                help="One row per observation: timestamp, value, optional quality_code. Rows that fail to parse are listed and skipped.",
             )
             st.caption("ISO timestamps (YYYY-MM-DDTHH:MM:SS). quality_code column optional.")
         else:
             uploaded = st.file_uploader(
-                "Choose CSV file", type=["csv"], key=f"{key_prefix}_file_uploader"
+                "Choose CSV file",
+                type=["csv"],
+                key=f"{key_prefix}_file_uploader",
+                help=_HELP_CSV_UPLOAD,
             )
             if uploaded is not None:
                 scalar_raw_csv = uploaded.read().decode("utf-8")
@@ -533,6 +544,7 @@ def vector_ingest_block(
             ["Tagless (direct-connect)", "Tagged (SCADA)"],
             horizontal=True,
             key=f"{key_prefix}_ingest_mode",
+            help=_HELP_INGEST_MODE,
         )
 
         _das_lookup = lookups.get("das", [])
@@ -543,17 +555,19 @@ def vector_ingest_block(
             with col_das:
                 if _das_lookup:
                     _das_names_tl = [d["name"] for d in _das_lookup]
-                    _sel_das_tl = st.selectbox(
+                    _sel_das_tl = select_or_none(
                         "DAS",
-                        options=_das_names_tl,
-                        index=None,
-                        placeholder="Select DAS...",
+                        _das_names_tl,
                         key=f"{key_prefix}_das_name_tagless",
+                        help=_HELP_DAS,
                     )
                     vector_das_name = _sel_das_tl or ""
                 else:
                     vector_das_name = st.text_input(
-                        "DAS name", value="DirectConnect", key=f"{key_prefix}_das_name_tagless"
+                        "DAS name",
+                        value="DirectConnect",
+                        key=f"{key_prefix}_das_name_tagless",
+                        help=_HELP_DAS,
                     )
             with col_equip:
                 equipment_options = [
@@ -561,11 +575,9 @@ def vector_ingest_block(
                     for e in equipment_lookup
                 ]
                 equipment_labels = [opt["label"] for opt in equipment_options]
-                selected_equipment_label = st.selectbox(
+                selected_equipment_label = select_or_none(
                     "Equipment",
-                    options=equipment_labels,
-                    index=None,
-                    placeholder="Select equipment...",
+                    equipment_labels,
                     key=f"{key_prefix}_equipment_tagless",
                     help="Physical instrument this channel is directly connected to",
                 )
@@ -581,12 +593,11 @@ def vector_ingest_block(
             with col_das:
                 if _das_lookup:
                     _das_names_tg = [d["name"] for d in _das_lookup]
-                    _sel_das_tg = st.selectbox(
+                    _sel_das_tg = select_or_none(
                         "DAS",
-                        options=_das_names_tg,
-                        index=None,
-                        placeholder="Select DAS...",
+                        _das_names_tg,
                         key=f"{key_prefix}_das_name_tagged",
+                        help=_HELP_DAS,
                     )
                     vector_das_name = _sel_das_tg or ""
                     _vector_das_id = next(
@@ -595,7 +606,11 @@ def vector_ingest_block(
                     )
                 else:
                     vector_das_name = st.text_input(
-                        "DAS name", value="", placeholder="e.g. SCADA_OPC", key=f"{key_prefix}_das_name_tagged"
+                        "DAS name",
+                        value="",
+                        placeholder="e.g. SCADA_OPC",
+                        key=f"{key_prefix}_das_name_tagged",
+                        help=_HELP_DAS,
                     )
                     _vector_das_id = None
             with col_tag:
@@ -608,16 +623,19 @@ def vector_ingest_block(
                             ]
                         except Exception:
                             st.session_state[_tag_cache_key] = []
-                    vector_tag = st.selectbox(
+                    vector_tag = select_or_none(
                         "Tag",
-                        options=st.session_state[_tag_cache_key],
-                        index=None,
-                        placeholder="Select tag...",
+                        st.session_state[_tag_cache_key],
                         key=f"{key_prefix}_tag",
+                        help=_HELP_TAG,
                     )
                 else:
                     vector_tag = st.text_input(
-                        "Tag", value="", placeholder="e.g. PLC1.PSD_sensor", key=f"{key_prefix}_tag"
+                        "Tag",
+                        value="",
+                        placeholder="e.g. PLC1.PSD_sensor",
+                        key=f"{key_prefix}_tag",
+                        help=_HELP_TAG,
                     )
             with col_spt:
                 vector_channel_role = st.selectbox(
@@ -625,6 +643,7 @@ def vector_ingest_block(
                     options=["value", "status", "alarm", "uncertainty"],
                     index=0,
                     key=f"{key_prefix}_channel_role",
+                    help=_HELP_CHANNEL_ROLE,
                 )
             vector_equipment_name = None
             _vector_model_id = None
@@ -638,13 +657,16 @@ def vector_ingest_block(
             st.markdown(f"**Data Provenance:** {sensor_provenance_name}")
             vector_data_provenance_id = 1
         with col5:
-            processing_options = [
-                {"id": d["operation_kind_id"], "label": d["name"]} for d in processing_degrees_lookup
-            ]
+            processing_options = kind_options(processing_degrees_lookup, "operation_kind_id")
             processing_labels = [opt["label"] for opt in processing_options]
             selected_processing_label = st.selectbox(
-                "Processing Degree", options=processing_labels, index=0, key=f"{key_prefix}_processing"
+                "Processing Degree",
+                options=processing_labels,
+                index=0,
+                key=f"{key_prefix}_processing",
+                help=_HELP_PROCESSING,
             )
+            _describe_option(processing_options, selected_processing_label)
             vector_operation_kind_id = next(
                 (opt["id"] for opt in processing_options if opt["label"] == selected_processing_label),
                 None,
@@ -658,12 +680,11 @@ def vector_ingest_block(
                 for a in axes_lookup
             ]
             axis_labels = [opt["label"] for opt in axis_options]
-            selected_axis_label = st.selectbox(
+            selected_axis_label = select_or_none(
                 "Spectral / Distribution Axis",
-                options=axis_labels,
-                index=None,
-                placeholder="Select axis...",
+                axis_labels,
                 key=f"{key_prefix}_axis",
+                help=_HELP_AXIS,
             )
             vector_axis_id = next(
                 (opt["id"] for opt in axis_options if opt["label"] == selected_axis_label),
@@ -687,6 +708,7 @@ def vector_ingest_block(
             ["Paste CSV", "Upload CSV file"],
             horizontal=True,
             key=f"{key_prefix}_input_mode",
+            help=_HELP_INPUT_METHOD,
         )
         vector_raw_csv = ""
         if vector_input_mode == "Paste CSV":
@@ -697,10 +719,14 @@ def vector_ingest_block(
 2024-01-15T08:15:00,0.15,0.25,0.35,...""",
                 height=200,
                 key=f"{key_prefix}_text_area",
+                help="One row per observation: timestamp then one value per bin of the selected axis. Missing bins are padded with blanks, extra ones are truncated.",
             )
         else:
             uploaded = st.file_uploader(
-                "Choose CSV file", type=["csv"], key=f"{key_prefix}_file_uploader"
+                "Choose CSV file",
+                type=["csv"],
+                key=f"{key_prefix}_file_uploader",
+                help=_HELP_CSV_UPLOAD,
             )
             if uploaded is not None:
                 vector_raw_csv = uploaded.read().decode("utf-8")
@@ -897,6 +923,7 @@ def matrix_ingest_block(
             ["Tagless (direct-connect)", "Tagged (SCADA)"],
             horizontal=True,
             key=f"{key_prefix}_ingest_mode",
+            help=_HELP_INGEST_MODE,
         )
 
         _das_lookup = lookups.get("das", [])
@@ -907,17 +934,19 @@ def matrix_ingest_block(
             with col_das:
                 if _das_lookup:
                     _das_names_tl = [d["name"] for d in _das_lookup]
-                    _sel_das_tl = st.selectbox(
+                    _sel_das_tl = select_or_none(
                         "DAS",
-                        options=_das_names_tl,
-                        index=None,
-                        placeholder="Select DAS...",
+                        _das_names_tl,
                         key=f"{key_prefix}_das_name_tagless",
+                        help=_HELP_DAS,
                     )
                     matrix_das_name = _sel_das_tl or ""
                 else:
                     matrix_das_name = st.text_input(
-                        "DAS name", value="DirectConnect", key=f"{key_prefix}_das_name_tagless"
+                        "DAS name",
+                        value="DirectConnect",
+                        key=f"{key_prefix}_das_name_tagless",
+                        help=_HELP_DAS,
                     )
             with col_equip:
                 equipment_options = [
@@ -925,11 +954,9 @@ def matrix_ingest_block(
                     for e in equipment_lookup
                 ]
                 equipment_labels = [opt["label"] for opt in equipment_options]
-                selected_equipment_label = st.selectbox(
+                selected_equipment_label = select_or_none(
                     "Equipment",
-                    options=equipment_labels,
-                    index=None,
-                    placeholder="Select equipment...",
+                    equipment_labels,
                     key=f"{key_prefix}_equipment_tagless",
                     help="Physical instrument this channel is directly connected to",
                 )
@@ -945,12 +972,11 @@ def matrix_ingest_block(
             with col_das:
                 if _das_lookup:
                     _das_names_tg = [d["name"] for d in _das_lookup]
-                    _sel_das_tg = st.selectbox(
+                    _sel_das_tg = select_or_none(
                         "DAS",
-                        options=_das_names_tg,
-                        index=None,
-                        placeholder="Select DAS...",
+                        _das_names_tg,
                         key=f"{key_prefix}_das_name_tagged",
+                        help=_HELP_DAS,
                     )
                     matrix_das_name = _sel_das_tg or ""
                     _matrix_das_id = next(
@@ -959,7 +985,11 @@ def matrix_ingest_block(
                     )
                 else:
                     matrix_das_name = st.text_input(
-                        "DAS name", value="", placeholder="e.g. SCADA_OPC", key=f"{key_prefix}_das_name_tagged"
+                        "DAS name",
+                        value="",
+                        placeholder="e.g. SCADA_OPC",
+                        key=f"{key_prefix}_das_name_tagged",
+                        help=_HELP_DAS,
                     )
                     _matrix_das_id = None
             with col_tag:
@@ -972,16 +1002,19 @@ def matrix_ingest_block(
                             ]
                         except Exception:
                             st.session_state[_tag_cache_key] = []
-                    matrix_tag = st.selectbox(
+                    matrix_tag = select_or_none(
                         "Tag",
-                        options=st.session_state[_tag_cache_key],
-                        index=None,
-                        placeholder="Select tag...",
+                        st.session_state[_tag_cache_key],
                         key=f"{key_prefix}_tag",
+                        help=_HELP_TAG,
                     )
                 else:
                     matrix_tag = st.text_input(
-                        "Tag", value="", placeholder="e.g. PLC1.PSD_sensor", key=f"{key_prefix}_tag"
+                        "Tag",
+                        value="",
+                        placeholder="e.g. PLC1.PSD_sensor",
+                        key=f"{key_prefix}_tag",
+                        help=_HELP_TAG,
                     )
             with col_spt:
                 matrix_channel_role = st.selectbox(
@@ -989,6 +1022,7 @@ def matrix_ingest_block(
                     options=["value", "status", "alarm", "uncertainty"],
                     index=0,
                     key=f"{key_prefix}_channel_role",
+                    help=_HELP_CHANNEL_ROLE,
                 )
             matrix_equipment_name = None
             _matrix_model_id = None
@@ -1002,13 +1036,16 @@ def matrix_ingest_block(
             st.markdown(f"**Data Provenance:** {sensor_provenance_name}")
             matrix_data_provenance_id = 1
         with col5:
-            processing_options = [
-                {"id": d["operation_kind_id"], "label": d["name"]} for d in processing_degrees_lookup
-            ]
+            processing_options = kind_options(processing_degrees_lookup, "operation_kind_id")
             processing_labels = [opt["label"] for opt in processing_options]
             selected_processing_label = st.selectbox(
-                "Processing Degree", options=processing_labels, index=0, key=f"{key_prefix}_processing"
+                "Processing Degree",
+                options=processing_labels,
+                index=0,
+                key=f"{key_prefix}_processing",
+                help=_HELP_PROCESSING,
             )
+            _describe_option(processing_options, selected_processing_label)
             matrix_operation_kind_id = next(
                 (opt["id"] for opt in processing_options if opt["label"] == selected_processing_label),
                 None,
@@ -1026,12 +1063,11 @@ def matrix_ingest_block(
     ]
     axis_labels = [opt["label"] for opt in axis_options]
     with axis_col1:
-        selected_row_axis_label = st.selectbox(
+        selected_row_axis_label = select_or_none(
             "Row Axis",
-            options=axis_labels,
-            index=None,
-            placeholder="Select row axis...",
+            axis_labels,
             key=f"{key_prefix}_row_axis",
+            help=_HELP_AXIS,
         )
         matrix_row_axis_id = next(
             (opt["id"] for opt in axis_options if opt["label"] == selected_row_axis_label),
@@ -1042,12 +1078,11 @@ def matrix_ingest_block(
             0,
         )
     with axis_col2:
-        selected_col_axis_label = st.selectbox(
+        selected_col_axis_label = select_or_none(
             "Column Axis",
-            options=axis_labels,
-            index=None,
-            placeholder="Select column axis...",
+            axis_labels,
             key=f"{key_prefix}_col_axis",
+            help=_HELP_AXIS,
         )
         matrix_col_axis_id = next(
             (opt["id"] for opt in axis_options if opt["label"] == selected_col_axis_label),
@@ -1072,6 +1107,7 @@ def matrix_ingest_block(
             ["Paste CSV", "Upload CSV file"],
             horizontal=True,
             key=f"{key_prefix}_input_mode",
+            help=_HELP_INPUT_METHOD,
         )
         matrix_raw_csv = ""
         if matrix_input_mode == "Paste CSV":
@@ -1082,10 +1118,14 @@ def matrix_ingest_block(
 2024-01-15T08:15:00,0.15,0.25,...""",
                 height=200,
                 key=f"{key_prefix}_text_area",
+                help="One row per observation: timestamp then the matrix flattened row-major (r0c0, r0c1, ...). Short rows are padded, long ones truncated.",
             )
         else:
             uploaded = st.file_uploader(
-                "Choose CSV file", type=["csv"], key=f"{key_prefix}_file_uploader"
+                "Choose CSV file",
+                type=["csv"],
+                key=f"{key_prefix}_file_uploader",
+                help=_HELP_CSV_UPLOAD,
             )
             if uploaded is not None:
                 matrix_raw_csv = uploaded.read().decode("utf-8")
@@ -1319,18 +1359,18 @@ def image_ingest_block(
             ["Tagged (SCADA)", "Tagless (direct-connect)"],
             horizontal=True,
             key=f"{key_prefix}_ingest_mode",
+            help=_HELP_INGEST_MODE,
         )
 
         col_das, col_id = st.columns(2)
         with col_das:
             if _das_lookup:
                 _das_names = [d["name"] for d in _das_lookup]
-                _sel_das = st.selectbox(
+                _sel_das = select_or_none(
                     "DAS",
-                    options=_das_names,
-                    index=None,
-                    placeholder="Select DAS...",
+                    _das_names,
                     key=f"{key_prefix}_das",
+                    help=_HELP_DAS,
                 )
                 img_das_name = _sel_das or ""
                 _img_das_id = next(
@@ -1338,7 +1378,11 @@ def image_ingest_block(
                 )
             else:
                 img_das_name = st.text_input(
-                    "DAS name", value="", placeholder="e.g. SCADA_OPC", key=f"{key_prefix}_das"
+                    "DAS name",
+                    value="",
+                    placeholder="e.g. SCADA_OPC",
+                    key=f"{key_prefix}_das",
+                    help=_HELP_DAS,
                 )
                 _img_das_id = None
 
@@ -1353,16 +1397,19 @@ def image_ingest_block(
                             ]
                         except Exception:
                             st.session_state[_tag_cache_key] = []
-                    img_tag = st.selectbox(
+                    img_tag = select_or_none(
                         "Tag",
-                        options=st.session_state[_tag_cache_key],
-                        index=None,
-                        placeholder="Select tag...",
+                        st.session_state[_tag_cache_key],
                         key=f"{key_prefix}_tag",
+                        help=_HELP_TAG,
                     )
                 else:
                     img_tag = st.text_input(
-                        "Tag", value="", placeholder="e.g. PLC1.cam", key=f"{key_prefix}_tag"
+                        "Tag",
+                        value="",
+                        placeholder="e.g. PLC1.cam",
+                        key=f"{key_prefix}_tag",
+                        help=_HELP_TAG,
                     )
                 img_equipment_name = None
                 _img_model_id = None
@@ -1372,11 +1419,9 @@ def image_ingest_block(
                     for e in equipment_lookup
                 ]
                 equipment_labels = [opt["label"] for opt in equipment_options]
-                img_equipment_name = st.selectbox(
+                img_equipment_name = select_or_none(
                     "Equipment",
-                    options=equipment_labels,
-                    index=None,
-                    placeholder="Select equipment...",
+                    equipment_labels,
                     key=f"{key_prefix}_equipment",
                     help="Physical instrument this channel is directly connected to",
                 )
@@ -1394,9 +1439,17 @@ def image_ingest_block(
         st.subheader("Timestamp")
         col1, col2 = st.columns(2)
         with col1:
-            img_date = st.date_input("Measurement date", key=f"{key_prefix}_date")
+            img_date = st.date_input(
+                "Measurement date",
+                key=f"{key_prefix}_date",
+                help=describe("Observation", "timestamp"),
+            )
         with col2:
-            img_time = st.time_input("Measurement time", key=f"{key_prefix}_time")
+            img_time = st.time_input(
+                "Measurement time",
+                key=f"{key_prefix}_time",
+                help=describe("Observation", "timestamp"),
+            )
         col_tz1, col_tz2 = st.columns([1, 3])
         with col_tz1:
             img_source_tz = _timezone_selector(
@@ -1414,6 +1467,7 @@ def image_ingest_block(
             "Select image file",
             type=["jpg", "jpeg", "png", "tif", "tiff", "bmp"],
             key=f"{key_prefix}_upload",
+            help="The picked image is previewed here and only written to the image store when you click Upload Image.",
         )
 
         if uploaded_image is not None:
@@ -1432,6 +1486,7 @@ def image_ingest_block(
                 min_value=0,
                 step=1,
                 key=f"{key_prefix}_qc",
+                help=describe("ValueImage", "quality_code"),
             )
 
             if img_mode == "Tagged (SCADA)":

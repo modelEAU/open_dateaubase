@@ -126,6 +126,7 @@ def _onboarding_panel() -> None:
             ["Lab", "Sensor", "Both"],
             horizontal=True,
             key="onboarding_data_type",
+            help="Lab data arrives as results against samples; sensor data arrives as a continuous signal on a channel. This only tailors the setup steps suggested below.",
         )
 
         data_type: str = st.session_state["onboarding_data_type"]

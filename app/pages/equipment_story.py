@@ -96,8 +96,11 @@ _target = st.session_state.pop("equipment_story_target", None)
 if _target in labels:
     st.session_state["equipment_story_pick"] = _target
 eid = st.selectbox(
-    "Equipment", options=list(labels), format_func=lambda i: labels[i],
+    "Equipment",
+    options=list(labels),
+    format_func=lambda i: labels[i],
     key="equipment_story_pick",
+    help="Which piece of equipment to tell the story of.",
 )
 
 try:

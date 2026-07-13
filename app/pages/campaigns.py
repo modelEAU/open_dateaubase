@@ -30,6 +30,7 @@ from app.api_client import (
 from app.components.form_dialog import create_form_dialog, edit_form_dialog
 from app.components.form_specs import get_form_fields
 from app.components.id_format import humanize_id_columns
+from app.components.labels import ALL_LABEL
 
 
 @st.dialog("Add Deployment")
@@ -173,7 +174,7 @@ def _campaign_fields() -> list[dict]:
 # Site filter for list view
 site_filter_col, _ = st.columns([2, 8])
 with site_filter_col:
-    filter_options = [{"id": None, "label": "All Sites"}] + site_options
+    filter_options = [{"id": None, "label": ALL_LABEL}] + site_options
     selected_site_filter = st.selectbox(
         "Filter by site",
         options=[opt["label"] for opt in filter_options],
@@ -340,7 +341,11 @@ if selected_campaign is not None:
                         )
                     else:
                         confirm_msg = f"Remove deployment of **{deploy_row.get('equipment_identifier', 'Unknown')}** at **{deploy_row.get('sampling_point_name', 'Unknown')}**?"
-                        if st.checkbox(confirm_msg, key="confirm_remove"):
+                        if st.checkbox(
+                            confirm_msg,
+                            key="confirm_remove",
+                            help="Tick to confirm. This detaches the equipment from the campaign; it does not delete the equipment.",
+                        ):
                             try:
                                 delete_campaign_deployment(
                                     selected_campaign_id,

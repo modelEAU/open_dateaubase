@@ -68,14 +68,16 @@ def test_params_for_model_empty_falls_back_with_note(monkeypatch):
 
 
 def test_units_for_param_scopes_to_parameter(monkeypatch):
-    import app.components.ingest_shapes as ing
+    # The cascade now lives in app.components.param_unit (shared by every
+    # parameter+unit form); ingest_shapes consumes it. See
+    # tests/unit/test_param_unit_cascade.py for the rest of its behavior.
+    import app.components.param_unit as pu
 
-    monkeypatch.setattr(ing.st, "session_state", {}, raising=False)
     monkeypatch.setattr(
-        ing, "list_parameter_units", lambda pid: [{"unit_id": 2, "unit": "mg/L"}]
+        pu, "list_parameter_units_lookup", lambda pid: [{"unit_id": 2, "unit": "mg/L"}]
     )
     all_units = [{"unit_id": 7, "unit": "NTU"}]
-    got, note = ing._units_for_param(3, all_units)
+    got, note = pu.units_for_parameter(3, all_units)
     assert [u["unit"] for u in got] == ["mg/L"]
     assert note is None
 
