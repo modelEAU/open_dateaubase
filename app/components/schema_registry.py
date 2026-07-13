@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Collection
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -112,6 +113,38 @@ class TableMeta:
 def list_tables() -> list[str]:
     """Return all table names defined in the YAML schema dictionary, sorted."""
     return sorted(p.stem for p in _SCHEMA_DIR.glob("*.yaml"))
+
+
+@lru_cache(maxsize=None)
+def describe(table: str, field: str) -> str:
+    """The dictionary's definition of a column, for use as a widget's ``help``.
+
+    Hand-rolled widgets (wizards, ingest, explore) don't go through
+    ``build_form_fields``, so they must ask for the definition themselves —
+    ``help=describe("Sample", "sample_kind_id")`` — rather than restate it
+    inline, where it would drift from the schema.
+
+    Keyed on (table, field) because the field name alone is ambiguous:
+    ``campaign_id`` carries a different definition in each of the ten tables
+    that reference it. ``field`` accepts the YAML name or the snake_case API
+    name. Returns "" for an unknown column, so a typo degrades to no tooltip
+    rather than an exception in the middle of a page.
+    """
+    try:
+        meta = load_table(table)
+    except (FileNotFoundError, KeyError):
+        return ""
+    want = _to_snake(field)
+    return next((c.description for c in meta.columns if c.field == want), "")
+
+
+@lru_cache(maxsize=None)
+def describe_table(table: str) -> str:
+    """The dictionary's definition of an entity, for a page/section tooltip."""
+    try:
+        return load_table(table).description.strip()
+    except (FileNotFoundError, KeyError):
+        return ""
 
 
 def load_table(table_name: str) -> TableMeta:

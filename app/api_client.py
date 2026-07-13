@@ -1506,6 +1506,12 @@ def list_parameter_units(parameter_id: int) -> list[dict]:
     return _request("GET", f"/parameters/{parameter_id}/units")
 
 
+def list_parameter_units_lookup(parameter_id: int) -> list[dict]:
+    """Units valid for a parameter. Named ``*_lookup`` so it picks up the
+    reference-data cache below (TTL + invalidation on mutation)."""
+    return list_parameter_units(parameter_id)
+
+
 def add_parameter_unit(parameter_id: int, unit_id: int) -> dict:
     return _request("POST", f"/parameters/{parameter_id}/units", json={"unit_id": unit_id})
 

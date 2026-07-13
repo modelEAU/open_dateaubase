@@ -12,6 +12,72 @@ from typing import Any
 
 import streamlit as st
 
+from app.components.labels import NONE_LABEL
+
+__all__ = [
+    "NONE_LABEL",
+    "kind_caption",
+    "kind_options",
+    "kind_select",
+    "select_or_none",
+]
+
+
+def kind_caption(options: list[dict], selected_label: str | None) -> None:
+    """Show the picked Kind's definition under a label-driven selectbox.
+
+    Some selectboxes (the wizards) take plain label strings because
+    ``session_state`` stores the label and a later step resolves it back to an
+    id, so they can't go through ``kind_select``. Options built with
+    ``kind_options`` still carry the vocabulary term's definition; this renders
+    it the same way ``kind_select`` does, so a Kind explains itself either way.
+    """
+    desc = next(
+        (o.get("description") for o in options if o.get("label") == selected_label), ""
+    )
+    if desc:
+        st.caption(desc)
+
+
+def kind_options(rows: list[dict], id_key: str, *, name_key: str = "name") -> list[dict]:
+    """Build dropdown options from a Kind lookup, keeping the definition.
+
+    A Kind row is a controlled-vocabulary term, and its ``Description`` is the
+    definition users need in order to pick correctly. Building options by hand
+    as ``{"id": ..., "label": ...}`` throws that away and yields a dropdown of
+    bare words; carrying ``description`` makes ``crud_form``/``kind_select``
+    render it as a caption under the select.
+    """
+    return [
+        {
+            "id": r.get(id_key) or r.get("id"),
+            "label": r.get(name_key, ""),
+            "description": r.get("description") or "",
+        }
+        for r in rows
+    ]
+
+
+def select_or_none(
+    label: str,
+    options: list[str],
+    *,
+    key: str,
+    help: str | None = None,
+) -> str | None:
+    """Selectbox over plain string options, with the house NONE_LABEL row.
+
+    Returns the picked option, or None when nothing is picked — so callers keep
+    "None means unset" while the empty choice looks like every other dropdown.
+    A selection that is no longer on offer (a narrowed list) is dropped, since
+    Streamlit raises on a session value outside ``options``.
+    """
+    rows = [NONE_LABEL, *options]
+    if st.session_state.get(key) not in rows:
+        st.session_state.pop(key, None)
+    picked = st.selectbox(label, options=rows, key=key, help=help)
+    return None if picked == NONE_LABEL else picked
+
 
 def kind_select(
     label: str,
@@ -34,17 +100,18 @@ def kind_select(
     key: Streamlit widget key.
     id_field, name_field, desc_field: Keys to read from each option row.
     default_id: Pre-selected id; ignored if not present in options.
-    allow_empty: If True, prepend a "(none)" choice that returns None.
+    allow_empty: If True, prepend a NONE_LABEL choice that returns None.
     help: Help tooltip on the selectbox.
 
     Returns the selected id (or None if allow_empty and the empty row is chosen).
     """
-    rows: list[dict[str, Any]] = list(options or [])
+    # Drop any empty row a caller prepended; the sentinel is ours to add.
+    rows: list[dict[str, Any]] = [
+        r for r in (options or []) if r.get(id_field) is not None
+    ]
 
-    sentinel: dict[str, Any] | None = None
     if allow_empty:
-        sentinel = {id_field: None, name_field: "(none)", desc_field: ""}
-        rows = [sentinel, *rows]
+        rows = [{id_field: None, name_field: NONE_LABEL, desc_field: ""}, *rows]
 
     if not rows:
         st.selectbox(label, options=["(no options)"], disabled=True, key=key, help=help)
