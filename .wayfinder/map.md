@@ -88,13 +88,32 @@ domain facts are already settled and must not be re-litigated:
   the move wizard already offers an explicit Event. No new `Relocation` EventKind; no colour
   reassignment. Schema **v2.2.0 → v2.3.0**.
 
+- [What happens to the three dialogs Recording replaces?](tickets/007-what-happens-to-the-three-dialogs-recording-replaces.md) —
+  **Both Explorer dialogs are replaced outright, in one change.** The multi-stream fan-out survives
+  as the *stream rung itself* ("The 3 selected series") — one verdict per selected stream, which is
+  N rows in one table, not the dual-write 002 forbade. Rungs above the stream are the **pedigree
+  intersection**: a cause is offered only on a rung every selected stream shares. The **Quality Flag
+  tab leaves the dialog** — it overwrites stored `QualityCode`s, so it is an *edit*, not a claim;
+  it becomes its own button beside Record, and the `is_lab` special case (which existed only to hide
+  it) dies with it. `_equipment_event_dialog` goes too, losing the ability to tag equipment not on
+  the chart — accepted, that's the out-of-scope standalone entry point. `events.py` stays the raw
+  escape hatch. **Surfaced:** the pedigree endpoint names rungs but can't yet *identify* them (no
+  `equipment_id`, no interface/DAS ids) — handed to 008 as its first task.
+
+## Open
+
+- **[Implement the Recording gesture](tickets/008-implement-the-recording-gesture.md)** — carries
+  001/002/004/005/006/007 into `app/` and `api/`. Nothing left to decide; a question raised while
+  implementing it is a new ticket, not a call made in the PR.
+
 ## Not yet specified
 
-- **Test strategy** for the Recording dialog. Narrower again after
-  [004](tickets/004-what-does-the-recording-dialog-look-like.md): one gesture, one row, four
-  fields, and the target selection alone decides the table — so the interesting assertion is just
-  "picking rung X + kind Y posts to table Z". Likely one AppTest, unremarkable; confirm when the
-  implementation ticket is written.
+<!-- nothing outstanding: the destination is reached. -->
+
+- ~~**Test strategy** for the Recording dialog.~~ Settled while writing
+  [008](tickets/008-implement-the-recording-gesture.md): the interesting assertion is the routing,
+  so assert it directly — rung 0 + verdict posts N annotations and no event; equipment rung + cause
+  posts one event with exactly one arc FK set. Plain AppTest, patching `app.api_client.*`.
 
 ## Out of scope
 
