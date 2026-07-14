@@ -281,10 +281,6 @@ INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_I
 INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
 VALUES (@StreamID, N'TEST_ NH4-N at Aerobic zone outlet', 11, @SP_AerobicOut, 1, 1, @CampExpID); -- NH4-N, mg/L
 
-INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@StreamID, N'TEST_ Sludge microscopy at Bioreactor 4', 16, @SP_BR4, 4, 11, @CampExpID); -- floc_morphology, Image, dimensionless
-
 -- ============================================================
 -- LabPanel (1 row)
 -- ============================================================
@@ -736,4 +732,50 @@ SELECT r.obs_id, d.smooth_val, 1 FROM @ReconObs r JOIN #turb_deriv d ON d.ts = r
 
 DROP TABLE #turb_deriv;
 
-PRINT 'Demo seed loaded: 3 persons, 1 site, 6 process units, 6 sampling points, 2 campaigns, 17 analysis series, 1 lab panel, scalar COD (final eff + influent) + vector UV-Vis + vector ViCAs settling-velocity + matrix fluorescence-EEM lab data + 1 Turbidity sensor chain (1 680 hourly obs, Apr-Jun 2026) + 10 COD influent grab samples + provenance showcase DAG (3 derived Turbidity channels + lab grab series across 3 processing steps).';
+-- ============================================================
+-- Sludge microscopy campaign (image lab data)
+--
+-- One campaign, one single-series LabPanel, one Image AnalysisSeries
+-- (floc_morphology, ValueKind=4) fed by sludge grab samples from BR-400.
+-- The images themselves are NOT seeded here: run
+--   uv run scripts/seed_sludge_images.py
+-- against a live API, which POSTs synthetic micrographs to /ingest/lab-image
+-- so the files, metadata and thumbnails are produced by the real ingest path.
+-- ============================================================
+DECLARE @CampSludgeID INT, @AS_Floc INT, @PanelSludgeID INT;
+
+INSERT INTO [dbo].[Campaign] (
+    [CampaignKind_ID], [Name], [Description],
+    [CampaignStartDateTime], [CampaignEndDateTime], [ResponsiblePerson_ID]
+)
+VALUES (
+    1,      -- Experiment
+    N'TEST_ Sludge Microscopy 2026',
+    N'TEST campaign — optical microscopy of activated-sludge flocs from Bioreactor 4 (floc morphology follow-up)',
+    '2026-05-01T00:00:00',
+    '2026-07-31T00:00:00',
+    @PersonPhDID
+);
+SET @CampSludgeID = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [SamplingPoint_ID], [Role])
+VALUES (@CampSludgeID, @SP_BR4, N'Bioreactor');
+
+INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_Floc = SCOPE_IDENTITY();
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
+VALUES (@AS_Floc, N'TEST_ Sludge floc morphology at Bioreactor 4', 16, @SP_BR4, 4, 11, @CampSludgeID); -- floc_morphology, Image, dimensionless
+
+INSERT INTO [dbo].[LabPanel] ([Name], [Description], [CreatedByPerson_ID])
+VALUES (N'TEST_ Sludge Microscopy Panel', N'TEST panel — single-series panel: floc morphology micrographs of BR-400 sludge grabs', @PersonPhDID);
+SET @PanelSludgeID = SCOPE_IDENTITY();
+
+INSERT INTO [dbo].[LabPanelSeries] ([LabPanel_ID], [AnalysisSeries_ID]) VALUES (@PanelSludgeID, @AS_Floc);
+
+-- Weekly sludge grab samples at BR-400 (Field / mixed liquor / Grab).
+-- Description doubles as the picker label in the lab-ingest sample dropdown.
+INSERT INTO [dbo].[Sample] ([SamplingPoint_ID],[SampledByPerson_ID],[Campaign_ID],[SampleDateTimeStart],[SampleKind_ID],[SampleMaterialKind_ID],[SampleCollectionKind_ID],[Description])
+VALUES (@SP_BR4,@PersonTechID,@CampSludgeID,'2026-05-12T09:00:00',1,9,1,N'TEST_ Sludge grab BR-400 2026-05-12'),
+       (@SP_BR4,@PersonTechID,@CampSludgeID,'2026-05-19T09:00:00',1,9,1,N'TEST_ Sludge grab BR-400 2026-05-19'),
+       (@SP_BR4,@PersonTechID,@CampSludgeID,'2026-05-26T09:00:00',1,9,1,N'TEST_ Sludge grab BR-400 2026-05-26');
+
+PRINT 'Demo seed loaded: 3 persons, 1 site, 6 process units, 6 sampling points, 3 campaigns (incl. sludge microscopy), 17 analysis series, 2 lab panels, scalar COD (final eff + influent) + vector UV-Vis + vector ViCAs settling-velocity + matrix fluorescence-EEM lab data + 1 Turbidity sensor chain (1 680 hourly obs, Apr-Jun 2026) + 10 COD influent grab samples + provenance showcase DAG (3 derived Turbidity channels + lab grab series across 3 processing steps).';
