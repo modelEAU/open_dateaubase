@@ -47,6 +47,7 @@ from .endpoints.process_units import (
 from .endpoints.vocab import router as vocab_router
 from .endpoints.convert import router as convert_router
 from .endpoints.deployment_traces import router as deployment_traces_router
+from .endpoints.streams import router as streams_router
 from .endpoints.admin_browse import router as admin_browse_router
 from .endpoints.events import events_router, event_kinds_router
 from .endpoints.maintenance_drift import router as maintenance_drift_router
@@ -66,6 +67,7 @@ protected = APIRouter(dependencies=[Depends(get_current_user)])
 protected.include_router(audit_router, prefix="/audit", tags=["audit"])
 protected.include_router(sites_router, prefix="/sites", tags=["sites"])
 protected.include_router(channels_router, prefix="/channels", tags=["channels"])
+protected.include_router(streams_router, prefix="/streams", tags=["streams"])
 protected.include_router(timeseries_router, prefix="/timeseries", tags=["timeseries"])
 protected.include_router(
     analysis_series_timeseries_router,
