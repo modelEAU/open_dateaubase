@@ -3,8 +3,10 @@ table:
   name: AnnotationKind
   schema: dbo
   description: >
-    Controlled vocabulary defining the kinds of annotations that can be applied
-    to time series data. Each kind has a display color for UI rendering.
+    Controlled vocabulary of verdicts that can be passed on time series data.
+    An annotation says what is wrong with the data, never why — the why lives on
+    the Event it optionally cites via Event_ID (see ADR-0007). Cause-named kinds
+    belong in EventKind. Each kind has a display color for UI rendering.
 
   columns:
     - name: AnnotationKind_ID
@@ -32,15 +34,12 @@ table:
 
   primary_key: [AnnotationKind_ID]
 
+  # Five verdicts, per ADR-0007. IDs are not renumbered: 1/2/3/5/6/11 were the
+  # retired cause-named kinds and stay burned so old rows never silently change
+  # meaning.
   seed_data:
-    - { AnnotationKind_ID: 1,  Name: "Fault",              Description: "Sensor or process fault",                      Color: "#FF4444" }
-    - { AnnotationKind_ID: 2,  Name: "Maintenance",        Description: "Sensor under maintenance",                     Color: "#FFA500" }
-    - { AnnotationKind_ID: 3,  Name: "Calibration Period", Description: "Data during calibration — may be invalid",     Color: "#FFD700" }
-    - { AnnotationKind_ID: 4,  Name: "Anomaly",            Description: "Unexpected behavior, needs investigation",     Color: "#FF69B4" }
-    - { AnnotationKind_ID: 5,  Name: "Experiment",         Description: "Data collected for a specific experiment",     Color: "#4488FF" }
-    - { AnnotationKind_ID: 6,  Name: "Process Event",      Description: "Known process event (storm, dosing, etc.)",    Color: "#44BB44" }
-    - { AnnotationKind_ID: 7,  Name: "Data Quality",       Description: "Suspect data quality (drift, fouling)",        Color: "#AA44FF" }
-    - { AnnotationKind_ID: 8,  Name: "Note",               Description: "General commentary",                           Color: "#888888" }
-    - { AnnotationKind_ID: 9,  Name: "Exclusion",          Description: "Data should be excluded from analysis",        Color: "#CC0000" }
-    - { AnnotationKind_ID: 10, Name: "Confirmed",          Description: "Data has been reviewed and accepted as valid", Color: "#00AA00" }
-    - { AnnotationKind_ID: 11, Name: "Equipment Relocation", Description: "Equipment was physically moved to a new location", Color: "#8888FF" }
+    - { AnnotationKind_ID: 4,  Name: "Anomaly",      Description: "Unexplained behaviour — something happened here that no known event accounts for", Color: "#FF69B4" }
+    - { AnnotationKind_ID: 7,  Name: "Data Quality", Description: "Suspect data quality (drift, fouling); cite the Event that caused it if known",    Color: "#AA44FF" }
+    - { AnnotationKind_ID: 8,  Name: "Note",         Description: "General commentary",                                                               Color: "#888888" }
+    - { AnnotationKind_ID: 9,  Name: "Exclusion",    Description: "Data should be excluded from analysis",                                            Color: "#CC0000" }
+    - { AnnotationKind_ID: 10, Name: "Confirmed",    Description: "Data has been reviewed and accepted as valid",                                     Color: "#00AA00" }

@@ -79,7 +79,7 @@ Human-authored annotations on time series data. Each annotation anchors to a sin
 
 ### AnnotationKind
 
-Controlled vocabulary defining the kinds of annotations that can be applied to time series data. Each kind has a display color for UI rendering.
+Controlled vocabulary of verdicts that can be passed on time series data. An annotation says what is wrong with the data, never why — the why lives on the Event it optionally cites via Event_ID (see ADR-0007). Cause-named kinds belong in EventKind. Each kind has a display color for UI rendering.
 
 
 

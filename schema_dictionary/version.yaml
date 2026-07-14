@@ -1,9 +1,9 @@
-schema_version: "2.2.0"
+schema_version: "2.3.0"
 description: >
-  Adds SampleMaterialKind controlled vocabulary describing a sample's physical
-  matrix (grit, wastewater, mixed liquor, sludges, membrane and reference
-  waters), orthogonal to SampleKind's analytical role. Sample gains a nullable
-  SampleMaterialKind_ID FK; LabPanel gains DefaultSampleKind_ID and
-  DefaultSampleMaterialKind_ID so panels can pre-fill both role and matrix.
-  See migrations/v2.1.0_to_v2.2.0_mssql.sql.
-date: "2026-07-07"
+  Retires the six cause-named AnnotationKinds (Fault, Maintenance, Calibration
+  Period, Experiment, Process Event, Equipment Relocation), leaving five verdicts
+  about the data: Anomaly, Data Quality, Note, Exclusion, Confirmed. Causes belong
+  in EventKind; an annotation names what is wrong with the data, never why. See
+  ADR-0007 and migrations/v2.2.0_to_v2.3.0_mssql.sql, which remaps existing rows
+  onto a survivor before deleting the retired kinds.
+date: "2026-07-14"
