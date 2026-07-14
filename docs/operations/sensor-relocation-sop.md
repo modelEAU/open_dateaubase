@@ -52,25 +52,17 @@ Content-Type: application/json
   "signal_port_id": 7,
   "new_location_history_id": 18,
   "closed_location_history_id": 12,
-  "annotation_ids": [304],
   "channel_ids_affected": [55]
 }
 ```
 
-The API automatically creates an **"Equipment Relocation"** annotation (type ID 11) on every `Channel` associated with the port. This flags the relocation for data quality review in downstream time series analysis.
-
 ---
 
-## Auto-annotation behaviour
+## The move writes no annotation
 
-The annotation has:
-- `AnnotationType` = *Equipment Relocation* (ID 11, orange `#FF8C00`)
-- `StartTime` = the provided `start_time`
-- `EndTime` = null (open-ended — the reviewer closes it when the review is complete)
-- `Title` = "Equipment Relocation"
-- `Comment` = machine-generated description including new SamplingPoint ID, move time, and any notes
+Relocation used to auto-create an "Equipment Relocation" annotation on every affected `Channel`. It no longer does: per [ADR-0007](../adr/0007-kind-level-association.md) a move is a **cause**, the location-history rows are its record, and an `Annotation` is a verdict on *data*, never a cause.
 
-The annotation is visible in any time series query that covers the relocation timestamp.
+If the data around the move needs flagging, record it deliberately — an `Event` for the move (if the history row is not enough) or a `Data Quality` / `Exclusion` annotation on the window you actually distrust.
 
 ---
 

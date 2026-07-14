@@ -25,7 +25,6 @@ class EquipmentRewireResponse(BaseModel):
     equipment_id: int
     new_wiring_history_id: int
     closed_wiring_history_id: int | None
-    annotation_ids: list[int]
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +47,7 @@ class EquipmentRegisterInterfaceResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Relocate (close current location + open new + auto-annotate)
+# Relocate (close current location + open new)
 # ---------------------------------------------------------------------------
 
 
@@ -65,7 +64,6 @@ class EquipmentRelocateResponse(BaseModel):
     equipment_id: int
     new_location_history_id: int
     closed_location_history_id: int | None
-    annotation_ids: list[int]
 
 
 # ---------------------------------------------------------------------------

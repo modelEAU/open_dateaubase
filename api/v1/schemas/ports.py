@@ -40,30 +40,6 @@ class PortEquipmentRegisterResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Sensor relocation
-# ---------------------------------------------------------------------------
-
-
-class PortRelocateRequest(BaseModel):
-    """Close current active LocationHistory and open a new one.
-
-    ``start_time`` is required and must equal the physical move time.
-    """
-
-    sampling_point_id: int
-    start_time: datetime
-    notes: str | None = None
-
-
-class PortRelocateResponse(BaseModel):
-    signal_port_id: int
-    new_location_history_id: int
-    closed_location_history_id: int | None
-    annotation_ids: list[int]
-    channel_ids_affected: list[int]
-
-
-# ---------------------------------------------------------------------------
 # Point-in-time queries
 # ---------------------------------------------------------------------------
 

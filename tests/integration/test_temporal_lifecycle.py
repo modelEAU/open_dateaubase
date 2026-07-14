@@ -13,10 +13,11 @@ Covers all issue #7 acceptance criteria:
   AC-LO1   Sensor relocation leaves Channel_ID unchanged
   AC-LO2   Point-in-time query at T_before returns old SamplingPoint; T_after returns new one
   AC-LO3   Opening a second active EquipmentLocationHistory row raises a constraint error
-  AC-LO4   Relocation automatically creates an "Equipment Relocation" Annotation on
-             every affected Channel
   AC-LO5   valid_from must be provided explicitly (endpoint requires it, no default)
-  AC-ANN   Equipment wire-swap also auto-annotates affected Channels (symmetry fix)
+
+AC-LO4 / AC-ANN (a move auto-annotates every affected Channel) were retired by
+ADR-0007: a move is a cause, the history rows are its record, and an Annotation
+is a verdict on data.
 """
 
 from __future__ import annotations
@@ -28,7 +29,6 @@ import pytest
 import pyodbc
 
 from api.v1.repositories import (
-    annotation_repository,
     equipment_repository as equip_repo,
     temporal_history_repository,
 )
@@ -41,9 +41,6 @@ from api.v1.repositories.signal_interface_repository import (
 )
 
 pytestmark = pytest.mark.db
-
-# AnnotationKind_ID for Equipment Relocation (seeded in migration as ID 11)
-ANNOTATION_TYPE_EQUIPMENT_MOVE = 11
 
 
 # ---------------------------------------------------------------------------
@@ -189,34 +186,6 @@ def _get_is_active(conn, equip_id: int) -> bool:
     return bool(cursor.fetchone()[0])
 
 
-def _annotation_count(conn, channel_id: int, annotation_kind_id: int) -> int:
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT COUNT(*) FROM [dbo].[Annotation]"
-        " WHERE [Stream_ID] = ? AND [AnnotationKind_ID] = ?",
-        channel_id,
-        annotation_kind_id,
-    )
-    return cursor.fetchone()[0]
-
-
-def _annotate_equipment_move(
-    conn, equipment_id: int, title: str, comment: str, start_time: datetime
-) -> list[int]:
-    """Replicate endpoint auto-annotation behaviour for equipment moves."""
-    from api.v1.repositories import channel_repository
-
-    stream_ids = channel_repository.get_channel_ids_for_equipment(conn, equipment_id)
-    if not stream_ids:
-        return []
-    return annotation_repository.create_equipment_move_annotations(
-        conn,
-        stream_ids=stream_ids,
-        annotation_kind_id=ANNOTATION_TYPE_EQUIPMENT_MOVE,
-        title=title,
-        comment=comment,
-        start_time=start_time,
-    )
 
 
 def _open_wiring(
@@ -492,57 +461,6 @@ def test_second_active_location_row_raises_constraint_error(db):
 
 
 # ---------------------------------------------------------------------------
-# AC-LO4: Relocation auto-creates "Equipment Relocation" Annotation
-# ---------------------------------------------------------------------------
-
-
-def test_relocation_creates_annotation(db):
-    conn, _, seed = db
-    si_id, channel_id = _create_interface_and_channel(conn, seed)
-
-    t_install = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    t_move = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
-
-    # Wire and locate equipment
-    temporal_history_repository.register_equipment_at_interface(
-        conn, seed["equip_a_id"], si_id, None, start_time=t_install
-    )
-    _open_location(conn, seed["equip_a_id"], seed["sp_inlet_id"], t_install)
-
-    assert _annotation_count(conn, channel_id, ANNOTATION_TYPE_EQUIPMENT_MOVE) == 0
-
-    # Relocate
-    temporal_history_repository.relocate_equipment(
-        conn, seed["equip_a_id"], seed["sp_outlet_id"], t_move
-    )
-
-    # Simulate endpoint annotation behaviour
-    annotation_ids = _annotate_equipment_move(
-        conn,
-        seed["equip_a_id"],
-        title="Equipment Relocation",
-        comment="Moved to Outlet",
-        start_time=t_move,
-    )
-
-    # Auto-annotation must be created for the channel
-    assert len(annotation_ids) == 1
-    assert _annotation_count(conn, channel_id, ANNOTATION_TYPE_EQUIPMENT_MOVE) == 1
-
-    # Verify annotation content
-    annots = annotation_repository.get_annotations_for_stream(
-        conn,
-        channel_id,
-        from_dt=t_move - timedelta(seconds=1),
-        to_dt=t_move + timedelta(seconds=1),
-        annotation_kind_id=ANNOTATION_TYPE_EQUIPMENT_MOVE,
-    )
-    assert len(annots) == 1
-    assert annots[0]["annotation_kind_id"] == ANNOTATION_TYPE_EQUIPMENT_MOVE
-    assert annots[0]["start_time"] == t_move.replace(tzinfo=None)
-
-
-# ---------------------------------------------------------------------------
 # AC-LO5: valid_from required on relocation (schema-level validation)
 # ---------------------------------------------------------------------------
 
@@ -554,48 +472,6 @@ def test_relocation_valid_from_required():
 
     with pytest.raises(pydantic.ValidationError):
         EquipmentRelocateRequest(sampling_point_id=1)  # type: ignore[call-arg]  # missing valid_from
-
-
-# ---------------------------------------------------------------------------
-# AC-ANN: Equipment wire-swap also auto-annotates affected Channels
-# ---------------------------------------------------------------------------
-
-
-def test_equipment_rewire_creates_annotation(db):
-    conn, _, seed = db
-    si_id, channel_id = _create_interface_and_channel(conn, seed)
-
-    t_start = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    t_swap = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
-
-    # Wire equipment A to interface
-    temporal_history_repository.register_equipment_at_interface(
-        conn, seed["equip_a_id"], si_id, None, start_time=t_start
-    )
-
-    assert _annotation_count(conn, channel_id, ANNOTATION_TYPE_EQUIPMENT_MOVE) == 0
-
-    # Rewire equipment A to a new interface
-    si2_id, channel2_id = _create_interface_and_channel(conn, seed, tag_name="TIT-202")
-    temporal_history_repository.rewire_equipment(
-        conn,
-        seed["equip_a_id"],
-        new_signal_interface_id=si2_id,
-        new_signal_interface_port_id=None,
-        swap_time=t_swap,
-    )
-
-    # Simulate endpoint annotation behaviour (symmetry with relocation)
-    annotation_ids = _annotate_equipment_move(
-        conn,
-        seed["equip_a_id"],
-        title="Equipment Rewired",
-        comment="Rewired to new interface",
-        start_time=t_swap,
-    )
-
-    assert len(annotation_ids) == 1
-    assert _annotation_count(conn, channel2_id, ANNOTATION_TYPE_EQUIPMENT_MOVE) == 1
 
 
 # ---------------------------------------------------------------------------
