@@ -14,6 +14,8 @@ Coverage map:
   Header — panel mode loads panel series + auto-names experiment
   Grid — populated row creates a sample and submits one measurement
   Grid — two populated rows create two samples (one measurement each)
+  Grid — two rows sharing a sample name = one sample, auto-numbered replicates
+  Grid — rows with a blank sample name each stand alone as their own sample
   Grid — row with a value but no start time blocks with an error, no ingest
   Grid — empty row is skipped, "no measurements" blocks submit
   Grid — append-to-existing-experiment minimal payload (experiment_id + measurements)
@@ -22,9 +24,9 @@ Coverage map:
 
 `st.data_editor` isn't drivable via AppTest widget interactions (no
 `at.data_editor` accessor), so grid rows are seeded directly into the stable
-per-sampling-point seeds `lab_samples_seed_{sp}` / `lab_values_seed_{sp}` (via
-`_seed_grid`) — the equivalent of "the grids already hold these rows" rather
-than driving keystrokes/paste.
+per-sampling-point seed `lab_grid_seed_{sp}` (via `_seed_grid`) — the
+equivalent of "the grid already holds these rows" rather than driving
+keystrokes/paste.
 """
 from __future__ import annotations
 
@@ -177,40 +179,26 @@ def _base_session(**overrides) -> dict:
     return sess
 
 
-def _seed_grid(at, sp_id, samples, values, val_cols=("val_1",)):
-    """Seed the two stable grid seeds for a sampling point directly, the
-    equivalent of "the grids already hold these rows" (``st.data_editor`` can't
-    be driven through AppTest widget interactions)."""
-    at.session_state[f"lab_samples_seed_{sp_id}"] = _samples_df(samples)
-    at.session_state[f"lab_values_seed_{sp_id}"] = _values_df(values, val_cols)
-
-
-_SAMPLE_COLS = [
-    "sample_no", "sample_label", "sample_kind", "sample_material", "start", "end",
+_META_COLS = [
+    "sample_label", "sample_kind", "sample_material", "start", "end",
     "collection_kind", "equipment",
 ]
 
 
-def _samples_df(rows):
-    df = pd.DataFrame(rows, columns=_SAMPLE_COLS)
-    df["sample_no"] = pd.to_numeric(df["sample_no"], errors="coerce").astype("Int64")
+def _seed_grid(at, sp_id, rows, val_cols=("val_1",)):
+    """Seed the stable results-grid seed for a sampling point directly, the
+    equivalent of "the grid already holds these rows" (``st.data_editor`` can't
+    be driven through AppTest widget interactions)."""
+    cols = [*_META_COLS, *val_cols, "quality_code", "notes"]
+    df = pd.DataFrame(rows, columns=cols)
     df["start"] = pd.to_datetime(df["start"], errors="coerce")
     df["end"] = pd.to_datetime(df["end"], errors="coerce")
-    for c in ("sample_label", "sample_kind", "sample_material", "collection_kind", "equipment"):
-        df[c] = df[c].astype(object).where(df[c].notna(), None)
-    return df
-
-
-def _values_df(rows, val_cols=("val_1",)):
-    cols = ["sample_no", *val_cols, "replicate", "quality_code", "notes"]
-    df = pd.DataFrame(rows, columns=cols)
-    df["sample_no"] = pd.to_numeric(df["sample_no"], errors="coerce").astype("Int64")
     for vc in val_cols:
         df[vc] = pd.to_numeric(df[vc], errors="coerce")
-    df["replicate"] = pd.to_numeric(df["replicate"], errors="coerce").astype("Int64")
-    for c in ("quality_code", "notes"):
+    for c in ("sample_label", "sample_kind", "sample_material", "collection_kind",
+              "equipment", "quality_code", "notes"):
         df[c] = df[c].astype(object).where(df[c].notna(), None)
-    return df
+    at.session_state[f"lab_grid_seed_{sp_id}"] = df
 
 
 def _errors(at: AppTest) -> list[str]:
@@ -220,9 +208,9 @@ def _errors(at: AppTest) -> list[str]:
 _ROW_START = datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc)
 
 
-def _sample_row(**overrides) -> dict:
+def _row(**overrides) -> dict:
+    """One results row: sample description + its measured values."""
     row = {
-        "sample_no": 1,
         "sample_label": "S1",
         "sample_kind": "Field",
         "sample_material": "mixed liquor",
@@ -230,16 +218,7 @@ def _sample_row(**overrides) -> dict:
         "end": None,
         "collection_kind": "Grab",
         "equipment": "Bottle-1",
-    }
-    row.update(overrides)
-    return row
-
-
-def _value_row(**overrides) -> dict:
-    row = {
-        "sample_no": 1,
         "val_1": 12.3,
-        "replicate": None,
         "quality_code": None,
         "notes": None,
     }
@@ -313,7 +292,7 @@ def test_grid_renders_with_no_rows_yet(mocked_lookups):
 
 def test_grid_row_creates_sample_and_submits(mock_apis):
     at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
-    _seed_grid(at, 1, [_sample_row()], [_value_row()])
+    _seed_grid(at, 1, [_row()])
     at.run()
     submit_btn = next(b for b in at.button if b.label == "✅  Submit Experiment")
     submit_btn.click().run()
@@ -341,18 +320,17 @@ def test_grid_row_creates_sample_and_submits(mock_apis):
     assert m["quality_code_id"] is None
 
 
-def test_grid_two_measurements_one_sample(mock_apis):
-    """Two measurement rows referencing the same sample number produce two
-    measurements against a single create_sample call — the replicate ergonomics
-    the split-grid design exists to enable."""
+def test_grid_same_sample_name_is_one_sample_with_replicates(mock_apis):
+    """Two rows sharing a sample name are replicates of ONE physical sample:
+    a single create_sample call, and replicate numbers derived from row order
+    rather than typed by the user."""
     at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
     _seed_grid(
         at,
         1,
-        [_sample_row(sample_no=1)],
         [
-            _value_row(sample_no=1, val_1=12.3, replicate=1),
-            _value_row(sample_no=1, val_1=12.9, replicate=2),
+            _row(sample_label="S1", val_1=12.3),
+            _row(sample_label="S1", val_1=12.9),
         ],
     )
     at.run()
@@ -373,11 +351,7 @@ def test_grid_two_samples_create_two_samples(mock_apis):
     _seed_grid(
         at,
         1,
-        [_sample_row(sample_no=1), _sample_row(sample_no=2, sample_label="S2")],
-        [
-            _value_row(sample_no=1, val_1=12.3),
-            _value_row(sample_no=2, val_1=15.0),
-        ],
+        [_row(sample_label="S1", val_1=12.3), _row(sample_label="S2", val_1=15.0)],
     )
     at.run()
     submit_btn = next(b for b in at.button if b.label == "✅  Submit Experiment")
@@ -386,15 +360,33 @@ def test_grid_two_samples_create_two_samples(mock_apis):
     assert mock_apis["create_sample"].call_count == 2
     payload = mock_apis["ingest_lab"].call_args[0][0]
     assert [m["sample_id"] for m in payload["measurements"]] == [42, 43]
+    assert [m["replicate"] for m in payload["measurements"]] == [1, 1]
 
 
-def test_grid_row_replicate_and_quality_code_pass_through(mock_apis):
+def test_grid_blank_sample_names_stand_alone(mock_apis):
+    """A blank sample name doesn't collapse rows together — each unnamed row is
+    its own physical sample, not replicate #2 of the previous one."""
+    mock_apis["create_sample"].side_effect = [{"sample_id": 42}, {"sample_id": 43}]
     at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
     _seed_grid(
         at,
         1,
-        [_sample_row()],
-        [_value_row(replicate=2, quality_code="Good — No issues", notes="split sample")],
+        [_row(sample_label=None, val_1=12.3), _row(sample_label=None, val_1=15.0)],
+    )
+    at.run()
+    submit_btn = next(b for b in at.button if b.label == "✅  Submit Experiment")
+    submit_btn.click().run()
+
+    assert mock_apis["create_sample"].call_count == 2
+    payload = mock_apis["ingest_lab"].call_args[0][0]
+    assert [m["sample_id"] for m in payload["measurements"]] == [42, 43]
+    assert [m["replicate"] for m in payload["measurements"]] == [1, 1]
+
+
+def test_grid_row_quality_code_and_notes_pass_through(mock_apis):
+    at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
+    _seed_grid(
+        at, 1, [_row(quality_code="Good — No issues", notes="split sample")]
     )
     at.run()
     submit_btn = next(b for b in at.button if b.label == "✅  Submit Experiment")
@@ -402,14 +394,13 @@ def test_grid_row_replicate_and_quality_code_pass_through(mock_apis):
 
     payload = mock_apis["ingest_lab"].call_args[0][0]
     m = payload["measurements"][0]
-    assert m["replicate"] == 2
     assert m["quality_code_id"] == 1
     assert m["notes"] == "split sample"
 
 
-def test_grid_row_replicate_and_quality_code_default_when_blank(mock_apis):
+def test_grid_row_quality_code_and_notes_default_when_blank(mock_apis):
     at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
-    _seed_grid(at, 1, [_sample_row()], [_value_row(replicate=None)])
+    _seed_grid(at, 1, [_row()])
     at.run()
     submit_btn = next(b for b in at.button if b.label == "✅  Submit Experiment")
     submit_btn.click().run()
@@ -421,23 +412,9 @@ def test_grid_row_replicate_and_quality_code_default_when_blank(mock_apis):
     assert m["notes"] is None
 
 
-def test_measurement_referencing_undefined_sample_blocks(mock_apis):
-    """A measurement row referencing a sample number that isn't defined in the
-    Samples grid errors and blocks — no sample creation, no ingest."""
-    at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
-    _seed_grid(at, 1, [_sample_row(sample_no=1)], [_value_row(sample_no=9)])
-    at.run()
-    submit_btn = next(b for b in at.button if b.label == "✅  Submit Experiment")
-    submit_btn.click().run()
-
-    assert any("isn't defined" in e for e in _errors(at))
-    mock_apis["create_sample"].assert_not_called()
-    mock_apis["ingest_lab"].assert_not_called()
-
-
 def test_sample_missing_start_blocks_with_error(mock_apis):
     at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
-    _seed_grid(at, 1, [_sample_row(start=None)], [_value_row()])
+    _seed_grid(at, 1, [_row(start=None)])
     at.run()
     submit_btn = next(b for b in at.button if b.label == "✅  Submit Experiment")
     submit_btn.click().run()
@@ -449,7 +426,7 @@ def test_sample_missing_start_blocks_with_error(mock_apis):
 
 def test_grid_empty_measurements_no_measurements_error(mock_apis):
     at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
-    _seed_grid(at, 1, [_sample_row()], [_value_row(val_1=None)])
+    _seed_grid(at, 1, [_row(val_1=None)])
     at.run()
     submit_btn = next(b for b in at.button if b.label == "✅  Submit Experiment")
     submit_btn.click().run()
@@ -461,7 +438,7 @@ def test_grid_empty_measurements_no_measurements_error(mock_apis):
 
 def test_grid_submit_append_existing_minimal_payload(mock_apis):
     at = _at(_base_session(mode="existing", series=[dict(_GRID_SERIES_ITEM)]))
-    _seed_grid(at, 1, [_sample_row()], [_value_row()])
+    _seed_grid(at, 1, [_row()])
     at.run()
     # sess["experiment_id"] is derived from its own selectbox every render —
     # seeding the dict directly isn't enough, the picker must be driven.

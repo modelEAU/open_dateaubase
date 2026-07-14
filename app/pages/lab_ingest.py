@@ -1,10 +1,11 @@
 """Lab Analysis Ingest page — compact header + wide measurement grid.
 
-One row per sample, one column per assigned (non-image) AnalysisSeries,
-grouped by sampling point. Samples are created automatically at submit time
-from populated grid rows. Image-kind series still use a separate
-per-sampling-point sample step + upload tab (D3 in
-.tasks/lab_wide_table_plan.md).
+One Results grid per sampling point: sample-description columns on the left,
+one value column per assigned (non-image) AnalysisSeries on the right. Samples
+are created automatically at submit time from populated rows — rows sharing a
+sample name become replicates of one Sample, so nothing links a value to its
+sample by hand. Image-kind series still use a separate per-sampling-point
+sample step + upload tab (D3 in .tasks/lab_wide_table_plan.md).
 
 Uses the LabIngestRequest / LabImageIngestResponse API.
 """
@@ -178,10 +179,10 @@ if "lab_session" not in st.session_state:
 
 def _reset_form() -> None:
     st.session_state.lab_session = dict(_SESSION_DEFAULTS)
-    # Samples/Measurements grid seeds live outside lab_session — purge them too
+    # Results grid seeds live outside lab_session — purge them too
     # (mirrors binning_axes.py's "Cancel" cleanup).
     for k in list(st.session_state.keys()):
-        if k.startswith("lab_samples_") or k.startswith("lab_values_"):
+        if str(k).startswith("lab_grid_"):
             del st.session_state[k]
 
 
@@ -671,12 +672,7 @@ def _grid_value_columns(series_list: list[dict]) -> dict[str, dict]:
     return {f"val_{s['analysis_series_id']}": s for s in series_list}
 
 
-_SAMPLES_COLS = [
-    "sample_no", "sample_label", "sample_kind", "sample_material", "start", "end",
-    "collection_kind", "equipment",
-]
-_SAMPLES_DTYPES = {
-    "sample_no": "Int64",
+_SAMPLE_META_DTYPES = {
     "sample_label": "object",
     "sample_kind": "object",
     "sample_material": "object",
@@ -701,63 +697,78 @@ def _coerce(df: pd.DataFrame, dtypes: dict[str, str]) -> pd.DataFrame:
             out[col] = pd.to_datetime(out[col], errors="coerce")
         elif dt == "float64":
             out[col] = pd.to_numeric(out[col], errors="coerce")
-        elif dt == "Int64":
-            out[col] = pd.to_numeric(out[col], errors="coerce").astype("Int64")
         else:
             out[col] = out[col].astype(object).where(out[col].notna(), None)
     return out
 
 
-def _values_dtypes(value_cols: dict[str, dict]) -> dict[str, str]:
-    d: dict[str, str] = {"sample_no": "Int64"}
+def _grid_dtypes(value_cols: dict[str, dict]) -> dict[str, str]:
+    d: dict[str, str] = dict(_SAMPLE_META_DTYPES)
     for col_key, s in value_cols.items():
         d[col_key] = "float64" if s.get("value_kind_id", 1) == 1 else "object"
-    d["replicate"] = "Int64"
     d["quality_code"] = "object"
     d["notes"] = "object"
     return d
 
 
-def _render_wide_grid() -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
-    """Render a Samples grid + a Measurements grid per sampling point.
+def _sample_key(row, idx: int):
+    """Group rows into physical samples.
 
-    Returns ``{sp_id: (samples_edited_df, values_edited_df)}`` collected from
-    each ``st.data_editor`` return value in this same render — the state flows
-    forward to submit rather than being written back into ``lab_session``.
+    Rows sharing a non-blank sample name are the same sample (replicates); a
+    blank name means "this row is its own sample", so it gets a per-row key.
+    """
+    label = row.get("sample_label")
+    if _has_value(label) and str(label).strip():
+        return str(label).strip()
+    return ("__row__", idx)
+
+
+def _render_wide_grid() -> dict[int, pd.DataFrame]:
+    """Render one results grid per sampling point.
+
+    Returns ``{sp_id: edited_df}`` collected from each ``st.data_editor`` return
+    value in this same render — the state flows forward to submit rather than
+    being written back into ``lab_session``.
     """
     sess = st.session_state.lab_session
     groups = _grid_groups(sess)
-    grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
+    grid_state: dict[int, pd.DataFrame] = {}
     if not groups:
         st.caption("Assign at least one AnalysisSeries above to enter measurements.")
         return grid_state
 
-    st.markdown("**Samples & Measurements**")
+    st.subheader("Results")
     st.caption(
-        "Register each physical sample in the **Samples** grid, then record its "
-        "observations in the **Measurements** grid, referencing the sample by its "
-        "number. Two rows with the same sample number = replicates of one sample."
+        "One row per set of results: describe the sample on the left, type its "
+        "measured values on the right. Give the sample a **label** you'd recognise "
+        "from your bench notes — two rows sharing a label are treated as replicates "
+        "of the same physical sample, and only one sample is recorded. Leave the "
+        "label blank and the row stands alone as its own sample."
     )
 
     for sp_id, series_list in groups.items():
         sp_label = next(
             (sp["label"] for sp in _sp if sp["sampling_point_id"] == sp_id), f"SP {sp_id}"
         )
-        st.markdown(f"*{sp_label}*")
-        grid_state[sp_id] = _render_sp_grids(sess, sp_id, series_list)
+        st.markdown(f"##### 📍 {sp_label}")
+        grid_state[sp_id] = _render_sp_grid(sess, sp_id, series_list)
     return grid_state
 
 
-def _render_sp_grids(
-    sess: dict, sp_id: int, series_list: list[dict]
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _render_sp_grid(sess: dict, sp_id: int, series_list: list[dict]) -> pd.DataFrame:
     value_cols = _grid_value_columns(series_list)
 
-    # --- Samples grid (stable seed, initialized once) ---
-    samples_seed_key = f"lab_samples_seed_{sp_id}"
-    samples_editor_key = f"lab_samples_editor_{sp_id}"
-    if samples_seed_key not in st.session_state:
-        st.session_state[samples_seed_key] = _coerce(pd.DataFrame(), _SAMPLES_DTYPES)
+    seed_key = f"lab_grid_seed_{sp_id}"
+    editor_key = f"lab_grid_editor_{sp_id}"
+    sig_key = f"lab_grid_sig_{sp_id}"
+    dtypes = _grid_dtypes(value_cols)
+    col_sig = tuple(dtypes)
+    if seed_key not in st.session_state or st.session_state.get(sig_key) != col_sig:
+        old = st.session_state.get(seed_key)
+        st.session_state[seed_key] = _coerce(
+            old if old is not None else pd.DataFrame(), dtypes
+        )
+        st.session_state[sig_key] = col_sig
 
     default_ck_label = next(
         (
@@ -793,25 +804,26 @@ def _render_sp_grids(
         None,
     )
 
-    if st.button("+ Add sample", key=f"lab_add_sample_{sp_id}"):
-        df = st.session_state[samples_seed_key]
-        nos = df["sample_no"].dropna()
-        next_no = int(nos.max()) + 1 if len(nos) else 1
-        new_row = _coerce(pd.DataFrame([{c: None for c in _SAMPLES_COLS}]), _SAMPLES_DTYPES)
-        new_row.loc[0, "sample_no"] = next_no
-        st.session_state[samples_seed_key] = pd.concat([df, new_row], ignore_index=True)
-        st.session_state.pop(samples_editor_key, None)
+    if st.button(
+        "➕ Add replicate of last row",
+        key=f"lab_grid_dup_{sp_id}",
+        help="Copy the last row's sample description forward with empty values — "
+        "the quick way to record a second run of the same sample.",
+        disabled=st.session_state[seed_key].empty,
+    ):
+        df = st.session_state[seed_key]
+        last = df.iloc[[-1]].copy()
+        for col in (*value_cols, "quality_code", "notes"):
+            last[col] = None
+        st.session_state[seed_key] = pd.concat([df, last], ignore_index=True)
+        st.session_state.pop(editor_key, None)
         st.rerun()
 
-    samples_config = {
-        "sample_no": st.column_config.NumberColumn(
-            "Sample #",
-            min_value=1,
-            step=1,
-            help="Row number used to line samples up with the values grid below.",
-        ),
+    grid_config = {
         "sample_label": st.column_config.TextColumn(
-            "Label", help="Your name for this sample (e.g. the bottle or tube ID)."
+            "Sample label",
+            help="Your name for this sample (the bottle or tube ID from your notes). "
+            "Reuse the same name on another row to record a replicate of it.",
         ),
         "sample_kind": st.column_config.SelectboxColumn(
             "Sample kind",
@@ -844,58 +856,6 @@ def _render_sp_grids(
             help=describe("Sample", "sample_equipment_id"),
         ),
     }
-    samples_edited = st.data_editor(
-        st.session_state[samples_seed_key],
-        column_config=samples_config,
-        use_container_width=True,
-        num_rows="dynamic",
-        key=samples_editor_key,
-    )
-
-    # --- Measurements grid (stable seed, reinit only when series set changes) ---
-    values_seed_key = f"lab_values_seed_{sp_id}"
-    values_editor_key = f"lab_values_editor_{sp_id}"
-    values_sig_key = f"lab_values_sig_{sp_id}"
-    col_sig = tuple(sorted(value_cols.keys()))
-    if (
-        values_seed_key not in st.session_state
-        or st.session_state.get(values_sig_key) != col_sig
-    ):
-        old = st.session_state.get(values_seed_key)
-        base = old if old is not None else pd.DataFrame()
-        st.session_state[values_seed_key] = _coerce(base, _values_dtypes(value_cols))
-        st.session_state[values_sig_key] = col_sig
-
-    # Options = sample numbers currently in the Samples grid, unioned with any
-    # already referenced in the values seed (so a persisted pick never falls out
-    # of the option set and crashes SelectboxColumn). Recomputed fresh each
-    # render — a UI hint, not part of the persisted seed.
-    live_nos = {int(n) for n in samples_edited["sample_no"].dropna().tolist()}
-    seed_nos = {int(n) for n in st.session_state[values_seed_key]["sample_no"].dropna().tolist()}
-    sample_no_options = sorted(live_nos | seed_nos)
-
-    if st.button(
-        "+ Duplicate last row",
-        key=f"lab_values_dup_{sp_id}",
-        help="Copy the last row forward and bump its replicate — the quick way to add a replicate.",
-        disabled=st.session_state[values_seed_key].empty,
-    ):
-        df = st.session_state[values_seed_key]
-        last = df.iloc[[-1]].copy()
-        rep = last["replicate"].fillna(1).astype(int) + 1
-        last["replicate"] = rep.astype("Int64")
-        st.session_state[values_seed_key] = pd.concat([df, last], ignore_index=True)
-        st.session_state.pop(values_editor_key, None)
-        st.rerun()
-
-    values_config = {
-        "sample_no": st.column_config.SelectboxColumn(
-            "Sample #",
-            options=sample_no_options,
-            required=True,
-            help="Which sample from the grid above this row of results belongs to.",
-        ),
-    }
     for col_key, s in value_cols.items():
         pk = next(
             (p["parameter_name"] for p in _parameters if p["parameter_id"] == s.get("parameter_id")),
@@ -904,37 +864,28 @@ def _render_sp_grids(
         unit = next((u["unit"] for u in _units if u["unit_id"] == s.get("unit_id")), "?")
         label = f"{pk} ({unit})"
         col_help = f"{describe('Value', 'value')} for {pk}, in {unit}."
-        values_config[col_key] = (
+        grid_config[col_key] = (
             st.column_config.NumberColumn(label, help=col_help)
             if s.get("value_kind_id", 1) == 1
             else st.column_config.TextColumn(label, help=col_help)
         )
-    values_config["replicate"] = st.column_config.NumberColumn(
-        "Replicate",
-        default=1,
-        min_value=1,
-        step=1,
-        help="Which repeat measurement of the same sample this row is. 1 unless the analysis was run more than once.",
-    )
-    values_config["quality_code"] = st.column_config.SelectboxColumn(
+    grid_config["quality_code"] = st.column_config.SelectboxColumn(
         "Quality Code",
         options=_qc_labels,
         default=None,
         help=describe("Value", "quality_code"),
     )
-    values_config["notes"] = st.column_config.TextColumn(
+    grid_config["notes"] = st.column_config.TextColumn(
         "Notes", help="Free-text remarks about this result (e.g. dilution, re-run)."
     )
 
-    values_edited = st.data_editor(
-        st.session_state[values_seed_key],
-        column_config=values_config,
+    return st.data_editor(
+        st.session_state[seed_key],
+        column_config=grid_config,
         use_container_width=True,
         num_rows="dynamic",
-        key=values_editor_key,
+        key=editor_key,
     )
-
-    return samples_edited, values_edited
 
 
 # ---------------------------------------------------------------------------
@@ -973,7 +924,7 @@ def _render_sample_step() -> None:
     if not unique_sps:
         st.caption(
             "No image series assigned. Samples for other series are created "
-            "automatically from the grid below."
+            "automatically from the Results grid above."
         )
         return
 
@@ -1141,7 +1092,7 @@ def _render_measurement_step() -> None:
 
     if not image_indices:
         st.caption(
-            "No image series assigned. Other measurements are entered in the grid above."
+            "No image series assigned. Other measurements are entered in the Results grid above."
         )
         return
 
@@ -1190,7 +1141,7 @@ def _render_image_tab(sess: dict, series_item: dict, idx: int) -> None:
         type=["jpg", "jpeg", "png", "tif", "tiff", "bmp"],
         accept_multiple_files=True,
         key=f"lab_img_upload_{idx}",
-        help="One image per sample, in the same order as the samples grid above.",
+        help="One image per sample, in the same order as the samples registered above.",
     )
 
     if uploaded:
@@ -1211,68 +1162,53 @@ def _render_image_tab(sess: dict, series_item: dict, idx: int) -> None:
 
 
 def _build_grid_measurements(
-    sess: dict, grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]]
+    sess: dict, grid_state: dict[int, pd.DataFrame]
 ) -> list[dict]:
-    """Resolve Samples-grid rows referenced by populated Measurements rows into
-    created Samples, then build one LabMeasurementItem per populated value cell.
+    """Create a Sample per group of populated grid rows, then build one
+    LabMeasurementItem per populated value cell.
 
-    Each sample is created at most once (cached by ``sample_no``); a missing or
-    start-less sample surfaces its error once, not once per measurement row.
+    Rows are grouped into samples by ``_sample_key``, so the sample is created
+    once for the first populated row that names it and reused by its replicates
+    — the replicate number is the row's ordinal within its group, never typed.
+    A start-less or rejected sample surfaces its error once, not once per row.
     """
     measurements: list[dict] = []
     for sp_id, series_list in _grid_groups(sess).items():
         value_cols = _grid_value_columns(series_list)
-        pair = grid_state.get(sp_id)
-        if pair is None:
+        df = grid_state.get(sp_id)
+        if df is None:
             continue
-        samples_df, values_df = pair
 
-        samples_by_no: dict[int, dict] = {}
-        for _, srow in samples_df.iterrows():
-            no = srow.get("sample_no")
-            if _has_value(no):
-                samples_by_no[int(no)] = srow
+        created: dict[object, int] = {}  # sample key -> created sample_id
+        replicates: dict[object, int] = {}
+        blocked: set[object] = set()
 
-        created: dict[int, int] = {}  # sample_no -> created sample_id
-        blocked: set[int] = set()
-
-        for _, vrow in values_df.iterrows():
-            populated = {k: vrow.get(k) for k in value_cols if _has_value(vrow.get(k))}
+        for idx, row in enumerate(df.to_dict("records")):
+            populated = {k: row.get(k) for k in value_cols if _has_value(row.get(k))}
             if not populated:
                 continue
-            no = vrow.get("sample_no")
-            if not _has_value(no):
-                st.error(f"A measurement row has no sample number (sampling point {sp_id}).")
+            key = _sample_key(row, idx)
+            if key in blocked:
                 continue
-            no = int(no)
-            if no in blocked:
-                continue
-            if no not in created:
-                srow = samples_by_no.get(no)
-                if srow is None:
-                    st.error(
-                        f"Measurement references sample #{no}, which isn't defined "
-                        f"in the Samples grid (sampling point {sp_id})."
-                    )
-                    blocked.add(no)
-                    continue
-                start_iso = _localize_to_utc(srow.get("start"))
+            label = row.get("sample_label")
+            name = str(label).strip() if _has_value(label) else f"row {idx + 1}"
+            if key not in created:
+                start_iso = _localize_to_utc(row.get("start"))
                 if not start_iso:
-                    st.error(f"Sample #{no} has no start time (sampling point {sp_id}).")
-                    blocked.add(no)
+                    st.error(f"Sample '{name}' has no start time (sampling point {sp_id}).")
+                    blocked.add(key)
                     continue
-                kind_label = srow.get("sample_kind")
-                material_label = srow.get("sample_material")
-                label = srow.get("sample_label")
+                kind_label = row.get("sample_kind")
+                material_label = row.get("sample_material")
                 try:
                     result = create_sample(
                         {
                             "sampling_point_id": sp_id,
                             "campaign_id": sess.get("campaign_id"),
                             "sample_datetime_start": start_iso,
-                            "sample_datetime_end": _localize_to_utc(srow.get("end")),
+                            "sample_datetime_end": _localize_to_utc(row.get("end")),
                             "sample_collection_kind_id": _ck_label_to_id.get(
-                                srow.get("collection_kind")
+                                row.get("collection_kind")
                             ),
                             "sample_kind_id": _sk_name_to_id.get(kind_label)
                             if _has_value(kind_label)
@@ -1280,23 +1216,22 @@ def _build_grid_measurements(
                             "sample_material_kind_id": _mk_name_to_id.get(material_label)
                             if _has_value(material_label)
                             else None,
-                            "sample_equipment_id": _eq_label_to_id.get(srow.get("equipment")),
+                            "sample_equipment_id": _eq_label_to_id.get(row.get("equipment")),
                             "description": label if _has_value(label) else None,
                             "sampled_by_person_id": sess.get("created_by_person_id"),
                         }
                     )
                 except APIError as e:
-                    st.error(f"Failed to create sample #{no}: {e.message}")
-                    blocked.add(no)
+                    st.error(f"Failed to create sample '{name}': {e.message}")
+                    blocked.add(key)
                     continue
-                created[no] = result["sample_id"]
-            sample_id = created[no]
+                created[key] = result["sample_id"]
+            sample_id = created[key]
 
-            replicate = vrow.get("replicate")
-            replicate = int(replicate) if _has_value(replicate) else 1
-            qc_label = vrow.get("quality_code")
+            replicate = replicates[key] = replicates.get(key, 0) + 1
+            qc_label = row.get("quality_code")
             quality_code_id = _qc_label_to_id.get(qc_label) if _has_value(qc_label) else None
-            notes = vrow.get("notes") if _has_value(vrow.get("notes")) else None
+            notes = row.get("notes") if _has_value(row.get("notes")) else None
             for col_key, value in populated.items():
                 s = value_cols[col_key]
                 measurements.append(
@@ -1316,7 +1251,7 @@ def _build_grid_measurements(
     return measurements
 
 
-def _render_submit(grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]]) -> None:
+def _render_submit(grid_state: dict[int, pd.DataFrame]) -> None:
     sess = st.session_state.lab_session
 
     if not sess.get("series"):
@@ -1332,7 +1267,7 @@ def _render_submit(grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]]) -> 
         st.button("Submit", disabled=True, help="Create samples for all image sampling points first.")
         return
 
-    total_grid_rows = sum(len(v[1].index) for v in grid_state.values())
+    total_grid_rows = sum(len(df.index) for df in grid_state.values())
     total_image_rows = sum(len(v) for v in sess["measurements"].values())
     st.caption(
         f"Ready: {len(sess['series'])} series, {total_grid_rows} measurement row(s), "
@@ -1351,9 +1286,7 @@ def _render_submit(grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]]) -> 
         _do_submit(sess, grid_state)
 
 
-def _do_submit(
-    sess: dict, grid_state: dict[int, tuple[pd.DataFrame, pd.DataFrame]]
-) -> None:
+def _do_submit(sess: dict, grid_state: dict[int, pd.DataFrame]) -> None:
     """Build LabIngestRequest and call the API."""
     if sess["mode"] in ("new", "panel") and not sess.get("name"):
         st.error("Experiment name is required.")
