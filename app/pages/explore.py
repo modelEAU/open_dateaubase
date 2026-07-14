@@ -33,7 +33,8 @@ from app.api_client import (
     bulk_set_quality_code,
     create_annotation,
     get_channel_stats,
-    get_channel_thumbnail,
+    get_image_thumbnail,
+    get_image_file,
     list_annotation_kinds,
     list_equipment_lookup,
     list_equipment_event_kinds,
@@ -41,14 +42,11 @@ from app.api_client import (
     create_equipment_event,
     list_analysis_series_lookup,
     list_deployment_traces_lookup,
-    get_analysis_series_thumbnail,
     get_stream_story,
     get_stream_pedigree,
     get_channel_timeseries,
     get_analysis_series_timeseries,
     get_equipment_events,
-    get_channel_image,
-    get_analysis_series_image,
     get_campaign,
     list_campaigns_lookup,
 )
@@ -91,8 +89,11 @@ from app.components.explore_matrix import (  # noqa: F401
 from app.components.explore_echarts import (  # noqa: F401
     BRUSH_SELECTED_JS,
     CLICK_SELECTED_JS,
+    IMAGE_TIMELINE_HEIGHT,
+    build_image_timeline_option,
     build_scalar_echarts_option,
     resolve_brush_selection,
+    thumbnail_data_uri,
 )
 from app.components.explore_image import _image_viewer_dialog  # noqa: F401
 from streamlit_echarts import st_echarts
@@ -154,8 +155,9 @@ def _init_state() -> None:
         "explore_series_annotations": {},  # analysis_series_id → list[dict]
         "explore_eq_events": {},  # equipment_id → list[dict]
         "explore_channel_stats": {},     # channel_id -> stats dict (cached)
-        "explore_selected_images": [],  # list[str] timestamps
+        "explore_selected_images": [],  # list[int] observation ids
         "explore_image_detail_ch": None,
+        "explore_image_detail_obs": None,
         "explore_image_detail_ts": None,
         "_show_annotation_dialog": False,
         "_show_event_dialog": False,
@@ -1621,7 +1623,25 @@ def _render_image_view(
 
     st.markdown(f"**{len(rows)} image(s)** in range. Click to view full size.")
 
-    selected_ts = st.session_state.explore_selected_images
+    # Fetched once and reused by both the timeline (as data URIs, hovered) and the
+    # gallery below (raw bytes).
+    thumbs: dict[int, bytes] = {}
+    for r in rows:
+        try:
+            thumbs[r["observation_id"]] = get_image_thumbnail(r["observation_id"])
+        except APIError:
+            pass
+
+    st_echarts(
+        build_image_timeline_option(
+            rows, {obs: thumbnail_data_uri(b) for obs, b in thumbs.items()}
+        ),
+        height=IMAGE_TIMELINE_HEIGHT,
+        key=f"img_timeline_{trace[0]}_{t_id}",
+    )
+    st.caption("Each tick is one image — hover to preview.")
+
+    selected_obs = st.session_state.explore_selected_images
 
     cols_per_row = 4
     for idx, img_meta in enumerate(rows):
@@ -1629,31 +1649,26 @@ def _render_image_view(
             cols = st.columns(cols_per_row)
         col_obj = cols[idx % cols_per_row]
         ts_str = str(img_meta.get("timestamp", ""))
-        # Widget keys must be unique per image. Sensor channels have a unique
-        # timestamp per image, but lab replicates share one sample-collection
-        # time, so the row index is required to avoid DuplicateElementKey.
-        wkey = f"{trace[0]}_{t_id}_{idx}_{ts_str}"
+        # An image is its Observation: lab replicates of one sample all share the
+        # sample-collection timestamp, so a ts key would show one picture N times.
+        obs_id = img_meta.get("observation_id")
+        wkey = f"{trace[0]}_{t_id}_{obs_id}"
         with col_obj:
             is_checked = st.checkbox(
                 "Select",
-                value=ts_str in selected_ts,
+                value=obs_id in selected_obs,
                 key=f"img_sel_{wkey}",
                 label_visibility="collapsed",
                 help="Tick to include this image in the download.",
             )
-            if is_checked and ts_str not in selected_ts:
-                selected_ts.append(ts_str)
-            elif not is_checked and ts_str in selected_ts:
-                selected_ts.remove(ts_str)
+            if is_checked and obs_id not in selected_obs:
+                selected_obs.append(obs_id)
+            elif not is_checked and obs_id in selected_obs:
+                selected_obs.remove(obs_id)
 
-            try:
-                thumb = (
-                    get_channel_thumbnail(t_id, ts_str)
-                    if is_channel
-                    else get_analysis_series_thumbnail(t_id, ts_str)
-                )
-                st.image(thumb, caption=ts_str[:16], use_container_width=True)
-            except APIError:
+            if obs_id in thumbs:
+                st.image(thumbs[obs_id], caption=ts_str[:16], use_container_width=True)
+            else:
                 st.caption(
                     f"[{img_meta.get('image_width', '?')}x{img_meta.get('image_height', '?')}]"
                 )
@@ -1661,21 +1676,28 @@ def _render_image_view(
 
             if st.button("View", key=f"view_{wkey}"):
                 st.session_state.explore_image_detail_ch = trace
+                st.session_state.explore_image_detail_obs = obs_id
                 st.session_state.explore_image_detail_ts = ts_str
                 st.rerun()
 
     if st.session_state.explore_image_detail_ch is not None:
         _image_viewer_dialog(
             trace=st.session_state.explore_image_detail_ch,
+            observation_id=st.session_state.explore_image_detail_obs,
             timestamp=st.session_state.explore_image_detail_ts,
             annotation_types=annotation_types,
         )
         st.session_state.explore_image_detail_ch = None
+        st.session_state.explore_image_detail_obs = None
         st.session_state.explore_image_detail_ts = None
 
     st.divider()
-    if selected_ts and is_channel:
-        st.markdown(f"**{len(selected_ts)} image(s) selected.**")
+    # Annotations span a time range, so map the selected images back to their times.
+    selected_ts = [
+        str(r.get("timestamp", "")) for r in rows if r.get("observation_id") in selected_obs
+    ]
+    if selected_obs and is_channel:
+        st.markdown(f"**{len(selected_obs)} image(s) selected.**")
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Annotate selected images", type="primary"):
@@ -1693,7 +1715,7 @@ def _render_image_view(
                     equipment_options=equipment,
                     event_type_options=event_types,
                 )
-    elif selected_ts and not is_channel:
+    elif selected_obs and not is_channel:
         st.caption("Annotation / event actions are available for sensor channels only.")
     else:
         st.caption("Check image thumbnails above to select them for bulk actions.")
@@ -1828,17 +1850,17 @@ def _stream_export_filename(prefix: str, sid: int, meta: dict) -> str:
     return f"{base}_{loc}" if loc else base
 
 
-def _stream_images(loader, stream_id: int, data: dict | None) -> dict:
-    """Fetch full-res image bytes per timestamp for an image stream."""
+def _stream_images(data: dict | None) -> dict:
+    """Fetch full-res image bytes per observation id for an image stream."""
     images: dict = {}
     if not data:
         return images
     for row in data.get("data", []):
-        ts = row.get("timestamp")
-        if not ts:
+        obs_id = row.get("observation_id")
+        if obs_id is None:
             continue
         try:
-            images[ts] = loader(stream_id, ts)
+            images[obs_id] = get_image_file(obs_id)
         except APIError:
             pass
     return images
@@ -1878,7 +1900,7 @@ def _build_export_entries(
             except APIError:
                 events = []
         images = (
-            _stream_images(get_channel_image, ch_id, data)
+            _stream_images(data)
             if meta.get("value_kind_id") == VALUE_TYPE_IMAGE else {}
         )
         try:
@@ -1906,7 +1928,7 @@ def _build_export_entries(
             for a in _raw_annotations(f"/analysis-series/{s_id}/annotations", start_iso, end_iso)
         ]
         images = (
-            _stream_images(get_analysis_series_image, s_id, data)
+            _stream_images(data)
             if meta.get("value_kind_id") == VALUE_TYPE_IMAGE else {}
         )
         try:

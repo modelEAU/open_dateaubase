@@ -203,17 +203,39 @@ def test_image_stream_embeds_files_and_references_them():
         "filename": "CH-7_cam",
         "value_kind": 4,
         "data": {"parameter": "Image", "unit": "",
-                 "data": [{"timestamp": "2026-06-19T04:00:00", "width": 640}]},
+                 "data": [{"timestamp": "2026-06-19T04:00:00", "width": 640,
+                           "observation_id": 91}]},
         "annotations": [], "events": [],
         "pedigree": {"stream_id": 7},
-        "images": {"2026-06-19T04:00:00": b"\xff\xd8\xff jpegbytes"},
+        "images": {91: b"\xff\xd8\xff jpegbytes"},
     }
     files = _read_zip(ex.build_export_zip([entry]))
-    img_path = "images/CH-7_cam/2026-06-19T04_00_00.jpg"
+    img_path = "images/CH-7_cam/2026-06-19T04_00_00_obs91.jpg"
     assert img_path in files
     assert files[img_path] == b"\xff\xd8\xff jpegbytes"
     row = _rows(files["CH-7_cam.csv"])[0]
     assert row["image_file"] == img_path
+
+
+def test_lab_replicates_sharing_a_timestamp_embed_as_separate_files():
+    """Two replicates of one sample share the sample-collection time. Keyed by
+    timestamp, the second overwrote the first and the bundle held one picture."""
+    ts = "2026-07-14T16:00:00"
+    entry = {
+        "filename": "LAB-22_floc",
+        "value_kind": 4,
+        "data": {"parameter": "floc_morphology", "unit": "",
+                 "data": [{"timestamp": ts, "observation_id": 501},
+                          {"timestamp": ts, "observation_id": 502}]},
+        "annotations": [], "events": [],
+        "pedigree": {},
+        "images": {501: b"replicate-one", 502: b"replicate-two"},
+    }
+    files = _read_zip(ex.build_export_zip([entry]))
+    embedded = {p: b for p, b in files.items() if p.startswith("images/")}
+    assert len(embedded) == 2, f"replicates collapsed into {list(embedded)}"
+    assert set(embedded.values()) == {b"replicate-one", b"replicate-two"}
+    assert len({r["image_file"] for r in _rows(files["LAB-22_floc.csv"])}) == 2
 
 
 def test_duplicate_basenames_do_not_collide():

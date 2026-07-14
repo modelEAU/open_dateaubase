@@ -138,3 +138,27 @@ def test_resolve_brush_selection_handles_none_and_bad_indices():
     # out-of-range seriesIndex / dataIndex are ignored, not raised
     bad = [{"seriesIndex": 99, "dataIndex": [0]}, {"seriesIndex": 0, "dataIndex": [50]}]
     assert ee.resolve_brush_selection(bad, smap) == {"sensor_pts": [], "lab_pts": []}
+
+
+class TestImageTimeline:
+    """One tick per image on a time axis, thumbnail in the hover tooltip."""
+
+    def test_replicates_sharing_a_timestamp_stay_separate_ticks(self):
+        ts = "2026-07-14T16:00:00"
+        opt = ee.build_image_timeline_option(
+            [{"timestamp": ts, "observation_id": 501},
+             {"timestamp": ts, "observation_id": 502}],
+            {501: ee.thumbnail_data_uri(b"one"), 502: ee.thumbnail_data_uri(b"two")},
+        )
+        pts = opt["series"][0]["data"]
+        assert [p["obs"] for p in pts] == [501, 502]
+        assert len({p["img"] for p in pts}) == 2
+        assert opt["xAxis"]["type"] == "time"
+        # The tooltip must render the thumbnail, not just the timestamp.
+        assert "<img src=" in opt["tooltip"]["formatter"]
+
+    def test_missing_thumbnail_degrades_to_a_label_only_tick(self):
+        opt = ee.build_image_timeline_option(
+            [{"timestamp": "2026-07-14T16:00:00", "observation_id": 7}], {}
+        )
+        assert opt["series"][0]["data"][0]["img"] is None

@@ -511,14 +511,16 @@ def get_stream_pedigree(
     return _request("GET", f"/lineage/streams/{stream_id}/pedigree", params=params)
 
 
-def get_channel_thumbnail(channel_id: int, timestamp: str) -> bytes:
-    """Fetch the JPEG thumbnail bytes for an image channel entry."""
-    return _request("GET", f"/timeseries/{channel_id}/thumbnail/{timestamp}", return_="content")
+# Images are keyed by observation_id, not timestamp: lab replicates of one sample
+# all carry the same sample-collection time. Sensor and lab images share these.
+def get_image_thumbnail(observation_id: int) -> bytes:
+    """Fetch the JPEG thumbnail bytes for one image."""
+    return _request("GET", f"/timeseries/images/{observation_id}/thumbnail", return_="content")
 
 
-def get_channel_image(channel_id: int, timestamp: str) -> bytes:
-    """Fetch the full-resolution image bytes for an image channel entry."""
-    return _request("GET", f"/timeseries/{channel_id}/image/{timestamp}", return_="content")
+def get_image_file(observation_id: int) -> bytes:
+    """Fetch the full-resolution image bytes for one image."""
+    return _request("GET", f"/timeseries/images/{observation_id}/file", return_="content")
 
 
 # ---------------------------------------------------------------------------
@@ -544,16 +546,6 @@ def get_analysis_series_timeseries(
 def get_analysis_series_stats(analysis_series_id: int) -> dict:
     """Fetch min/max sample-collection time and measurement count for a series."""
     return _request("GET", f"/analysis-series/{analysis_series_id}/stats")
-
-
-def get_analysis_series_thumbnail(analysis_series_id: int, timestamp: str) -> bytes:
-    """Fetch the JPEG thumbnail bytes for a lab image measurement."""
-    return _request("GET", f"/analysis-series/{analysis_series_id}/thumbnail/{timestamp}", return_="content")
-
-
-def get_analysis_series_image(analysis_series_id: int, timestamp: str) -> bytes:
-    """Fetch the full-resolution image bytes for a lab image measurement."""
-    return _request("GET", f"/analysis-series/{analysis_series_id}/image/{timestamp}", return_="content")
 
 
 # ---------------------------------------------------------------------------

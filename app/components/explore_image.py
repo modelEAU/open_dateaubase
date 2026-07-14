@@ -14,23 +14,19 @@ from __future__ import annotations
 
 import streamlit as st
 
-from app.api_client import APIError, get_analysis_series_image, get_channel_image
+from app.api_client import APIError, get_image_file
 
 
 @st.dialog("Image viewer", width="large")
 def _image_viewer_dialog(
     trace: tuple[str, int],
+    observation_id: int,
     timestamp: str,
     annotation_types: list[dict],
 ) -> None:
     kind, t_id = trace
     try:
-        img_bytes = (
-            get_channel_image(t_id, timestamp)
-            if kind == "channel"
-            else get_analysis_series_image(t_id, timestamp)
-        )
-        st.image(img_bytes, caption=timestamp, use_container_width=True)
+        st.image(get_image_file(observation_id), caption=timestamp, use_container_width=True)
     except APIError as e:
         st.warning(f"Could not load full image: {e.message}")
 

@@ -21,6 +21,10 @@ functions.
 
 from __future__ import annotations
 
+import base64
+
+from streamlit_echarts import JsCode
+
 from app.components.lttb import lttb
 from app.components.explore_data import (
     DEFAULT_QUALITY_COLOR,
@@ -507,3 +511,61 @@ def surface_option(
             {"type": "surface", "data": cells, "shading": "color", "wireframe": {"show": False}}
         ],
     }
+
+
+# --- image timeline ---------------------------------------------------------
+
+IMAGE_TOOLTIP_JS = (
+    "function(p){"
+    " var img = p.data.img ? '<img src=\"' + p.data.img +"
+    " '\" style=\"display:block;max-width:180px;max-height:180px;margin-bottom:4px\">' : '';"
+    " return img + p.data.label;"
+    "}"
+)
+
+
+IMAGE_TIMELINE_HEIGHT = "290px"
+
+
+def build_image_timeline_option(rows: list[dict], thumbnails: dict[int, str]) -> dict:
+    """One vertical tick per image on a time axis; hovering shows the thumbnail.
+
+    ``thumbnails`` maps observation id -> data URI (see ``thumbnail_data_uri``).
+    Replicates of one lab sample share a timestamp, so ticks are keyed on the
+    observation id and simply overlap when they were collected together.
+    """
+    data = [
+        {
+            "value": [str(r.get("timestamp", "")), 0],
+            "img": thumbnails.get(r.get("observation_id")),
+            "label": str(r.get("timestamp", ""))[:19],
+            "obs": r.get("observation_id"),
+        }
+        for r in rows
+    ]
+    return {
+        "tooltip": {
+            "trigger": "item",
+            # The chart lives in a fixed-height iframe, so the tooltip cannot overflow
+            # it: confine keeps the thumbnail inside, and the tall top margin is the
+            # room it needs (see IMAGE_TIMELINE_HEIGHT).
+            "confine": True,
+            "formatter": JsCode(IMAGE_TOOLTIP_JS).js_code,
+        },
+        "grid": {"left": 40, "right": 20, "top": 200, "bottom": 40},
+        "xAxis": {"type": "time"},
+        "yAxis": {"type": "value", "min": -1, "max": 1, "show": False},
+        "series": [
+            {
+                "type": "scatter",
+                "symbol": "rect",
+                "symbolSize": [3, 44],
+                "itemStyle": {"color": SENSOR_PALETTE[0]},
+                "data": data,
+            }
+        ],
+    }
+
+
+def thumbnail_data_uri(jpeg_bytes: bytes) -> str:
+    return "data:image/jpeg;base64," + base64.b64encode(jpeg_bytes).decode()
