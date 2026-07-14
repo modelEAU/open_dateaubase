@@ -54,6 +54,7 @@ class MatrixValueOut(BaseModel):
 
 
 class ImageValueOut(BaseModel):
+    observation_id: int  # image identity — replicates share a timestamp
     timestamp: datetime
     image_width: int
     image_height: int

@@ -336,28 +336,29 @@ def _image_values_by_source(
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        SELECT o.[Timestamp], vi.[ImageWidth], vi.[ImageHeight],
+        SELECT o.[Observation_ID], o.[Timestamp], vi.[ImageWidth], vi.[ImageHeight],
                vi.[NumberOfChannels], vi.[ImageFormat], vi.[FileSizeBytes],
                vi.[StorageBackend], vi.[StoragePath], vi.[QualityCode]
         FROM [dbo].[ValueImage] vi
         JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
         {source_join}
         {where}
-        ORDER BY o.[Timestamp]
+        ORDER BY o.[Timestamp], o.[Observation_ID]
         """,
         *params,
     )
     return [
         {
-            "timestamp": row[0],
-            "image_width": row[1],
-            "image_height": row[2],
-            "number_of_channels": row[3],
-            "image_format": row[4],
-            "file_size_bytes": row[5],
-            "storage_backend": row[6],
-            "storage_path": row[7],
-            "quality_code": row[8],
+            "observation_id": row[0],
+            "timestamp": row[1],
+            "image_width": row[2],
+            "image_height": row[3],
+            "number_of_channels": row[4],
+            "image_format": row[5],
+            "file_size_bytes": row[6],
+            "storage_backend": row[7],
+            "storage_path": row[8],
+            "quality_code": row[9],
         }
         for row in cursor.fetchall()
     ]
@@ -383,20 +384,15 @@ def get_analysis_series_image_values(
     return _image_values_by_source(conn, join, where, params, from_dt, to_dt)
 
 
-def _image_thumbnail_by_source(
-    conn, source_join: str, source_where: str, params: list, timestamp: datetime
-) -> bytes | None:
+# An image is identified by its Observation, not by (stream, timestamp): lab
+# replicates of one sample share a collection timestamp, so a timestamp key would
+# collapse them onto whichever replicate the DB returned first.
+def get_image_thumbnail(conn, observation_id: int) -> bytes | None:
+    """Return the thumbnail bytes for one image, or None if not found."""
     cursor = conn.cursor()
     cursor.execute(
-        f"""
-        SELECT vi.[Thumbnail]
-        FROM [dbo].[ValueImage] vi
-        JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
-        {source_join}
-        WHERE {source_where} AND o.[Timestamp] = ?
-        """,
-        *params,
-        timestamp,
+        "SELECT vi.[Thumbnail] FROM [dbo].[ValueImage] vi WHERE vi.[Observation_ID] = ?",
+        observation_id,
     )
     row = cursor.fetchone()
     if row is None:
@@ -404,61 +400,21 @@ def _image_thumbnail_by_source(
     return bytes(row[0]) if row[0] is not None else None
 
 
-def get_image_thumbnail(
-    conn,
-    channel_id: int,
-    timestamp: datetime,
-) -> bytes | None:
-    """Return the thumbnail bytes for a specific image, or None if not found."""
-    join, where, params = _channel_source(channel_id)
-    return _image_thumbnail_by_source(conn, join, where, params, timestamp)
-
-
-def get_analysis_series_image_thumbnail(
-    conn, analysis_series_id: int, timestamp: datetime
-) -> bytes | None:
-    """Thumbnail bytes for a lab image at a sample-collection timestamp."""
-    join, where, params = _analysis_series_source(analysis_series_id)
-    return _image_thumbnail_by_source(conn, join, where, params, timestamp)
-
-
-def _image_metadata_by_source(
-    conn, source_join: str, source_where: str, params: list, timestamp: datetime
-) -> dict | None:
+def get_image_metadata(conn, observation_id: int) -> dict | None:
+    """storage_path + format for one image, or None if not found."""
     cursor = conn.cursor()
     cursor.execute(
-        f"""
+        """
         SELECT vi.[StoragePath], vi.[ImageFormat]
         FROM [dbo].[ValueImage] vi
-        JOIN [dbo].[Observation] o ON o.[Observation_ID] = vi.[Observation_ID]
-        {source_join}
-        WHERE {source_where} AND o.[Timestamp] = ?
+        WHERE vi.[Observation_ID] = ?
         """,
-        *params,
-        timestamp,
+        observation_id,
     )
     row = cursor.fetchone()
     if row is None:
         return None
     return {"storage_path": row[0], "image_format": row[1]}
-
-
-def get_image_metadata_by_timestamp(
-    conn,
-    channel_id: int,
-    timestamp: datetime,
-) -> dict | None:
-    """Return storage_path and format for a specific image."""
-    join, where, params = _channel_source(channel_id)
-    return _image_metadata_by_source(conn, join, where, params, timestamp)
-
-
-def get_analysis_series_image_metadata_by_timestamp(
-    conn, analysis_series_id: int, timestamp: datetime
-) -> dict | None:
-    """storage_path + format for a lab image at a sample-collection timestamp."""
-    join, where, params = _analysis_series_source(analysis_series_id)
-    return _image_metadata_by_source(conn, join, where, params, timestamp)
 
 
 def get_values_for_metadata(

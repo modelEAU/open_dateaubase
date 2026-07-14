@@ -864,9 +864,11 @@ def ingest_lab_image(
             notes=notes,
         )
 
+        # StoragePath is stored relative to upload_base_dir and the read endpoints
+        # resolve it there, so the file must be written under the same root.
         ts_safe = ts.isoformat().replace(":", "-")
         rel_path = f"lab_images/{lab_experiment_id}/{replicate}_{ts_safe}.{file_ext}"
-        abs_path = Path(settings.upload_dir) / "lab_images" / str(lab_experiment_id) / f"{replicate}_{ts_safe}.{file_ext}"
+        abs_path = Path(settings.upload_base_dir) / rel_path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_bytes(image_bytes)
 
