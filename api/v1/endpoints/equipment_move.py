@@ -6,9 +6,13 @@ EquipmentLocationHistory.
 Endpoints:
   POST /equipment/{equipment_id}/rewire            — close current + open new wiring row
   POST /equipment/{equipment_id}/register-interface — open first wiring row
-  POST /equipment/{equipment_id}/relocate          — close + open location row + auto-annotate
+  POST /equipment/{equipment_id}/relocate          — close + open location row
   GET  /equipment/{equipment_id}/wiring-at         — point-in-time wiring query
   GET  /equipment/{equipment_id}/location-at       — point-in-time location query
+
+A move writes no recording. The history rows *are* the record of the move, and
+per ADR-0007 an Annotation is a verdict on data, never a cause. If a mover wants
+the surrounding window flagged, they record it themselves.
 """
 
 from __future__ import annotations
@@ -19,11 +23,7 @@ import pyodbc
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.database import get_db
-from ..repositories import (
-    annotation_repository,
-    channel_repository,
-    temporal_history_repository,
-)
+from ..repositories import temporal_history_repository
 from ..schemas.equipment_move import (
     ActiveCampaignDeploymentResponse,
     EquipmentRegisterInterfaceRequest,
@@ -37,36 +37,6 @@ from ..schemas.equipment_move import (
 )
 
 router = APIRouter()
-
-# AnnotationKind_ID for "Equipment Relocation" — seeded in migration v1.0.0_to_v3.0.0
-_EQUIPMENT_MOVE_ANNOTATION_TYPE_ID = 11
-
-
-def _get_channel_ids(conn: pyodbc.Connection, equipment_id: int) -> list[int]:
-    """Return Channel_IDs for equipment, or empty list if none."""
-    return channel_repository.get_channel_ids_for_equipment(conn, equipment_id)
-
-
-def _annotate_move(
-    conn: pyodbc.Connection,
-    equipment_id: int,
-    title: str,
-    comment: str,
-    start_time: datetime,
-) -> list[int]:
-    """Create auto-annotations on every channel associated with the equipment."""
-    channel_ids = _get_channel_ids(conn, equipment_id)
-    if not channel_ids:
-        return []
-    # A channel's identity is its Stream_ID, so the channel ids are the stream ids.
-    return annotation_repository.create_equipment_move_annotations(
-        conn,
-        stream_ids=channel_ids,
-        annotation_kind_id=_EQUIPMENT_MOVE_ANNOTATION_TYPE_ID,
-        title=title,
-        comment=comment,
-        start_time=start_time,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -88,10 +58,6 @@ def rewire_equipment_endpoint(
 
     Closes the current active EquipmentWiringHistory row (if any) with
     ``ValidTo = valid_from`` and opens a new row.
-
-    Automatically creates an "Equipment Move" Annotation on every
-    Channel associated with this equipment so that the event is flagged
-    for data quality review.
     """
     try:
         new_id, closed_id = temporal_history_repository.rewire_equipment(
@@ -121,26 +87,10 @@ def rewire_equipment_endpoint(
             ),
         ) from exc
 
-    comment = (
-        f"Equipment rewired to SignalInterface ID={body.signal_interface_id} "
-        f"at {body.valid_from.isoformat()}."
-    )
-    if body.note:
-        comment += f" Note: {body.note}"
-
-    annotation_ids = _annotate_move(
-        conn,
-        equipment_id,
-        title="Equipment Rewired",
-        comment=comment,
-        start_time=body.valid_from,
-    )
-
     return EquipmentRewireResponse(
         equipment_id=equipment_id,
         new_wiring_history_id=new_id,
         closed_wiring_history_id=closed_id,
-        annotation_ids=annotation_ids,
     )
 
 
@@ -205,10 +155,6 @@ def relocate_equipment_endpoint(
     Closes the current active EquipmentLocationHistory row with
     ``ValidTo = valid_from`` and opens a new row for the new
     ``sampling_point_id``.
-
-    Automatically creates an "Equipment Move" Annotation on every
-    Channel associated with this equipment so that the event is flagged
-    for data quality review.
     """
     try:
         new_id, closed_id = temporal_history_repository.relocate_equipment(
@@ -238,26 +184,10 @@ def relocate_equipment_endpoint(
             ),
         ) from exc
 
-    comment = (
-        f"Sensor physically moved to SamplingPoint ID={body.sampling_point_id} "
-        f"at {body.valid_from.isoformat()}."
-    )
-    if body.notes:
-        comment += f" Notes: {body.notes}"
-
-    annotation_ids = _annotate_move(
-        conn,
-        equipment_id,
-        title="Equipment Relocation",
-        comment=comment,
-        start_time=body.valid_from,
-    )
-
     return EquipmentRelocateResponse(
         equipment_id=equipment_id,
         new_location_history_id=new_id,
         closed_location_history_id=closed_id,
-        annotation_ids=annotation_ids,
     )
 
 

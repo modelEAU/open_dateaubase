@@ -1,262 +1,166 @@
-"""Playwright browser tests: Explore page with real sensor + lab data.
+"""Playwright browser tests: the Data Explorer Recording gesture on real data.
 
-Run:  uv run pytest tests/e2e/ -m browser -s
-Needs: docker compose up  (API:8000 + app:8501 + demo seed)
+Run:   uv run pytest tests/e2e/ -m browser -s
+Needs: the full stack (scripts/dev_stack.sh up) — MSSQL + demo seed + API + app.
+
+Two things make this test what it is (both learned the hard way, keep them):
+
+1. **Auth via Home, not direct /explore.** The app authenticates in Home.py
+   (dev auto-login), which only runs when you land on the app root and navigate
+   through `st.navigation`. A direct `goto(".../explore")` is served by
+   Streamlit's filesystem page discovery, bypasses Home, and every API call 401s.
+
+2. **The chart is an ECharts canvas, not Plotly SVG.** Point identity lives on a
+   scatter *marker* layer that the toolbox brush selects; a plain canvas click
+   rarely lands on a marker. So we activate the brush tool (a canvas-drawn icon
+   near the top-right) and drag a tall box — that reliably captures points.
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
-
-if TYPE_CHECKING:
-    from playwright.sync_api import Page
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 expect = playwright_sync.expect
 
-SCREENSHOT_PATH = Path("/tmp/explore_sensor_and_lab.png")
-SCREENSHOT_ANN_PATH = Path("/tmp/explore_all_annotations.png")
+SHOT_RENDER = Path("/tmp/explore_echarts_render.png")
+SHOT_RECORD = Path("/tmp/explore_recording_dialog.png")
+
+# The demo turbidity deployment (TEST_Turb-001) lives here; the default 30-day
+# window sits after the seed data ends (2026-06-09), so widen it before picking.
+_WINDOW_FROM = "2026/04/01"
+_WINDOW_TO = "2026/06/10"
 
 
 # ---------------------------------------------------------------------------
-# Shared helpers
+# Helpers
 # ---------------------------------------------------------------------------
 
-def _open_picker(page: "Page") -> None:
-    """Ensure the 🔍 Add streams expander is open."""
-    expander = page.locator("[data-testid='stExpander']").filter(has_text="Add streams")
-    arrow = expander.locator("text=keyboard_arrow_right")
+def _open_explore(page, app_url: str) -> None:
+    """Land on the app root (runs Home.py auth), then open Visualize Data."""
+    page.set_viewport_size({"width": 1400, "height": 2200})
+    page.goto(f"{app_url}/", wait_until="networkidle")
+    page.wait_for_timeout(3500)  # dev auto-login + st.navigation render
+    page.get_by_role("link", name="Visualize Data").first.click()
+    page.wait_for_selector("text=Add streams", timeout=20_000)
+    page.wait_for_timeout(1500)
+
+
+def _set_date(page, idx: int, value: str) -> None:
+    inp = page.locator("[data-testid='stDateInput'] input").nth(idx)
+    inp.click()
+    page.wait_for_timeout(200)
+    page.keyboard.press("Control+A")
+    page.keyboard.press("Backspace")
+    page.keyboard.type(value, delay=35)
+    page.keyboard.press("Enter")  # NOT Escape — Escape reverts the typed value
+    page.wait_for_timeout(1600)
+
+
+def _add_first_trace(page) -> None:
+    """Widen the window so the picker lists the demo trace, then add it."""
+    _set_date(page, 0, _WINDOW_FROM)
+    _set_date(page, 1, _WINDOW_TO)
+    picker = page.locator("[data-testid='stExpander']").filter(has_text="Add streams")
+    arrow = picker.locator("text=keyboard_arrow_right")
     if arrow.count():
-        expander.first.click()
-        page.wait_for_timeout(600)
+        picker.first.click()
+        page.wait_for_timeout(700)
+    add = page.get_by_role("button", name="+ Add to plot")
+    expect(add).to_be_enabled(timeout=10_000)
+    add.click()
+    page.wait_for_timeout(2500)
+    # Frame the stream's real data range so the chart actually has points in view.
+    page.get_by_role("button", name="All data").click()
+    page.wait_for_timeout(3000)
 
 
-def _add_selected_trace(page: "Page") -> None:
-    """Click the '+ Add to plot' primary button and wait for Streamlit re-run."""
-    page.get_by_role("button", name="+ Add to plot").click()
-    page.wait_for_timeout(2_000)
+def _brush_select_points(page) -> None:
+    """Activate the ECharts toolbox brush and drag a tall box to select points.
 
+    The brush icons are canvas-drawn, anchored to the top-right; an offset from
+    the right edge hits the same icon regardless of canvas width. Try a couple of
+    offsets and stop as soon as the selection reveals the Record button."""
+    canvas = page.frame_locator("iframe").first.locator("canvas").first
+    canvas.scroll_into_view_if_needed()
+    page.wait_for_timeout(1500)
+    box = canvas.bounding_box()
+    assert box, "ECharts canvas not found"
+    x, y, w, h = box["x"], box["y"], box["width"], box["height"]
 
-def _setup_both_traces(page: "Page", app_url: str) -> None:
-    """Navigate to /explore, add one sensor trace and one lab (COD at Influent) trace."""
-    page.set_viewport_size({"width": 1280, "height": 1800})
-    page.goto(f"{app_url}/explore", wait_until="networkidle")
-    page.wait_for_selector("text=Add streams", timeout=30_000)
-    page.wait_for_timeout(2_000)
-
-    _open_picker(page)
-    page.wait_for_timeout(2_000)
-    expect(page.get_by_role("button", name="+ Add to plot")).to_be_visible(timeout=10_000)
-    _add_selected_trace(page)  # sensor: TEST_Turb-001 / Turbidity
-
-    # Filter to "Influent" — only lab series live there (sensor is at Aerobic zone outlet)
-    _open_picker(page)
-    search = page.get_by_placeholder("type location, parameter, equipment, or campaign…")
-    search.fill("Influent")
-    search.press("Enter")
-    page.wait_for_timeout(2_000)
-    _add_selected_trace(page)  # lab: COD at Influent
-
-    page.wait_for_selector("[data-testid='stPlotlyChart']", timeout=20_000)
-    page.wait_for_timeout(3_000)  # let chart fully render
-
-
-def _find_marker_center(page: "Page", trace_idx: int, point_idx: int = 0) -> dict | None:
-    """Return viewport-relative center {x, y} of a Plotly scatter marker, or None."""
-    return page.evaluate(
-        """([ti, pi]) => {
-            const plot = document.querySelector(
-                '[data-testid="stPlotlyChart"] .js-plotly-plot'
-            );
-            if (!plot) return null;
-            const traces = Array.from(plot.querySelectorAll('svg .scatter.trace'));
-            if (traces.length <= ti) return null;
-            const pts = traces[ti].querySelectorAll('.points path');
-            if (pts.length <= pi) return null;
-            const r = pts[pi].getBoundingClientRect();
-            if (r.width === 0 && r.height === 0) return null;
-            return {x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2};
-        }""",
-        [trace_idx, point_idx],
-    )
-
-
-def _drag_select_marker(page: "Page", trace_idx: int) -> None:
-    """Select a data point via a tiny box drag in Plotly's box-select mode.
-
-    Streamlit 1.55 sets layout.dragmode="select" by default on plotly_chart with
-    on_select="rerun", so plotly_selected fires on any drag — no modebar click
-    needed.  A zero-movement page.mouse.click() fires only plotly_click, which
-    Streamlit does NOT subscribe to in this mode; only a drag triggers the
-    plotly_selected event that causes st.rerun() with updated selection state.
-
-    Trace 0 (sensor, hourly, ~1.6 px/pt): a 5 px box captures 2–4 points →
-    button says "Create Annotation" (range annotation from those timestamps).
-    Trace 1 (lab diamonds, ~228 px apart): a 5 px box captures exactly 1 →
-    button says "Create Lab Annotation (point)" with observation_id set.
-    """
-    chart = page.locator("[data-testid='stPlotlyChart']")
-    chart.scroll_into_view_if_needed()
-    page.wait_for_timeout(1_500)  # let scroll + lazy-render settle
-
-    center = None
-    for idx in range(100):
-        center = _find_marker_center(page, trace_idx, idx)
-        if center:
-            break
-    assert center is not None, f"No visible marker found in trace {trace_idx}"
-
-    half = 5  # 10 px total drag — reliably above Plotly's MIN_DRAG threshold
-    page.mouse.move(center["x"] - half, center["y"] - half)
-    page.mouse.down()
-    page.mouse.move(center["x"] + half, center["y"] + half, steps=5)
-    page.mouse.up()
-    page.wait_for_timeout(3_000)  # wait for Streamlit rerun triggered by plotly_selected
-
-
-def _fill_annotation_dialog(page: "Page", title: str) -> None:
-    """Wait for the annotation dialog, fill title, click Save, wait for rerun."""
-    expect(
-        page.get_by_role("button", name="Save Annotation")
-    ).to_be_visible(timeout=10_000)
-    page.get_by_label("Title (optional)").fill(title)
-    page.get_by_role("button", name="Save Annotation").click()
-    page.wait_for_timeout(2_500)  # save API call + st.rerun()
-
-
-def _fill_equipment_event_dialog(page: "Page", notes: str) -> None:
-    """Wait for the equipment event dialog, fill notes, click Save Event, wait for rerun."""
-    expect(
-        page.get_by_role("button", name="Save Event")
-    ).to_be_visible(timeout=10_000)
-    page.get_by_label("Notes (optional)").fill(notes)
-    page.get_by_role("button", name="Save Event").click()
-    page.wait_for_timeout(2_500)
-
-
-# ---------------------------------------------------------------------------
-# Test 1: basic screenshot (sensor line + lab diamonds, no annotation flow)
-# ---------------------------------------------------------------------------
-
-@pytest.mark.browser
-def test_explore_screenshot_sensor_and_lab(page: "Page", app_url: str) -> None:
-    """Add one sensor Deployment Trace and one lab AnalysisSeries, screenshot."""
-    _setup_both_traces(page, app_url)
-
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-    page.wait_for_timeout(2_000)
-    page.evaluate("window.scrollTo(0, 0)")
-    page.wait_for_timeout(1_000)
-
-    page.screenshot(path=str(SCREENSHOT_PATH), full_page=True)
-    print(f"\n  Screenshot saved → {SCREENSHOT_PATH}")
-
-    assert page.locator("[data-testid='stException']").count() == 0, (
-        "Streamlit exception visible on page"
-    )
-    assert SCREENSHOT_PATH.exists(), "Screenshot was not written"
-    assert SCREENSHOT_PATH.stat().st_size > 10_000, "Screenshot suspiciously small"
-
-
-# ---------------------------------------------------------------------------
-# Test 2: all five annotation paths
-# ---------------------------------------------------------------------------
-
-@pytest.mark.browser
-def test_all_annotation_paths(page: "Page", app_url: str) -> None:
-    """Exercise every annotation entry point after real sensor+lab data is on the chart.
-
-    Covered paths:
-      1. Range annotation on sensor channel  (always-visible view-range button)
-      2. Range annotation on lab series      (always-visible view-range button)
-      3. Point annotation on sensor          (click sensor marker → dialog)
-      4. Equipment event on sensor           (click sensor marker → Tag Equipment Event)
-      5. Point annotation on lab             (click lab diamond → dialog)
-    """
-    _setup_both_traces(page, app_url)
-
-    # Scroll to bottom so annotation controls are in viewport.
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-    page.wait_for_timeout(1_000)
-
-    # ------------------------------------------------------------------
-    # 1. Sensor range annotation
-    # ------------------------------------------------------------------
-    btn_sr = page.get_by_role("button", name="Create Annotation (view range)")
-    btn_sr.scroll_into_view_if_needed()
-    btn_sr.click()
-    _fill_annotation_dialog(page, title="E2E-sensor-range")
-
-    # ------------------------------------------------------------------
-    # 2. Lab range annotation
-    # ------------------------------------------------------------------
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-    page.wait_for_timeout(500)
-    btn_lr = page.get_by_role("button", name="Create Lab Annotation (view range)")
-    btn_lr.scroll_into_view_if_needed()
-    btn_lr.click()
-    _fill_annotation_dialog(page, title="E2E-lab-range")
-
-    # ------------------------------------------------------------------
-    # 3. Point annotation on sensor
-    #    Click a sensor marker → "Create Annotation (point)" button appears below chart.
-    #    After save + st.rerun(), the plotly widget state (key="scalar_chart") persists
-    #    the selection, so step 4 can reuse it immediately.
-    # ------------------------------------------------------------------
-    _drag_select_marker(page, trace_idx=0)
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-    page.wait_for_timeout(500)
-
-    btn_sp = page.get_by_role(
-        "button", name=re.compile(r"Create Annotation(\s\(point\))?$")
-    ).first
-    btn_sp.scroll_into_view_if_needed()
-    btn_sp.click()
-    _fill_annotation_dialog(page, title="E2E-sensor-selection")
-
-    # ------------------------------------------------------------------
-    # 4. Equipment event
-    #    Selection from step 3 may be preserved across the st.rerun().
-    #    If cleared, re-drag.
-    # ------------------------------------------------------------------
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-    page.wait_for_timeout(500)
-
-    btn_eq = page.get_by_role("button", name="Tag Equipment Event")
-    if not btn_eq.is_visible():
-        _drag_select_marker(page, trace_idx=0)
+    record = page.get_by_role("button", name="Record what happened")
+    for right_offset in (66, 88, 44):
+        page.mouse.click(x + w - right_offset, y + 20)  # a brush toolbox icon
+        page.wait_for_timeout(400)
+        page.mouse.move(x + w * 0.35, y + h * 0.15)
+        page.mouse.down()
+        page.mouse.move(x + w * 0.60, y + h * 0.85, steps=12)
+        page.mouse.up()
+        page.wait_for_timeout(2000)
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(1200)
+        if record.count():
+            return
+    raise AssertionError("brush selection did not reveal the Record button")
 
-    btn_eq.scroll_into_view_if_needed()
-    btn_eq.click()
-    _fill_equipment_event_dialog(page, notes="E2E-test-event")
 
-    # ------------------------------------------------------------------
-    # 5. Lab point annotation
-    #    Lab diamonds are ~228 px apart; 5 px drag captures exactly one →
-    #    "Create Lab Annotation (point)" with observation_id set.
-    # ------------------------------------------------------------------
-    _drag_select_marker(page, trace_idx=1)
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-    page.wait_for_timeout(500)
+# ---------------------------------------------------------------------------
+# Test 1: the ECharts chart renders on real data, authenticated
+# ---------------------------------------------------------------------------
 
-    btn_lp = page.get_by_role(
-        "button", name=re.compile(r"Create Lab Annotation \(point\)|Create Lab Annotation")
-    ).first
-    btn_lp.scroll_into_view_if_needed()
-    btn_lp.click()
-    _fill_annotation_dialog(page, title="E2E-lab-point")
+@pytest.mark.browser
+def test_explore_renders_echarts_chart(page, app_url: str) -> None:
+    _open_explore(page, app_url)
+    _add_first_trace(page)
 
-    # ------------------------------------------------------------------
-    # Final checks
-    # ------------------------------------------------------------------
+    canvas = page.frame_locator("iframe").first.locator("canvas").first
+    expect(canvas).to_be_visible(timeout=15_000)
+    page.screenshot(path=str(SHOT_RENDER), full_page=True)
+
     assert page.locator("[data-testid='stException']").count() == 0, (
-        "Streamlit raised an exception during annotation flow"
+        "Streamlit exception visible on the Explore page"
     )
-    page.screenshot(path=str(SCREENSHOT_ANN_PATH), full_page=True)
-    print(f"\n  Screenshot saved → {SCREENSHOT_ANN_PATH}")
-    assert SCREENSHOT_ANN_PATH.stat().st_size > 10_000, "Annotation screenshot suspiciously small"
+    assert SHOT_RENDER.stat().st_size > 10_000, "render screenshot suspiciously small"
+
+
+# ---------------------------------------------------------------------------
+# Test 2: the Recording gesture — brush → dialog → write one Event
+# ---------------------------------------------------------------------------
+
+@pytest.mark.browser
+def test_recording_gesture_writes_an_event(page, app_url: str) -> None:
+    """Standing on a plotted series, brush points, open the Recording dialog on
+    the equipment rung (a cause), pick a kind and record. The rung routes the
+    write to a single Event — no Event/Annotation choice ever shown."""
+    _open_explore(page, app_url)
+    _add_first_trace(page)
+    _brush_select_points(page)
+
+    page.get_by_role("button", name="Record what happened").first.click()
+    page.wait_for_timeout(1500)
+
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_be_visible(timeout=10_000)
+    # The dialog leads with the target rung, defaulting to the equipment ("the
+    # probe") — a cause target, never the Event/Annotation split.
+    assert "What did this happen to" in dialog.inner_text()
+
+    # Pick a kind (index 0 is the "— none —" sentinel), then record.
+    kind = dialog.locator("[data-testid='stSelectbox']").nth(1)
+    kind.click()
+    page.wait_for_timeout(600)
+    options = page.get_by_role("option")
+    assert options.count() > 1, "no event kinds offered on the equipment rung"
+    options.nth(1).click()
+    page.wait_for_timeout(700)
+
+    dialog.get_by_role("button", name="Record").click()
+    page.wait_for_timeout(2500)  # create_event + st.rerun (closes the dialog)
+
+    page.screenshot(path=str(SHOT_RECORD), full_page=True)
+    assert page.locator("[data-testid='stException']").count() == 0, (
+        "Streamlit raised an exception during the Recording flow"
+    )
+    # The write succeeded and the dialog closed itself on rerun.
+    assert page.get_by_role("dialog").count() == 0, "Recording dialog did not close"

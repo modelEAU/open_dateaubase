@@ -38,8 +38,17 @@ if not names:
     st.info("No browsable tables found.")
     st.stop()
 
-selected = st.selectbox("Table", names)
-limit = st.slider("Max rows", min_value=50, max_value=1000, value=200, step=50)
+selected = st.selectbox(
+    "Table", names, help="Which table of the data model to inspect."
+)
+limit = st.slider(
+    "Max rows",
+    min_value=50,
+    max_value=1000,
+    value=200,
+    step=50,
+    help="How many rows to fetch. Raise it to see more of a large table.",
+)
 
 # Structure (from the YAML schema dictionary, when the table has an entry).
 try:

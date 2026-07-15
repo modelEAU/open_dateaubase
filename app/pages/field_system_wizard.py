@@ -20,6 +20,9 @@ from app.api_client import (
     list_parameters_lookup,
     register_equipment_at_interface,
 )
+from app.components.kind_select import kind_options
+from app.components.labels import NONE_LABEL
+from app.components.schema_registry import describe
 from app.components.wizard_helpers import (
     clear_wizard,
     nav,
@@ -91,6 +94,13 @@ def _model_label(m: dict) -> str:
     return " - ".join(parts) if parts else f"Model {m.get('model_id', '?')}"
 
 
+def _kind_caption(opts: list[dict], label: str | None) -> None:
+    """Show the picked Kind's definition under its selectbox, as kind_select does."""
+    desc = next((o.get("description") for o in opts if o.get("label") == label), "")
+    if desc:
+        st.caption(desc)
+
+
 # ---------------------------------------------------------------------------
 # Steps
 # ---------------------------------------------------------------------------
@@ -104,22 +114,32 @@ def _step_das(lookups: dict) -> None:
         "that collects measurements from instruments — a logger, a SCADA station, or a "
         "laptop running your instrument software."
     )
-    st.text_input("Data Acquisition System name *", key=f"{_WIZ}_s0_name")
+    st.text_input(
+        "Data Acquisition System name *",
+        key=f"{_WIZ}_s0_name",
+        help=describe("DataAcquisitionSystem", "Name"),
+    )
 
     das_kinds = lookups.get("das_kinds", [])
-    kind_options = [{"id": None, "label": "— not specified —"}] + [
-        {"id": k["das_kind_id"], "label": k["name"]} for k in das_kinds
-    ]
-    kind_labels = [o["label"] for o in kind_options]
+    kind_opts = [{"id": None, "label": NONE_LABEL, "description": ""}] + kind_options(
+        das_kinds, "das_kind_id"
+    )
+    kind_labels = [o["label"] for o in kind_opts]
     kind_idx = st.selectbox(
         "Data Acquisition System Kind (optional)",
         range(len(kind_labels)),
         format_func=lambda i: kind_labels[i],
         key=f"{_WIZ}_s0_kind_idx",
+        help=describe("DataAcquisitionSystem", "DataAcquisitionSystemKind_ID"),
     )
-    st.session_state[f"{_WIZ}_s0_kind_id"] = kind_options[kind_idx]["id"]
+    st.session_state[f"{_WIZ}_s0_kind_id"] = kind_opts[kind_idx]["id"]
+    _kind_caption(kind_opts, kind_labels[kind_idx])
 
-    st.text_area("Description (optional)", key=f"{_WIZ}_s0_description")
+    st.text_area(
+        "Description (optional)",
+        key=f"{_WIZ}_s0_description",
+        help=describe("DataAcquisitionSystem", "Description"),
+    )
 
     def on_next() -> list[str]:
         errors: list[str] = []
@@ -162,19 +182,39 @@ def _step_signal_interfaces(lookups: dict) -> None:  # lookups unused; consisten
     for si_id in list(si_ids):
         label = st.session_state.get(f"{_WIZ}_si_{si_id}_name") or f"Signal Interface {si_id + 1}"
         with st.expander(label, expanded=True):
-            st.text_input("Name *", key=f"{_WIZ}_si_{si_id}_name")
+            st.text_input(
+                "Name *",
+                key=f"{_WIZ}_si_{si_id}_name",
+                help=describe("SignalInterface", "Name"),
+            )
             show_advanced = st.checkbox(
                 "Show advanced fields (manufacturer, model, serial number)",
                 key=f"{_WIZ}_si_{si_id}_show_advanced",
+                help=(
+                    "Reveals the manufacturer, model and serial-number inputs for this "
+                    "interface; leave it off to record the name only."
+                ),
             )
             if show_advanced:
                 col_manufacturer, col_model, col_serial = st.columns(3)
                 with col_manufacturer:
-                    st.text_input("Manufacturer", key=f"{_WIZ}_si_{si_id}_manufacturer")
+                    st.text_input(
+                        "Manufacturer",
+                        key=f"{_WIZ}_si_{si_id}_manufacturer",
+                        help=describe("SignalInterface", "Manufacturer"),
+                    )
                 with col_model:
-                    st.text_input("Model", key=f"{_WIZ}_si_{si_id}_model_name")
+                    st.text_input(
+                        "Model",
+                        key=f"{_WIZ}_si_{si_id}_model_name",
+                        help=describe("SignalInterface", "Model"),
+                    )
                 with col_serial:
-                    st.text_input("Serial number", key=f"{_WIZ}_si_{si_id}_serial")
+                    st.text_input(
+                        "Serial number",
+                        key=f"{_WIZ}_si_{si_id}_serial",
+                        help=describe("SignalInterface", "SerialNumber"),
+                    )
             if st.button("Remove", key=f"{_WIZ}_si_{si_id}_remove_btn"):
                 st.session_state[f"{_WIZ}_si_ids"].remove(si_id)
                 st.rerun()
@@ -244,6 +284,10 @@ def _step_equipment(lookups: dict) -> None:
                     ["Existing", "New"],
                     key=f"{_WIZ}_eq_{si_id}_{eq_id}_mode",
                     horizontal=True,
+                    help=(
+                        "Existing wires an instrument already in the database to this "
+                        "interface; New creates the Equipment record first, then wires it."
+                    ),
                 )
                 if mode == "Existing":
                     if eq_labels:
@@ -251,24 +295,40 @@ def _step_equipment(lookups: dict) -> None:
                             "Select equipment",
                             eq_labels,
                             key=f"{_WIZ}_eq_{si_id}_{eq_id}_existing",
+                            help=describe("EquipmentWiringHistory", "Equipment_ID"),
                         )
                     else:
                         st.info("No equipment found. Switch to New to create one.")
                 else:
-                    st.text_input("Identifier", key=f"{_WIZ}_eq_{si_id}_{eq_id}_identifier")
-                    st.text_input("Serial number", key=f"{_WIZ}_eq_{si_id}_{eq_id}_serial")
-                    st.selectbox("Model", model_labels, key=f"{_WIZ}_eq_{si_id}_{eq_id}_model")
+                    st.text_input(
+                        "Identifier",
+                        key=f"{_WIZ}_eq_{si_id}_{eq_id}_identifier",
+                        help=describe("Equipment", "Identifier"),
+                    )
+                    st.text_input(
+                        "Serial number",
+                        key=f"{_WIZ}_eq_{si_id}_{eq_id}_serial",
+                        help=describe("Equipment", "SerialNumber"),
+                    )
+                    st.selectbox(
+                        "Model",
+                        model_labels,
+                        key=f"{_WIZ}_eq_{si_id}_{eq_id}_model",
+                        help=describe("Equipment", "EquipmentModel_ID"),
+                    )
                     if st.session_state.get(f"{_WIZ}_eq_{si_id}_{eq_id}_model") == "(new model)":
                         col_mfr, col_mname = st.columns(2)
                         with col_mfr:
                             st.text_input(
                                 "Manufacturer",
                                 key=f"{_WIZ}_eq_{si_id}_{eq_id}_model_manufacturer",
+                                help=describe("EquipmentModel", "Manufacturer"),
                             )
                         with col_mname:
                             st.text_input(
                                 "Model name",
                                 key=f"{_WIZ}_eq_{si_id}_{eq_id}_model_name",
+                                help=describe("EquipmentModel", "EquipmentModel"),
                             )
 
                 if st.button("Remove", key=f"{_WIZ}_eq_{si_id}_{eq_id}_remove_btn"):
@@ -292,13 +352,13 @@ def _step_channels(lookups: dict) -> None:
         {"id": p["parameter_id"], "label": p["parameter_name"]}
         for p in lookups["parameters"]
     ]
-    param_labels = ["(none)"] + [o["label"] for o in param_opts]
+    param_labels = [NONE_LABEL] + [o["label"] for o in param_opts]
     proc_opts = [
         {"id": p["operation_kind_id"], "label": p["name"]}
         for p in lookups["operation_kinds"]
     ]
-    proc_labels = ["(none)"] + [o["label"] for o in proc_opts]
-    vt_labels = ["(none)"] + [o["label"] for o in _VALUE_TYPES]
+    proc_labels = [NONE_LABEL] + [o["label"] for o in proc_opts]
+    vt_labels = [NONE_LABEL] + [o["label"] for o in _VALUE_TYPES]
 
     si_ids: list[int] = st.session_state.get(f"{_WIZ}_si_ids", [])
 
@@ -325,17 +385,36 @@ def _step_channels(lookups: dict) -> None:
             with st.expander(tag, expanded=True):
                 col_tag, col_param = st.columns(2)
                 with col_tag:
-                    st.text_input("Tag name *", key=f"{_WIZ}_ch_{si_id}_{ch_id}_tag")
+                    st.text_input(
+                        "Tag name *",
+                        key=f"{_WIZ}_ch_{si_id}_{ch_id}_tag",
+                        help=describe("Channel", "TagName"),
+                    )
                 with col_param:
-                    st.selectbox("Parameter", param_labels, key=f"{_WIZ}_ch_{si_id}_{ch_id}_parameter")
+                    st.selectbox(
+                        "Parameter",
+                        param_labels,
+                        key=f"{_WIZ}_ch_{si_id}_{ch_id}_parameter",
+                        help=describe("Channel", "Parameter_ID"),
+                    )
                 col_vt, col_proc = st.columns(2)
                 with col_vt:
-                    st.selectbox("Value type", vt_labels, key=f"{_WIZ}_ch_{si_id}_{ch_id}_value_type")
+                    st.selectbox(
+                        "Value type",
+                        vt_labels,
+                        key=f"{_WIZ}_ch_{si_id}_{ch_id}_value_type",
+                        help=describe("Channel", "ValueKind_ID"),
+                    )
                 with col_proc:
                     st.selectbox(
                         "Processing",
                         proc_labels,
                         key=f"{_WIZ}_ch_{si_id}_{ch_id}_processing",
+                        help=(
+                            "Informational only: notes what the interface already does to "
+                            "this tag. The channel is created without it — processing "
+                            "lineage is recorded later, in the lineage step."
+                        ),
                     )
                 if st.button("Remove", key=f"{_WIZ}_ch_{si_id}_{ch_id}_remove_btn"):
                     st.session_state[f"{_WIZ}_ch_{si_id}_ids"].remove(ch_id)
@@ -548,12 +627,12 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
             vt_label = st.session_state.get(f"{_WIZ}_ch_{si_wiz_id}_{ch_wiz_id}_value_type")
             param_id = (
                 resolve_id(param_label, param_opts)
-                if param_label and param_label != "(none)"
+                if param_label and param_label != NONE_LABEL
                 else None
             )
             vt_id = (
                 resolve_id(vt_label, _VALUE_TYPES)
-                if vt_label and vt_label != "(none)"
+                if vt_label and vt_label != NONE_LABEL
                 else None
             )
             # Channel identity does not carry an operation kind (set later via

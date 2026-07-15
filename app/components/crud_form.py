@@ -39,11 +39,15 @@ def render_form_field(
         selected = st.multiselect(label, options=labels, default=current_labels, help=help_text)
         return [option_map[lbl] for lbl in selected]
     elif field_type == "select" and options:
+        from app.components.kind_select import NONE_LABEL, kind_select
+
+        # This widget owns the empty choice; drop any sentinel row the caller
+        # prepended so it can't show up twice.
+        options = [opt for opt in options if opt.get("id") is not None]
+
         # If any option carries a description, route through kind_select so the
         # long-form description renders as a caption beneath the selectbox.
         if any(opt.get("description") for opt in options):
-            from app.components.kind_select import kind_select
-
             return kind_select(
                 label,
                 options,
@@ -51,13 +55,14 @@ def render_form_field(
                 name_field="label",
                 desc_field="description",
                 default_id=value if isinstance(value, int) else None,
+                allow_empty=not required,
                 help=help_text,
             )
 
-        # Map options to display labels, return ID. Optional fields get a
-        # "— None —" sentinel so an unset FK isn't silently defaulted to
+        # Map options to display labels, return ID. Optional fields get the
+        # NONE_LABEL sentinel so an unset FK isn't silently defaulted to
         # whatever option happens to be first in the list.
-        none_label = "— None —"
+        none_label = NONE_LABEL
         option_map = {opt["label"]: opt["id"] for opt in options}
         labels = list(option_map.keys())
         if not required:

@@ -1,9 +1,9 @@
-schema_version: "2.1.0"
+schema_version: "2.3.0"
 description: >
-  Consolidated release covering all schema work since the 2.0.0 baseline:
-  Stream supertype (Channel/AnalysisSeries repoint PK to Stream_ID),
-  OperationKind replaces ProcessingKind, EquipmentEvent generalised into an
-  8-FK exclusive-arc Event table, LabAnalysis review workflow, multi-site
-  campaigns, and broken-link/DAS-move coherence visibility views. See
-  migrations/v2.0.0_to_v2.1.0_mssql.sql for the full change list.
-date: "2026-07-06"
+  Retires the six cause-named AnnotationKinds (Fault, Maintenance, Calibration
+  Period, Experiment, Process Event, Equipment Relocation), leaving five verdicts
+  about the data: Anomaly, Data Quality, Note, Exclusion, Confirmed. Causes belong
+  in EventKind; an annotation names what is wrong with the data, never why. See
+  ADR-0007 and migrations/v2.2.0_to_v2.3.0_mssql.sql, which remaps existing rows
+  onto a survivor before deleting the retired kinds.
+date: "2026-07-14"

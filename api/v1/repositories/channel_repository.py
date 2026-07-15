@@ -692,8 +692,8 @@ def _pedigree_campaign(cur: pyodbc.Cursor, campaign_id: int | None):
     return campaign, person, site_fallback
 
 
-def _pedigree_segment(cur, valid_from, valid_to, equipment_identifier,
-                      sp_id, campaign_id) -> dict:
+def _pedigree_segment(cur, valid_from, valid_to, equipment_id,
+                      equipment_identifier, sp_id, campaign_id) -> dict:
     """Assemble one deployment segment (a slice of the stream's life with a
     stable location + campaign)."""
     location, process_unit, site = _pedigree_sampling_point(cur, sp_id)
@@ -701,6 +701,7 @@ def _pedigree_segment(cur, valid_from, valid_to, equipment_identifier,
     return {
         "valid_from": valid_from,
         "valid_to": valid_to,
+        "equipment_id": equipment_id,
         "equipment_identifier": equipment_identifier,
         "sampling_location": location,
         "process_unit": process_unit,
@@ -737,19 +738,33 @@ def get_stream_pedigree(
     # --- Identity (time-invariant) --------------------------------------
     cur.execute(
         """
-        SELECT p.[Parameter], u.[Unit], vk.[Name] AS value_kind, c.[TagName]
+        SELECT p.[Parameter], u.[Unit], vk.[Name] AS value_kind, c.[TagName],
+               si.[SignalInterface_ID], si.[Name], das.[DataAcquisitionSystem_ID],
+               das.[Name]
         FROM [dbo].[Channel] c
         LEFT JOIN [dbo].[Parameter] p ON p.[Parameter_ID] = c.[Parameter_ID]
         LEFT JOIN [dbo].[Unit] u ON u.[Unit_ID] = c.[Unit_ID]
         LEFT JOIN [dbo].[ValueKind] vk ON vk.[ValueKind_ID] = c.[ValueKind_ID]
+        LEFT JOIN [dbo].[SignalInterface] si
+            ON si.[SignalInterface_ID] = c.[SignalInterface_ID]
+        LEFT JOIN [dbo].[DataAcquisitionSystem] das
+            ON das.[DataAcquisitionSystem_ID] = si.[DataAcquisitionSystem_ID]
         WHERE c.[Stream_ID] = ?
         """,
         stream_id,
     )
     row = cur.fetchone()
     if row is not None:
-        record = {"kind": "sensor", "parameter": row[0], "unit": row[1],
-                  "value_kind": row[2], "label": row[3]}
+        record = {
+            "kind": "sensor", "parameter": row[0], "unit": row[1],
+            "value_kind": row[2], "label": row[3],
+            "signal_interface": (
+                {"id": row[4], "name": row[5]} if row[4] is not None else None
+            ),
+            "data_acquisition_system": (
+                {"id": row[6], "name": row[7]} if row[6] is not None else None
+            ),
+        }
 
         # Deployment segments: the EWH×ELH temporal join (mirrors
         # list_deployment_traces), one row per EquipmentLocationHistory the
@@ -765,8 +780,8 @@ def get_stream_pedigree(
         cur.execute(
             f"""
             SELECT DISTINCT elh.[EquipmentLocationHistory_ID], elh.[ValidFrom],
-                   elh.[ValidTo], e.[Identifier], elh.[SamplingPoint_ID],
-                   elh.[Campaign_ID]
+                   elh.[ValidTo], e.[Equipment_ID], e.[Identifier],
+                   elh.[SamplingPoint_ID], elh.[Campaign_ID]
             FROM [dbo].[vw_ChannelResolved] ch
             JOIN [dbo].[EquipmentWiringHistory] ewh
                 ON ewh.[SignalInterface_ID] = ch.[SignalInterface_ID]
@@ -787,7 +802,8 @@ def get_stream_pedigree(
         )
         seg_rows = cur.fetchall()
         deployments = [
-            _pedigree_segment(cur, r[1], r[2], r[3], r[4], r[5]) for r in seg_rows
+            _pedigree_segment(cur, r[1], r[2], r[3], r[4], r[5], r[6])
+            for r in seg_rows
         ]
     else:
         cur.execute(
@@ -806,8 +822,12 @@ def get_stream_pedigree(
         if row is None:
             return None
         record = {"kind": "lab", "parameter": row[0], "unit": row[1],
-                  "value_kind": row[2], "label": row[3]}
-        # Lab series: a single open segment (its fixed sampling point + campaign).
-        deployments = [_pedigree_segment(cur, None, None, None, row[4], row[5])]
+                  "value_kind": row[2], "label": row[3],
+                  "signal_interface": None, "data_acquisition_system": None}
+        # Lab series: a single open segment (its fixed sampling point + campaign),
+        # and no acquisition arms — nothing published it.
+        deployments = [
+            _pedigree_segment(cur, None, None, None, None, row[4], row[5])
+        ]
 
     return {"stream_id": stream_id, **record, "deployments": deployments}

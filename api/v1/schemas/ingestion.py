@@ -165,6 +165,8 @@ class SampleCreateRequest(BaseModel):
     sample_datetime_start: datetime
     sample_datetime_end: datetime | None = None
     sample_collection_kind_id: int | None = None
+    sample_kind_id: int | None = None
+    sample_material_kind_id: int | None = None
     sample_equipment_id: int | None = None
     description: str | None = None
 
@@ -213,6 +215,8 @@ class LabPanelCreateRequest(BaseModel):
     created_by_person_id: int | None = None
     default_sample_collection_kind_id: int | None = None
     default_sample_equipment_id: int | None = None
+    default_sample_kind_id: int | None = None
+    default_sample_material_kind_id: int | None = None
     series_ids: list[int]
 
 
@@ -223,6 +227,8 @@ class LabPanelPatchRequest(BaseModel):
     description: str | None = None
     default_sample_collection_kind_id: int | None = None
     default_sample_equipment_id: int | None = None
+    default_sample_kind_id: int | None = None
+    default_sample_material_kind_id: int | None = None
     series_ids: list[int] | None = None
 
 
@@ -241,6 +247,8 @@ class LabPanelResponse(BaseModel):
     created_by_person_id: int | None = None
     default_sample_collection_kind_id: int | None = None
     default_sample_equipment_id: int | None = None
+    default_sample_kind_id: int | None = None
+    default_sample_material_kind_id: int | None = None
     series_count: int
 
 
@@ -252,6 +260,8 @@ class LabPanelDetailResponse(BaseModel):
     description: str | None = None
     default_sample_collection_kind_id: int | None = None
     default_sample_equipment_id: int | None = None
+    default_sample_kind_id: int | None = None
+    default_sample_material_kind_id: int | None = None
     series: list[AnalysisSeriesLookupItem]
 
 

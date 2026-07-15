@@ -899,9 +899,11 @@ def ingest_lab_image(
             notes=notes,
         )
 
+        # StoragePath is stored relative to upload_base_dir and the read endpoints
+        # resolve it there, so the file must be written under the same root.
         ts_safe = ts.isoformat().replace(":", "-")
         rel_path = f"lab_images/{lab_experiment_id}/{replicate}_{ts_safe}.{file_ext}"
-        abs_path = Path(settings.upload_dir) / "lab_images" / str(lab_experiment_id) / f"{replicate}_{ts_safe}.{file_ext}"
+        abs_path = Path(settings.upload_base_dir) / rel_path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_bytes(image_bytes)
 
@@ -1265,6 +1267,8 @@ def create_sample(data: SampleCreateRequest, conn=Depends(get_db)):
         sample_datetime_start=data.sample_datetime_start,
         sample_datetime_end=data.sample_datetime_end,
         sample_collection_kind_id=data.sample_collection_kind_id,
+        sample_kind_id=data.sample_kind_id,
+        sample_material_kind_id=data.sample_material_kind_id,
         sample_equipment_id=data.sample_equipment_id,
         description=data.description,
     )

@@ -46,9 +46,6 @@ _PEDIGREE = {
 
 
 def _patches(stack: ExitStack) -> None:
-    stack.enter_context(patch(f"{MOD}.list_equipment_lookup", return_value=_EQUIPMENT))
-    stack.enter_context(patch(f"{MOD}.list_annotation_kinds", return_value=[]))
-    stack.enter_context(patch(f"{MOD}.list_equipment_event_kinds", return_value=[]))
     stack.enter_context(patch(f"{MOD}.list_analysis_series_lookup", return_value=[]))
     stack.enter_context(patch(f"{MOD}.list_deployment_traces_lookup", return_value=[_DT5]))
     stack.enter_context(patch(f"{DATA}.get_channel_timeseries", return_value=_TS))

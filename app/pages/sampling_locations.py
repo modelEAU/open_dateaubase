@@ -22,6 +22,7 @@ from app.api_client import (
 )
 from app.components.form_specs import get_form_fields
 from app.components.generic_crud import render_crud_page
+from app.components.labels import ALL_LABEL
 
 st.set_page_config(page_title="Sampling Locations", layout="wide")
 
@@ -42,8 +43,9 @@ col1, col2 = st.columns(2)
 with col1:
     selected_site_name = st.selectbox(
         "Filter by site",
-        options=["(all sites)"] + list(site_options.keys()),
+        options=[ALL_LABEL] + list(site_options.keys()),
         key="sl_site_filter",
+        help="Show only the sampling locations at one site.",
     )
 selected_site_id: int | None = site_options.get(selected_site_name)  # type: ignore[arg-type]
 
@@ -57,7 +59,8 @@ except APIError:
 with col2:
     selected_pu_label = st.selectbox(
         "Filter by process unit",
-        options=["(all process units)"] + list(pu_options_map.keys()),
+        options=[ALL_LABEL] + list(pu_options_map.keys()),
+        help="Show only the sampling locations on one process unit.",
         key="sl_pu_filter",
     )
 selected_pu_id: int | None = pu_options_map.get(selected_pu_label)  # type: ignore[arg-type]

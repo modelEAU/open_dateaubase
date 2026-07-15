@@ -9,6 +9,7 @@ timestamp is handed to insert_lab_observation.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from api.v1.endpoints import ingest as ingest_module
@@ -80,3 +81,42 @@ def test_sample_collection_time_looked_up_once_per_sample(monkeypatch):
     # Two measurements share one sample_id -> a single collection-time lookup.
     assert repo.get_sample_collection_time.call_count == 1
     assert repo.insert_lab_observation.call_count == 2
+
+
+def test_lab_image_written_where_the_read_path_looks_for_it(monkeypatch, tmp_path):
+    """StoragePath is resolved against upload_base_dir by the image read endpoints,
+    so the file has to be written under that same root — writing it under
+    upload_dir instead made every full-size lab image 404."""
+    from io import BytesIO
+
+    from fastapi import UploadFile
+
+    from api.config import settings
+
+    repo = MagicMock()
+    repo.insert_lab_experiment.return_value = 7
+    repo.find_or_create_analysis_series.return_value = 22
+    repo.insert_lab_analysis.return_value = 30
+    repo.get_sample_collection_time.return_value = _SAMPLE_TIME
+    values = MagicMock()
+    monkeypatch.setattr(ingest_module, "ingestion_repository", repo)
+    monkeypatch.setattr(ingest_module, "value_repository", values)
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path / "uploads" / "images"))
+
+    upload = UploadFile(filename="floc.png", file=BytesIO(b"\x89PNG fake"))
+    ingest_module.ingest_lab_image(
+        name="Floc microscopy",
+        experiment_datetime="2026-07-14T16:00:00",
+        sample_id=32,
+        parameter_id=16,
+        sampling_point_id=6,
+        unit_id=11,
+        series_name="floc morphology",
+        images=[upload],
+        conn=MagicMock(),
+    )
+
+    rel_path = values.insert_lab_image_value.call_args.kwargs["storage_path"]
+    assert (Path(settings.upload_base_dir) / rel_path).exists(), (
+        f"{rel_path} not readable from upload_base_dir {settings.upload_base_dir}"
+    )

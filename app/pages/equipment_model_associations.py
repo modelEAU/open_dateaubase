@@ -109,6 +109,7 @@ else:
                         "Select parameters to add",
                         options=list(param_opts.keys()),
                         key=f"add_params_select_{model_id}",
+                        help="The parameters this equipment model is able to measure.",
                     )
                     if st.button("Add selected", key=f"btn_add_params_{model_id}", disabled=not selected_labels):
                         for label in selected_labels:
@@ -164,6 +165,7 @@ else:
                         "Select procedures to add",
                         options=list(proc_opts.keys()),
                         key=f"add_procs_select_{model_id}",
+                        help="The maintenance or calibration procedures defined for this equipment model.",
                     )
                     if st.button("Add selected", key=f"btn_add_procs_{model_id}", disabled=not selected_labels):
                         for label in selected_labels:

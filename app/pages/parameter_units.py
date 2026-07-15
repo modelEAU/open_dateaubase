@@ -15,6 +15,7 @@ import streamlit as st
 from app.api_client import (
     APIError,
     add_parameter_unit,
+    clear_lookup_caches,
     list_parameter_units,
     list_parameters_full,
     list_units_lookup,
@@ -92,6 +93,7 @@ else:
                             remove_parameter_unit(parameter_id, uid)
                         except APIError as e:
                             st.error(f"Failed to remove unit {uid}: {e.message}")
+                    clear_lookup_caches()
                     st.rerun()
             else:
                 st.info("No units linked yet.")
@@ -104,6 +106,7 @@ else:
                     "Select units to add",
                     options=list(unit_opts.keys()),
                     key=f"add_units_select_{parameter_id}",
+                    help="The units this parameter may be reported in. These are the only units offered when a series measures this parameter.",
                 )
                 if st.button("Add selected", key=f"btn_add_units_{parameter_id}", disabled=not selected_labels):
                     for label in selected_labels:
@@ -112,6 +115,7 @@ else:
                             add_parameter_unit(parameter_id, uid)
                         except APIError as e:
                             st.error(f"Failed to add unit: {e.message}")
+                    clear_lookup_caches()
                     st.rerun()
             else:
                 st.info("All units already linked.")

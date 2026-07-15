@@ -21,6 +21,10 @@ functions.
 
 from __future__ import annotations
 
+import base64
+
+from streamlit_echarts import JsCode
+
 from app.components.lttb import lttb
 from app.components.explore_data import (
     DEFAULT_QUALITY_COLOR,
@@ -67,6 +71,34 @@ CLICK_SELECTED_JS = (
 
 def _qc_color(qc) -> str:
     return QUALITY_COLORS.get(qc, DEFAULT_QUALITY_COLOR)
+
+
+def annotation_items(annotations: list[dict]) -> list[dict]:
+    """Normalize raw AnnotationResponse dicts to the overlay-item shape."""
+    return [
+        {
+            "start": a.get("start_time"),
+            "end": a.get("end_time"),
+            "category": (a.get("type") or {}).get("name", ""),
+            "title": a.get("title"),
+            "comment": a.get("comment"),
+            "color": (a.get("type") or {}).get("color") or "#888888",
+        }
+        for a in annotations
+    ]
+
+
+def event_items(events: list[dict]) -> list[dict]:
+    """Normalize raw equipment-lifecycle events to the overlay-item shape."""
+    return [
+        {
+            "start": ev.get("start_datetime"),
+            "end": ev.get("end_datetime"),
+            "category": ev.get("event_type_name", ""),
+            "title": ev.get("notes"),
+        }
+        for ev in events
+    ]
 
 
 def _series_value_label(data: dict | None, meta: dict) -> str:
@@ -171,13 +203,7 @@ def build_scalar_echarts_option(
         spans: list[dict] = []
         _overlay_markers(
             overlay_rows, spans, source=f"CH-{ch_id}", kind="Annotation",
-            items=[
-                {"start": a.get("start_time"), "end": a.get("end_time"),
-                 "category": (a.get("type") or {}).get("name", ""),
-                 "title": a.get("title"), "comment": a.get("comment"),
-                 "color": (a.get("type") or {}).get("color") or "#888888"}
-                for a in _load_annotations(ch_id)
-            ],
+            items=annotation_items(_load_annotations(ch_id)),
             color_of=lambda it: it["color"],
         )
         eq_id = meta.get("equipment_id")
@@ -186,11 +212,7 @@ def build_scalar_echarts_option(
             eq_label = meta.get("equipment_identifier") or f"EQ-{eq_id}"
             _overlay_markers(
                 overlay_rows, spans, source=eq_label, kind="Equipment Event",
-                items=[
-                    {"start": ev.get("start_datetime"), "end": ev.get("end_datetime"),
-                     "category": ev.get("event_type_name", ""), "title": ev.get("notes")}
-                    for ev in _load_equipment_events(eq_id)
-                ],
+                items=event_items(_load_equipment_events(eq_id)),
                 color_of=lambda it: EVENT_BAND, band_color=EVENT_BAND,
             )
 
@@ -239,13 +261,7 @@ def build_scalar_echarts_option(
         spans = []
         _overlay_markers(
             overlay_rows, spans, source=f"LAB-{s_id}", kind="Annotation",
-            items=[
-                {"start": a.get("start_time"), "end": a.get("end_time"),
-                 "category": (a.get("type") or {}).get("name", ""),
-                 "title": a.get("title"), "comment": a.get("comment"),
-                 "color": (a.get("type") or {}).get("color") or "#888888"}
-                for a in _load_series_annotations(s_id)
-            ],
+            items=annotation_items(_load_series_annotations(s_id)),
             color_of=lambda it: it["color"],
         )
 
@@ -507,3 +523,101 @@ def surface_option(
             {"type": "surface", "data": cells, "shading": "color", "wireframe": {"show": False}}
         ],
     }
+
+
+# --- image timeline ---------------------------------------------------------
+
+IMAGE_TOOLTIP_JS = (
+    "function(p){"
+    " var img = p.data.img ? '<img src=\"' + p.data.img +"
+    " '\" style=\"display:block;max-width:180px;max-height:180px;margin-bottom:4px\">' : '';"
+    " return img + p.data.label;"
+    "}"
+)
+
+
+IMAGE_TIMELINE_HEIGHT = "290px"
+
+# Clicking a tick opens that image's lightbox. The component replays its last
+# return value on every rerun, so the handler stamps each click with a nonce —
+# without it, re-clicking the tick you just closed would look like no event, and
+# the dialog would never reopen.
+IMAGE_CLICK_JS = (
+    "function(p){"
+    " if(p.componentType!=='series'){return null;}"
+    " return {obs: p.data.obs, t: Date.now()};"
+    "}"
+)
+
+
+def build_image_timeline_option(
+    rows: list[dict],
+    thumbnails: dict[int, str],
+    annotations: list[dict] | None = None,
+    events: list[dict] | None = None,
+    source: str = "",
+    equipment_label: str = "",
+) -> tuple[dict, list[dict]]:
+    """One vertical tick per image on a time axis; hovering shows the thumbnail.
+
+    ``thumbnails`` maps observation id -> data URI (see ``thumbnail_data_uri``).
+    Replicates of one lab sample share a timestamp, so ticks are keyed on the
+    observation id and simply overlap when they were collected together.
+
+    ``annotations``/``events`` are the raw API dicts for this stream (and its
+    equipment); they are drawn as the same [ref]-labelled bands/lines the scalar
+    chart uses, and returned as ``overlay_rows`` for the summary table.
+    """
+    data = [
+        {
+            "value": [str(r.get("timestamp", "")), 0],
+            "img": thumbnails.get(r.get("observation_id")),
+            "label": str(r.get("timestamp", ""))[:19],
+            "obs": r.get("observation_id"),
+        }
+        for r in rows
+    ]
+
+    overlay_rows: list[dict] = []
+    spans: list[dict] = []
+    _overlay_markers(
+        overlay_rows, spans, source=source or "stream", kind="Annotation",
+        items=annotation_items(annotations or []),
+        color_of=lambda it: it["color"],
+    )
+    _overlay_markers(
+        overlay_rows, spans, source=equipment_label or "equipment", kind="Equipment Event",
+        items=event_items(events or []),
+        color_of=lambda it: EVENT_BAND, band_color=EVENT_BAND,
+    )
+
+    ticks = {
+        "type": "scatter",
+        "symbol": "rect",
+        "symbolSize": [3, 44],
+        "itemStyle": {"color": SENSOR_PALETTE[0]},
+        "cursor": "pointer",
+        "emphasis": {"itemStyle": {"color": "#d62728", "borderWidth": 0}},
+        "data": data,
+    }
+    ticks.update(_markarea_markline(spans))
+
+    option = {
+        "tooltip": {
+            "trigger": "item",
+            # The chart lives in a fixed-height iframe, so the tooltip cannot overflow
+            # it: confine keeps the thumbnail inside, and the tall top margin is the
+            # room it needs (see IMAGE_TIMELINE_HEIGHT).
+            "confine": True,
+            "formatter": JsCode(IMAGE_TOOLTIP_JS).js_code,
+        },
+        "grid": {"left": 40, "right": 20, "top": 200, "bottom": 40},
+        "xAxis": {"type": "time"},
+        "yAxis": {"type": "value", "min": -1, "max": 1, "show": False},
+        "series": [ticks],
+    }
+    return option, overlay_rows
+
+
+def thumbnail_data_uri(jpeg_bytes: bytes) -> str:
+    return "data:image/jpeg;base64," + base64.b64encode(jpeg_bytes).decode()

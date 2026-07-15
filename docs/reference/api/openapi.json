@@ -2325,6 +2325,84 @@
         }
       }
     },
+    "/api/v1/streams/{stream_id}/location-at": {
+      "get": {
+        "tags": [
+          "streams"
+        ],
+        "summary": "Get Stream Location At Time",
+        "description": "Return the sampling point this stream was coming from at ``at``.",
+        "operationId": "get_stream_location_at_time_api_v1_streams__stream_id__location_at_get",
+        "parameters": [
+          {
+            "name": "stream_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Stream Id"
+            }
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ISO 8601 timestamp; defaults to now (UTC)",
+              "title": "At"
+            },
+            "description": "ISO 8601 timestamp; defaults to now (UTC)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamLocationAtTimeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/timeseries/{channel_id}": {
       "get": {
         "tags": [
@@ -2787,31 +2865,22 @@
         }
       }
     },
-    "/api/v1/timeseries/{channel_id}/thumbnail/{timestamp}": {
+    "/api/v1/timeseries/images/{observation_id}/thumbnail": {
       "get": {
         "tags": [
           "timeseries"
         ],
         "summary": "Get Image Thumbnail",
         "description": "Return the JPEG thumbnail bytes for a stored image (from DB Thumbnail column).",
-        "operationId": "get_image_thumbnail_api_v1_timeseries__channel_id__thumbnail__timestamp__get",
+        "operationId": "get_image_thumbnail_api_v1_timeseries_images__observation_id__thumbnail_get",
         "parameters": [
           {
-            "name": "channel_id",
+            "name": "observation_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
-              "title": "Channel Id"
-            }
-          },
-          {
-            "name": "timestamp",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Timestamp"
+              "title": "Observation Id"
             }
           },
           {
@@ -2853,31 +2922,22 @@
         }
       }
     },
-    "/api/v1/timeseries/{channel_id}/image/{timestamp}": {
+    "/api/v1/timeseries/images/{observation_id}/file": {
       "get": {
         "tags": [
           "timeseries"
         ],
         "summary": "Get Image File",
         "description": "Return the full-resolution image file for a stored image (from filesystem).",
-        "operationId": "get_image_file_api_v1_timeseries__channel_id__image__timestamp__get",
+        "operationId": "get_image_file_api_v1_timeseries_images__observation_id__file_get",
         "parameters": [
           {
-            "name": "channel_id",
+            "name": "observation_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
-              "title": "Channel Id"
-            }
-          },
-          {
-            "name": "timestamp",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Timestamp"
+              "title": "Observation Id"
             }
           },
           {
@@ -3028,138 +3088,6 @@
             "schema": {
               "type": "integer",
               "title": "Analysis Series Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/analysis-series/{analysis_series_id}/thumbnail/{timestamp}": {
-      "get": {
-        "tags": [
-          "analysis-series-timeseries"
-        ],
-        "summary": "Get Analysis Series Thumbnail",
-        "description": "Return the JPEG thumbnail bytes for a stored lab image.",
-        "operationId": "get_analysis_series_thumbnail_api_v1_analysis_series__analysis_series_id__thumbnail__timestamp__get",
-        "parameters": [
-          {
-            "name": "analysis_series_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Analysis Series Id"
-            }
-          },
-          {
-            "name": "timestamp",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Timestamp"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/analysis-series/{analysis_series_id}/image/{timestamp}": {
-      "get": {
-        "tags": [
-          "analysis-series-timeseries"
-        ],
-        "summary": "Get Analysis Series Image File",
-        "description": "Return the full-resolution lab image file from the filesystem.",
-        "operationId": "get_analysis_series_image_file_api_v1_analysis_series__analysis_series_id__image__timestamp__get",
-        "parameters": [
-          {
-            "name": "analysis_series_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Analysis Series Id"
-            }
-          },
-          {
-            "name": "timestamp",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Timestamp"
             }
           },
           {
@@ -6210,7 +6138,7 @@
           "equipment-move"
         ],
         "summary": "Rewire Equipment Endpoint",
-        "description": "Replace the signal interface behind a piece of equipment.\n\nCloses the current active EquipmentWiringHistory row (if any) with\n``ValidTo = valid_from`` and opens a new row.\n\nAutomatically creates an \"Equipment Move\" Annotation on every\nChannel associated with this equipment so that the event is flagged\nfor data quality review.",
+        "description": "Replace the signal interface behind a piece of equipment.\n\nCloses the current active EquipmentWiringHistory row (if any) with\n``ValidTo = valid_from`` and opens a new row.",
         "operationId": "rewire_equipment_endpoint_api_v1_equipment__equipment_id__rewire_post",
         "parameters": [
           {
@@ -6348,7 +6276,7 @@
           "equipment-move"
         ],
         "summary": "Relocate Equipment Endpoint",
-        "description": "Move equipment to a new SamplingPoint.\n\nCloses the current active EquipmentLocationHistory row with\n``ValidTo = valid_from`` and opens a new row for the new\n``sampling_point_id``.\n\nAutomatically creates an \"Equipment Move\" Annotation on every\nChannel associated with this equipment so that the event is flagged\nfor data quality review.",
+        "description": "Move equipment to a new SamplingPoint.\n\nCloses the current active EquipmentLocationHistory row with\n``ValidTo = valid_from`` and opens a new row for the new\n``sampling_point_id``.",
         "operationId": "relocate_equipment_endpoint_api_v1_equipment__equipment_id__relocate_post",
         "parameters": [
           {
@@ -9071,9 +8999,25 @@
           "ingestion-lab"
         ],
         "summary": "List Lab Panels",
-        "description": "Return all panels with series count.",
+        "description": "Return panels with series count, optionally scoped to a campaign's\nsampling locations (see repository docstring).",
         "operationId": "list_lab_panels_api_v1_ingest_lab_templates_get",
         "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Campaign Id"
+            }
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -14104,6 +14048,237 @@
             "schema": {
               "type": "integer",
               "title": "Sample Kind Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample-material-kinds": {
+      "get": {
+        "tags": [
+          "sample-materials"
+        ],
+        "summary": "List Sample Material Kinds",
+        "description": "Return all sample materials/matrices.",
+        "operationId": "list_sample_material_kinds_api_v1_sample_material_kinds_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SampleMaterialKindOut"
+                  },
+                  "title": "Response List Sample Material Kinds Api V1 Sample Material Kinds Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sample-materials"
+        ],
+        "summary": "Create Sample Material Kind",
+        "description": "Create a new SampleMaterialKind.",
+        "operationId": "create_sample_material_kind_api_v1_sample_material_kinds_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleMaterialKindIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleMaterialKindOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample-material-kinds/{sample_material_kind_id}": {
+      "put": {
+        "tags": [
+          "sample-materials"
+        ],
+        "summary": "Update Sample Material Kind",
+        "description": "Update an existing SampleMaterialKind.",
+        "operationId": "update_sample_material_kind_api_v1_sample_material_kinds__sample_material_kind_id__put",
+        "parameters": [
+          {
+            "name": "sample_material_kind_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sample Material Kind Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleMaterialKindIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleMaterialKindOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sample-materials"
+        ],
+        "summary": "Delete Sample Material Kind",
+        "description": "Delete a SampleMaterialKind by ID.",
+        "operationId": "delete_sample_material_kind_api_v1_sample_material_kinds__sample_material_kind_id__delete",
+        "parameters": [
+          {
+            "name": "sample_material_kind_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sample Material Kind Id"
             }
           },
           {
@@ -22173,21 +22348,13 @@
               }
             ],
             "title": "Closed Location History Id"
-          },
-          "annotation_ids": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Annotation Ids"
           }
         },
         "type": "object",
         "required": [
           "equipment_id",
           "new_location_history_id",
-          "closed_location_history_id",
-          "annotation_ids"
+          "closed_location_history_id"
         ],
         "title": "EquipmentRelocateResponse"
       },
@@ -22253,21 +22420,13 @@
               }
             ],
             "title": "Closed Wiring History Id"
-          },
-          "annotation_ids": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Annotation Ids"
           }
         },
         "type": "object",
         "required": [
           "equipment_id",
           "new_wiring_history_id",
-          "closed_wiring_history_id",
-          "annotation_ids"
+          "closed_wiring_history_id"
         ],
         "title": "EquipmentRewireResponse"
       },
@@ -23569,6 +23728,28 @@
             ],
             "title": "Default Sample Equipment Id"
           },
+          "default_sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Kind Id"
+          },
+          "default_sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Material Kind Id"
+          },
           "series_ids": {
             "items": {
               "type": "integer"
@@ -23627,6 +23808,28 @@
               }
             ],
             "title": "Default Sample Equipment Id"
+          },
+          "default_sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Kind Id"
+          },
+          "default_sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Material Kind Id"
           },
           "series": {
             "items": {
@@ -23690,6 +23893,28 @@
               }
             ],
             "title": "Default Sample Equipment Id"
+          },
+          "default_sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Kind Id"
+          },
+          "default_sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Material Kind Id"
           },
           "series_ids": {
             "anyOf": [
@@ -23763,6 +23988,28 @@
               }
             ],
             "title": "Default Sample Equipment Id"
+          },
+          "default_sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Kind Id"
+          },
+          "default_sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Sample Material Kind Id"
           },
           "series_count": {
             "type": "integer",
@@ -26344,6 +26591,28 @@
             ],
             "title": "Sample Collection Kind Id"
           },
+          "sample_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Kind Id"
+          },
+          "sample_material_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Material Kind Id"
+          },
           "sample_equipment_id": {
             "anyOf": [
               {
@@ -26442,6 +26711,60 @@
           "description"
         ],
         "title": "SampleKindOut"
+      },
+      "SampleMaterialKindIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "SampleMaterialKindIn"
+      },
+      "SampleMaterialKindOut": {
+        "properties": {
+          "sample_material_kind_id": {
+            "type": "integer",
+            "title": "Sample Material Kind Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sample_material_kind_id",
+          "name",
+          "description"
+        ],
+        "title": "SampleMaterialKindOut"
       },
       "SamplingLocationIn": {
         "properties": {
@@ -27751,6 +28074,153 @@
         ],
         "title": "StrandedEquipment",
         "description": "Equipment a pending DAS move would strand (consistency audit F1)."
+      },
+      "StreamLocationAtTimeResponse": {
+        "properties": {
+          "stream_id": {
+            "type": "integer",
+            "title": "Stream Id"
+          },
+          "at_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At Time"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "wiring",
+                  "analysis_series"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "inherited_from_stream_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inherited From Stream Id"
+          },
+          "sampling_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Id"
+          },
+          "sampling_point_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Point Name"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "site_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Name"
+          },
+          "equipment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Id"
+          },
+          "equipment_identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Identifier"
+          },
+          "history_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Id"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stream_id",
+          "at_time"
+        ],
+        "title": "StreamLocationAtTimeResponse",
+        "description": "Where a Stream was being sourced from at a point in time.\n\n``source`` says which path resolved the location:\n  - \"wiring\": Channel -> ChannelPortHistory -> EquipmentWiringHistory ->\n    Equipment -> EquipmentLocationHistory (sensor tags; every hop is\n    temporal).\n  - \"analysis_series\": AnalysisSeries.SamplingPoint_ID (lab series).\n  - None: the stream exists but had no location at ``at_time``.\n\n``inherited_from_stream_id`` is set when the stream is a derived channel\n(``::smoothed`` and friends) that has no wiring of its own \u2014 the location\nis the one of the ancestor channel named here."
       },
       "StreamPedigreeOut": {
         "properties": {

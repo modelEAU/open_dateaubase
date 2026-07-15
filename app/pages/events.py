@@ -24,6 +24,7 @@ from app.api_client import (
     list_events,
 )
 from app.auth import require_auth
+from app.components.schema_registry import describe
 
 require_auth()
 
@@ -87,14 +88,30 @@ def _create_dialog() -> None:
             "Event kind *",
             options=list(event_kind_options.keys()),
             index=0 if event_kind_options else None,
+            help=describe("Event", "event_kind_id"),
         )
-        start_dt = st.text_input("Start datetime * (YYYY-MM-DD HH:MM:SS)")
-        end_dt = st.text_input("End datetime (optional, YYYY-MM-DD HH:MM:SS)")
-        notes = st.text_area("Notes")
+        start_dt = st.text_input(
+            "Start datetime * (YYYY-MM-DD HH:MM:SS)",
+            help=describe("Event", "event_date_time_start"),
+        )
+        end_dt = st.text_input(
+            "End datetime (optional, YYYY-MM-DD HH:MM:SS)",
+            help=describe("Event", "event_date_time_end"),
+        )
+        notes = st.text_area("Notes", help=describe("Event", "notes"))
 
         st.markdown("**Target** — pick exactly one arc FK")
-        target_type = st.selectbox("Target type *", options=_ARC_TARGETS)
-        target_id = st.number_input("Target ID *", min_value=1, step=1)
+        target_type = st.selectbox(
+            "Target type *",
+            options=_ARC_TARGETS,
+            help="Which kind of entity this event is about. An event names exactly one target.",
+        )
+        target_id = st.number_input(
+            "Target ID *",
+            min_value=1,
+            step=1,
+            help="The id of the target entity — the row in the table chosen above.",
+        )
 
         submitted = st.form_submit_button("Create", type="primary")
 

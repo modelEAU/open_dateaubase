@@ -24,6 +24,8 @@ from app.api_client import (
     list_parameters_lookup,
     list_persons_lookup,
     list_sample_collection_kinds,
+    list_sample_kind_lookup,
+    list_sample_material_kind_lookup,
     list_sampling_points_lookup,
     list_units_lookup,
     patch_lab_panel,
@@ -44,12 +46,14 @@ try:
         _sp = list_sampling_points_lookup()
         _units = list_units_lookup()
         _collection_kinds = list_sample_collection_kinds()
+        _sample_kinds = list_sample_kind_lookup()
+        _material_kinds = list_sample_material_kind_lookup()
         _equipment = list_equipment_lookup()
 except APIError as e:
     st.error(f"Cannot load data: {e.message}")
     st.stop()
 
-_ck_options = [{"id": None, "label": "— none —"}] + [
+_ck_options = [
     {
         "id": c.get("sample_collection_kind_id") or c.get("id"),
         "label": c.get("name", ""),
@@ -57,7 +61,7 @@ _ck_options = [{"id": None, "label": "— none —"}] + [
     for c in _collection_kinds
 ]
 
-_eq_options = [{"id": None, "label": "— none —"}] + [
+_eq_options = [
     {
         "id": e.get("equipment_id") or e.get("id"),
         "label": e.get("identifier", str(e)),
@@ -65,7 +69,16 @@ _eq_options = [{"id": None, "label": "— none —"}] + [
     for e in _equipment
 ]
 
-_person_options = [{"id": None, "label": "— none —"}] + [
+_sk_options = [
+    {"id": k.get("sample_kind_id"), "label": k.get("name", "")} for k in _sample_kinds
+]
+
+_mk_options = [
+    {"id": m.get("sample_material_kind_id"), "label": m.get("name", "")}
+    for m in _material_kinds
+]
+
+_person_options = [
     {"id": p["person_id"], "label": p["label"]} for p in list_persons_lookup()
 ]
 
@@ -85,6 +98,8 @@ _PANEL_OVERLAYS = {
     "created_by_person_id": {"options": _person_options, "label": "Created by"},
     "default_sample_collection_kind_id": {"options": _ck_options, "label": "Default collection kind"},
     "default_sample_equipment_id": {"options": _eq_options, "label": "Default equipment"},
+    "default_sample_kind_id": {"options": _sk_options, "label": "Default sample kind"},
+    "default_sample_material_kind_id": {"options": _mk_options, "label": "Default sample material"},
     "series_ids": {"label": "AnalysisSeries", "render_fn": _series_render_fn},
 }
 _fields = [

@@ -644,7 +644,7 @@
     {
       "id": "AnnotationKind",
       "label": "AnnotationKind",
-      "description": "Controlled vocabulary defining the kinds of annotations that can be applied to time series data. Each kind has a display color for UI rendering.\n",
+      "description": "Controlled vocabulary of verdicts that can be passed on time series data. An annotation says what is wrong with the data, never why \u2014 the why lives on the Event it optionally cites via Event_ID (see ADR-0007). Cause-named kinds belong in EventKind. Each kind has a display color for UI rendering.\n",
       "fields": [
         {
           "name": "AnnotationKind_ID",
@@ -2734,6 +2734,24 @@
           "description": "Default sample collection method pre-filled when this panel is loaded (e.g. Grab)"
         },
         {
+          "name": "DefaultSampleKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SampleKind.SampleKind_ID",
+          "description": "Default sample analytical role pre-filled when this panel is loaded (e.g. Field)"
+        },
+        {
+          "name": "DefaultSampleMaterialKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SampleMaterialKind.SampleMaterialKind_ID",
+          "description": "Default sample material/matrix pre-filled when this panel is loaded (e.g. mixed liquor)"
+        },
+        {
           "name": "DefaultSampleEquipment_ID",
           "sql_type": "INT",
           "is_pk": false,
@@ -3620,7 +3638,16 @@
           "is_fk": true,
           "is_required": false,
           "fk_target": "SampleKind.SampleKind_ID",
-          "description": "Nature of the sample (FK to SampleKind lookup table)"
+          "description": "Analytical role of the sample (FK to SampleKind lookup table, e.g. Field/Blank/Standard)"
+        },
+        {
+          "name": "SampleMaterialKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "SampleMaterialKind.SampleMaterialKind_ID",
+          "description": "Physical matrix/material of the sample (FK to SampleMaterialKind lookup table, e.g. wastewater/mixed liquor)"
         },
         {
           "name": "SamplingPoint_ID",
@@ -3711,7 +3738,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Surrogate primary key, manually assigned"
+          "description": "Surrogate primary key"
         },
         {
           "name": "Name",
@@ -3748,7 +3775,7 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Surrogate primary key, manually assigned"
+          "description": "Surrogate primary key"
         },
         {
           "name": "Name",
@@ -3767,6 +3794,43 @@
           "is_required": false,
           "fk_target": null,
           "description": "Explanation of what this sample kind represents"
+        }
+      ],
+      "group_name": "Lab",
+      "group_color": "#0891b2",
+      "group_key": "lab"
+    },
+    {
+      "id": "SampleMaterialKind",
+      "label": "SampleMaterialKind",
+      "description": "Controlled vocabulary describing the physical matrix (material) of a sample, independent of its analytical role (see SampleKind). Referenced by Sample.SampleMaterialKind_ID. Seeded with common wastewater-treatment-plant matrices; extend via the CRUD UI as needed.\n",
+      "fields": [
+        {
+          "name": "SampleMaterialKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(50)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Sample material name (e.g. 'mixed liquor', 'tap water')"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(200)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this sample material represents"
         }
       ],
       "group_name": "Lab",
@@ -6174,6 +6238,20 @@
     },
     {
       "from_table": "LabPanel",
+      "to_table": "SampleKind",
+      "from_field": "DefaultSampleKind_ID",
+      "to_field": "SampleKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabPanel",
+      "to_table": "SampleMaterialKind",
+      "from_field": "DefaultSampleMaterialKind_ID",
+      "to_field": "SampleMaterialKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "LabPanel",
       "to_table": "Equipment",
       "from_field": "DefaultSampleEquipment_ID",
       "to_field": "Equipment_ID",
@@ -6317,6 +6395,13 @@
       "to_table": "SampleKind",
       "from_field": "SampleKind_ID",
       "to_field": "SampleKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "Sample",
+      "to_table": "SampleMaterialKind",
+      "from_field": "SampleMaterialKind_ID",
+      "to_field": "SampleMaterialKind_ID",
       "relationship_type": null
     },
     {

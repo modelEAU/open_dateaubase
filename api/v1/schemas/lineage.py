@@ -152,6 +152,13 @@ class ResponsiblePersonOut(BaseModel):
     company: str | None = None
 
 
+class PedigreeNodeOut(BaseModel):
+    """A named thing a recording can be pinned to (ADR-0006 arc target)."""
+
+    id: int
+    name: str | None = None
+
+
 class DeploymentSegmentOut(BaseModel):
     """One slice of a stream's life with a stable location + campaign. Sensor
     streams have one per EquipmentLocationHistory they spanned; a lab series has
@@ -159,6 +166,7 @@ class DeploymentSegmentOut(BaseModel):
 
     valid_from: datetime | None = None
     valid_to: datetime | None = None
+    equipment_id: int | None = None
     equipment_identifier: str | None = None
     sampling_location: SamplingLocationOut | None = None
     process_unit: ProcessUnitPedigreeOut | None = None
@@ -180,4 +188,8 @@ class StreamPedigreeOut(BaseModel):
     unit: str | None = None
     value_kind: str | None = None
     label: str | None = None
+    # Time-invariant acquisition arms: columns on the Channel, so they belong to
+    # the root, not to a deployment segment. Null for a lab series.
+    signal_interface: PedigreeNodeOut | None = None
+    data_acquisition_system: PedigreeNodeOut | None = None
     deployments: list[DeploymentSegmentOut] = []

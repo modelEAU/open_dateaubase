@@ -61,16 +61,70 @@ _Avoid_: EquipmentEvent (now a special case), SiteEvent (never existed).
 
 ## EventKind
 
-The controlled vocabulary classifying an [Event] (calibration, maintenance,
-failure, power outage, …). The supertype generalizing the former
-**EquipmentEventKind**.
+The controlled vocabulary of **causes** — things that happened in the plant
+(calibration, maintenance, failure, power outage, …). The supertype
+generalizing the former **EquipmentEventKind**.
+
+An EventKind names something that would have been true *whether or not anyone
+was measuring*. That is the test — see [Cause/Effect Test]. A kind that only
+makes sense with a series in front of you is not an EventKind.
 
 ## Annotation
 
-A human-authored note anchored to a measurement [Stream] (one Channel or
-AnalysisSeries) over a time range. Distinct from an [Event]: an annotation
-is *about the data*; an event is *about the operational unit*. An annotation
-may optionally reference the Event that explains it.
+A human-authored **verdict on data quality**, anchored to a measurement
+[Stream] (one Channel or AnalysisSeries) over a time range: this window is
+suspect, exclude it, it's been reviewed and it's fine, something odd happened
+here that I can't explain. Distinct from an [Event]: an annotation is *about
+the data*; an event is *about the operational unit*.
+
+An annotation says **what is wrong with the data**, never **why**. The why
+lives on the [Event] it optionally references (`Event_ID`, the causal join).
+Annotation kinds that name a cause (`Maintenance`, `Calibration Period`,
+`Equipment Relocation`) are therefore a modelling error: the cause is an Event,
+and the annotation is the plain data-quality verdict that cites it.
+
+## Cause/Effect Test
+
+The single rule that decides which table a [Recording] lands in, and the only
+thing that keeps the two [Kind] vocabularies from collapsing into each other:
+
+> A kind is an **[EventKind]** if it names something that *happened in the
+> plant* — true whether or not anyone was measuring.
+> It is an **AnnotationKind** if it names something *about the data* —
+> meaningless without a series to say it about.
+
+The test is enforced in the **vocabulary**, by curating the seed data and its
+descriptions. It is deliberately *not* enforced in the schema — there is no
+Kind→level table and no DB constraint tying a kind to a target. See
+[ADR-0007](docs/adr/0007-kind-level-association.md).
+
+## Recording
+
+The single user-facing gesture for writing down what happened — "record what
+happened here". It is *not* a table. The user picks a [Kind]; the kind decides
+whether the row lands in [Event] (a claim about the operational unit) or in
+[annotation] (a verdict on the data). Level is never asked as an opening
+question: the UI pre-fills the target from the context the user is standing in.
+One recording writes **one** row.
+_Avoid_: making the user choose "Event or Annotation?" — that is a storage
+detail, not a distinction they hold in their head. The distinction they *do*
+hold is "what happened in the plant" vs "what's wrong with this data", which is
+the [Cause/Effect Test], and the Kind carries it for them.
+
+## Kind
+
+The discriminator a user actually picks when [Recording]. Ranges over the union
+of [EventKind] (the causes: Calibration, Cleaning, Repair, PowerOutage, …) and
+AnnotationKind (the data-quality verdicts: Data Quality, Exclusion, Confirmed,
+Anomaly, Note). Which vocabulary a kind comes from is what routes the recording
+to its table, and the [Cause/Effect Test] is what keeps the two vocabularies
+disjoint.
+
+A Kind carries **no level**. It does not know, and must not encode, which of the
+eight [Event] targets it applies to — `Cleaning` is legitimately Equipment *or*
+SamplingPoint, `PowerOutage` is Site *or* DataAcquisitionSystem *or*
+SignalInterface, and `Commissioning` is nearly all of them. The level comes from
+the context the user is standing in, not from the kind ([ADR-0007]).
 
 ## Measurement Range
 
@@ -103,3 +157,7 @@ per-equipment maintenance sheets are Control Limits.
 [EventKind]: #eventkind
 [Variable Range]: #variable-range
 [Control Limit]: #control-limit
+[Recording]: #recording
+[Kind]: #kind
+[Cause/Effect Test]: #causeeffect-test
+[ADR-0007]: docs/adr/0007-kind-level-association.md

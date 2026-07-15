@@ -21,6 +21,9 @@ from app.api_client import (
 )
 from app.components.geo_utils import geojson_area_ha, geojson_bounds, normalize_geojson_for_folium, validate_geojson
 from app.components.location_picker import render_location_picker
+from app.components.kind_select import kind_caption, kind_options
+from app.components.labels import NONE_LABEL
+from app.components.schema_registry import describe
 from app.components.wizard_helpers import (
     clear_wizard,
     nav,
@@ -136,12 +139,22 @@ def _load_lookups() -> dict | None:
 def _step_site(lookups: dict) -> None:
     restore_snapshot(_WIZ, 0)
 
-    kind_opts = [{"id": k["id"], "label": k["name"]} for k in lookups["site_kinds"]]
-    kind_labels = ["(none)"] + [o["label"] for o in kind_opts]
+    kind_opts = kind_options(lookups["site_kinds"], "id")
+    kind_labels = [NONE_LABEL] + [o["label"] for o in kind_opts]
 
-    st.text_input("Site name *", key=f"{_WIZ}_s0_name")
-    st.selectbox("Site type", kind_labels, key=f"{_WIZ}_s0_kind")
-    st.text_area("Description", key=f"{_WIZ}_s0_description")
+    st.text_input("Site name *", key=f"{_WIZ}_s0_name", help=describe("Site", "Name"))
+    st.selectbox(
+        "Site type",
+        kind_labels,
+        key=f"{_WIZ}_s0_kind",
+        help=describe("Site", "SiteKind_ID"),
+    )
+    kind_caption(kind_opts, st.session_state.get(f"{_WIZ}_s0_kind"))
+    st.text_area(
+        "Description",
+        key=f"{_WIZ}_s0_description",
+        help=describe("Site", "Description"),
+    )
     st.markdown("#### Location")
     render_location_picker(key_prefix=f"{_WIZ}_loc")
 
@@ -152,15 +165,33 @@ def _step_site(lookups: dict) -> None:
         ["None", "Select existing", "Create new"],
         key=f"{_WIZ}_ws_mode",
         label_visibility="collapsed",
+        help=(
+            "None leaves the site unlinked; Select existing attaches it to a watershed "
+            "already in the database; Create new adds a watershed record (name, boundary, "
+            "area) and attaches the site to it."
+        ),
     )
 
     if ws_mode == "Select existing":
         ws_opts = [{"id": w["watershed_id"], "label": w["name"]} for w in lookups["watersheds"]]
-        ws_labels = ["(none)"] + [o["label"] for o in ws_opts]
-        st.selectbox("Watershed", ws_labels, key=f"{_WIZ}_ws_select")
+        ws_labels = [NONE_LABEL] + [o["label"] for o in ws_opts]
+        st.selectbox(
+            "Watershed",
+            ws_labels,
+            key=f"{_WIZ}_ws_select",
+            help=describe("Site", "Watershed_ID"),
+        )
     elif ws_mode == "Create new":
-        st.text_input("Watershed name *", key=f"{_WIZ}_ws_new_name")
-        st.text_area("Description", key=f"{_WIZ}_ws_new_description")
+        st.text_input(
+            "Watershed name *",
+            key=f"{_WIZ}_ws_new_name",
+            help=describe("Watershed", "Name"),
+        )
+        st.text_area(
+            "Description",
+            key=f"{_WIZ}_ws_new_description",
+            help=describe("Watershed", "Description"),
+        )
         st.caption("Boundary (optional)")
         uploaded = st.file_uploader(
             "Upload GeoJSON boundary",
@@ -180,8 +211,20 @@ def _step_site(lookups: dict) -> None:
             key=f"{_WIZ}_ws_new_surface_area",
             help="Auto-filled from uploaded GeoJSON; edit to override.",
         )
-        st.number_input("Concentration time (min)", min_value=0, step=1, key=f"{_WIZ}_ws_new_concentration_time")
-        st.number_input("Impervious surface (%)", min_value=0.0, max_value=100.0, key=f"{_WIZ}_ws_new_impervious_surface")
+        st.number_input(
+            "Concentration time (min)",
+            min_value=0,
+            step=1,
+            key=f"{_WIZ}_ws_new_concentration_time",
+            help=describe("Watershed", "concentration_time"),
+        )
+        st.number_input(
+            "Impervious surface (%)",
+            min_value=0.0,
+            max_value=100.0,
+            key=f"{_WIZ}_ws_new_impervious_surface",
+            help=describe("Watershed", "impervious_surface"),
+        )
         if st.session_state.get(f"{_WIZ}_ws_new_geojson"):
             _render_ws_map(json.loads(st.session_state[f"{_WIZ}_ws_new_geojson"]))
 
@@ -207,11 +250,8 @@ def _step_site(lookups: dict) -> None:
 def _step_process_units(lookups: dict) -> None:
     restore_snapshot(_WIZ, 1)
 
-    kind_opts = [
-        {"id": k["process_unit_kind_id"], "label": k["name"]}
-        for k in lookups["pu_kinds"]
-    ]
-    kind_labels = ["(none)"] + [o["label"] for o in kind_opts]
+    kind_opts = kind_options(lookups["pu_kinds"], "process_unit_kind_id")
+    kind_labels = [NONE_LABEL] + [o["label"] for o in kind_opts]
     pu_ids: list[int] = st.session_state[f"{_WIZ}_pu_ids"]
 
     st.info("Add process units at this site (optional — click Next to skip).")
@@ -225,10 +265,24 @@ def _step_process_units(lookups: dict) -> None:
     for pu_id in list(pu_ids):
         label = st.session_state.get(f"{_WIZ}_pu_{pu_id}_name") or f"Process Unit {pu_id + 1}"
         with st.expander(label, expanded=True):
-            st.text_input("Name *", key=f"{_WIZ}_pu_{pu_id}_name")
-            st.text_input("P&ID Tag", key=f"{_WIZ}_pu_{pu_id}_tag")
+            st.text_input(
+                "Name *",
+                key=f"{_WIZ}_pu_{pu_id}_name",
+                help=describe("ProcessUnit", "name"),
+            )
+            st.text_input(
+                "P&ID Tag",
+                key=f"{_WIZ}_pu_{pu_id}_tag",
+                help=describe("ProcessUnit", "tag"),
+            )
             if kind_labels:
-                st.selectbox("Kind", kind_labels, key=f"{_WIZ}_pu_{pu_id}_kind")
+                st.selectbox(
+                    "Kind",
+                    kind_labels,
+                    key=f"{_WIZ}_pu_{pu_id}_kind",
+                    help=describe("ProcessUnit", "process_unit_kind_id"),
+                )
+                kind_caption(kind_opts, st.session_state.get(f"{_WIZ}_pu_{pu_id}_kind"))
             if st.button("Remove", key=f"{_WIZ}_pu_{pu_id}_remove"):
                 st.session_state[f"{_WIZ}_pu_ids"].remove(pu_id)
                 st.rerun()
@@ -261,7 +315,7 @@ def _step_sampling_locations(lookups: dict) -> None:
         for pid in pu_ids
     ]
     existing_pu_labels = [p["name"] for p in lookups.get("process_units", [])]
-    pu_label_options = ["(none)"] + wizard_pu_labels + existing_pu_labels
+    pu_label_options = [NONE_LABEL] + wizard_pu_labels + existing_pu_labels
 
     sl_ids: list[int] = st.session_state[f"{_WIZ}_sl_ids"]
 
@@ -276,9 +330,22 @@ def _step_sampling_locations(lookups: dict) -> None:
     for sl_id in list(sl_ids):
         label = st.session_state.get(f"{_WIZ}_sl_{sl_id}_name") or f"Sampling Location {sl_id + 1}"
         with st.expander(label, expanded=True):
-            st.text_input("Name *", key=f"{_WIZ}_sl_{sl_id}_name")
-            st.text_area("Description", key=f"{_WIZ}_sl_{sl_id}_description")
-            st.selectbox("Process Unit", pu_label_options, key=f"{_WIZ}_sl_{sl_id}_pu")
+            st.text_input(
+                "Name *",
+                key=f"{_WIZ}_sl_{sl_id}_name",
+                help=describe("SamplingPoint", "sampling_point"),
+            )
+            st.text_area(
+                "Description",
+                key=f"{_WIZ}_sl_{sl_id}_description",
+                help=describe("SamplingPoint", "description"),
+            )
+            st.selectbox(
+                "Process Unit",
+                pu_label_options,
+                key=f"{_WIZ}_sl_{sl_id}_pu",
+                help=describe("SamplingPoint", "process_unit_id"),
+            )
             if st.button("Remove", key=f"{_WIZ}_sl_{sl_id}_remove"):
                 st.session_state[f"{_WIZ}_sl_ids"].remove(sl_id)
                 st.rerun()
@@ -307,7 +374,7 @@ def _step_review(lookups: dict) -> None:
         restore_snapshot(_WIZ, s)
 
     site_name = st.session_state.get(f"{_WIZ}_s0_name", "")
-    kind_label = st.session_state.get(f"{_WIZ}_s0_kind", "(none)")
+    kind_label = st.session_state.get(f"{_WIZ}_s0_kind", NONE_LABEL)
     description = st.session_state.get(f"{_WIZ}_s0_description", "")
     lat = st.session_state.get(f"{_WIZ}_loc_lat_input")
     lng = st.session_state.get(f"{_WIZ}_loc_lng_input")
@@ -323,7 +390,7 @@ def _step_review(lookups: dict) -> None:
     if lat and lng:
         st.write(f"**Location:** {lat:.5f}, {lng:.5f}  {city} {country}".strip())
     if ws_mode == "Select existing":
-        ws_label = st.session_state.get(f"{_WIZ}_ws_select", "(none)")
+        ws_label = st.session_state.get(f"{_WIZ}_ws_select", NONE_LABEL)
         st.write(f"**Watershed:** {ws_label}")
     elif ws_mode == "Create new":
         ws_name = st.session_state.get(f"{_WIZ}_ws_new_name", "")
@@ -335,7 +402,7 @@ def _step_review(lookups: dict) -> None:
         for pu_id in pu_ids:
             name = st.session_state.get(f"{_WIZ}_pu_{pu_id}_name", "")
             tag = st.session_state.get(f"{_WIZ}_pu_{pu_id}_tag", "")
-            kind = st.session_state.get(f"{_WIZ}_pu_{pu_id}_kind", "(none)")
+            kind = st.session_state.get(f"{_WIZ}_pu_{pu_id}_kind", NONE_LABEL)
             st.write(f"- **{name}** (P&ID Tag: {tag or '—'}, kind: {kind})")
 
     sl_ids = st.session_state.get(f"{_WIZ}_sl_ids", [])
@@ -343,7 +410,7 @@ def _step_review(lookups: dict) -> None:
         st.markdown("### Sampling Locations")
         for sl_id in sl_ids:
             name = st.session_state.get(f"{_WIZ}_sl_{sl_id}_name", "")
-            pu_label = st.session_state.get(f"{_WIZ}_sl_{sl_id}_pu", "(none)")
+            pu_label = st.session_state.get(f"{_WIZ}_sl_{sl_id}_pu", NONE_LABEL)
             st.write(f"- **{name}** → process unit: {pu_label}")
 
     def on_next() -> list[str]:
@@ -415,14 +482,14 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
             return created, errors
     elif ws_mode == "Select existing":
         ws_label = st.session_state.get(f"{_WIZ}_ws_select") or None
-        if ws_label and ws_label != "(none)":
+        if ws_label and ws_label != NONE_LABEL:
             watershed_id = resolve_id(ws_label, ws_opts)
 
     # 2. Create site
     site_kind_label = st.session_state.get(f"{_WIZ}_s0_kind") or None
     site_kind_id = (
         resolve_id(site_kind_label, kind_opts)
-        if site_kind_label and site_kind_label != "(none)"
+        if site_kind_label and site_kind_label != NONE_LABEL
         else None
     )
     try:
@@ -452,7 +519,7 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
         kind_label = st.session_state.get(f"{_WIZ}_pu_{pu_wiz_id}_kind") or None
         pu_kind_id = (
             resolve_id(kind_label, pu_kind_opts)
-            if kind_label and kind_label != "(none)"
+            if kind_label and kind_label != NONE_LABEL
             else None
         )
         if not name:
@@ -491,7 +558,7 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
         pu_label = st.session_state.get(f"{_WIZ}_sl_{sl_wiz_id}_pu") or None
         pu_db_id = (
             pu_label_to_id.get(pu_label)
-            if pu_label and pu_label != "(none)"
+            if pu_label and pu_label != NONE_LABEL
             else None
         )
         try:

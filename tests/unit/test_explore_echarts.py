@@ -138,3 +138,68 @@ def test_resolve_brush_selection_handles_none_and_bad_indices():
     # out-of-range seriesIndex / dataIndex are ignored, not raised
     bad = [{"seriesIndex": 99, "dataIndex": [0]}, {"seriesIndex": 0, "dataIndex": [50]}]
     assert ee.resolve_brush_selection(bad, smap) == {"sensor_pts": [], "lab_pts": []}
+
+
+class TestImageTimeline:
+    """One tick per image on a time axis, thumbnail in the hover tooltip."""
+
+    def test_replicates_sharing_a_timestamp_stay_separate_ticks(self):
+        ts = "2026-07-14T16:00:00"
+        opt, _ = ee.build_image_timeline_option(
+            [{"timestamp": ts, "observation_id": 501},
+             {"timestamp": ts, "observation_id": 502}],
+            {501: ee.thumbnail_data_uri(b"one"), 502: ee.thumbnail_data_uri(b"two")},
+        )
+        pts = opt["series"][0]["data"]
+        assert [p["obs"] for p in pts] == [501, 502]
+        assert len({p["img"] for p in pts}) == 2
+        assert opt["xAxis"]["type"] == "time"
+        # The tooltip must render the thumbnail, not just the timestamp.
+        assert "<img src=" in opt["tooltip"]["formatter"]
+
+    def test_missing_thumbnail_degrades_to_a_label_only_tick(self):
+        opt, _ = ee.build_image_timeline_option(
+            [{"timestamp": "2026-07-14T16:00:00", "observation_id": 7}], {}
+        )
+        assert opt["series"][0]["data"][0]["img"] is None
+
+    def test_annotations_and_events_overlay_the_ticks_and_the_table(self):
+        """The image view used to show no annotations or equipment events at all —
+        they must decorate the timeline exactly like they do the scalar chart."""
+        opt, rows = ee.build_image_timeline_option(
+            [{"timestamp": "2026-07-14T16:00:00", "observation_id": 7}],
+            {},
+            annotations=[{"start_time": "2026-07-14T15:00:00",
+                          "end_time": "2026-07-14T17:00:00",
+                          "type": {"name": "Bulking", "color": "#DC2626"},
+                          "title": "filaments", "comment": "heavy"}],
+            events=[{"start_datetime": "2026-07-14T12:00:00", "end_datetime": None,
+                     "event_type_name": "Calibration", "notes": "scope"}],
+            source="LAB-22",
+            equipment_label="MIC-1",
+        )
+        ticks = opt["series"][0]
+        assert len(ticks["markArea"]["data"]) == 2   # annotation band + event band
+        assert len(ticks["markLine"]["data"]) == 2
+        assert {r["kind"] for r in rows} == {"Annotation", "Equipment Event"}
+        assert {r["source"] for r in rows} == {"LAB-22", "MIC-1"}
+        assert any(r["category"] == "Bulking" for r in rows)
+
+    def test_click_handler_returns_the_observation_with_a_nonce(self):
+        # The component replays its last value each rerun, so a bare obs id would
+        # make re-clicking the tick you just closed indistinguishable from no click.
+        assert "p.data.obs" in ee.IMAGE_CLICK_JS
+        assert "Date.now()" in ee.IMAGE_CLICK_JS
+
+    def test_ticks_are_clickable(self):
+        opt, _ = ee.build_image_timeline_option(
+            [{"timestamp": "2026-07-14T16:00:00", "observation_id": 7}], {}
+        )
+        assert opt["series"][0]["cursor"] == "pointer"
+
+    def test_no_overlays_leaves_the_ticks_undecorated(self):
+        opt, rows = ee.build_image_timeline_option(
+            [{"timestamp": "2026-07-14T16:00:00", "observation_id": 7}], {}
+        )
+        assert rows == []
+        assert "markArea" not in opt["series"][0]

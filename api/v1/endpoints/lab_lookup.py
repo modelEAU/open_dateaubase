@@ -1,4 +1,4 @@
-"""Lab lookup table CRUD endpoints: SampleKind and SampleCollectionKind."""
+"""Lab lookup table CRUD endpoints: SampleKind, SampleMaterialKind, SampleCollectionKind."""
 
 from __future__ import annotations
 
@@ -11,9 +11,12 @@ from ..schemas.metadata import (
     SampleCollectionKindOut,
     SampleKindIn,
     SampleKindOut,
+    SampleMaterialKindIn,
+    SampleMaterialKindOut,
 )
 
 sample_kinds_router = APIRouter()
+sample_material_kinds_router = APIRouter()
 sample_collection_kinds_router = APIRouter()
 
 
@@ -54,6 +57,46 @@ def delete_sample_kind(sample_kind_id: int, conn=Depends(get_db)):
     if not deleted:
         raise HTTPException(
             status_code=404, detail=f"SampleKind {sample_kind_id} not found."
+        )
+
+
+# ---------------------------------------------------------------------------
+# SampleMaterialKind
+# ---------------------------------------------------------------------------
+
+
+@sample_material_kinds_router.get("", response_model=list[SampleMaterialKindOut])
+def list_sample_material_kinds(conn=Depends(get_db)):
+    """Return all sample materials/matrices."""
+    return lookup_repository.get_sample_material_kinds(conn)
+
+
+@sample_material_kinds_router.post("", response_model=SampleMaterialKindOut, status_code=201)
+def create_sample_material_kind(body: SampleMaterialKindIn, conn=Depends(get_db)):
+    """Create a new SampleMaterialKind."""
+    return lookup_repository.insert_sample_material_kind(conn, body.name, body.description)
+
+
+@sample_material_kinds_router.put("/{sample_material_kind_id}", response_model=SampleMaterialKindOut)
+def update_sample_material_kind(sample_material_kind_id: int, body: SampleMaterialKindIn, conn=Depends(get_db)):
+    """Update an existing SampleMaterialKind."""
+    updated = lookup_repository.update_sample_material_kind(
+        conn, sample_material_kind_id, body.name, body.description
+    )
+    if updated is None:
+        raise HTTPException(
+            status_code=404, detail=f"SampleMaterialKind {sample_material_kind_id} not found."
+        )
+    return updated
+
+
+@sample_material_kinds_router.delete("/{sample_material_kind_id}", status_code=204)
+def delete_sample_material_kind(sample_material_kind_id: int, conn=Depends(get_db)):
+    """Delete a SampleMaterialKind by ID."""
+    deleted = lookup_repository.delete_sample_material_kind(conn, sample_material_kind_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404, detail=f"SampleMaterialKind {sample_material_kind_id} not found."
         )
 
 

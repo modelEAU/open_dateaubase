@@ -17,6 +17,7 @@ if _project_root not in sys.path:
 import streamlit as st
 
 from app.api_client import APIError, get_audit_logs
+from app.components.labels import ALL_LABEL
 
 _LOCAL_TZ = datetime.now().astimezone().tzinfo  # type: ignore[attr-defined]
 
@@ -71,14 +72,29 @@ f_col1, f_col2, f_col3, f_col4 = st.columns(4)
 with f_col1:
     action_filter = st.selectbox(
         "Action",
-        ["All", "SIGNUP", "LOGIN", "CREATE", "UPDATE", "DELETE"],
+        [ALL_LABEL, "SIGNUP", "LOGIN", "CREATE", "UPDATE", "DELETE"],
+        help="Show only entries where a user performed this kind of action.",
     )
 with f_col2:
-    resource_filter = st.text_input("Resource type", placeholder="e.g. Site, Campaign …")
+    resource_filter = st.text_input(
+        "Resource type",
+        placeholder="e.g. Site, Campaign …",
+        help="Show only entries touching this kind of entity. Matches the table name.",
+    )
 with f_col3:
-    days_back = st.number_input("Last N days", min_value=1, max_value=730, value=30)
+    days_back = st.number_input(
+        "Last N days",
+        min_value=1,
+        max_value=730,
+        value=30,
+        help="How far back to search the log.",
+    )
 with f_col4:
-    author_filter = st.text_input("Author (name or email)", placeholder="optional")
+    author_filter = st.text_input(
+        "Author (name or email)",
+        placeholder="optional",
+        help="Show only entries made by this user.",
+    )
 
 now     = datetime.now(timezone.utc)
 from_dt = (now - timedelta(days=int(days_back))).isoformat()
@@ -104,7 +120,7 @@ offset = st.session_state["audit_offset"]
 # ---------------------------------------------------------------------------
 try:
     data = get_audit_logs(
-        action=action_filter if action_filter != "All" else None,
+        action=action_filter if action_filter != ALL_LABEL else None,
         resource_type=resource_filter or None,
         from_dt=from_dt,
         limit=PAGE_SIZE,

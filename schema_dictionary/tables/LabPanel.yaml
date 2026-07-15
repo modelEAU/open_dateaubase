@@ -43,6 +43,22 @@ table:
         table: SampleCollectionKind
         column: SampleCollectionKind_ID
 
+    - name: DefaultSampleKind_ID
+      logical_type: integer
+      nullable: true
+      description: "Default sample analytical role pre-filled when this panel is loaded (e.g. Field)"
+      foreign_key:
+        table: SampleKind
+        column: SampleKind_ID
+
+    - name: DefaultSampleMaterialKind_ID
+      logical_type: integer
+      nullable: true
+      description: "Default sample material/matrix pre-filled when this panel is loaded (e.g. mixed liquor)"
+      foreign_key:
+        table: SampleMaterialKind
+        column: SampleMaterialKind_ID
+
     - name: DefaultSampleEquipment_ID
       logical_type: integer
       nullable: true

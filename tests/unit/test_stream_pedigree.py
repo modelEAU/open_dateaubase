@@ -36,14 +36,17 @@ _CAMP_SPRING = ("Spring 2026", "Experiment", "2026-04-01", "2026-07-01",
                 12, "Marie", "Roy", "mr@x.io", "Eng", "modelEAU")
 # Derived single-site fallback row (site_id, name, city, province, country).
 _CAMP_SITE = (3, "pilEAU", "Quebec", "QC", "Canada")
+# Sensor identity: parameter, unit, value kind, tag, then the time-invariant
+# acquisition arms (SignalInterface, DataAcquisitionSystem).
+_SENSOR_IDENTITY = ("TSS", "mg/L", "Scalar", "CH-TSS", 4, "Modbus RTU", 2, "SCADA")
 
 
 def test_sensor_spanning_two_deployments_yields_a_timeline():
     """The spicy case: a channel whose data crosses an equipment move resolves to
     two segments, each with its own location + campaign + responsible person."""
-    identity = ("TSS", "mg/L", "Scalar", "CH-TSS")
-    seg1 = (101, "2026-01-01", "2026-04-01", "EQ5", 21, 5)
-    seg2 = (102, "2026-04-01", None, "EQ5", 22, 6)  # open-ended (still active)
+    identity = _SENSOR_IDENTITY
+    seg1 = (101, "2026-01-01", "2026-04-01", 5, "EQ5", 21, 5)
+    seg2 = (102, "2026-04-01", None, 5, "EQ5", 22, 6)  # open-ended (still active)
     conn, _ = _conn(
         fetchone_seq=[identity, _SP_INLET, _CAMP_WINTER, _SP_EFF, _CAMP_SPRING],
         # segments, then derived sites per campaign (Winter, Spring).
@@ -72,8 +75,7 @@ def test_sensor_spanning_two_deployments_yields_a_timeline():
 
 
 def test_sensor_window_filters_segments_in_sql():
-    identity = ("pH", "-", "Scalar", "CH-pH")
-    conn, cursor = _conn(fetchone_seq=[identity], fetchall_seq=[[]])
+    conn, cursor = _conn(fetchone_seq=[_SENSOR_IDENTITY], fetchall_seq=[[]])
 
     channel_repository.get_stream_pedigree(
         conn, 8, from_dt=datetime(2026, 5, 1), to_dt=datetime(2026, 6, 1)
@@ -108,6 +110,45 @@ def test_lab_series_single_open_segment():
     assert seg["sampling_location"]["name"] == "Inlet"
     assert seg["campaign"]["name"] == "Winter 2026"
     assert any("AnalysisSeries" in c.args[0] for c in cursor.execute.call_args_list)
+
+
+def test_sensor_pedigree_names_all_eight_arc_targets():
+    """Recording writes exactly one ADR-0006 arc FK, so every rung it can offer
+    needs an id — a name alone is not a target."""
+    conn, _ = _conn(
+        fetchone_seq=[_SENSOR_IDENTITY, _SP_INLET, _CAMP_WINTER],
+        fetchall_seq=[[(101, "2026-01-01", None, 5, "EQ5", 21, 5)], [_CAMP_SITE]],
+    )
+
+    ped = channel_repository.get_stream_pedigree(conn, 42)
+
+    assert ped["stream_id"] == 42
+    seg = ped["deployments"][0]
+    assert seg["equipment_id"] == 5
+    assert ped["signal_interface"] == {"id": 4, "name": "Modbus RTU"}
+    assert ped["data_acquisition_system"] == {"id": 2, "name": "SCADA"}
+    assert seg["sampling_location"]["sampling_point_id"] == 21
+    assert seg["process_unit"]["process_unit_id"] == 7
+    assert seg["site"]["site_id"] == 3
+    assert seg["campaign"]["campaign_id"] == 5
+
+
+def test_lab_pedigree_names_only_the_five_it_can_reach():
+    """No equipment, no interface, no DAS: nothing published a lab series."""
+    lab_identity = ("TSS", "mg/L", "Scalar", "TSS@Eff", 21, 5)
+    conn, _ = _conn(
+        fetchone_seq=[None, lab_identity, _SP_INLET, _CAMP_WINTER],
+        fetchall_seq=[[_CAMP_SITE]],
+    )
+
+    ped = channel_repository.get_stream_pedigree(conn, 7)
+
+    assert ped["signal_interface"] is None
+    assert ped["data_acquisition_system"] is None
+    seg = ped["deployments"][0]
+    assert seg["equipment_id"] is None
+    assert seg["sampling_location"]["sampling_point_id"] == 21
+    assert seg["campaign"]["campaign_id"] == 5
 
 
 def test_unknown_stream_returns_none():

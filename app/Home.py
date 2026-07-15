@@ -126,6 +126,7 @@ def _onboarding_panel() -> None:
             ["Lab", "Sensor", "Both"],
             horizontal=True,
             key="onboarding_data_type",
+            help="Lab data arrives as results against samples; sensor data arrives as a continuous signal on a channel. This only tailors the setup steps suggested below.",
         )
 
         data_type: str = st.session_state["onboarding_data_type"]
@@ -252,6 +253,7 @@ pg = st.navigation(
             ),
             st.Page(str(_pages / "annotation_kinds.py"), title="Annotation Kinds"),
             st.Page(str(_pages / "sample_kinds.py"), title="Sample Kinds"),
+            st.Page(str(_pages / "sample_material_kinds.py"), title="Sample Materials"),
             st.Page(str(_pages / "sample_collection_kinds.py"), title="Sample Collection Kinds"),
             st.Page(str(_pages / "quality_codes.py"), title="Quality Codes"),
             st.Page(str(_pages / "units.py"), title="Units"),

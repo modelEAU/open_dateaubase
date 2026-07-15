@@ -150,6 +150,17 @@ class SampleKindIn(BaseModel):
     description: str | None = None
 
 
+class SampleMaterialKindOut(BaseModel):
+    sample_material_kind_id: int
+    name: str
+    description: str | None
+
+
+class SampleMaterialKindIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
 class SampleCollectionKindOut(BaseModel):
     sample_collection_kind_id: int
     name: str

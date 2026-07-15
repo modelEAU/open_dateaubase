@@ -233,6 +233,83 @@ class TestInsertLabObservation:
             raise AssertionError("expected ValueError for unsupported value_kind_id")
 
 
+class TestInsertSample:
+    def test_includes_sample_kind_id_in_insert(self):
+        conn, cursor = _conn_with_fetchone([(77,)])
+        ts = datetime(2026, 5, 20, 8, 0, tzinfo=timezone.utc)
+
+        sample_id = ingestion_repository.insert_sample(
+            conn,
+            sampling_point_id=3,
+            sampled_by_person_id=2,
+            campaign_id=4,
+            sample_datetime_start=ts,
+            sample_datetime_end=None,
+            sample_collection_kind_id=1,
+            sample_kind_id=9,
+            sample_equipment_id=5,
+            description=None,
+        )
+
+        assert sample_id == 77
+        sql = _executed_sql(cursor)
+        assert "[SampleKind_ID]" in sql
+        # 9 (sample_kind_id) is passed through as a bound parameter
+        assert 9 in cursor.execute.call_args_list[0].args[1:]
+        conn.commit.assert_called_once()
+
+    def test_includes_sample_material_kind_id_in_insert(self):
+        conn, cursor = _conn_with_fetchone([(78,)])
+        ts = datetime(2026, 5, 20, 8, 0, tzinfo=timezone.utc)
+
+        sample_id = ingestion_repository.insert_sample(
+            conn,
+            sampling_point_id=3,
+            sampled_by_person_id=2,
+            campaign_id=4,
+            sample_datetime_start=ts,
+            sample_datetime_end=None,
+            sample_collection_kind_id=1,
+            sample_kind_id=9,
+            sample_material_kind_id=10,
+            sample_equipment_id=5,
+            description=None,
+        )
+
+        assert sample_id == 78
+        sql = _executed_sql(cursor)
+        assert "[SampleMaterialKind_ID]" in sql
+        # 10 (sample_material_kind_id) is passed through as a bound parameter
+        assert 10 in cursor.execute.call_args_list[0].args[1:]
+
+
+class TestListLabPanels:
+    def test_no_campaign_passes_null_filter(self):
+        conn, cursor = _conn_with_fetchone([])
+        cursor.fetchall.return_value = []
+
+        ingestion_repository.list_lab_panels(conn)
+
+        sql = _executed_sql(cursor)
+        # The location-scoping EXISTS is always emitted, gated by (? IS NULL).
+        assert "CampaignSamplingLocation" in sql
+        # Both bound params are the campaign_id (None here) — the NULL short-circuit.
+        assert cursor.execute.call_args_list[0].args[1:] == (None, None)
+
+    def test_campaign_scopes_via_sampling_location(self):
+        conn, cursor = _conn_with_fetchone([])
+        cursor.fetchall.return_value = []
+
+        ingestion_repository.list_lab_panels(conn, campaign_id=4)
+
+        sql = _executed_sql(cursor)
+        # Panel → series → sampling point → campaign location chain.
+        assert "LabPanelSeries" in sql
+        assert "[AnalysisSeries]" in sql and "[SamplingPoint_ID]" in sql
+        assert "CampaignSamplingLocation" in sql
+        assert cursor.execute.call_args_list[0].args[1:] == (4, 4)
+
+
 class TestGetSampleCollectionTime:
     def test_returns_sample_datetime_start(self):
         ts = datetime(2026, 5, 18, 8, 15, tzinfo=timezone.utc)

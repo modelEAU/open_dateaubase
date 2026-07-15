@@ -366,6 +366,7 @@ def _render_provenance_panel(
         horizontal=True,
         label_visibility="collapsed",
         key="explore_prov_tab",
+        help="Overview summarises where this stream came from; Lineage draws the full graph back to raw sources; Steps lists each processing operation applied.",
     )
     if tab == "Overview":
         _render_prov_overview(root)

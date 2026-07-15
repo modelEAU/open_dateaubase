@@ -600,34 +600,3 @@ def delete_annotation_kind(conn: pyodbc.Connection, annotation_kind_id: int) -> 
     except Exception:
         conn.rollback()
         raise
-
-
-def create_equipment_move_annotations(
-    conn: pyodbc.Connection,
-    *,
-    stream_ids: list[int],
-    annotation_kind_id: int,
-    title: str,
-    comment: str,
-    start_time: datetime,
-) -> list[int]:
-    """Create annotations on multiple streams (channels) for an equipment move.
-
-    Returns the list of created Annotation_IDs.
-    """
-    annotation_ids: list[int] = []
-    for stream_id in stream_ids:
-        result = create_annotation(
-            conn,
-            stream_id=stream_id,
-            annotation_kind_id=annotation_kind_id,
-            start_time=start_time,
-            end_time=None,
-            author_person_id=None,
-            campaign_id=None,
-            event_id=None,
-            title=title,
-            comment=comment,
-        )
-        annotation_ids.append(result["annotation_id"])
-    return annotation_ids

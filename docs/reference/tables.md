@@ -79,7 +79,7 @@ Human-authored annotations on time series data. Each annotation anchors to a sin
 
 ### AnnotationKind
 
-Controlled vocabulary defining the kinds of annotations that can be applied to time series data. Each kind has a display color for UI rendering.
+Controlled vocabulary of verdicts that can be passed on time series data. An annotation says what is wrong with the data, never why — the why lives on the Event it optionally cites via Event_ID (see ADR-0007). Cause-named kinds belong in EventKind. Each kind has a display color for UI rendering.
 
 
 
@@ -724,6 +724,8 @@ Named, reusable bundle of AnalysisSeries to run together in a lab session. Copy-
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text description of the panel's purpose | - |
 | CreatedByPerson_ID | INT | - |  | <span id="CreatedByPerson_ID"></span>Person who created this panel | FK → [Person.Person_ID](#Person) |
 | DefaultSampleCollectionKind_ID | INT | - |  | <span id="DefaultSampleCollectionKind_ID"></span>Default sample collection method pre-filled when this panel is loaded (e.g. Grab) | FK → [SampleCollectionKind.SampleCollectionKind_ID](#SampleCollectionKind) |
+| DefaultSampleKind_ID | INT | - |  | <span id="DefaultSampleKind_ID"></span>Default sample analytical role pre-filled when this panel is loaded (e.g. Field) | FK → [SampleKind.SampleKind_ID](#SampleKind) |
+| DefaultSampleMaterialKind_ID | INT | - |  | <span id="DefaultSampleMaterialKind_ID"></span>Default sample material/matrix pre-filled when this panel is loaded (e.g. mixed liquor) | FK → [SampleMaterialKind.SampleMaterialKind_ID](#SampleMaterialKind) |
 | DefaultSampleEquipment_ID | INT | - |  | <span id="DefaultSampleEquipment_ID"></span>Default equipment pre-filled when this panel is loaded (e.g. auto-sampler ID) | FK → [Equipment.Equipment_ID](#Equipment) |
 | CreatedAt | DATETIME2(7) | - | ✓ | <span id="CreatedAt"></span>When this panel was created (UTC) | Default: `GETUTCDATE()` |
 
@@ -1033,7 +1035,8 @@ A discrete physical sample collected at a sampling location or prepared in a lab
 |-------|----------|-----------|----------|-------------|-------------|
 | Sample_ID | INT **(PK)** | - | ✓ | <span id="Sample_ID"></span>Surrogate primary key | - |
 | ParentSample_ID | INT | - |  | <span id="ParentSample_ID"></span>Parent sample this was derived from (e.g., an aliquot of a master standard). NULL for primary samples. | FK → [Sample.Sample_ID](#Sample) |
-| SampleKind_ID | INT | - |  | <span id="SampleKind_ID"></span>Nature of the sample (FK to SampleKind lookup table) | FK → [SampleKind.SampleKind_ID](#SampleKind) |
+| SampleKind_ID | INT | - |  | <span id="SampleKind_ID"></span>Analytical role of the sample (FK to SampleKind lookup table, e.g. Field/Blank/Standard) | FK → [SampleKind.SampleKind_ID](#SampleKind) |
+| SampleMaterialKind_ID | INT | - |  | <span id="SampleMaterialKind_ID"></span>Physical matrix/material of the sample (FK to SampleMaterialKind lookup table, e.g. wastewater/mixed liquor) | FK → [SampleMaterialKind.SampleMaterialKind_ID](#SampleMaterialKind) |
 | SamplingPoint_ID | INT | - | ✓ | <span id="SamplingPoint_ID"></span>Sampling location where the sample was collected or prepared | FK → [SamplingPoint.SamplingPoint_ID](#SamplingPoint) |
 | SampledByPerson_ID | INT | - |  | <span id="SampledByPerson_ID"></span>Person who collected the sample | FK → [Person.Person_ID](#Person) |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this sample belongs to | FK → [Campaign.Campaign_ID](#Campaign) |
@@ -1055,7 +1058,7 @@ Controlled vocabulary describing how a sample was collected. Referenced by Sampl
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| SampleCollectionKind_ID | INT **(PK)** | - | ✓ | <span id="SampleCollectionKind_ID"></span>Surrogate primary key, manually assigned | - |
+| SampleCollectionKind_ID | INT **(PK)** | - | ✓ | <span id="SampleCollectionKind_ID"></span>Surrogate primary key | - |
 | Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Collection kind name (e.g. 'Grab', 'Composite24h') | - |
 | Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of the collection kind | - |
 
@@ -1071,9 +1074,25 @@ Controlled vocabulary describing the nature of a physical sample. Referenced by 
 
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
-| SampleKind_ID | INT **(PK)** | - | ✓ | <span id="SampleKind_ID"></span>Surrogate primary key, manually assigned | - |
+| SampleKind_ID | INT **(PK)** | - | ✓ | <span id="SampleKind_ID"></span>Surrogate primary key | - |
 | Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Sample kind name (e.g. 'Field', 'Blank') | - |
 | Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this sample kind represents | - |
+
+<span id="SampleMaterialKind"></span>
+
+### SampleMaterialKind
+
+Controlled vocabulary describing the physical matrix (material) of a sample, independent of its analytical role (see SampleKind). Referenced by Sample.SampleMaterialKind_ID. Seeded with common wastewater-treatment-plant matrices; extend via the CRUD UI as needed.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| SampleMaterialKind_ID | INT **(PK)** | - | ✓ | <span id="SampleMaterialKind_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Sample material name (e.g. 'mixed liquor', 'tap water') | - |
+| Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this sample material represents | - |
 
 <span id="SamplingPoint"></span>
 

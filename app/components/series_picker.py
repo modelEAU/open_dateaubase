@@ -7,6 +7,10 @@ State is keyed by field_name so multiple pickers can coexist.
 from __future__ import annotations
 
 import streamlit as st
+from app.components.kind_select import select_or_none
+from app.components.labels import ALL_LABEL
+from app.components.param_unit import unit_select
+from app.components.schema_registry import describe
 
 _VALUE_KINDS = {1: "Scalar", 2: "Vector", 3: "Matrix", 4: "Image"}
 
@@ -75,39 +79,42 @@ def render_series_picker(
     col_c, col_p, col_sp = st.columns(3)
 
     with col_c:
-        camp_opts = [{"id": None, "label": "— all campaigns —"}] + [
+        camp_opts = [{"id": None, "label": ALL_LABEL}] + [
             {"id": c["campaign_id"], "label": c["name"]} for c in campaigns
         ]
         sel_camp_label = st.selectbox(
             "Campaign",
             [o["label"] for o in camp_opts],
             key=f"spkr_{field}_camp_sel",
+            help="Narrow the list below to series belonging to one campaign.",
         )
         filter_campaign_id = next(
             (o["id"] for o in camp_opts if o["label"] == sel_camp_label), None
         )
 
     with col_p:
-        param_opts = [{"id": None, "label": "— all parameters —"}] + [
+        param_opts = [{"id": None, "label": ALL_LABEL}] + [
             {"id": p["parameter_id"], "label": p["parameter_name"]} for p in parameters
         ]
         sel_param_label = st.selectbox(
             "Parameter",
             [o["label"] for o in param_opts],
             key=f"spkr_{field}_param_sel",
+            help="Narrow the list below to series measuring one parameter.",
         )
         filter_param_id = next(
             (o["id"] for o in param_opts if o["label"] == sel_param_label), None
         )
 
     with col_sp:
-        sp_opts = [{"id": None, "label": "— all locations —"}] + [
+        sp_opts = [{"id": None, "label": ALL_LABEL}] + [
             {"id": sp["sampling_point_id"], "label": sp["label"]} for sp in sampling_points
         ]
         sel_sp_label = st.selectbox(
             "Sampling point",
             [o["label"] for o in sp_opts],
             key=f"spkr_{field}_sp_sel",
+            help="Narrow the list below to series from one sampling point.",
         )
         filter_sp_id = next(
             (o["id"] for o in sp_opts if o["label"] == sel_sp_label), None
@@ -161,55 +168,50 @@ def render_series_picker(
             st.caption("Create a new AnalysisSeries and add it to the selection.")
             cc1, cc2 = st.columns(2)
             with cc1:
-                nc_camp_opts = [{"id": None, "label": "— none —"}] + [
-                    {"id": c["campaign_id"], "label": c["name"]} for c in campaigns
-                ]
-                nc_camp_label = st.selectbox(
-                    "Campaign", [o["label"] for o in nc_camp_opts],
+                nc_camp_ids = {c["name"]: c["campaign_id"] for c in campaigns}
+                nc_camp_label = select_or_none(
+                    "Campaign",
+                    list(nc_camp_ids),
                     key=f"spkr_{field}_nc_camp",
+                    help=describe("AnalysisSeries", "campaign_id"),
                 )
-                nc_campaign_id = next(
-                    (o["id"] for o in nc_camp_opts if o["label"] == nc_camp_label), None
-                )
+                nc_campaign_id = nc_camp_ids.get(nc_camp_label or "")
 
-                nc_param_opts = [{"id": None, "label": "— select —"}] + [
-                    {"id": p["parameter_id"], "label": p["parameter_name"]} for p in parameters
-                ]
-                nc_param_label = st.selectbox(
-                    "Parameter *", [o["label"] for o in nc_param_opts],
+                nc_param_ids = {
+                    p["parameter_name"]: p["parameter_id"] for p in parameters
+                }
+                nc_param_label = select_or_none(
+                    "Parameter *",
+                    list(nc_param_ids),
                     key=f"spkr_{field}_nc_param",
+                    help=describe("AnalysisSeries", "parameter_id"),
                 )
-                nc_param_id = next(
-                    (o["id"] for o in nc_param_opts if o["label"] == nc_param_label), None
-                )
+                nc_param_id = nc_param_ids.get(nc_param_label or "")
 
-                nc_sp_opts = [{"id": None, "label": "— select —"}] + [
-                    {"id": sp["sampling_point_id"], "label": sp["label"]}
-                    for sp in sampling_points
-                ]
-                nc_sp_label = st.selectbox(
-                    "Sampling point *", [o["label"] for o in nc_sp_opts],
+                nc_sp_ids = {
+                    sp["label"]: sp["sampling_point_id"] for sp in sampling_points
+                }
+                nc_sp_label = select_or_none(
+                    "Sampling point *",
+                    list(nc_sp_ids),
                     key=f"spkr_{field}_nc_sp",
+                    help=describe("AnalysisSeries", "sampling_point_id"),
                 )
-                nc_sp_id = next(
-                    (o["id"] for o in nc_sp_opts if o["label"] == nc_sp_label), None
-                )
+                nc_sp_id = nc_sp_ids.get(nc_sp_label or "")
 
             with cc2:
-                nc_unit_opts = [{"id": None, "label": "— select —"}] + [
-                    {"id": u["unit_id"], "label": u["unit"]} for u in units
-                ]
-                nc_unit_label = st.selectbox(
-                    "Unit *", [o["label"] for o in nc_unit_opts],
+                nc_unit_id = unit_select(
+                    "Unit *",
+                    parameter_id=nc_param_id,
+                    all_units=units,
                     key=f"spkr_{field}_nc_unit",
-                )
-                nc_unit_id = next(
-                    (o["id"] for o in nc_unit_opts if o["label"] == nc_unit_label), None
+                    help=describe("AnalysisSeries", "unit_id"),
                 )
 
                 nc_vk_label = st.selectbox(
                     "Value kind *", list(_VALUE_KINDS.values()),
                     key=f"spkr_{field}_nc_vk",
+                    help=describe("AnalysisSeries", "value_kind_id"),
                 )
                 nc_vk_id = next(k for k, v in _VALUE_KINDS.items() if v == nc_vk_label)
 
@@ -226,7 +228,10 @@ def render_series_picker(
                 )
                 auto_name = f"{p_name} at {sp_name}"
             nc_name = st.text_input(
-                "Series name *", value=auto_name, key=f"spkr_{field}_nc_name"
+                "Series name *",
+                value=auto_name,
+                key=f"spkr_{field}_nc_name",
+                help=describe("AnalysisSeries", "name"),
             )
 
             if st.button("Create & Add", type="primary", key=f"spkr_{field}_create_btn"):

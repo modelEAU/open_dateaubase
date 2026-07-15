@@ -40,9 +40,6 @@ _STATS = {"min_timestamp": "2026-05-01T00:00:00", "max_timestamp": "2026-05-08T0
 
 
 def _patches(stack: ExitStack) -> None:
-    stack.enter_context(patch(f"{MOD}.list_equipment_lookup", return_value=_EQUIPMENT))
-    stack.enter_context(patch(f"{MOD}.list_annotation_kinds", return_value=[]))
-    stack.enter_context(patch(f"{MOD}.list_equipment_event_kinds", return_value=[]))
     stack.enter_context(patch(f"{MOD}.list_analysis_series_lookup", return_value=[]))
     stack.enter_context(
         patch(f"{MOD}.list_deployment_traces_lookup", return_value=[_DT5, _DT6])

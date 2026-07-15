@@ -878,3 +878,159 @@ def get_active_campaign_deployment(
         "sampling_point_id": row[3],
         "sampling_point_name": row[4],
     }
+
+
+# ---------------------------------------------------------------------------
+# Stream provenance (where is this stream coming from?)
+# ---------------------------------------------------------------------------
+
+
+def get_stream_location_at(
+    conn: pyodbc.Connection, stream_id: int, at_time: datetime
+) -> dict | None:
+    """Return the SamplingPoint a Stream was sourced from at ``at_time``.
+
+    Two stream subtypes, two paths:
+      - AnalysisSeries (lab): SamplingPoint_ID is a direct FK, not temporal.
+      - Channel (sensor): Channel -> ChannelPortHistory@t -> port
+        -> EquipmentWiringHistory@t -> Equipment
+        -> EquipmentLocationHistory@t -> SamplingPoint.
+
+    All three channel hops are temporal, so this cannot go through
+    ``vw_ChannelResolved`` — that view pins the port to the *currently* open
+    ChannelPortHistory row, which is wrong for any ``at_time`` in the past.
+
+    ``source`` reports which path resolved: "analysis_series", "wiring", or
+    None when the stream exists but has no location at ``at_time`` (channel
+    never wired, or wired equipment never placed).
+
+    Returns None when ``stream_id`` matches no Channel and no AnalysisSeries.
+    """
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            a.[SamplingPoint_ID],
+            sp.[SamplingPoint],
+            sp.[Site_ID],
+            s.[Name]
+        FROM [dbo].[AnalysisSeries] a
+        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = a.[SamplingPoint_ID]
+        LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
+        WHERE a.[Stream_ID] = ?
+        """,
+        stream_id,
+    )
+    row = cursor.fetchone()
+    if row is not None:
+        return {
+            "stream_id": stream_id,
+            "source": "analysis_series",
+            "inherited_from_stream_id": None,
+            "sampling_point_id": row[0],
+            "sampling_point_name": row[1],
+            "site_id": row[2],
+            "site_name": row[3],
+            "equipment_id": None,
+            "equipment_identifier": None,
+            "history_id": None,
+            "valid_from": None,
+            "valid_to": None,
+        }
+
+    # LEFT JOINs throughout: an unwired channel still returns a row, so a NULL
+    # result here means "no such stream" rather than "no location".
+    #
+    # Derived channels (::outlier_free, ::smoothed, ...) carry no wiring of
+    # their own — they inherit the location of the raw channel they descend
+    # from. The recursive CTE walks ParentChannel_ID up to the root, and the
+    # ORDER BY takes the nearest ancestor that actually resolves to a
+    # SamplingPoint, falling back to the depth-0 row (all NULLs) if none do.
+    cursor.execute(
+        """
+        WITH ancestry AS (
+            SELECT
+                c.[Stream_ID],
+                c.[ParentChannel_ID],
+                c.[SignalInterface_ID],
+                0 AS depth
+            FROM [dbo].[Channel] c
+            WHERE c.[Stream_ID] = ?
+            UNION ALL
+            SELECT
+                p.[Stream_ID],
+                p.[ParentChannel_ID],
+                p.[SignalInterface_ID],
+                a.depth + 1
+            FROM [dbo].[Channel] p
+            JOIN ancestry a ON p.[Stream_ID] = a.[ParentChannel_ID]
+        )
+        SELECT TOP 1
+            ewh.[Equipment_ID],
+            e.[Identifier],
+            elh.[EquipmentLocationHistory_ID],
+            elh.[SamplingPoint_ID],
+            sp.[SamplingPoint],
+            sp.[Site_ID],
+            s.[Name],
+            elh.[ValidFrom],
+            elh.[ValidTo],
+            ch.[Stream_ID] AS resolved_stream_id
+        FROM ancestry ch
+        LEFT JOIN [dbo].[ChannelPortHistory] cph
+            ON cph.[Channel_ID] = ch.[Stream_ID]
+            AND cph.[ValidFrom] <= ?
+            AND (cph.[ValidTo] IS NULL OR cph.[ValidTo] > ?)
+        LEFT JOIN [dbo].[EquipmentWiringHistory] ewh
+            ON ewh.[SignalInterface_ID] = ch.[SignalInterface_ID]
+            AND (
+                ewh.[SignalInterfacePort_ID] = cph.[SignalInterfacePort_ID]
+                OR (ewh.[SignalInterfacePort_ID] IS NULL AND cph.[SignalInterfacePort_ID] IS NULL)
+                OR cph.[SignalInterfacePort_ID] IS NULL
+            )
+            AND ewh.[ValidFrom] <= ?
+            AND (ewh.[ValidTo] IS NULL OR ewh.[ValidTo] > ?)
+        LEFT JOIN [dbo].[Equipment] e ON e.[Equipment_ID] = ewh.[Equipment_ID]
+        LEFT JOIN [dbo].[EquipmentLocationHistory] elh
+            ON elh.[Equipment_ID] = ewh.[Equipment_ID]
+            AND elh.[ValidFrom] <= ?
+            AND (elh.[ValidTo] IS NULL OR elh.[ValidTo] > ?)
+        LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint_ID]
+        LEFT JOIN [dbo].[Site] s ON s.[Site_ID] = sp.[Site_ID]
+        ORDER BY
+            CASE WHEN elh.[SamplingPoint_ID] IS NULL THEN 1 ELSE 0 END,
+            ch.depth,
+            CASE WHEN ewh.[SignalInterfacePort_ID] = cph.[SignalInterfacePort_ID]
+                 THEN 0 ELSE 1 END,
+            elh.[EquipmentLocationHistory_ID] DESC
+        """,
+        stream_id,
+        at_time,
+        at_time,
+        at_time,
+        at_time,
+        at_time,
+        at_time,
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    resolved_stream_id = row[9]
+    return {
+        "stream_id": stream_id,
+        "source": "wiring" if row[3] is not None else None,
+        "inherited_from_stream_id": (
+            resolved_stream_id if row[3] is not None and resolved_stream_id != stream_id else None
+        ),
+        "sampling_point_id": row[3],
+        "sampling_point_name": row[4],
+        "site_id": row[5],
+        "site_name": row[6],
+        "equipment_id": row[0],
+        "equipment_identifier": row[1],
+        "history_id": row[2],
+        "valid_from": row[7],
+        "valid_to": row[8],
+    }

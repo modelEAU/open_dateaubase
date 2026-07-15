@@ -18,7 +18,7 @@ Entry contract (one dict per active stream)::
         "annotations": [ {kind, note, start, end} ],   # normalized, UTC strings
         "events":      [ {kind, note, start, end} ],   # normalized, UTC strings
         "pedigree":    { ... },               # /lineage/streams/{id}/pedigree
-        "images":      { ts_str: bytes },     # image streams only
+        "images":      { observation_id: bytes },   # image streams only
     }
 
 Use overlay_from_annotation / overlay_from_event to normalize raw API dicts into
@@ -200,9 +200,12 @@ def _stream_rows(
         row["unit"] = unit
         row.update(_segment_columns(ts, deployments))
         if is_image:
-            img = images.get(ts)
+            # Keyed by observation id: replicates of one lab sample share a timestamp,
+            # so a ts-keyed bundle would overwrite them onto a single file.
+            obs_id = orig.get("observation_id")
+            img = images.get(obs_id)
             if img is not None:
-                path = f"images/{base}/{_safe(str(ts))}.jpg"
+                path = f"images/{base}/{_safe(str(ts))}_obs{obs_id}.jpg"
                 zf.writestr(path, img)
                 row["image_file"] = path
             else:

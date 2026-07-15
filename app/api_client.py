@@ -511,14 +511,16 @@ def get_stream_pedigree(
     return _request("GET", f"/lineage/streams/{stream_id}/pedigree", params=params)
 
 
-def get_channel_thumbnail(channel_id: int, timestamp: str) -> bytes:
-    """Fetch the JPEG thumbnail bytes for an image channel entry."""
-    return _request("GET", f"/timeseries/{channel_id}/thumbnail/{timestamp}", return_="content")
+# Images are keyed by observation_id, not timestamp: lab replicates of one sample
+# all carry the same sample-collection time. Sensor and lab images share these.
+def get_image_thumbnail(observation_id: int) -> bytes:
+    """Fetch the JPEG thumbnail bytes for one image."""
+    return _request("GET", f"/timeseries/images/{observation_id}/thumbnail", return_="content")
 
 
-def get_channel_image(channel_id: int, timestamp: str) -> bytes:
-    """Fetch the full-resolution image bytes for an image channel entry."""
-    return _request("GET", f"/timeseries/{channel_id}/image/{timestamp}", return_="content")
+def get_image_file(observation_id: int) -> bytes:
+    """Fetch the full-resolution image bytes for one image."""
+    return _request("GET", f"/timeseries/images/{observation_id}/file", return_="content")
 
 
 # ---------------------------------------------------------------------------
@@ -544,16 +546,6 @@ def get_analysis_series_timeseries(
 def get_analysis_series_stats(analysis_series_id: int) -> dict:
     """Fetch min/max sample-collection time and measurement count for a series."""
     return _request("GET", f"/analysis-series/{analysis_series_id}/stats")
-
-
-def get_analysis_series_thumbnail(analysis_series_id: int, timestamp: str) -> bytes:
-    """Fetch the JPEG thumbnail bytes for a lab image measurement."""
-    return _request("GET", f"/analysis-series/{analysis_series_id}/thumbnail/{timestamp}", return_="content")
-
-
-def get_analysis_series_image(analysis_series_id: int, timestamp: str) -> bytes:
-    """Fetch the full-resolution image bytes for a lab image measurement."""
-    return _request("GET", f"/analysis-series/{analysis_series_id}/image/{timestamp}", return_="content")
 
 
 # ---------------------------------------------------------------------------
@@ -1136,6 +1128,27 @@ def delete_sample_kind(sample_kind_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# SampleMaterialKind
+# ---------------------------------------------------------------------------
+
+
+def list_sample_material_kinds() -> list[dict]:
+    return _request("GET", "/sample-material-kinds")
+
+
+def create_sample_material_kind(data: dict) -> dict:
+    return _request("POST", "/sample-material-kinds", json=data)
+
+
+def update_sample_material_kind(sample_material_kind_id: int, data: dict) -> dict:
+    return _request("PUT", f"/sample-material-kinds/{sample_material_kind_id}", json=data)
+
+
+def delete_sample_material_kind(sample_material_kind_id: int) -> None:
+    return _request("DELETE", f"/sample-material-kinds/{sample_material_kind_id}")
+
+
+# ---------------------------------------------------------------------------
 # SampleCollectionKind
 # ---------------------------------------------------------------------------
 
@@ -1407,6 +1420,10 @@ def list_sample_kind_lookup() -> list[dict]:
     return list_sample_kinds()
 
 
+def list_sample_material_kind_lookup() -> list[dict]:
+    return list_sample_material_kinds()
+
+
 def list_sample_collection_kind_lookup() -> list[dict]:
     return list_sample_collection_kinds()
 
@@ -1479,6 +1496,12 @@ def remove_model_procedure(model_id: int, procedure_id: int) -> None:
 
 def list_parameter_units(parameter_id: int) -> list[dict]:
     return _request("GET", f"/parameters/{parameter_id}/units")
+
+
+def list_parameter_units_lookup(parameter_id: int) -> list[dict]:
+    """Units valid for a parameter. Named ``*_lookup`` so it picks up the
+    reference-data cache below (TTL + invalidation on mutation)."""
+    return list_parameter_units(parameter_id)
 
 
 def add_parameter_unit(parameter_id: int, unit_id: int) -> dict:
@@ -1586,9 +1609,11 @@ def create_analysis_series(data: dict) -> dict:
     return _request("POST", "/ingest/lab/analysis-series", json=data)
 
 
-def list_lab_panels() -> list[dict]:
-    """Return templates with series count."""
-    return _request("GET", "/ingest/lab/templates")
+def list_lab_panels(campaign_id: int | None = None) -> list[dict]:
+    """Return templates with series count, optionally scoped to a campaign's
+    sampling locations."""
+    params = {"campaign_id": campaign_id} if campaign_id is not None else None
+    return _request("GET", "/ingest/lab/templates", params=params)
 
 
 def get_lab_panel(template_id: int) -> dict:

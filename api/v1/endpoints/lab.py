@@ -97,9 +97,10 @@ def create_analysis_series(
     "/templates",
     response_model=list[LabPanelResponse],
 )
-def list_lab_panels(conn=Depends(get_db)):
-    """Return all panels with series count."""
-    return ingestion_repository.list_lab_panels(conn)
+def list_lab_panels(campaign_id: int | None = None, conn=Depends(get_db)):
+    """Return panels with series count, optionally scoped to a campaign's
+    sampling locations (see repository docstring)."""
+    return ingestion_repository.list_lab_panels(conn, campaign_id=campaign_id)
 
 
 @router.get(
@@ -130,6 +131,8 @@ def get_lab_panel(
             description=t["description"],
             default_sample_collection_kind_id=t.get("default_sample_collection_kind_id"),
             default_sample_equipment_id=t.get("default_sample_equipment_id"),
+            default_sample_kind_id=t.get("default_sample_kind_id"),
+            default_sample_material_kind_id=t.get("default_sample_material_kind_id"),
             series=[],
         )
     # Reconstruct template metadata from first series lookup
@@ -178,6 +181,8 @@ def create_lab_panel(
         created_by_person_id=body.created_by_person_id,
         default_sample_collection_kind_id=body.default_sample_collection_kind_id,
         default_sample_equipment_id=body.default_sample_equipment_id,
+        default_sample_kind_id=body.default_sample_kind_id,
+        default_sample_material_kind_id=body.default_sample_material_kind_id,
         series_ids=body.series_ids,
     )
     return {"lab_panel_id": template_id}

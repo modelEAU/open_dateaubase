@@ -126,37 +126,28 @@ def bulk_set_quality_code(
     return {"updated_count": updated}
 
 
-@router.get("/{channel_id}/thumbnail/{timestamp}")
+# Images are addressed by Observation_ID, which is unique per picture. Sensor and
+# lab images share these two routes: the source (channel vs analysis series) is
+# already resolved by the listing that hands out the observation ids.
+@router.get("/images/{observation_id}/thumbnail")
 def get_image_thumbnail(
-    channel_id: int,
-    timestamp: str,
+    observation_id: int,
     conn=Depends(get_db),
 ):
     """Return the JPEG thumbnail bytes for a stored image (from DB Thumbnail column)."""
-    try:
-        ts = datetime.fromisoformat(timestamp)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid timestamp format") from exc
-
-    thumbnail = value_repository.get_image_thumbnail(conn, channel_id, ts)
+    thumbnail = value_repository.get_image_thumbnail(conn, observation_id)
     if thumbnail is None:
         raise HTTPException(status_code=404, detail="Image not found")
     return Response(content=thumbnail, media_type="image/jpeg")
 
 
-@router.get("/{channel_id}/image/{timestamp}")
+@router.get("/images/{observation_id}/file")
 def get_image_file(
-    channel_id: int,
-    timestamp: str,
+    observation_id: int,
     conn=Depends(get_db),
 ):
     """Return the full-resolution image file for a stored image (from filesystem)."""
-    try:
-        ts = datetime.fromisoformat(timestamp)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid timestamp format") from exc
-
-    meta = value_repository.get_image_metadata_by_timestamp(conn, channel_id, ts)
+    meta = value_repository.get_image_metadata(conn, observation_id)
     if meta is None:
         raise HTTPException(status_code=404, detail="Image not found")
 
