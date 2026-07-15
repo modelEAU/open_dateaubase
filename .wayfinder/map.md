@@ -100,11 +100,18 @@ domain facts are already settled and must not be re-litigated:
   escape hatch. **Surfaced:** the pedigree endpoint names rungs but can't yet *identify* them (no
   `equipment_id`, no interface/DAS ids) — handed to 008 as its first task.
 
+- [Implement the Recording gesture](tickets/008-implement-the-recording-gesture.md) —
+  **Shipped.** `_recording_dialog` replaces both Explorer dialogs; the pedigree endpoint now names
+  every arc arm by id (`equipment_id`, `signal_interface`, `data_acquisition_system` — the 007
+  blocker); the stream rung writes N annotations, any other rung one event on one arc FK; the
+  Quality Flag tab became its own sensor-only "Set quality code…" gesture. 795 unit+app / 270 API
+  green. Left: the Playwright e2e still drives the old dialogs (broken browser tier). The chart
+  overlay ([005]) — reading recordings back — is the remaining separate build.
+
 ## Open
 
-- **[Implement the Recording gesture](tickets/008-implement-the-recording-gesture.md)** — carries
-  001/002/004/005/006/007 into `app/` and `api/`. Nothing left to decide; a question raised while
-  implementing it is a new ticket, not a call made in the PR.
+- **Nothing.** The Recording design is fully decided and the gesture is built. The chart overlay
+  ([005]) is specified but unbuilt — a fresh implementation effort, not an open question.
 
 ## Not yet specified
 

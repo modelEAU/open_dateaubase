@@ -3,8 +3,8 @@
 - **Parent:** [Map: Recording](../map.md)
 - **Label:** `wayfinder:task`
 - **Blocked by:** — (every decision it needs is closed: [001], [002], [004], [005], [006], [007])
-- **Assignee:** _unclaimed_
-- **Status:** open
+- **Assignee:** claude (session 2026-07-15)
+- **Status:** closed — see [Outcome](#outcome)
 
 ## Question
 
@@ -74,6 +74,47 @@ Binding decisions, and where each lives:
 - The chart overlay ([005]) — reading recordings back. Separate work.
 - A standalone Recording entry point with no chart to stand on (map, "Out of scope").
 - The `events.py` / `annotation_kinds.py` admin pages — they stay as the raw escape hatch ([007]).
+
+## Outcome
+
+**Shipped. All five tasks land as one change; the two Explorer dialogs are gone.**
+
+1. **Pedigree widened.** `DeploymentSegmentOut` gains `equipment_id`; `StreamPedigreeOut`
+   gains `signal_interface` + `data_acquisition_system` (a new `PedigreeNodeOut` = `{id, name}`)
+   on the root, since [finding 003] says the acquisition arms are time-invariant Channel columns.
+   The repo's identity query joins `SignalInterface`/`DataAcquisitionSystem`; the segment query
+   carries `Equipment_ID`. A lab series yields `None` for all three. Unit test: a sensor pedigree
+   names all 8 arc arms, a lab series the 5 it can reach (`tests/unit/test_stream_pedigree.py`).
+
+2. **`_recording_dialog(streams, start, end, observation_id)`** replaces both dialogs. Target
+   selectbox = the stream rung (`… — the series` / `The N selected series`) plus the pedigree
+   **intersection** ordered narrow→wide, defaulting to the equipment; kind selectbox draws
+   `list_annotation_kinds()` on the stream rung, else `list_event_kinds()`;
+   `segmented_control` Moment/Range/Still-going; the observation pin shows only on the stream rung
+   with a clicked point. Save: stream rung → `create_annotation` once per stream; any other rung →
+   `create_event` with exactly that one arc FK. Copy follows the [004] prototype. **House-style
+   note:** the kind selectbox uses the `NONE_LABEL` sentinel row, not `index=None` (guarded by
+   `test_no_hand_spelled_sentinel_labels`); every widget carries `help=`.
+
+3. **Both dialogs deleted**, all six call sites repointed (scalar sensor + lab, vector, image
+   gallery, image lightbox via `_show_annotation_dialog`). The `is_lab` branch and the
+   `_show_event_dialog` / `_event_equipment_ids` session state died with them; `main()` no longer
+   preloads equipment / kind / event-type lookups (the dialog resolves its own per gesture).
+
+4. **`_quality_flag_dialog`** lifted out behind its own "Set quality code…" button, sensor-only,
+   worded so the rewrite (not a claim) is obvious.
+
+5. **Routing asserted directly** (`tests/app/test_recording_dialog.py`, driven via
+   `AppTest.from_function` so the `@st.dialog` reopens each rerun): stream rung + verdict →
+   `create_annotation` once per stream and no event; equipment rung + cause → one `create_event`
+   with only `equipment_id` set; a heterogeneous 2-stream selection offers only shared rungs; the
+   pin checkbox appears only on the stream rung with a clicked point. `test_explore_selection.py`
+   and `test_explore_lab.py` were rewritten off the old dialogs.
+
+**Verification:** 795 unit+app tests pass, 270 API tests pass. **Left undone:** the Playwright
+`tests/e2e/test_explore_screenshot.py` still drives the removed dialogs by UI text — the broken
+browser tier (unit-tests-only house rule), flagged for whoever next revives e2e. No schema
+version bump: the pedigree change is a Pydantic response widening, not a `schema_dictionary` edit.
 
 [001]: ./001-which-levels-can-each-kind-apply-to.md
 [002]: ./002-when-does-one-gesture-write-two-rows.md
