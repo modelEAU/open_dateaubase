@@ -36,10 +36,9 @@ from app.api_client import (
     get_image_thumbnail,
     get_image_file,
     list_annotation_kinds,
-    list_equipment_lookup,
-    list_equipment_event_kinds,
+    list_event_kinds,
     list_quality_codes,
-    create_equipment_event,
+    create_event,
     list_analysis_series_lookup,
     list_deployment_traces_lookup,
     get_stream_story,
@@ -52,6 +51,7 @@ from app.api_client import (
 )
 from app.components import entity_story as story
 from app.components import explore_export as export
+from app.components.labels import NONE_LABEL
 from app.components.schema_registry import describe
 
 # Provenance inspector lives in its own module (Phase 5 split). Re-exported here
@@ -89,6 +89,7 @@ from app.components.explore_matrix import (  # noqa: F401
 from app.components.explore_echarts import (  # noqa: F401
     BRUSH_SELECTED_JS,
     CLICK_SELECTED_JS,
+    IMAGE_CLICK_JS,
     IMAGE_TIMELINE_HEIGHT,
     build_image_timeline_option,
     build_scalar_echarts_option,
@@ -159,9 +160,10 @@ def _init_state() -> None:
         "explore_image_detail_ch": None,
         "explore_image_detail_obs": None,
         "explore_image_detail_ts": None,
+        "_img_click_t": None,  # nonce of the last handled timeline-tick click
         "_show_annotation_dialog": False,
-        "_show_event_dialog": False,
-        "_ann_channel_id": None,
+        "_ann_trace": None,  # (kind, id) of the stream the lightbox asked to annotate
+        "_ann_obs_id": None,
         "_ann_start": None,
         "_ann_end": None,
         # Unified picker filter state
@@ -307,256 +309,319 @@ def _plot_move_control(col, kind: str, sid: int) -> None:
 # ---------------------------------------------------------------------------
 
 
-@st.dialog("Annotate / Quality Flag", width="large")
-def _annotation_dialog(
+# --- Recording (ADR-0006 / ADR-0007, wayfinder tickets 004 + 007) -----------
+#
+# One gesture, one row. The user picks a *named pedigree rung* and a kind; the
+# rung alone routes the write — the series takes the 5 verdicts and writes an
+# Annotation, every other rung takes the 15 causes and writes an Event on that
+# rung's arc FK. The Event/Annotation split never reaches the user's face.
+
+_STREAM_RUNG = "__stream__"
+_DEFAULT_RUNG = "equipment_id"
+# Narrow → wide. Key = the ADR-0006 arc FK the rung writes; value = what it *is*,
+# in the operator's words.
+_RUNG_HINTS: dict[str, str] = {
+    "channel_id": "the channel",
+    "signal_interface_id": "the wire",
+    "data_acquisition_system_id": "the logger",
+    "equipment_id": "the probe",
+    "sampling_point_id": "where it sits",
+    "process_unit_id": "the unit",
+    "site_id": "the plant",
+    "campaign_id": "why it was there",
+}
+
+
+def _stream_label(ped: dict) -> str:
+    parts = [ped.get("label") or f"Stream {ped['stream_id']}", ped.get("parameter")]
+    return " · ".join(str(p) for p in parts if p)
+
+
+def _shared_rungs(
+    rung_sets: list[dict[str, tuple[int, str]]],
+) -> dict[str, tuple[int, str]]:
+    """The rungs every set agrees on, id included. A cause is one row on one
+    thing, so a rung two selections disagree about is a rung neither can be
+    blamed for — it is simply not offered."""
+    if not rung_sets:
+        return {}
+    shared = dict(rung_sets[0])
+    for other in rung_sets[1:]:
+        shared = {k: v for k, v in shared.items() if other.get(k, (None, ""))[0] == v[0]}
+    return shared
+
+
+def _pedigree_rungs(ped: dict) -> dict[str, tuple[int, str]]:
+    """Every arc target a stream's pedigree can name, as arc FK → (id, label).
+
+    Deployment-bound rungs are intersected across the window's segments: a stream
+    that was moved mid-selection has no single equipment the recording is about.
+    """
+    rungs: dict[str, tuple[int, str]] = {}
+    if ped.get("kind") == "sensor":
+        rungs["channel_id"] = (ped["stream_id"], _stream_label(ped))
+    for key in ("signal_interface", "data_acquisition_system"):
+        node = ped.get(key)
+        if node:
+            rungs[f"{key}_id"] = (node["id"], node.get("name") or f"#{node['id']}")
+
+    seg_rungs = []
+    for seg in ped.get("deployments") or []:
+        one: dict[str, tuple[int, str]] = {}
+        if seg.get("equipment_id"):
+            one["equipment_id"] = (
+                seg["equipment_id"],
+                seg.get("equipment_identifier") or f"#{seg['equipment_id']}",
+            )
+        for arc, node, name_key in (
+            ("sampling_point_id", seg.get("sampling_location"), "name"),
+            ("process_unit_id", seg.get("process_unit"), "tag"),
+            ("site_id", seg.get("site"), "name"),
+            ("campaign_id", seg.get("campaign"), "name"),
+        ):
+            if node and node.get(arc):
+                one[arc] = (
+                    node[arc],
+                    node.get(name_key) or node.get("name") or f"#{node[arc]}",
+                )
+        seg_rungs.append(one)
+    rungs.update(_shared_rungs(seg_rungs))
+    return rungs
+
+
+@st.dialog("Record what happened", width="large")
+def _recording_dialog(
+    streams: list[tuple[str, int]],
+    start_time: str | None,
+    end_time: str | None,
+    observation_id: int | None = None,
+) -> None:
+    """``streams`` is what the user selected on the chart: (anchor kind, Stream_ID)
+    pairs, where the kind is "channel" (sensor) or "series" (lab)."""
+    if not streams:
+        st.warning("Nothing selected.")
+        return
+
+    try:
+        peds = [
+            get_stream_pedigree(sid, start=start_time, end=end_time)
+            for _kind, sid in streams
+        ]
+        verdicts = list_annotation_kinds()
+        causes = list_event_kinds()
+    except APIError as e:
+        st.error(f"Cannot load what these series passed through: {e.message}")
+        return
+
+    rungs = _shared_rungs([_pedigree_rungs(p) for p in peds])
+    rung_keys = [_STREAM_RUNG] + [k for k in _RUNG_HINTS if k in rungs]
+    stream_label = (
+        _stream_label(peds[0]) if len(peds) == 1
+        else f"The {len(peds)} selected series"
+    )
+
+    def _rung_label(key: str) -> str:
+        if key == _STREAM_RUNG:
+            return f"{stream_label}  ·  the series you're looking at"
+        return f"{rungs[key][1]}  ·  {_RUNG_HINTS[key]}"
+
+    target = st.selectbox(
+        "What did this happen to?",
+        rung_keys,
+        index=rung_keys.index(_DEFAULT_RUNG) if _DEFAULT_RUNG in rung_keys else 0,
+        format_func=_rung_label,
+        key="rec_target",
+        help=(
+            "Everything these series passed through. Pick the rung it happened to — "
+            "the series itself if the *data* is what's wrong."
+        ),
+    )
+    on_stream = target == _STREAM_RUNG
+
+    # The rung chose the vocabulary: verdicts about data, causes in the plant.
+    kinds = verdicts if on_stream else causes
+    id_key = "id" if on_stream else "event_kind_id"
+    kind_ids = {k["name"]: k[id_key] for k in kinds}
+    kind_help = {k["name"]: k.get("description") or "" for k in kinds}
+    # NONE_LABEL first so nothing is silently preselected (house sentinel style);
+    # Record stays disabled until a real kind is chosen.
+    sel_kind = st.selectbox(
+        "What's wrong with the data?" if on_stream else "What happened to it?",
+        [NONE_LABEL] + list(kind_ids),
+        index=0,
+        format_func=lambda n: f"{n} — {kind_help[n]}" if kind_help.get(n) else n,
+        key="rec_kind",
+        help=(
+            "A verdict about the data (drift, fouling, exclusion, …)." if on_stream
+            else "Something that happened in the plant (cleaning, calibration, …)."
+        ),
+    )
+    kind_name = None if sel_kind == NONE_LABEL else sel_kind
+
+    when = st.segmented_control(
+        "When", ["Moment", "Range", "Still going"], default="Range", key="rec_when"
+    ) or "Range"
+    col1, col2 = st.columns(2)
+    t_start = col1.text_input(
+        "Started",
+        value=start_time or datetime.now(timezone.utc).isoformat(),
+        key="rec_start",
+    )
+    t_end: str | None = None
+    if when == "Range":
+        t_end = col2.text_input("Ended", value=end_time or "", key="rec_end")
+    else:
+        col2.text_input(
+            "Ended",
+            value="not yet" if when == "Still going" else "—",
+            disabled=True,
+            key="rec_end_disabled",
+        )
+
+    pin = False
+    if on_stream and observation_id is not None:
+        pin = st.checkbox(
+            f"Only the point I clicked (#{observation_id})",
+            value=True,
+            key="rec_pin",
+            help=(
+                "Pin this recording to the exact observation you clicked, instead "
+                "of the whole selected range."
+            ),
+        )
+
+    details = st.text_area(
+        "Details",
+        placeholder="Membrane fouled; cleaned with 5% HCl.",
+        key="rec_details",
+        help="Free-text note stored with the recording.",
+    )
+
+    if not st.button("Record", type="primary", disabled=not kind_name, key="rec_save"):
+        return
+
+    if on_stream:
+        payload: dict = {
+            "annotation_type": kind_ids[kind_name],
+            "start_time": t_start,
+            "end_time": t_end or None,
+            "comment": details or None,
+        }
+        if pin:
+            payload["observation_id"] = observation_id
+        # One verdict per selected stream: N rows in one table, not a dual write.
+        errors = []
+        for anchor_kind, stream_id in streams:
+            label = f"{'CH' if anchor_kind == 'channel' else 'LAB'}-{stream_id}"
+            try:
+                create_annotation(
+                    stream_id=stream_id, data=payload, anchor_kind=anchor_kind
+                )
+            except APIError as e:
+                if e.status_code == 422 and pin:
+                    errors.append(
+                        f"{label}: the point you clicked (#{observation_id}) is not "
+                        "part of this series. Try refreshing the chart."
+                    )
+                else:
+                    errors.append(f"{label}: {e.message}")
+            except Exception as e:  # noqa: BLE001 - surface whatever the client raised
+                errors.append(f"{label}: {e}")
+        if errors:
+            st.error("Some recordings failed:\n" + "\n".join(errors))
+            return
+        st.success(f"Recorded on {len(streams)} series.")
+    else:
+        try:
+            create_event({
+                "event_kind_id": kind_ids[kind_name],
+                "start_datetime": t_start,
+                "end_datetime": t_end or None,
+                "is_instantaneous": when == "Moment",
+                "notes": details or None,
+                target: rungs[target][0],  # exactly one arc FK
+            })
+        except APIError as e:
+            st.error(f"Failed: {e.message}")
+            return
+        st.success(f"Recorded on {rungs[target][1]}.")
+
+    _invalidate_data_cache()
+    st.rerun()
+
+
+@st.dialog("Set quality code", width="large")
+def _quality_flag_dialog(
     channel_ids: list[int],
     start_time: str | None,
     end_time: str | None,
-    annotation_types: list[dict],
-    series_ids: list[int] | None = None,
-    observation_id: int | None = None,
-    point_value: float | None = None,
 ) -> None:
-    # Homogeneous per-arm dialog (no mixing sensor + lab in one Save): a lab
-    # series target only shows the Annotation tab (quality flags are sensor-only).
-    series_ids = series_ids or []
-    is_lab = bool(series_ids)
-    if is_lab:
-        tab_ann = st.container()
-        tab_qc = None
-    else:
-        tab_ann, tab_qc = st.tabs(["Annotation", "Quality Flag"])
-
-    # ------------------------------------------------------------------
-    # Tab 1: Annotation
-    # ------------------------------------------------------------------
-    with tab_ann:
-        if observation_id is not None:
-            val_str = f" (value: {point_value})" if point_value is not None else ""
-            st.info(
-                f"Pinning to Observation #{observation_id}{val_str} — "
-                "this annotation is anchored to the exact replicate you clicked."
-            )
-        else:
-            st.markdown(
-                "Fill in the annotation details. Time range is pre-filled from your selection."
-            )
-
-        type_options = {at["name"]: at["id"] for at in annotation_types}
-        sel_type_name = st.selectbox(
-            "Annotation type *",
-            list(type_options.keys()),
-            help=describe("Annotation", "annotation_kind_id"),
-        )
-
-        col1, col2 = st.columns(2)
-        with col1:
-            t_start = st.text_input(
-                "Start time (ISO)",
-                value=start_time or datetime.now(timezone.utc).isoformat(),
-                key="ann_start",
-                help=describe("Annotation", "start_time"),
-            )
-        with col2:
-            t_end = st.text_input(
-                "End time (ISO, optional)",
-                value=end_time or "",
-                key="ann_end",
-                help=describe("Annotation", "end_time"),
-            )
-
-        title = st.text_input(
-            "Title (optional)", help=describe("Annotation", "title")
-        )
-        comment = st.text_area(
-            "Comment (optional)", help=describe("Annotation", "comment")
-        )
-
-        if st.button("Save Annotation", type="primary", key="btn_save_ann"):
-            payload: dict = {
-                "annotation_type": type_options[sel_type_name],
-                "start_time": t_start,
-                "end_time": t_end or None,
-                "title": title or None,
-                "comment": comment or None,
-            }
-            if observation_id is not None:
-                payload["observation_id"] = observation_id
-
-            errors = []
-
-            # Stream-anchored writes: the path id is a Stream_ID. Sensor
-            # channels post via anchor_kind="channel", lab series via
-            # anchor_kind="series" (api_client routes to the right URL arm).
-            if is_lab:
-                targets = [(s_id, "series", f"LAB-{s_id}") for s_id in series_ids]
-            else:
-                targets = [(ch_id, "channel", f"CH-{ch_id}") for ch_id in channel_ids]
-
-            for stream_id, anchor_kind, label in targets:
-                try:
-                    create_annotation(
-                        stream_id=stream_id, data=payload, anchor_kind=anchor_kind
-                    )
-                except APIError as e:
-                    if e.status_code == 422:
-                        errors.append(
-                            f"{label}: the selected point is not part of this series "
-                            f"(Observation #{observation_id}). "
-                            "Try refreshing the chart."
-                        )
-                    else:
-                        errors.append(f"{label}: {e.message}")
-                except Exception as e:
-                    errors.append(f"{label}: {e}")
-
-            if errors:
-                st.error("Some annotations failed:\n" + "\n".join(errors))
-            else:
-                st.success(f"Annotation saved for {len(targets)} stream(s).")
-                _invalidate_data_cache()
-                st.rerun()
-
-    # ------------------------------------------------------------------
-    # Tab 2: Quality Flag (sensor-only)
-    # ------------------------------------------------------------------
-    if tab_qc is None:
-        return
-    with tab_qc:
-        st.markdown(
-            "Apply a quality code to all data points in the selected time range."
-        )
-
-        try:
-            qc_list = list_quality_codes()
-        except APIError:
-            qc_list = []
-
-        if not qc_list:
-            st.warning("No quality codes available.")
-        else:
-            qc_options = {
-                f"{qc['name']} ({'usable' if qc.get('is_usable') else 'non-usable'})": qc["quality_code_id"]
-                for qc in qc_list
-            }
-
-            sel_qc_label = st.selectbox(
-                "Quality code *",
-                list(qc_options.keys()),
-                key="qc_sel",
-                help=describe("Value", "QualityCode"),
-            )
-
-            col1, col2 = st.columns(2)
-            with col1:
-                qc_start = st.text_input(
-                    "Start time (ISO)",
-                    value=start_time or datetime.now(timezone.utc).isoformat(),
-                    key="qc_start",
-                    help=(
-                        "First timestamp of the range the quality code is written to. "
-                        "Every data point at or after it (up to the end time) on every "
-                        "selected channel is re-flagged."
-                    ),
-                )
-            with col2:
-                qc_end = st.text_input(
-                    "End time (ISO)",
-                    value=end_time or datetime.now(timezone.utc).isoformat(),
-                    key="qc_end",
-                    help=(
-                        "Last timestamp of the range the quality code is written to. "
-                        "Unlike an annotation, this rewrites the stored quality flag on "
-                        "each data point in the range."
-                    ),
-                )
-
-            if st.button("Apply Quality Code", type="primary", key="btn_apply_qc"):
-                errors = []
-                total_updated = 0
-                for ch_id in channel_ids:
-                    try:
-                        result = bulk_set_quality_code(
-                            channel_id=ch_id,
-                            start_time=qc_start,
-                            end_time=qc_end,
-                            quality_code_id=qc_options[sel_qc_label],
-                        )
-                        total_updated += result.get("updated_count", 0)
-                    except APIError as e:
-                        errors.append(f"CH-{ch_id}: {e.message}")
-
-                if errors:
-                    st.error("Some channels failed:\n" + "\n".join(errors))
-                else:
-                    st.success(
-                        f"Quality code applied to {total_updated} row(s) across "
-                        f"{len(channel_ids)} channel(s)."
-                    )
-                    _invalidate_data_cache()
-                    st.rerun()
-
-
-@st.dialog("Create Equipment Event", width="large")
-def _equipment_event_dialog(
-    start_time: str | None,
-    end_time: str | None,
-    equipment_options: list[dict],
-    event_type_options: list[dict],
-    default_equipment_id: int | None = None,
-) -> None:
-    eq_map = {
-        e.get("identifier", str(e["equipment_id"])): e["equipment_id"]
-        for e in equipment_options
-    }
-    et_map = {et["event_type_name"]: et["event_type_id"] for et in event_type_options}
-
-    eq_labels = list(eq_map.keys())
-    eq_index = 0
-    if default_equipment_id is not None:
-        eq_ids = list(eq_map.values())
-        if default_equipment_id in eq_ids:
-            eq_index = eq_ids.index(default_equipment_id)
-    sel_eq = st.selectbox(
-        "Equipment *", eq_labels, index=eq_index,
-        help=describe("Event", "equipment_id"),
+    """Not a recording: this **rewrites** the stored quality flag on every point in
+    the range. Sensor-only, and deliberately not a tab on the Recording dialog —
+    a recording is a claim you can retract, this is an edit to the data."""
+    st.warning(
+        "This rewrites the stored quality code on every data point in the range, "
+        "on every selected channel. It is an edit, not a note."
     )
-    sel_et = st.selectbox(
-        "Event type *", list(et_map.keys()),
-        help=describe("Event", "event_kind_id"),
+
+    try:
+        qc_list = list_quality_codes()
+    except APIError:
+        qc_list = []
+    if not qc_list:
+        st.warning("No quality codes available.")
+        return
+
+    qc_options = {
+        f"{qc['name']} ({'usable' if qc.get('is_usable') else 'non-usable'})":
+            qc["quality_code_id"]
+        for qc in qc_list
+    }
+    sel_qc_label = st.selectbox(
+        "Quality code *",
+        list(qc_options),
+        key="qc_sel",
+        help=describe("Value", "QualityCode"),
     )
 
     col1, col2 = st.columns(2)
-    with col1:
-        t_start = st.text_input(
-            "Start time (ISO)",
-            value=start_time or datetime.now(timezone.utc).isoformat(),
-            help=describe("Event", "event_date_time_start"),
-        )
-    with col2:
-        t_end = st.text_input(
-            "End time (ISO, optional)",
-            value=end_time or "",
-            help=describe("Event", "event_date_time_end"),
-        )
+    qc_start = col1.text_input(
+        "Start time (ISO)",
+        value=start_time or datetime.now(timezone.utc).isoformat(),
+        key="qc_start",
+        help="First timestamp re-flagged.",
+    )
+    qc_end = col2.text_input(
+        "End time (ISO)",
+        value=end_time or datetime.now(timezone.utc).isoformat(),
+        key="qc_end",
+        help="Last timestamp re-flagged.",
+    )
 
-    notes = st.text_area("Notes (optional)", help=describe("Event", "notes"))
+    if st.button("Apply Quality Code", type="primary", key="btn_apply_qc"):
+        errors = []
+        total_updated = 0
+        for ch_id in channel_ids:
+            try:
+                result = bulk_set_quality_code(
+                    channel_id=ch_id,
+                    start_time=qc_start,
+                    end_time=qc_end,
+                    quality_code_id=qc_options[sel_qc_label],
+                )
+                total_updated += result.get("updated_count", 0)
+            except APIError as e:
+                errors.append(f"CH-{ch_id}: {e.message}")
 
-    if st.button("Save Event", type="primary"):
-        payload = {
-            "equipment_id": eq_map[sel_eq],
-            "event_type_id": et_map[sel_et],
-            "start_datetime": t_start,
-            "end_datetime": t_end or None,
-            "notes": notes or None,
-        }
-        try:
-            create_equipment_event(payload)
-            st.success("Equipment event created.")
+        if errors:
+            st.error("Some channels failed:\n" + "\n".join(errors))
+        else:
+            st.success(
+                f"Quality code applied to {total_updated} row(s) across "
+                f"{len(channel_ids)} channel(s)."
+            )
             _invalidate_data_cache()
             st.rerun()
-        except APIError as e:
-            st.error(f"Failed: {e.message}")
 
 
 # ---------------------------------------------------------------------------
@@ -1226,12 +1291,32 @@ def _render_stream_story_panel() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _render_overlay_table(overlay_rows: list[dict]) -> None:
+    """The annotations & equipment-events summary under a chart. The [#] column
+    matches the [ref] labels on the chart's markLines."""
+    if not overlay_rows:
+        return
+    st.divider()
+    st.subheader("Annotations & equipment events")
+    df_ov = pd.DataFrame(overlay_rows)[
+        ["ref", "kind", "source", "category", "title", "start", "end", "comment"]
+    ]
+    df_ov.columns = [
+        "#",
+        "Type",
+        "Channel / Equipment",
+        "Category",
+        "Title / Notes",
+        "Start",
+        "End",
+        "Comment",
+    ]
+    st.dataframe(df_ov, use_container_width=True, hide_index=True)
+
+
 def _render_scalar_view(
     active_channels: list[int],
     channel_meta: dict[int, dict],
-    annotation_types: list[dict],
-    equipment: list[dict],
-    event_types: list[dict],
     active_series: list[int] | None = None,
     series_meta: dict[int, dict] | None = None,
     suffix: str = "",
@@ -1282,123 +1367,66 @@ def _render_scalar_view(
     lab_pts = sel["lab_pts"]
     selected_pts = sensor_pts + lab_pts
 
-    # Identities derived from the live selection — what annotation / events target.
-    sensor_sel_ids = sorted({p["id"] for p in sensor_pts})
-    lab_series_ids: list[int] = list(dict.fromkeys(p["id"] for p in lab_pts))
-    sel_equipment: dict[int, str] = {}
-    for ch_id in sensor_sel_ids:
-        m = channel_meta.get(ch_id, {})
-        eqid = m.get("equipment_id")
-        if eqid is not None:
-            sel_equipment[eqid] = m.get("equipment_identifier") or f"EQ-{eqid}"
-    all_sel_times = [p["x"] for p in selected_pts if p.get("x")]
+    # The selection *is* the target: (anchor kind, Stream_ID) is what Recording
+    # writes on, whether the rung it lands on is the series or something upstream.
+    streams: list[tuple[str, int]] = [
+        ("channel", ch) for ch in sorted({p["id"] for p in sensor_pts})
+    ] + [("series", s) for s in dict.fromkeys(p["id"] for p in lab_pts)]
+    sensor_sel_ids = [sid for kind, sid in streams if kind == "channel"]
+    sel_times = [p["x"] for p in selected_pts if p.get("x")]
+    t_start_sel = str(min(sel_times)) if sel_times else None
+    t_end_sel = str(max(sel_times)) if sel_times else None
+    # One clicked point pins the recording to that exact replicate.
+    single_obs_id = selected_pts[0].get("obs_id") if len(selected_pts) == 1 else None
 
-    st.markdown("##### Annotate & flag")
+    st.markdown("##### Record & flag")
     if not selected_pts:
         st.caption(
             "Click a point — or use the brush tool (top-right of the chart) to "
-            "box / lasso-select several — to choose what gets annotated. "
-            "Annotations apply to the selected points, not the view range. "
+            "box / lasso-select several — to choose what a recording is about. "
+            "Recordings apply to the selected points, not the view range. "
             "Scroll or drag the bottom slider to zoom."
         )
 
-    obs_col, eq_col = st.columns(2)
-
-    # --- Left: selected observations + annotate buttons ---
-    with obs_col:
-        st.caption(f"**Selected observations** · {len(selected_pts)}")
-        if selected_pts:
-            sel_rows = [
-                {"Stream": f"CH-{p['id']}", "Kind": "sensor",
-                 "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
-                for p in sensor_pts
-            ] + [
-                {"Stream": f"LAB-{p['id']}", "Kind": "lab",
-                 "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
-                for p in lab_pts
-            ]
-            st.dataframe(
-                pd.DataFrame(sel_rows), use_container_width=True, hide_index=True
-            )
-        else:
-            st.caption("— none —")
-
-        if sensor_pts:
-            sel_times = [p["x"] for p in sensor_pts if p.get("x")]
-            t_start_sel = min(sel_times) if sel_times else None
-            t_end_sel = max(sel_times) if sel_times else None
-            single_sensor_obs_id = sensor_pts[0].get("obs_id") if len(sensor_pts) == 1 else None
-            single_sensor_val = sensor_pts[0].get("y") if len(sensor_pts) == 1 else None
-            btn_label = "Annotate selected point" if single_sensor_obs_id else "Annotate selected points"
-            if st.button(btn_label, type="primary", key=f"btn_sensor_ann{suffix}"):
-                _annotation_dialog(
-                    channel_ids=sensor_sel_ids,
-                    start_time=str(t_start_sel) if t_start_sel else None,
-                    end_time=str(t_end_sel) if t_end_sel else None,
-                    annotation_types=annotation_types,
-                    observation_id=single_sensor_obs_id,
-                    point_value=single_sensor_val,
-                )
-
-        if lab_pts:
-            lab_times = [p["x"] for p in lab_pts if p.get("x")]
-            t_lab_start = min(lab_times) if lab_times else None
-            t_lab_end = max(lab_times) if lab_times else None
-            single_lab_obs_id = lab_pts[0].get("obs_id") if len(lab_pts) == 1 else None
-            single_lab_val = lab_pts[0].get("y") if len(lab_pts) == 1 else None
-            lab_btn_label = (
-                "Annotate selected lab point" if single_lab_obs_id
-                else "Annotate selected lab points"
-            )
-            if st.button(lab_btn_label, type="primary", key=f"btn_lab_ann_pt{suffix}"):
-                _annotation_dialog(
-                    channel_ids=[],
-                    series_ids=lab_series_ids,
-                    start_time=str(t_lab_start) if t_lab_start else None,
-                    end_time=str(t_lab_end) if (t_lab_end and not single_lab_obs_id) else None,
-                    annotation_types=annotation_types,
-                    observation_id=single_lab_obs_id,
-                    point_value=single_lab_val,
-                )
-
-    # --- Right: selected equipment + equipment-event button (always available) ---
-    with eq_col:
-        st.caption(f"**Selected equipment** · {len(sel_equipment)}")
-        if sel_equipment:
-            for ident in sel_equipment.values():
-                st.markdown(f"- {ident}")
-        else:
-            st.caption("— equipment of any selected sensor points appears here —")
-        # Equipment events are equipment + time based (not tied to a point), so
-        # this is always available; the selected span pre-fills the dialog.
-        if st.button("Tag equipment event", key=f"btn_eq_event{suffix}"):
-            st.session_state._show_event_dialog = True
-            st.session_state._ann_start = str(min(all_sel_times)) if all_sel_times else None
-            st.session_state._ann_end = str(max(all_sel_times)) if all_sel_times else None
-            # Default the dialog to the selected sensor's equipment — otherwise it
-            # falls back to the first equipment in the full list and the event lands
-            # on the wrong equipment (never rendered on this channel's chart).
-            st.session_state._event_equipment_ids = list(sel_equipment.keys())
-            st.rerun()  # dialog check runs before visualization area in script order
-
-    # Annotations & events summary table
-    if overlay_rows:
-        st.divider()
-        st.subheader("Annotations & equipment events")
-        df_ov = pd.DataFrame(overlay_rows)[
-            ["ref", "kind", "source", "category", "title", "start", "end", "comment"]
+    st.caption(f"**Selected observations** · {len(selected_pts)}")
+    if selected_pts:
+        sel_rows = [
+            {"Stream": f"CH-{p['id']}", "Kind": "sensor",
+             "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
+            for p in sensor_pts
+        ] + [
+            {"Stream": f"LAB-{p['id']}", "Kind": "lab",
+             "Timestamp": p["x"], "Value": p["y"], "Observation": p.get("obs_id")}
+            for p in lab_pts
         ]
-        df_ov.columns = [
-            "#",
-            "Type",
-            "Channel / Equipment",
-            "Category",
-            "Title / Notes",
-            "Start",
-            "End",
-            "Comment",
-        ]
-        st.dataframe(df_ov, use_container_width=True, hide_index=True)
+        st.dataframe(
+            pd.DataFrame(sel_rows), use_container_width=True, hide_index=True
+        )
+
+        rec_col, qc_col = st.columns(2)
+        if rec_col.button(
+            "Record what happened", type="primary", key=f"btn_record{suffix}"
+        ):
+            _recording_dialog(
+                streams=streams,
+                start_time=t_start_sel,
+                end_time=t_end_sel if not single_obs_id else None,
+                observation_id=single_obs_id,
+            )
+        # Rewriting quality codes is an edit, not a claim — its own gesture, and
+        # sensor-only (lab values carry no quality flag).
+        if sensor_sel_ids and qc_col.button(
+            "Set quality code…", key=f"btn_qc{suffix}"
+        ):
+            _quality_flag_dialog(
+                channel_ids=sensor_sel_ids,
+                start_time=t_start_sel,
+                end_time=t_end_sel,
+            )
+    else:
+        st.caption("— none —")
+
+    _render_overlay_table(overlay_rows)
 
     # Bulk export of all active streams lives at the page level (see
     # _render_export_section), not per value-type view.
@@ -1407,7 +1435,6 @@ def _render_scalar_view(
 def _render_vector_view(
     active_channels: list[int],
     channel_meta: dict[int, dict],
-    annotation_types: list[dict],
     active_series: list[int] | None = None,
     series_meta: dict[int, dict] | None = None,
 ) -> None:
@@ -1489,12 +1516,11 @@ def _render_vector_view(
         )
 
     if trace[0] == "channel":
-        if st.button("Create Annotation", key="vec_ann_btn"):
-            _annotation_dialog(
-                channel_ids=[trace[1]],
+        if st.button("Record what happened", key="vec_ann_btn"):
+            _recording_dialog(
+                streams=[("channel", trace[1])],
                 start_time=_local_to_utc_iso(st.session_state.explore_start),
                 end_time=_local_to_utc_iso(st.session_state.explore_end, end_of_day=True),
-                annotation_types=annotation_types,
             )
 
 
@@ -1589,9 +1615,6 @@ def _render_matrix_view(
 def _render_image_view(
     active_channels: list[int],
     channel_meta: dict[int, dict],
-    annotation_types: list[dict],
-    equipment: list[dict],
-    event_types: list[dict],
     active_series: list[int] | None = None,
     series_meta: dict[int, dict] | None = None,
 ) -> None:
@@ -1632,14 +1655,42 @@ def _render_image_view(
         except APIError:
             pass
 
-    st_echarts(
-        build_image_timeline_option(
-            rows, {obs: thumbnail_data_uri(b) for obs, b in thumbs.items()}
+    # Same overlay the scalar chart draws: this stream's annotations plus (for a
+    # sensor channel) its equipment's lifecycle events.
+    eq_id = channel_meta.get(t_id, {}).get("equipment_id") if is_channel else None
+    eq_label = channel_meta.get(t_id, {}).get("equipment_identifier") or f"EQ-{eq_id}"
+    option, overlay_rows = build_image_timeline_option(
+        rows,
+        {obs: thumbnail_data_uri(b) for obs, b in thumbs.items()},
+        annotations=(
+            _load_annotations(t_id) if is_channel else _load_series_annotations(t_id)
         ),
+        events=_load_equipment_events(eq_id) if eq_id is not None else [],
+        source=f"CH-{t_id}" if is_channel else f"LAB-{t_id}",
+        equipment_label=eq_label,
+    )
+    clicked = st_echarts(
+        option,
+        events={"click": IMAGE_CLICK_JS},
         height=IMAGE_TIMELINE_HEIGHT,
         key=f"img_timeline_{trace[0]}_{t_id}",
     )
-    st.caption("Each tick is one image — hover to preview.")
+    st.caption(
+        "Each tick is one image — hover to preview, click to open it. Dashed lines "
+        "and shaded bands are annotations and equipment events."
+    )
+
+    # The component replays its last value on every rerun; the click's nonce is what
+    # distinguishes a fresh click from that replay (see IMAGE_CLICK_JS).
+    if clicked and clicked.get("t") != st.session_state._img_click_t:
+        st.session_state._img_click_t = clicked["t"]
+        ts_of = {r.get("observation_id"): str(r.get("timestamp", "")) for r in rows}
+        st.session_state.explore_image_detail_ch = trace
+        st.session_state.explore_image_detail_obs = clicked["obs"]
+        st.session_state.explore_image_detail_ts = ts_of.get(clicked["obs"], "")
+        st.rerun()
+
+    _render_overlay_table(overlay_rows)
 
     selected_obs = st.session_state.explore_selected_images
 
@@ -1685,7 +1736,6 @@ def _render_image_view(
             trace=st.session_state.explore_image_detail_ch,
             observation_id=st.session_state.explore_image_detail_obs,
             timestamp=st.session_state.explore_image_detail_ts,
-            annotation_types=annotation_types,
         )
         st.session_state.explore_image_detail_ch = None
         st.session_state.explore_image_detail_obs = None
@@ -1696,27 +1746,21 @@ def _render_image_view(
     selected_ts = [
         str(r.get("timestamp", "")) for r in rows if r.get("observation_id") in selected_obs
     ]
-    if selected_obs and is_channel:
+    if selected_obs:
         st.markdown(f"**{len(selected_obs)} image(s) selected.**")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Annotate selected images", type="primary"):
-                _annotation_dialog(
-                    channel_ids=[t_id],
-                    start_time=min(selected_ts) if selected_ts else None,
-                    end_time=max(selected_ts) if selected_ts else None,
-                    annotation_types=annotation_types,
-                )
-        with col2:
-            if st.button("Tag equipment event"):
-                _equipment_event_dialog(
-                    start_time=min(selected_ts) if selected_ts else None,
-                    end_time=max(selected_ts) if selected_ts else None,
-                    equipment_options=equipment,
-                    event_type_options=event_types,
-                )
-    elif selected_obs and not is_channel:
-        st.caption("Annotation / event actions are available for sensor channels only.")
+        if st.button("Record what happened", type="primary"):
+            # An image *is* its observation, so a single selected image pins the
+            # recording to that exact replicate — co-timed lab replicates would
+            # otherwise all be tagged by a shared timestamp.
+            single_obs = selected_obs[0] if len(selected_obs) == 1 else None
+            _recording_dialog(
+                streams=[("channel" if is_channel else "series", t_id)],
+                start_time=min(selected_ts) if selected_ts else None,
+                end_time=(
+                    max(selected_ts) if selected_ts and not single_obs else None
+                ),
+                observation_id=single_obs,
+            )
     else:
         st.caption("Check image thumbnails above to select them for bulk actions.")
 
@@ -1730,9 +1774,6 @@ def _render_image_view(
 def _render_visualization_area(
     active_channels: list[int],
     channel_meta: dict[int, dict],
-    annotation_types: list[dict],
-    equipment: list[dict],
-    event_types: list[dict],
     active_series: list[int] | None = None,
     series_meta: dict[int, dict] | None = None,
 ) -> None:
@@ -1771,8 +1812,8 @@ def _render_visualization_area(
             with st.container(border=True):
                 st.markdown(f"**Plot {plot_id}**")
                 _render_scalar_view(
-                    p_chans, channel_meta, annotation_types, equipment, event_types,
-                    p_sers, series_meta, suffix=f"_p{plot_id}",
+                    p_chans, channel_meta, p_sers, series_meta,
+                    suffix=f"_p{plot_id}",
                 )
 
     # --- Non-scalar views (vector / matrix / image), once over all streams ---
@@ -1787,14 +1828,13 @@ def _render_visualization_area(
 
     render_map = {
         VALUE_TYPE_VECTOR: lambda: _render_vector_view(
-            active_channels, channel_meta, annotation_types, active_series, series_meta
+            active_channels, channel_meta, active_series, series_meta
         ),
         VALUE_TYPE_MATRIX: lambda: _render_matrix_view(
             active_channels, channel_meta, active_series, series_meta
         ),
         VALUE_TYPE_IMAGE: lambda: _render_image_view(
-            active_channels, channel_meta, annotation_types, equipment, event_types,
-            active_series, series_meta,
+            active_channels, channel_meta, active_series, series_meta,
         ),
     }
 
@@ -2077,9 +2117,6 @@ def _render_campaign_filter(campaigns: list[dict]) -> None:
 def _render_page_body(
     deployment_traces: list[dict],
     series_list: list[dict],
-    equipment: list[dict],
-    annotation_types: list[dict],
-    event_types: list[dict],
     campaigns: list[dict],
 ) -> None:
     """Render the main content area of the Explore page (picker, chips, time
@@ -2137,22 +2174,22 @@ def _render_page_body(
         st.session_state.explore_series_stats,
     )
 
-    # --- Equipment event dialog (triggered from scalar view) ---
-    if st.session_state._show_event_dialog:
-        st.session_state._show_event_dialog = False
-        _sel_eq_ids = st.session_state.get("_event_equipment_ids") or []
-        _equipment_event_dialog(
-            start_time=st.session_state._ann_start,
-            end_time=st.session_state._ann_end,
-            equipment_options=equipment,
-            event_type_options=event_types,
-            default_equipment_id=_sel_eq_ids[0] if _sel_eq_ids else None,
-        )
+    # --- Recording dialog (triggered from the image lightbox, which cannot open a
+    # dialog from inside a dialog and so hands the request over via session state) ---
+    if st.session_state._show_annotation_dialog:
+        st.session_state._show_annotation_dialog = False
+        _kind, _t_id = st.session_state._ann_trace or ("channel", None)
+        if _t_id is not None:
+            _recording_dialog(
+                streams=[(_kind, _t_id)],
+                start_time=st.session_state._ann_start,
+                end_time=st.session_state._ann_end,
+                observation_id=st.session_state._ann_obs_id,
+            )
 
     # --- Visualization area ---
     _render_visualization_area(
-        active_channels, channel_meta, annotation_types, equipment, event_types,
-        active_series, series_meta,
+        active_channels, channel_meta, active_series, series_meta,
     )
 
     # --- Bulk export (all active streams → zip) ---
@@ -2167,23 +2204,8 @@ def _render_page_body(
 def main() -> None:
     _init_state()
 
-    # Load lookup data once
-    try:
-        equipment = list_equipment_lookup()
-    except APIError as e:
-        st.error(f"Cannot load lookup data: {e.message}")
-        st.stop()
-
-    try:
-        annotation_types = list_annotation_kinds()
-    except APIError:
-        annotation_types = []
-
-    try:
-        event_types = list_equipment_event_kinds()
-    except APIError:
-        event_types = []
-
+    # Recording resolves its own vocabulary + pedigree per gesture (see
+    # _recording_dialog), so the page no longer preloads kinds/equipment lookups.
     try:
         series_list = list_analysis_series_lookup()
     except APIError:
@@ -2213,17 +2235,11 @@ def main() -> None:
     if st.session_state.explore_inspect_trail:
         body_col, prov_col = st.columns([7, 3])
         with body_col:
-            _render_page_body(
-                deployment_traces, series_list, equipment, annotation_types,
-                event_types, campaigns,
-            )
+            _render_page_body(deployment_traces, series_list, campaigns)
         with prov_col:
             _render_provenance_panel(_add_node_to_plot, _inspect_stream)
     else:
-        _render_page_body(
-            deployment_traces, series_list, equipment, annotation_types,
-            event_types, campaigns,
-        )
+        _render_page_body(deployment_traces, series_list, campaigns)
 
     # Stream Story — additive narrative panel for the inspected stream.
     _render_stream_story_panel()

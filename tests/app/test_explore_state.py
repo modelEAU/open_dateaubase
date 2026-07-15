@@ -58,9 +58,6 @@ def test_adding_a_stream_does_not_refetch_already_plotted_streams():
         return _ts_for(channel_id)
 
     with ExitStack() as stack:
-        stack.enter_context(patch(f"{MOD}.list_equipment_lookup", return_value=_EQUIPMENT))
-        stack.enter_context(patch(f"{MOD}.list_annotation_kinds", return_value=[]))
-        stack.enter_context(patch(f"{MOD}.list_equipment_event_kinds", return_value=[]))
         stack.enter_context(patch(f"{MOD}.list_analysis_series_lookup", return_value=[]))
         stack.enter_context(
             patch(f"{MOD}.list_deployment_traces_lookup", return_value=[_DT5, _DT6])

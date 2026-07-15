@@ -2,8 +2,8 @@
 
 The full-size image viewer dialog (the "lightbox"), extracted from explore.py
 (Phase 5 follow-up). Self-contained: given a (kind, id) trace + timestamp it
-fetches the full-resolution bytes and renders them, with a sensor-only affordance
-to start an image annotation (signalled via session-state flags the page reads).
+fetches the full-resolution bytes and renders them, with an affordance to
+annotate that image (signalled via session-state flags the page reads).
 
 The image *gallery* (_render_image_view) stays in explore.py with the other
 _render_*_view orchestrators — they are a cohesive cluster and share the
@@ -22,7 +22,6 @@ def _image_viewer_dialog(
     trace: tuple[str, int],
     observation_id: int,
     timestamp: str,
-    annotation_types: list[dict],
 ) -> None:
     kind, t_id = trace
     try:
@@ -30,15 +29,15 @@ def _image_viewer_dialog(
     except APIError as e:
         st.warning(f"Could not load full image: {e.message}")
 
-    # Image-level annotation is sensor-only for now. Lab AnalysisSeries traces
-    # are fully annotatable from the scalar chart view (range + point, via
-    # /analysis-series/{id}/annotations); only this per-image affordance remains
-    # channel-only.
-    if kind == "channel":
-        st.divider()
-        if st.button("Create Annotation for this image"):
-            st.session_state._show_annotation_dialog = True
-            st.session_state._ann_channel_id = t_id
-            st.session_state._ann_start = timestamp
-            st.session_state._ann_end = timestamp
-            st.rerun()
+    st.divider()
+    # Streamlit forbids a dialog inside a dialog, so this hands the request to the
+    # page via session state; explore.py opens the annotation dialog on the rerun.
+    # The image is its observation, so the annotation is pinned to that id — a lab
+    # sample's replicates all share the collection timestamp.
+    if st.button("Create Annotation for this image"):
+        st.session_state._show_annotation_dialog = True
+        st.session_state._ann_trace = (kind, t_id)
+        st.session_state._ann_obs_id = observation_id
+        st.session_state._ann_start = timestamp
+        st.session_state._ann_end = None
+        st.rerun()

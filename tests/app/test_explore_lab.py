@@ -19,7 +19,6 @@ MOD = "app.pages.explore"
 # calls where those loaders look them up, not in the page namespace.
 DATA = "app.components.explore_data"
 
-_EQUIPMENT = [{"equipment_id": 5, "identifier": "EQ5"}]
 _SERIES = [
     {"analysis_series_id": 1, "name": "TSS@Eff", "parameter_id": 10,
      "parameter_name": "TSS", "sampling_point_id": 100,
@@ -63,9 +62,6 @@ _CHANNEL_TS = {
 
 
 def _patches(stack: ExitStack) -> None:
-    stack.enter_context(patch(f"{MOD}.list_equipment_lookup", return_value=_EQUIPMENT))
-    stack.enter_context(patch(f"{MOD}.list_annotation_kinds", return_value=[]))
-    stack.enter_context(patch(f"{MOD}.list_equipment_event_kinds", return_value=[]))
     stack.enter_context(patch(f"{MOD}.list_analysis_series_lookup", return_value=_SERIES))
     stack.enter_context(
         patch(f"{MOD}.list_deployment_traces_lookup", return_value=[_DEPLOYMENT_TRACE])
@@ -114,34 +110,43 @@ _IMG_TS = {
     # Two replicates at the SAME sample-collection timestamp — the case that
     # collided widget keys before the fix.
     "data": [
-        {"timestamp": "2026-04-08T02:00:00", "image_width": 240, "image_height": 180,
+        {"timestamp": "2026-04-08T02:00:00", "observation_id": 501,
+         "image_width": 240, "image_height": 180,
          "number_of_channels": 3, "image_format": "png", "file_size_bytes": 1,
          "storage_backend": "fs", "storage_path": "a.png", "quality_code": 1},
-        {"timestamp": "2026-04-08T02:00:00", "image_width": 240, "image_height": 180,
+        {"timestamp": "2026-04-08T02:00:00", "observation_id": 502,
+         "image_width": 240, "image_height": 180,
          "number_of_channels": 3, "image_format": "png", "file_size_bytes": 1,
          "storage_backend": "fs", "storage_path": "b.png", "quality_code": 2},
     ],
 }
 
 
+def _image_view_patches(stack: ExitStack, annotations: list[dict] | None = None):
+    """Drive the image view off the lab microscopy series above. Thumbnails 404 so
+    the gallery takes its caption fallback — no real JPEG bytes needed."""
+    from app.api_client import APIError
+
+    _patches(stack)
+    stack.enter_context(
+        patch(f"{MOD}.list_analysis_series_lookup", return_value=[_IMG_SERIES])
+    )
+    stack.enter_context(
+        patch(f"{DATA}.get_analysis_series_timeseries", return_value=_IMG_TS)
+    )
+    stack.enter_context(
+        patch(f"{MOD}.get_image_thumbnail", side_effect=APIError(404, "x"))
+    )
+    stack.enter_context(
+        patch(f"{DATA}._api_list_annotations_for_series", return_value=annotations or [])
+    )
+
+
 def test_lab_image_replicates_same_timestamp_no_duplicate_key():
     """Regression: two lab images at the same sample-collection time must not
     collide Streamlit widget keys in the image gallery."""
     with ExitStack() as stack:
-        _patches(stack)
-        stack.enter_context(
-            patch(f"{MOD}.list_analysis_series_lookup", return_value=[_IMG_SERIES])
-        )
-        stack.enter_context(
-            patch(f"{DATA}.get_analysis_series_timeseries", return_value=_IMG_TS)
-        )
-        # Force the caption fallback (no valid image bytes needed); the widget
-        # keys under test fire regardless of the image/except branch.
-        from app.api_client import APIError
-        stack.enter_context(
-            patch(f"{MOD}.get_analysis_series_thumbnail",
-                  side_effect=APIError(404, "x"))
-        )
+        _image_view_patches(stack)
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [20]
         at.session_state["explore_series_meta"] = {20: _IMG_SERIES}
@@ -160,6 +165,47 @@ _LAB_ANNOTATION = {
     "comment": "Re-run requested.",
     "created_at": "2026-06-10T00:00:00",
 }
+
+
+def test_image_view_offers_recording_for_a_lab_series():
+    """The image view used to gate annotation on `is_channel`, so a lab image
+    series (the only kind we actually store images for) could not be recorded on.
+    Recording replaces the old annotate/equipment-event pair with one button."""
+    with ExitStack() as stack:
+        _image_view_patches(stack)
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_series"] = [20]
+        at.session_state["explore_series_meta"] = {20: _IMG_SERIES}
+        at.session_state["explore_selected_images"] = [501]
+        at.run()
+
+    assert not at.exception
+    labels = [b.label for b in at.button]
+    assert "Record what happened" in labels
+    # The standalone equipment-event dialog is gone (ticket 007).
+    assert "Tag equipment event" not in labels
+
+
+def test_image_view_renders_the_annotation_overlay_table():
+    """Annotations on an image series were invisible: no bands on the timeline and
+    no summary table, unlike every other value-type view."""
+    with ExitStack() as stack:
+        _image_view_patches(stack, annotations=[_LAB_ANNOTATION])
+        at = AppTest.from_file(HARNESS)
+        at.session_state["explore_active_series"] = [20]
+        at.session_state["explore_series_meta"] = {20: _IMG_SERIES}
+        at.run()
+
+    assert not at.exception
+    overlay = [
+        df.value for df in at.dataframe if "Channel / Equipment" in df.value.columns
+    ]
+    assert overlay, "image view rendered no annotation overlay table"
+    records = overlay[0].to_dict("records")
+    assert any(
+        r["Channel / Equipment"] == "LAB-20" and r["Title / Notes"] == "Lab QA flag"
+        for r in records
+    ), records
 
 
 def test_lab_series_annotation_renders_overlay():
@@ -198,36 +244,23 @@ def test_lab_series_annotation_renders_overlay():
     ), f"lab annotation overlay row not found in {records}"
 
 
-def test_lab_annotation_dialog_is_homogeneous_no_quality_flag_tab():
-    """Decision 7 (per-arm, no mixing): opening the annotation dialog for a lab
-    AnalysisSeries shows ONLY the annotation form — no 'Quality Flag' tab (quality
-    flags are sensor-only). The sensor dialog, by contrast, DOES show both tabs.
-
-    This guards the `is_lab` branch in _annotation_dialog: reverting it (always
-    rendering st.tabs(["Annotation", "Quality Flag"])) makes this test fail because
-    a 'Quality Flag' tab would appear in the lab dialog.
-    """
-    # --- lab arm: open the dialog for a lab series, assert no Quality Flag tab ---
+def test_lab_selection_offers_record_but_no_quality_code_button():
+    """Quality flags are sensor-only: a lab selection gets the Record button but
+    no 'Set quality code…' button (the old is_lab special case, now gone with the
+    Quality Flag tab — ticket 007)."""
     with ExitStack() as stack:
         _patches(stack)
-        stack.enter_context(
-            patch(f"{MOD}.list_annotation_kinds",
-                  return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
-        )
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [1]
         at.session_state["explore_series_meta"] = {1: _SERIES[0]}
-        # Brush-select the lab point so the selection-based annotate button appears
-        # (annotations are now selection-driven, not view-range).
+        # Brush-select the lab point so the selection-based buttons appear.
         at.session_state["scalar_chart_p1"] = [{"seriesIndex": 0, "dataIndex": [0]}]
         at.run()
-        at.button(key="btn_lab_ann_pt_p1").click().run()
-        assert not at.exception
-        lab_tab_labels = [lbl for t in at.tabs for lbl in (t.label or "",)]
-        assert "Quality Flag" not in lab_tab_labels, (
-            f"lab annotation dialog must not expose a Quality Flag tab; "
-            f"saw tabs {lab_tab_labels}"
-        )
+
+    assert not at.exception
+    keys = [b.key for b in at.button]
+    assert "btn_record_p1" in keys, "lab selection should offer Record"
+    assert "btn_qc_p1" not in keys, "quality-code button is sensor-only"
 
 
 def _scalar_view_rendered(at) -> bool:
@@ -277,22 +310,13 @@ _SERIES_TS_WITH_OBS = {
 _LAB_PT_SELECTION = [{"seriesIndex": 0, "dataIndex": [0]}]
 
 
-def test_lab_point_selection_shows_pin_button():
-    """Pre-seeding the plotly chart selection with a lab point makes the page
-    render a 'Create Lab Annotation (point)' button instead of the generic caption.
-
-    Guards: the button only appears because lab_pts is non-empty (customdata[0]=="lab");
-    reverting the customdata-discriminator logic or the selection split would make
-    lab_pts empty → only the caption renders → this test fails.
-    """
+def test_lab_point_selection_shows_record_button():
+    """Pre-seeding the chart selection with a lab point renders the Record button
+    instead of the generic caption — the selection is the recording target."""
     with ExitStack() as stack:
         _patches(stack)
         stack.enter_context(
             patch(f"{DATA}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
-        )
-        stack.enter_context(
-            patch(f"{MOD}.list_annotation_kinds",
-                  return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
         )
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [1]
@@ -301,138 +325,33 @@ def test_lab_point_selection_shows_pin_button():
         at.run()
 
     assert not at.exception
-    btn_keys = [b.key for b in at.button]
-    assert "btn_lab_ann_pt_p1" in btn_keys, (
-        f"'Create Lab Annotation (point)' button (key=btn_lab_ann_pt) not found; "
-        f"got buttons: {btn_keys}"
-    )
+    assert "btn_record_p1" in [b.key for b in at.button]
 
 
-def test_lab_point_pin_dialog_shows_observation_info():
-    """After clicking 'Create Lab Annotation (point)', the dialog shows a pin
-    info message that identifies the Observation_ID and value being pinned.
-
-    Guards: if observation_id is not passed to _annotation_dialog or the info
-    block is removed, the st.info call doesn't fire → no matching info text → fail.
-    """
-    with ExitStack() as stack:
-        _patches(stack)
-        stack.enter_context(
-            patch(f"{DATA}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
-        )
-        stack.enter_context(
-            patch(f"{MOD}.list_annotation_kinds",
-                  return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
-        )
-        at = AppTest.from_file(HARNESS)
-        at.session_state["explore_active_series"] = [1]
-        at.session_state["explore_series_meta"] = {1: _SERIES[0]}
-        at.session_state["scalar_chart_p1"] = _LAB_PT_SELECTION
-        at.run()
-        # Click the point-pin button to open the dialog
-        at.button(key="btn_lab_ann_pt_p1").click().run()
-
-    assert not at.exception
-    info_texts = [i.value for i in at.info]
-    assert any("42" in t for t in info_texts), (
-        f"expected an info box mentioning Observation #42; got info texts: {info_texts}"
-    )
-
-
-def test_lab_point_pin_dialog_called_with_observation_id():
-    """Clicking 'Create Lab Annotation (point)' calls _annotation_dialog with
-    observation_id=42 (the id from the pre-seeded chart selection).
-
-    Guards: if the selection block doesn't extract observation_id from customdata[2]
-    and pass it through, the mock won't see observation_id=42 → test fails.
-    This is the teeth-test: reverting the `single_lab_obs_id = cd[2]` assignment
-    makes _annotation_dialog receive observation_id=None → assertion fails.
-    """
+def test_lab_point_record_passes_observation_id_to_dialog():
+    """Clicking Record on a single lab point opens _recording_dialog pinned to
+    that exact observation (id 42 from the pre-seeded selection) for the series."""
     captured: dict = {}
 
-    def _capture_dialog(**kwargs):
-        captured.update(kwargs)
-
     with ExitStack() as stack:
         _patches(stack)
         stack.enter_context(
             patch(f"{DATA}.get_analysis_series_timeseries", return_value=_SERIES_TS_WITH_OBS)
         )
         stack.enter_context(
-            patch(f"{MOD}.list_annotation_kinds",
-                  return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
-        )
-        stack.enter_context(
-            patch(f"{MOD}._annotation_dialog", side_effect=_capture_dialog)
+            patch(f"{MOD}._recording_dialog", side_effect=lambda **kw: captured.update(kw))
         )
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_series"] = [1]
         at.session_state["explore_series_meta"] = {1: _SERIES[0]}
         at.session_state["scalar_chart_p1"] = _LAB_PT_SELECTION
         at.run()
-        at.button(key="btn_lab_ann_pt_p1").click().run()
+        at.button(key="btn_record_p1").click().run()
 
     assert not at.exception
-    assert captured, "expected _annotation_dialog to have been called"
-    assert captured.get("observation_id") == 42, (
-        f"expected observation_id=42 passed to dialog; got kwargs: {captured}"
-    )
-    assert captured.get("series_ids") == [1], (
-        f"expected series_ids=[1]; got: {captured}"
-    )
-
-
-def test_lab_annotation_dialog_save_uses_stream_anchored_create_annotation():
-    """The lab annotation dialog Save path calls the new stream-anchored
-    create_annotation(stream_id=…, data=…, anchor_kind="series") signature —
-    NOT a raw httpx POST against /analysis-series/{id}/annotations.
-
-    Drives _annotation_dialog directly inside a minimal AppTest script so the
-    dialog's Save button is reachable in a single run. Guards the Slice 15
-    migration: reverting the Save path to the old raw POST makes create_annotation
-    go uncalled and this fails.
-    """
-    captured: dict = {}
-
-    def _capture_create(*args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-        return {"annotation_id": 99}
-
-    def _script() -> None:
-        import sys
-        from pathlib import Path
-
-        _root = str(Path(__file__).parent.parent.parent)
-        if _root not in sys.path:
-            sys.path.insert(0, _root)
-        from app.pages import explore as ex
-
-        ex._annotation_dialog(
-            channel_ids=[],
-            series_ids=[1],
-            start_time="2026-05-01T00:00:00",
-            end_time="2026-05-08T00:00:00",
-            annotation_types=[{"id": 3, "name": "Fault", "color": "#FF0000"}],
-        )
-
-    with patch(f"{MOD}.create_annotation", side_effect=_capture_create):
-        at = AppTest.from_function(_script).run()
-        # The dialog renders inline; click its Save button.
-        at.button(key="btn_save_ann").click().run()
-
-    assert not at.exception
-    assert captured, "create_annotation was not called from the dialog Save path"
-    kwargs = captured["kwargs"]
-    assert kwargs.get("stream_id") == 1, (
-        f"expected stream_id=1 (the series Stream_ID); got {captured}"
-    )
-    assert kwargs.get("anchor_kind") == "series", (
-        f"expected anchor_kind='series' for a lab stream; got {captured}"
-    )
-    assert "data" in kwargs and isinstance(kwargs["data"], dict), (
-        f"expected the annotation payload passed as data=…; got {captured}"
-    )
+    assert captured, "expected _recording_dialog to have been called"
+    assert captured.get("observation_id") == 42, captured
+    assert captured.get("streams") == [("series", 1)], captured
 
 
 # ---------------------------------------------------------------------------

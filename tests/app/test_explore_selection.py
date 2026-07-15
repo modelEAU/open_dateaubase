@@ -1,7 +1,8 @@
-"""Selection-driven behavior on the Explore scalar view.
+"""Selection-driven Recording on the Explore scalar view (wayfinder 004/007/008).
 
-Brushing points must (a) list them in a table and (b) drive annotation against
-only the selected streams/points — never the plotted view range.
+Brushing points must (a) list them in a table and (b) open the Recording dialog
+against exactly the selected streams — the rung the user then picks routes the
+write (stream rung → Annotation, any other rung → Event on one arc FK).
 """
 from __future__ import annotations
 
@@ -15,8 +16,6 @@ from streamlit.testing.v1 import AppTest
 HARNESS = str(Path(__file__).parent / "explore_harness.py")
 MOD = "app.pages.explore"
 DATA = "app.components.explore_data"
-
-_EQUIPMENT = [{"equipment_id": 5, "identifier": "EQ5"}]
 
 
 def _meta(ch_id: int, eq: str, param: str) -> dict:
@@ -45,12 +44,6 @@ def _ts(ch_id: int, **_kw) -> dict:
 
 
 def _patches(stack: ExitStack) -> None:
-    stack.enter_context(patch(f"{MOD}.list_equipment_lookup", return_value=_EQUIPMENT))
-    stack.enter_context(
-        patch(f"{MOD}.list_annotation_kinds",
-              return_value=[{"id": 3, "name": "Fault", "color": "#FF0000"}])
-    )
-    stack.enter_context(patch(f"{MOD}.list_equipment_event_kinds", return_value=[]))
     stack.enter_context(patch(f"{MOD}.list_analysis_series_lookup", return_value=[]))
     stack.enter_context(patch(f"{MOD}.list_deployment_traces_lookup", return_value=[]))
     stack.enter_context(patch(f"{DATA}.get_channel_timeseries", side_effect=_ts))
@@ -89,38 +82,15 @@ def test_selected_points_listed_in_a_table():
     assert all(r["Stream"] == "CH-5" for r in recs)
 
 
-def test_equipment_event_button_always_available_and_lists_selected_equipment():
-    """The equipment-event button is no longer gated behind a selection, and the
-    selected equipment is listed so it's clear what an event would target."""
-    with ExitStack() as stack:
-        _patches(stack)
-        at = AppTest.from_file(HARNESS)
-        at.session_state["explore_active_channels"] = [5]
-        at.session_state["explore_channel_meta"] = {5: _M5}
-        at.session_state["explore_start"] = date(2026, 5, 1)
-        at.session_state["explore_end"] = date(2026, 5, 8)
-        at.run()
-        # No selection yet — the equipment-event button is still present.
-        assert "btn_eq_event_p1" in [b.key for b in at.button]
-
-        # Select a CH-5 point; its equipment (EQ5) is now listed. Markers are the
-        # brushable scatter at seriesIndex 1 (seriesIndex 0 is the decorative line).
-        at.session_state["scalar_chart_p1"] = [{"seriesIndex": 1, "dataIndex": [0]}]
-        at.run()
-        assert "btn_eq_event_p1" in [b.key for b in at.button]
-        body = " ".join((m.value or "") for m in at.markdown)
-        assert "EQ5" in body, "selected equipment identifier not shown"
-
-
-def test_annotation_scoped_to_selected_stream_only():
-    """Two sensor channels active; brushing a point on CH-5 only must annotate
-    CH-5 alone — not every channel in the plot (the old view-range behavior)."""
+def test_record_button_opens_dialog_for_selected_streams_only():
+    """Two sensor channels active; brushing a point on CH-5 only opens Recording
+    against CH-5 alone — the selection is the target, not the whole plot."""
     captured: dict = {}
 
     with ExitStack() as stack:
         _patches(stack)
         stack.enter_context(
-            patch(f"{MOD}._annotation_dialog", side_effect=lambda **kw: captured.update(kw))
+            patch(f"{MOD}._recording_dialog", side_effect=lambda **kw: captured.update(kw))
         )
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_channels"] = [5, 6]
@@ -131,33 +101,22 @@ def test_annotation_scoped_to_selected_stream_only():
         # seriesIndex 1 (0=CH-5 line, 1=CH-5 markers, 2=CH-6 line, 3=CH-6 markers).
         at.session_state["scalar_chart_p1"] = [{"seriesIndex": 1, "dataIndex": [0]}]
         at.run()
-        at.button(key="btn_sensor_ann_p1").click().run()
+        at.button(key="btn_record_p1").click().run()
 
     assert not at.exception
-    assert captured, "annotation dialog not opened"
-    assert captured.get("channel_ids") == [5], (
-        f"annotation should target only the selected stream CH-5; got {captured.get('channel_ids')}"
+    assert captured, "recording dialog not opened"
+    assert captured.get("streams") == [("channel", 5)], (
+        f"recording should target only the selected stream CH-5; got {captured.get('streams')}"
     )
-    # Single selected point pins to its exact observation.
+    # A single selected point pins to its exact observation.
     assert captured.get("observation_id") == 501
 
 
-def test_equipment_event_defaults_to_selected_equipment():
-    """Tagging an equipment event must default the dialog to the SELECTED sensor's
-    equipment, not the first equipment in the global list. The old behavior landed
-    the event on the wrong equipment, so it never rendered on this channel's chart."""
-    captured: dict = {}
-    # First equipment in the list is NOT the selected sensor's (id 5).
-    two_equipment = [
-        {"equipment_id": 9, "identifier": "Basestation"},
-        {"equipment_id": 5, "identifier": "EQ5"},
-    ]
+def test_quality_flag_button_is_sensor_only():
+    """The 'Set quality code…' gesture (an edit, not a recording) appears for a
+    selected sensor point and is separate from Record."""
     with ExitStack() as stack:
         _patches(stack)
-        stack.enter_context(patch(f"{MOD}.list_equipment_lookup", return_value=two_equipment))
-        stack.enter_context(
-            patch(f"{MOD}._equipment_event_dialog", side_effect=lambda **kw: captured.update(kw))
-        )
         at = AppTest.from_file(HARNESS)
         at.session_state["explore_active_channels"] = [5]
         at.session_state["explore_channel_meta"] = {5: _M5}
@@ -165,11 +124,8 @@ def test_equipment_event_defaults_to_selected_equipment():
         at.session_state["explore_end"] = date(2026, 5, 8)
         at.session_state["scalar_chart_p1"] = [{"seriesIndex": 1, "dataIndex": [0]}]
         at.run()
-        at.button(key="btn_eq_event_p1").click().run()
 
     assert not at.exception
-    assert captured, "equipment event dialog not opened"
-    assert captured.get("default_equipment_id") == 5, (
-        "equipment-event dialog should default to the selected sensor's equipment 5; "
-        f"got {captured.get('default_equipment_id')}"
-    )
+    keys = [b.key for b in at.button]
+    assert "btn_record_p1" in keys
+    assert "btn_qc_p1" in keys, "sensor selection should offer a quality-code button"
