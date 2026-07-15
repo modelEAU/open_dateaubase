@@ -119,6 +119,18 @@ Write-Step "Rebuilding database (Deploy-Database.ps1 -Force)..."
 # Deploy-Database.ps1 runs with ErrorActionPreference=Stop and throws on failure,
 # which propagates here — no exit-code check needed.
 
+Write-Step "Applying schema migrations to the latest version (Run-Migrations.ps1)..."
+& (Join-Path $scriptDir 'Run-Migrations.ps1') `
+    -ServerInstance $serverInstance `
+    -Environment    staging `
+    -DatabaseName   $dbName `
+    -DbUser         $dbUser `
+    -DbPassword     $dbPassword `
+    -InstallDir     $installDir
+# Run-Migrations.ps1 exits with a non-zero code (rather than throwing) on
+# failure, so it does not propagate through & automatically — check explicitly.
+if ($LASTEXITCODE -ne 0) { throw "Run-Migrations.ps1 failed (exit $LASTEXITCODE)." }
+
 # ---------------------------------------------------------------------------
 # 3. Start services (new code) + health check
 # ---------------------------------------------------------------------------
@@ -165,13 +177,8 @@ if ($state -eq 'Running') {
 Write-Step "Running reconcile_pileaute.py (master data + process units + sampling locations)..."
 $uv = Find-Uv
 if (-not $uv) { throw "uv.exe not found." }
-Push-Location $installDir
-try {
-    & $uv run --isolated --with openpyxl python scripts\metadata\reconcile_pileaute.py
-    if ($LASTEXITCODE -ne 0) { throw "reconcile_pileaute.py failed (exit $LASTEXITCODE)." }
-} finally {
-    Pop-Location
-}
+& $uv run --isolated --with openpyxl python C:\source\pileaute-ops\reconcile_pileaute.py
+if ($LASTEXITCODE -ne 0) { throw "reconcile_pileaute.py failed (exit $LASTEXITCODE)." }
 
 # ---------------------------------------------------------------------------
 # 6. Verify

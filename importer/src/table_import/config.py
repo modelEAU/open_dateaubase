@@ -280,7 +280,7 @@ class TaglessFileConfig(BaseModel):
     name: str
     mode: Literal["tagless"]
     das_name: str
-    signal_interface_name: str | None = None
+    signal_interface_name: str
     file_reader_type: str | None = None
     file_structure: FileStructure
     variables: list[TaglessFileVariable]
@@ -299,7 +299,7 @@ class TaglessTsdbConfig(BaseModel):
     name: str
     mode: Literal["tagless"]
     das_name: str
-    signal_interface_name: str | None = None
+    signal_interface_name: str
     tsdb_structure: TsdbFileStructure
     variables: list[TaglessTsdbVariable]
 
@@ -334,7 +334,7 @@ class TaglessVectorFileConfig(BaseModel):
     name: str
     mode: Literal["tagless"] = "tagless"
     das_name: str
-    signal_interface_name: str | None = None
+    signal_interface_name: str
     file_structure: VectorFileStructure
     variables: list[TaglessVectorFileVariable]
 
@@ -352,7 +352,7 @@ class TaglessImageFolderConfig(BaseModel):
     name: str
     mode: Literal["tagless"] = "tagless"
     das_name: str
-    signal_interface_name: str | None = None
+    signal_interface_name: str
     folder_structure: ImageFolderStructure
     variables: list[TaglessImageFolderVariable]
 

@@ -438,6 +438,14 @@ INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO
 INSERT INTO [dbo].[Parameter] ([Parameter], [Parameter_ID], [Description], [ENVO_IRI], [ValueKind_ID], [QUDT_QuantityKind_IRI]) VALUES (N'Fluorescence', 24, N'Fluorescence excitation-emission matrix (EEM) intensity, matrix over excitation-nm x emission-nm axes', NULL, 3, NULL);
 SET IDENTITY_INSERT [dbo].[Parameter] OFF;
 
+-- ParameterHasUnit (units for the 6 new parameters above)
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (19, 1);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (20, 1);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (21, 14);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (22, 15);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (23, 15);
+INSERT INTO [dbo].[ParameterHasUnit] ([Parameter_ID], [Unit_ID]) VALUES (24, 17);
+
 -- Procedures
 SET IDENTITY_INSERT [dbo].[Procedures] ON;
 INSERT INTO [dbo].[Procedures] ([Procedure_ID], [ProcedureName], [Description], [ProcedureLocation]) VALUES (1, N'Grab sampling', N'Manual grab sample collected at water surface', N'/procedures/grab_sampling.pdf');

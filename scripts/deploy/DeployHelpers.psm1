@@ -809,7 +809,7 @@ function Initialize-LogStructure {
         [string]$ServiceUser = 'LocalSystem'
     )
     Write-Step "Creating log directory structure under $LogDir..."
-    $services = 'api', 'app', 'nginx', 'importer', 'logviewer', 'logship'
+    $services = 'api', 'app', 'docs', 'nginx', 'importer', 'logviewer', 'logship'
     foreach ($svc in $services) {
         $dir = Join-Path $LogDir $svc
         New-Item -ItemType Directory -Path $dir -Force | Out-Null

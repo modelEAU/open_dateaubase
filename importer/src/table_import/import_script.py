@@ -627,6 +627,7 @@ def _ingest_vector_source(
                     data_provenance_id=variable.data_provenance_id,
                     processing_degree_id=variable.processing_degree_id,
                     observations=chunk,
+                    signal_interface_name=vec_cfg.signal_interface_name,
                 )
             total_written += result["rows_written"]
             final_channel_id = result["channel_id"]

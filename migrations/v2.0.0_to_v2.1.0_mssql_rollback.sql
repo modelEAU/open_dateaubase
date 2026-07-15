@@ -6,6 +6,8 @@
 
 DELETE FROM [dbo].[SchemaVersion] WHERE [Version] = N'2.1.0';
 
+DELETE FROM [dbo].[ParameterHasUnit] WHERE [Parameter_ID] IN (19, 20, 21, 22, 23, 24);
+
 DELETE FROM [dbo].[Parameter] WHERE [Parameter_ID] IN (19, 20, 21, 22, 23, 24);
 
 DELETE FROM [dbo].[Procedures] WHERE [Procedure_ID] IN (1, 2, 3);

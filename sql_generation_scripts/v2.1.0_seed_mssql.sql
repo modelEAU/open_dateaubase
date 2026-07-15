@@ -1,6 +1,6 @@
 -- Seed data for schema v2.1.0
 -- Platform: mssql
--- Generated: 2026-07-06 16:57:56 UTC
+-- Generated: 2026-07-15 15:42:50 UTC
 -- AnnotationKind
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (1, N'Fault', N'Sensor or process fault', N'#FF4444');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (2, N'Maintenance', N'Sensor under maintenance', N'#FFA500');
@@ -133,6 +133,10 @@ INSERT INTO [dbo].[SampleKind] ([SampleKind_ID], [Name], [Description]) VALUES (
 INSERT INTO [dbo].[SampleKind] ([SampleKind_ID], [Name], [Description]) VALUES (3, N'Master Standard', N'Reference standard used to prepare derived standards');
 INSERT INTO [dbo].[SampleKind] ([SampleKind_ID], [Name], [Description]) VALUES (4, N'Derived Standard', N'Dilution or aliquot derived from a master standard');
 INSERT INTO [dbo].[SampleKind] ([SampleKind_ID], [Name], [Description]) VALUES (5, N'Blank', N'Blank sample used to detect contamination or baseline');
+-- SchemaVersion
+SET IDENTITY_INSERT [dbo].[SchemaVersion] ON;
+INSERT INTO [dbo].[SchemaVersion] ([Version], [Description]) VALUES (N'2.0.0', N'Initial public release. Complete redesign of the signal interface, annotation model, lab observation model, and deployment trace concept. Breaking change from v1.x — no migration provided; fresh install only.');
+SET IDENTITY_INSERT [dbo].[SchemaVersion] OFF;
 -- SiteKind
 SET IDENTITY_INSERT [dbo].[SiteKind] ON;
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (1, N'Municipal Wastewater Treatment Plant', N'Municipal or industrial facility treating wastewater before discharge');

@@ -31,3 +31,5 @@ table:
       nullable: true
       description: "Filename of the migration script that was applied"
   primary_key: [VersionID]
+  seed_data:
+    - { Version: "2.0.0", Description: "Initial public release. Complete redesign of the signal interface, annotation model, lab observation model, and deployment trace concept. Breaking change from v1.x — no migration provided; fresh install only." }

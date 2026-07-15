@@ -174,6 +174,7 @@ def _resolve_tagless_inputs(
     equipment_name: str,
     parameter_name: str,
     unit_name: str,
+    signal_interface_name: str,
     strict: bool = False,
     wiring_valid_from: datetime | None = None,
 ) -> tuple[int, str, int, int, list[str]]:
@@ -181,8 +182,18 @@ def _resolve_tagless_inputs(
 
     Returns (signal_interface_id, tag_name, parameter_id, unit_id, warnings).
 
+    ``signal_interface_name`` is the config-declared identity of the physical/logical
+    connection point (e.g. matching a label on the DAS/panel) — it is authoritative,
+    not derived from equipment_name. One interface may carry data from many pieces of
+    equipment (or many parameters of one), but a given piece of equipment may only be
+    actively wired to one interface at a time.
+
     Raises HTTP 422 for unrecognised parameter_name or unit_name — before any DB writes.
     When strict=True, also raises 422 for unknown DAS or Equipment instead of auto-creating.
+    Raises HTTP 409 if the equipment is already actively wired to a *different*
+    SignalInterface than the one declared here — this looks like an equipment swap or a
+    config change, which must be recorded explicitly via POST /equipment/{id}/rewire
+    rather than silently reinterpreted by an unattended ingest run.
 
     ``wiring_valid_from`` backdates a newly-opened EquipmentWiringHistory row to the
     batch's earliest observation timestamp, so location/equipment resolution covers
@@ -243,47 +254,69 @@ def _resolve_tagless_inputs(
         logger.warning(msg)
         collected_warnings.append(msg)
 
-    # Resolve SignalInterface via active EquipmentWiringHistory, or create one.
+    # --- SignalInterface resolution: explicit, config-declared identity ---
+    if strict:
+        signal_interface_id = signal_interface_repository.find_signal_interface_by_das_and_name(
+            conn, das_id, signal_interface_name
+        )
+        if signal_interface_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"SignalInterface {signal_interface_name!r} not found in DAS {das_name!r}. "
+                "Select an existing SignalInterface or disable strict mode.",
+            )
+    else:
+        signal_interface_id, signal_interface_created = (
+            signal_interface_repository.find_or_create_signal_interface(
+                conn, das_id, signal_interface_name
+            )
+        )
+        if signal_interface_created:
+            msg = (
+                f"SignalInterface name={signal_interface_name!r} (DAS={das_name!r}) was not found "
+                f"and has been auto-created (ID={signal_interface_id})."
+            )
+            logger.warning(msg)
+            collected_warnings.append(msg)
+
+    # --- Equipment wiring: compare the equipment's current active wiring against
+    # the interface declared for this batch. Equipment can only broadcast to one
+    # interface at a time, so a mismatch is a real conflict, not something to
+    # silently paper over. ---
     wiring = signal_interface_repository.find_active_equipment_wiring(conn, equip_id)
-    signal_interface_id: int | None = None
-    if wiring is not None:
-        signal_interface_id = wiring[0]
-        # Wiring already exists (e.g. opened during a prior resolve at ingest
-        # time). If this batch carries earlier observations, backdate the active
-        # wiring so location/equipment views cover them.
+    if wiring is None:
+        # First time this equipment has been seen ingesting: open wiring history so
+        # provenance is recorded, backdated to the batch's earliest observation.
+        signal_interface_repository.open_equipment_wiring_history(
+            conn, equip_id, signal_interface_id, None, valid_from=wiring_valid_from
+        )
+    else:
+        active_interface_id = wiring[0]
+        if active_interface_id != signal_interface_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Equipment {equipment_name!r} is currently actively wired to "
+                    f"SignalInterface_ID={active_interface_id}, but this batch declares "
+                    f"SignalInterface {signal_interface_name!r} (ID={signal_interface_id}). "
+                    "This looks like an equipment swap or a config change. Record it "
+                    f"explicitly via POST /equipment/{equip_id}/rewire before ingesting "
+                    "— an unattended import must not silently rewrite wiring history."
+                ),
+            )
+        # Wiring already exists and matches. If this batch carries earlier
+        # observations, backdate the active wiring so location/equipment views
+        # cover them.
         if wiring_valid_from is not None:
             signal_interface_repository.lower_equipment_wiring_valid_from(
                 conn, equip_id, wiring_valid_from
             )
 
-    signal_interface_created = False
-    if signal_interface_id is None:
-        synthetic_interface_name = signal_interface_repository.generate_tagless_tagname(
-            equipment_name, parameter_name
-        )
-        signal_interface_id, signal_interface_created = (
-            signal_interface_repository.find_or_create_signal_interface(
-                conn, das_id, synthetic_interface_name
-            )
-        )
-        if signal_interface_created:
-            msg = (
-                f"SignalInterface name={synthetic_interface_name!r} (DAS={das_name!r}) was not found "
-                f"and has been auto-created (ID={signal_interface_id})."
-            )
-            logger.warning(msg)
-            collected_warnings.append(msg)
-        # Open wiring history so provenance is recorded, backdated to the batch's
-        # earliest observation so location/equipment views resolve historical data.
-        signal_interface_repository.open_equipment_wiring_history(
-            conn, equip_id, signal_interface_id, None, valid_from=wiring_valid_from
-        )
-
-    synthetic_tag = signal_interface_repository.generate_tagless_tagname(
+    tag_name = signal_interface_repository.generate_tagless_tagname(
         equipment_name, parameter_name
     )
 
-    return signal_interface_id, synthetic_tag, param_id, unit_id, collected_warnings
+    return signal_interface_id, tag_name, param_id, unit_id, collected_warnings
 
 
 # ---------------------------------------------------------------------------
@@ -536,6 +569,7 @@ def resolve_channel_tagless(
         equipment_name=data.equipment_name,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
+        signal_interface_name=data.signal_interface_name,
         wiring_valid_from=data.wiring_valid_from,
     )
 
@@ -660,6 +694,7 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
         equipment_name=data.equipment_name,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
+        signal_interface_name=data.signal_interface_name,
         strict=data.strict,
         wiring_valid_from=_min_timestamp(data.values),
     )
@@ -1002,6 +1037,7 @@ def ingest_sensor_vector_tagless(data: TaglessVectorSensorIngestRequest, conn=De
         equipment_name=data.equipment_name,
         parameter_name=data.parameter_name,
         unit_name=data.unit_name,
+        signal_interface_name=data.signal_interface_name,
         strict=data.strict,
         wiring_valid_from=_min_timestamp(data.observations),
     )
@@ -1081,6 +1117,7 @@ def ingest_sensor_image(
     das_name: str = Form(...),
     tag: str | None = Form(None),
     equipment_name: str | None = Form(None),
+    signal_interface_name: str | None = Form(None),
     channel_kind: str = Form("value"),
     parameter_name: str = Form(...),
     unit_name: str = Form(...),
@@ -1099,6 +1136,11 @@ def ingest_sensor_image(
     if tag is None and equipment_name is None:
         raise HTTPException(
             status_code=422, detail="Either 'tag' or 'equipment_name' must be provided."
+        )
+    if equipment_name is not None and signal_interface_name is None:
+        raise HTTPException(
+            status_code=422,
+            detail="'signal_interface_name' is required when 'equipment_name' is provided.",
         )
 
     # 1. Parse timestamp
@@ -1153,6 +1195,7 @@ def ingest_sensor_image(
         )
     else:
         assert equipment_name is not None
+        assert signal_interface_name is not None
         (
             signal_interface_id,
             tag_name,
@@ -1165,6 +1208,7 @@ def ingest_sensor_image(
             equipment_name=equipment_name,
             parameter_name=parameter_name,
             unit_name=unit_name,
+            signal_interface_name=signal_interface_name,
             wiring_valid_from=ts,
         )
         channel_kind_id = (

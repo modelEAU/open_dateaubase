@@ -69,7 +69,7 @@
         -Environment    production `
         -DbPassword     "Str0ngPr0ductionPwd!" `
         -InstallDir     "C:\open_dateaubase" `
-        -TargetVersion  "v2.1.0"
+        -TargetVersion  "2.1.0"
 
 .NOTES
     Adding a new migration:
@@ -139,15 +139,15 @@ $MigrationCatalogue = @(
     # This catalogue covers incremental upgrades from that baseline.
     # Add new entries here as each future release ships a migration script.
     @{
-        From           = 'v2.0.0'
-        To             = 'v2.1.0'
+        From           = '2.0.0'
+        To             = '2.1.0'
         Script         = 'migrations\v2.0.0_to_v2.1.0_mssql.sql'
         Description    = 'Migration v2.0.0 → v2.1.0'
         RollbackScript = 'migrations\v2.0.0_to_v2.1.0_mssql_rollback.sql'
     }
 )
 
-$LatestVersion = if ($MigrationCatalogue.Count -gt 0) { $MigrationCatalogue[-1].To } else { 'v2.0.0' }
+$LatestVersion = if ($MigrationCatalogue.Count -gt 0) { $MigrationCatalogue[-1].To } else { '2.0.0' }
 
 # ---------------------------------------------------------------------------
 # Validate credentials
@@ -160,7 +160,7 @@ $authPwd  = $cred.Password
 $target = if ($TargetVersion) { $TargetVersion } else { $LatestVersion }
 
 # Validate target version is in the catalogue (always accept the baseline even with an empty catalogue)
-$knownVersions = @('v2.0.0') + ($MigrationCatalogue | ForEach-Object { $_.From; $_.To } | Select-Object -Unique)
+$knownVersions = @('2.0.0') + ($MigrationCatalogue | ForEach-Object { $_.From; $_.To } | Select-Object -Unique)
 if ($target -notin $knownVersions) {
     throw "Unknown target version '$target'. Known versions: $($knownVersions -join ', ')"
 }
@@ -211,8 +211,8 @@ $currentVersion = Get-SchemaVersion `
 
 if ($null -eq $currentVersion) {
     # SchemaVersion table doesn't exist → assume this is a v1.0.0 baseline
-    Write-DbStep "SchemaVersion table not found — assuming baseline v1.0.0." -Warn
-    $currentVersion = 'v1.0.0'
+    Write-DbStep "SchemaVersion table not found — assuming baseline 1.0.0." -Warn
+    $currentVersion = '1.0.0'
 } else {
     Write-DbStep "Current version: $currentVersion" -Success
 }

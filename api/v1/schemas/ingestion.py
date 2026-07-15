@@ -299,6 +299,7 @@ class TaglessVectorSensorIngestRequest(BaseModel):
     equipment_name: str
     parameter_name: str
     unit_name: str
+    signal_interface_name: str
     binning_axis_id: int
     data_provenance_kind_id: int = 1
     strict: bool = False
@@ -343,15 +344,17 @@ class MatrixSensorIngestRequest(BaseModel):
 class TaglessSensorIngestRequest(BaseModel):
     """Ingest raw sensor data from a direct-connect station (no SCADA tag name).
 
-    A synthetic tag is auto-generated as
-    ``"{equipment_name}/{parameter_name}"`` (lowercased, trimmed).
-    This tag is deterministic and stable across repeated runs.
+    ``signal_interface_name`` is the config-declared identity of the physical/logical
+    connection point (e.g. matching a label on the DAS). It is authoritative — the
+    Channel's tag is still auto-generated as ``"{equipment_name}/{parameter_name}"``
+    (lowercased, trimmed) to disambiguate multiple parameters under one interface.
     """
 
     das_name: str
     equipment_name: str
     parameter_name: str
     unit_name: str
+    signal_interface_name: str
     data_provenance_kind_id: int = 1
     strict: bool = False
     values: list[ValueItem]
@@ -384,6 +387,7 @@ class TaglessSensorChannelResolveRequest(BaseModel):
     equipment_name: str
     parameter_name: str
     unit_name: str
+    signal_interface_name: str
     data_provenance_kind_id: int = 1
     value_kind_id: int = 1
     # Backdate a newly-opened EquipmentWiringHistory row to this timestamp (e.g.
