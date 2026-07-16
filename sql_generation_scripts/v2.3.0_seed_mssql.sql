@@ -1,6 +1,6 @@
 -- Seed data for schema v2.3.0
 -- Platform: mssql
--- Generated: 2026-07-14 20:56:22 UTC
+-- Generated: 2026-07-16 04:33:30 UTC
 -- AnnotationKind
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (4, N'Anomaly', N'Unexplained behaviour — something happened here that no known event accounts for', N'#FF69B4');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (7, N'Data Quality', N'Suspect data quality (drift, fouling); cite the Event that caused it if known', N'#AA44FF');
