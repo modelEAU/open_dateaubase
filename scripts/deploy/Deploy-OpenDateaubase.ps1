@@ -7,7 +7,8 @@
 .DESCRIPTION
     Installs Python 3.13 via uv, sets up the REST API and Streamlit app as
     auto-starting Windows Services (via NSSM), the table importer as a Windows
-    Scheduled Task, and nginx as a reverse proxy service.
+    Scheduled Task, and nginx as a TLS-terminating reverse proxy service
+    (self-signed cert, generated on first deploy and reused thereafter).
 
     Re-running the script is safe: existing services are reconfigured in place.
 
@@ -55,6 +56,12 @@
 
 .PARAMETER ProxyPort
     Port nginx listens on for browser traffic (default: 80).
+
+.PARAMETER SslCommonName
+    Hostname or IP the self-signed TLS cert is issued for (defaults to this
+    machine's hostname). Set this to whatever address browsers actually use to
+    reach the box (e.g. its LAN/public IP) so the cert matches, e.g.
+    -SslCommonName 132.203.190.77.
 
 .PARAMETER LogViewerPort
     Local port OpenObserve (the log viewer) binds to on 127.0.0.1; exposed only
@@ -155,6 +162,7 @@ param(
     [string]$ProxyPort       = '',
     [string]$DocsPort        = '',
     [string]$LogViewerPort   = '',
+    [string]$SslCommonName   = '',
 
     [string]$ServiceUser     = 'LocalSystem',
     [string]$ServicePassword = '',
@@ -593,12 +601,17 @@ if (-not $SkipProxy) {
     Write-Step 'Deploying nginx reverse proxy...'
     $nginxDir = Split-Path -Parent $nginxExe
 
+    $sslCn = if ([string]::IsNullOrWhiteSpace($SslCommonName)) { hostname } else { $SslCommonName }
+    $cert  = New-SelfSignedNginxCert -CertDir (Join-Path $nginxDir 'ssl') -CommonName $sslCn
+
     Write-NginxConf `
         -NginxDir      $nginxDir `
         -ApiPort       $ApiPort `
         -AppPort       $AppPort `
         -ProxyPort     $ProxyPort `
         -LogDir        $LogDir `
+        -CertPath      $cert.CertPath `
+        -KeyPath       $cert.KeyPath `
         -DocsPort      $(if (-not $SkipDocs) { $DocsPort } else { '' }) `
         -LogViewerPort $(if (-not $SkipLogViewer) { $LogViewerPort } else { '' })
 
@@ -609,14 +622,14 @@ if (-not $SkipProxy) {
         -AppParameters   "-p `"$nginxDir`"" `
         -AppDirectory    $nginxDir `
         -DisplayName     "open_datEAUbase Proxy - nginx ($tag)" `
-        -Description     "nginx reverse proxy for open_datEAUbase ($Environment; port $ProxyPort → Streamlit / API)" `
+        -Description     "nginx reverse proxy for open_datEAUbase ($Environment; port $ProxyPort → Streamlit / API, TLS via self-signed cert)" `
         -StdoutLog       (Join-Path $LogDir 'nginx\stdout.log') `
         -StderrLog       (Join-Path $LogDir 'nginx\stderr.log') `
         -ServiceUser     $ServiceUser `
         -ServicePassword $ServicePassword
 
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_PROXY
-    Assert-ServiceHealthy -Url "http://127.0.0.1:$ProxyPort/" -TimeoutSec 15
+    Assert-ServiceHealthy -Url "https://127.0.0.1:$ProxyPort/" -TimeoutSec 15 -SkipCertCheck
 
     # nginx binds 0.0.0.0 so it's reachable on the LAN once the firewall allows
     # it; without this rule the default inbound-block policy only lets
@@ -671,12 +684,12 @@ if (-not $SkipLogViewer) {
 }
 if (-not $SkipProxy) {
     Write-Host ''
-    Write-Host "  Open in browser: http://$(hostname)/" -ForegroundColor Green
+    Write-Host "  Open in browser: https://$(hostname)/ (self-signed cert — browser will warn)" -ForegroundColor Green
     if (-not $SkipDocs) {
-        Write-Host "  Documentation  : http://$(hostname)/docs/" -ForegroundColor Green
+        Write-Host "  Documentation  : https://$(hostname)/docs/" -ForegroundColor Green
     }
     if (-not $SkipLogViewer) {
-        Write-Host "  Inspect logs   : http://$(hostname)/logs/" -ForegroundColor Green
+        Write-Host "  Inspect logs   : https://$(hostname)/logs/" -ForegroundColor Green
     }
 }
 if (-not $SkipImporter) {
