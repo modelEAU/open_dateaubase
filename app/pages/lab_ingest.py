@@ -178,7 +178,12 @@ if "lab_session" not in st.session_state:
 
 
 def _reset_form() -> None:
+    # Keep the last-picked "created by" person across a reset — the email-match
+    # default frequently misses (Person.email isn't tied to the login account),
+    # which otherwise forces re-picking it for every single entry.
+    _last_person_id = st.session_state.lab_session.get("created_by_person_id")
     st.session_state.lab_session = dict(_SESSION_DEFAULTS)
+    st.session_state.lab_session["created_by_person_id"] = _last_person_id
     # Results grid seeds live outside lab_session — purge them too
     # (mirrors binning_axes.py's "Cancel" cleanup).
     for k in list(st.session_state.keys()):
