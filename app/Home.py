@@ -169,13 +169,7 @@ def _onboarding_panel() -> None:
 _pages = Path(__file__).resolve().parent / "pages"  # resolve so st.Page paths are absolute under AppTest
 _user = get_current_user()
 
-if not _user:
-    pg = st.navigation({"": [st.Page(_login, title="Home", icon="🏠")]})
-    pg.run()
-    st.stop()
-
-pg = st.navigation(
-    {
+_nav = {
         "": [
             st.Page(_home, title="Home", icon="🏠"),
         ],
@@ -261,7 +255,22 @@ pg = st.navigation(
             st.Page(str(_pages / "operation_kinds.py"), title="Operation Kinds"),
         ],
     }
-)
+
+if _user:
+    pg = st.navigation(_nav)
+else:
+    # Same URL paths as the authenticated nav (title/icon-derived), all routed
+    # to the login screen, so a browser refresh on any page resolves instead
+    # of hitting Streamlit's native "Page not found" fallback.
+    pg = st.navigation(
+        {
+            section: [
+                st.Page(_login, title=p.title, icon=p.icon or None, url_path=p.url_path or None)
+                for p in pages
+            ]
+            for section, pages in _nav.items()
+        }
+    )
 
 # Persistent sidebar content — added after st.navigation() per Streamlit ≥1.41 requirement
 with st.sidebar:
