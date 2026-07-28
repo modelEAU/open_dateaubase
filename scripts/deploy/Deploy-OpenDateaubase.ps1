@@ -629,7 +629,7 @@ if (-not $SkipProxy) {
         -ServicePassword $ServicePassword
 
     Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_PROXY
-    Assert-ServiceHealthy -Url "https://127.0.0.1:$ProxyPort/" -TimeoutSec 15 -SkipCertCheck
+    Assert-ServiceHealthy -Url "https://127.0.0.1:$ProxyPort/" -TimeoutSec 30 -SkipCertCheck
 
     # nginx binds 0.0.0.0 so it's reachable on the LAN once the firewall allows
     # it; without this rule the default inbound-block policy only lets

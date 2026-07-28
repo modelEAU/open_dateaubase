@@ -412,7 +412,10 @@ function New-SelfSignedNginxCert {
                 [Base64FormattingOptions]::InsertLineBreaks
             ) + "`n-----END CERTIFICATE-----"
 
-        $rsa = $cert.GetRSAPrivateKey()
+        # Called via the extension class explicitly: Windows PowerShell 5.1 does
+        # not resolve GetRSAPrivateKey() as an instance-method call on
+        # X509Certificate2 the way pwsh 7 does.
+        $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
         $keyPem = "-----BEGIN PRIVATE KEY-----`n" +
             [Convert]::ToBase64String(
                 $rsa.ExportPkcs8PrivateKey(),
