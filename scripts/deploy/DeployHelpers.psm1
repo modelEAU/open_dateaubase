@@ -365,11 +365,78 @@ function Install-Nginx {
     return $nginx
 }
 
+function New-SelfSignedNginxCert {
+    <#
+    .SYNOPSIS
+        Generates a self-signed TLS cert (cert.pem + key.pem) for nginx at
+        $CertDir, if one isn't already there.
+    .DESCRIPTION
+        Uses the Windows PKI cmdlets + built-in .NET PEM export only — no
+        openssl or other external tool required. The cert is created in the
+        machine store just long enough to export it, then removed; the PEM
+        files on disk are the only copy nginx (or anyone else) reads.
+        Browsers will show an untrusted-certificate warning for this cert —
+        that's expected for a self-signed staging/internal deployment.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        [string]$CertDir,
+        [Parameter(Mandatory)]
+        [string]$CommonName,
+        [int]$ValidityYears = 5
+    )
+    $certPath = Join-Path $CertDir 'cert.pem'
+    $keyPath  = Join-Path $CertDir 'key.pem'
+
+    if ((Test-Path $certPath) -and (Test-Path $keyPath)) {
+        Write-Step "Self-signed cert already present at $CertDir — reusing." -Success
+        return [pscustomobject]@{ CertPath = $certPath; KeyPath = $keyPath }
+    }
+
+    Write-Step "Generating self-signed cert for '$CommonName' (valid $ValidityYears years)..."
+    New-Item -ItemType Directory -Path $CertDir -Force | Out-Null
+
+    $cert = New-SelfSignedCertificate `
+        -DnsName           $CommonName `
+        -CertStoreLocation 'Cert:\LocalMachine\My' `
+        -KeyExportPolicy   Exportable `
+        -KeyAlgorithm      RSA `
+        -KeyLength         2048 `
+        -NotAfter          (Get-Date).AddYears($ValidityYears) `
+        -FriendlyName      'open_datEAUbase self-signed (nginx)'
+
+    try {
+        $certPem = "-----BEGIN CERTIFICATE-----`n" +
+            [Convert]::ToBase64String(
+                $cert.Export([Security.Cryptography.X509Certificates.X509ContentType]::Cert),
+                [Base64FormattingOptions]::InsertLineBreaks
+            ) + "`n-----END CERTIFICATE-----"
+
+        $rsa = $cert.GetRSAPrivateKey()
+        $keyPem = "-----BEGIN PRIVATE KEY-----`n" +
+            [Convert]::ToBase64String(
+                $rsa.ExportPkcs8PrivateKey(),
+                [Base64FormattingOptions]::InsertLineBreaks
+            ) + "`n-----END PRIVATE KEY-----"
+
+        Set-Content -Path $certPath -Value $certPem -Encoding ASCII
+        Set-Content -Path $keyPath  -Value $keyPem  -Encoding ASCII
+    } finally {
+        # Exportable private key shouldn't linger in the machine store once
+        # it's on disk as key.pem.
+        Remove-Item -Path "Cert:\LocalMachine\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
+    }
+
+    Write-Step "Self-signed cert written to $CertDir." -Success
+    return [pscustomobject]@{ CertPath = $certPath; KeyPath = $keyPath }
+}
+
 function Write-NginxConf {
     <#
     .SYNOPSIS
         Generates nginx.conf pointing logs to $LogDir\nginx\ and writing
-        WebSocket-aware proxy rules for the Streamlit app and FastAPI.
+        WebSocket-aware proxy rules for the Streamlit app and FastAPI, with the
+        public server block terminating TLS via a self-signed cert.
     #>
     param(
         [string]$NginxDir,
@@ -377,11 +444,17 @@ function Write-NginxConf {
         [string]$AppPort,
         [string]$ProxyPort,
         [string]$LogDir,
+        [Parameter(Mandatory)]
+        [string]$CertPath,
+        [Parameter(Mandatory)]
+        [string]$KeyPath,
         [string]$LogViewerPort = '',
         [string]$DocsPort = ''
     )
     # nginx requires forward slashes in paths
-    $logDirFwd = $LogDir.Replace('\', '/')
+    $logDirFwd  = $LogDir.Replace('\', '/')
+    $certPathFwd = $CertPath.Replace('\', '/')
+    $keyPathFwd  = $KeyPath.Replace('\', '/')
 
     # Optional MkDocs site (mkdocs serve), exposed under /docs/. The trailing
     # slash on proxy_pass strips the /docs/ prefix because mkdocs serves at root.
@@ -458,9 +531,14 @@ http {
     access_log  $logDirFwd/nginx/access.log perf_json;
     error_log   $logDirFwd/nginx/error.log;
 
-    # Streamlit app -- WebSocket upgrade required for live reactivity
+    # Streamlit app -- WebSocket upgrade required for live reactivity.
+    # TLS-terminated with a self-signed cert (see New-SelfSignedNginxCert) —
+    # browsers show an untrusted-certificate warning, which is expected.
     server {
-        listen $ProxyPort;
+        listen $ProxyPort ssl;
+
+        ssl_certificate     $certPathFwd;
+        ssl_certificate_key $keyPathFwd;
 
         location / {
             proxy_pass         http://127.0.0.1:$AppPort;
@@ -1027,12 +1105,22 @@ function Remove-AppFirewallRule {
 # ---------------------------------------------------------------------------
 
 function Test-HttpEndpoint {
-    param([string]$Url, [int]$TimeoutSec = 10)
+    param([string]$Url, [int]$TimeoutSec = 10, [switch]$SkipCertCheck)
+    # Self-signed proxy cert: the deploy script's own health probe needs to
+    # accept it. Scoped to this call only, restored in `finally` either way.
+    $prevCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
+    if ($SkipCertCheck) {
+        [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+    }
     try {
         $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
         return ($response.StatusCode -eq 200)
     } catch {
         return $false
+    } finally {
+        if ($SkipCertCheck) {
+            [Net.ServicePointManager]::ServerCertificateValidationCallback = $prevCallback
+        }
     }
 }
 
@@ -1040,12 +1128,13 @@ function Assert-ServiceHealthy {
     param(
         [string]$Url,
         [int]$TimeoutSec  = 30,
-        [int]$RetryDelaySec = 3
+        [int]$RetryDelaySec = 3,
+        [switch]$SkipCertCheck
     )
     Write-Step "Health-checking $Url (up to ${TimeoutSec}s)..."
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
     while ((Get-Date) -lt $deadline) {
-        if (Test-HttpEndpoint -Url $Url -TimeoutSec 5) {
+        if (Test-HttpEndpoint -Url $Url -TimeoutSec 5 -SkipCertCheck:$SkipCertCheck) {
             Write-Step "$Url responded HTTP 200." -Success
             return
         }
