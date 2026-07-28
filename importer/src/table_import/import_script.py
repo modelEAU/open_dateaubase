@@ -476,13 +476,13 @@ def main(settings: config.Config, dry_run: bool = False) -> None:
         # Vector file sources
         # ------------------------------------------------------------------
         for vec_cfg in settings.vector_file_configs:
-            _ingest_vector_source(client, vec_cfg, min_unix_ts, dry_run)
+            _ingest_vector_source(client, vec_cfg, min_unix_ts, dry_run, api_conf.min_timestamp)
 
         # ------------------------------------------------------------------
         # Image folder sources
         # ------------------------------------------------------------------
         for img_cfg in settings.image_folder_configs:
-            _ingest_image_source(client, img_cfg, min_unix_ts, dry_run)
+            _ingest_image_source(client, img_cfg, min_unix_ts, dry_run, api_conf.min_timestamp)
 
         # ------------------------------------------------------------------
         # Matrix file sources (stub — not yet implemented)
@@ -499,6 +499,7 @@ def _ingest_vector_source(
     vec_cfg: config.TaggedVectorFileConfig | config.TaglessVectorFileConfig,
     min_unix_ts: float | None,
     dry_run: bool,
+    wiring_valid_from: str | None = None,
 ) -> None:
     """Process all variables in a tagged or tagless vector file config."""
     mode = vec_cfg.mode
@@ -539,7 +540,7 @@ def _ingest_vector_source(
                 processing_degree_id=variable.processing_degree_id,
                 value_type_id=2,
                 signal_interface_name=vec_cfg.signal_interface_name,
-                wiring_valid_from=api_conf.min_timestamp,
+                wiring_valid_from=wiring_valid_from,
             )
         for w in ch_warnings:
             print(f"[WARNING] {label}: {w}")
@@ -641,6 +642,7 @@ def _ingest_image_source(
     img_cfg: config.TaggedImageFolderConfig | config.TaglessImageFolderConfig,
     min_unix_ts: float | None,
     dry_run: bool,
+    wiring_valid_from: str | None = None,
 ) -> None:
     """Process all variables in a tagged or tagless image folder config."""
     mode = img_cfg.mode
@@ -672,7 +674,7 @@ def _ingest_image_source(
                 processing_degree_id=variable.processing_degree_id,
                 value_type_id=4,
                 signal_interface_name=img_cfg.signal_interface_name,
-                wiring_valid_from=api_conf.min_timestamp,
+                wiring_valid_from=wiring_valid_from,
             )
         for w in warnings:
             print(f"[WARNING] {label}: {w}")

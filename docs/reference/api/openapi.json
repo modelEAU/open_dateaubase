@@ -18747,6 +18747,17 @@
             ],
             "title": "Equipment Name"
           },
+          "signal_interface_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Interface Name"
+          },
           "channel_kind": {
             "type": "string",
             "title": "Channel Kind",
@@ -21152,6 +21163,17 @@
               }
             ],
             "title": "Valid To"
+          },
+          "equipment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Id"
           },
           "equipment_identifier": {
             "anyOf": [
@@ -24950,6 +24972,31 @@
         ],
         "title": "ParameterUnitOut"
       },
+      "PedigreeNodeOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "PedigreeNodeOut",
+        "description": "A named thing a recording can be pinned to (ADR-0006 arc target)."
+      },
       "PersonIn": {
         "properties": {
           "first_name": {
@@ -28276,6 +28323,26 @@
             ],
             "title": "Label"
           },
+          "signal_interface": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PedigreeNodeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_acquisition_system": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PedigreeNodeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "deployments": {
             "items": {
               "$ref": "#/components/schemas/DeploymentSegmentOut"
@@ -28402,6 +28469,10 @@
             "type": "string",
             "title": "Unit Name"
           },
+          "signal_interface_name": {
+            "type": "string",
+            "title": "Signal Interface Name"
+          },
           "data_provenance_kind_id": {
             "type": "integer",
             "title": "Data Provenance Kind Id",
@@ -28430,7 +28501,8 @@
           "das_name",
           "equipment_name",
           "parameter_name",
-          "unit_name"
+          "unit_name",
+          "signal_interface_name"
         ],
         "title": "TaglessSensorChannelResolveRequest",
         "description": "Resolve (or create) a tagless sensor channel. Returns channel_id with no data write."
@@ -28452,6 +28524,10 @@
           "unit_name": {
             "type": "string",
             "title": "Unit Name"
+          },
+          "signal_interface_name": {
+            "type": "string",
+            "title": "Signal Interface Name"
           },
           "data_provenance_kind_id": {
             "type": "integer",
@@ -28477,10 +28553,11 @@
           "equipment_name",
           "parameter_name",
           "unit_name",
+          "signal_interface_name",
           "values"
         ],
         "title": "TaglessSensorIngestRequest",
-        "description": "Ingest raw sensor data from a direct-connect station (no SCADA tag name).\n\nA synthetic tag is auto-generated as\n``\"{equipment_name}/{parameter_name}\"`` (lowercased, trimmed).\nThis tag is deterministic and stable across repeated runs."
+        "description": "Ingest raw sensor data from a direct-connect station (no SCADA tag name).\n\n``signal_interface_name`` is the config-declared identity of the physical/logical\nconnection point (e.g. matching a label on the DAS). It is authoritative \u2014 the\nChannel's tag is still auto-generated as ``\"{equipment_name}/{parameter_name}\"``\n(lowercased, trimmed) to disambiguate multiple parameters under one interface."
       },
       "TaglessVectorSensorIngestRequest": {
         "properties": {
@@ -28499,6 +28576,10 @@
           "unit_name": {
             "type": "string",
             "title": "Unit Name"
+          },
+          "signal_interface_name": {
+            "type": "string",
+            "title": "Signal Interface Name"
           },
           "binning_axis_id": {
             "type": "integer",
@@ -28528,6 +28609,7 @@
           "equipment_name",
           "parameter_name",
           "unit_name",
+          "signal_interface_name",
           "binning_axis_id",
           "observations"
         ],

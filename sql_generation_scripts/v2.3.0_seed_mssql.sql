@@ -1,6 +1,6 @@
 -- Seed data for schema v2.3.0
 -- Platform: mssql
--- Generated: 2026-07-14 20:56:22 UTC
+-- Generated: 2026-07-16 12:13:01 UTC
 -- AnnotationKind
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (4, N'Anomaly', N'Unexplained behaviour — something happened here that no known event accounts for', N'#FF69B4');
 INSERT INTO [dbo].[AnnotationKind] ([AnnotationKind_ID], [Name], [Description], [Color]) VALUES (7, N'Data Quality', N'Suspect data quality (drift, fouling); cite the Event that caused it if known', N'#AA44FF');
@@ -159,6 +159,10 @@ INSERT INTO [dbo].[SampleMaterialKind] ([SampleMaterialKind_ID], [Name], [Descri
 INSERT INTO [dbo].[SampleMaterialKind] ([SampleMaterialKind_ID], [Name], [Description]) VALUES (24, N'nanofiltered water', N'Water treated by nanofiltration');
 INSERT INTO [dbo].[SampleMaterialKind] ([SampleMaterialKind_ID], [Name], [Description]) VALUES (25, N'ultrafiltered water', N'Water treated by ultrafiltration');
 SET IDENTITY_INSERT [dbo].[SampleMaterialKind] OFF;
+-- SchemaVersion
+SET IDENTITY_INSERT [dbo].[SchemaVersion] ON;
+INSERT INTO [dbo].[SchemaVersion] ([Version], [Description]) VALUES (N'2.0.0', N'Initial public release. Complete redesign of the signal interface, annotation model, lab observation model, and deployment trace concept. Breaking change from v1.x — no migration provided; fresh install only.');
+SET IDENTITY_INSERT [dbo].[SchemaVersion] OFF;
 -- SiteKind
 SET IDENTITY_INSERT [dbo].[SiteKind] ON;
 INSERT INTO [dbo].[SiteKind] ([SiteKind_ID], [Name], [Description]) VALUES (1, N'Municipal Wastewater Treatment Plant', N'Municipal or industrial facility treating wastewater before discharge');

@@ -144,6 +144,20 @@ $MigrationCatalogue = @(
         Script         = 'migrations\v2.0.0_to_v2.1.0_mssql.sql'
         Description    = 'Migration v2.0.0 → v2.1.0'
         RollbackScript = 'migrations\v2.0.0_to_v2.1.0_mssql_rollback.sql'
+    },
+    @{
+        From           = '2.1.0'
+        To             = '2.2.0'
+        Script         = 'migrations\v2.1.0_to_v2.2.0_mssql.sql'
+        Description    = 'Migration v2.1.0 → v2.2.0'
+        RollbackScript = 'migrations\v2.1.0_to_v2.2.0_mssql_rollback.sql'
+    },
+    @{
+        From           = '2.2.0'
+        To             = '2.3.0'
+        Script         = 'migrations\v2.2.0_to_v2.3.0_mssql.sql'
+        Description    = 'Migration v2.2.0 → v2.3.0'
+        RollbackScript = 'migrations\v2.2.0_to_v2.3.0_mssql_rollback.sql'
     }
 )
 
