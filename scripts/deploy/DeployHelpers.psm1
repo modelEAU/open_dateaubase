@@ -435,6 +435,10 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
 
+    # nginx defaults to 1M, which rejects real phone photos (lab image
+    # uploads) with a bare 413 before Streamlit/FastAPI ever see the request.
+    client_max_body_size 25M;
+
     # JSON access log with request/upstream timing, ingested by Vector ->
     # OpenObserve for the performance dashboard. upstream_* fields are quoted
     # because nginx writes '-' (or comma-joined values) when there's no upstream.
