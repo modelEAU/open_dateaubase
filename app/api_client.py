@@ -845,6 +845,11 @@ def create_sample(data: dict) -> dict:
     return _request("POST", "/ingest/samples", json=data)
 
 
+def create_samples(samples: list[dict]) -> dict:
+    """Create many samples at once and return sample_ids, in the order given."""
+    return _request("POST", "/ingest/samples/batch", json={"samples": samples})
+
+
 # ---------------------------------------------------------------------------
 # Value Binning Axes
 # ---------------------------------------------------------------------------

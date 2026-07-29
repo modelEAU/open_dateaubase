@@ -736,6 +736,54 @@ def insert_sample(
     return new_id
 
 
+def insert_samples(conn: pyodbc.Connection, samples: list[dict]) -> list[int]:
+    """Insert many Sample rows in one transaction. Returns their IDs, in order.
+
+    Samples repeating an identity within the batch are inserted once and share
+    the returned ID — several source rows may describe one physical sample. An
+    identity already on record is *not* reused: UQ_Sample_Identity rejects it,
+    nothing is committed, and the whole batch fails, which is what stops a
+    sheet being imported twice.
+    """
+    cursor = conn.cursor()
+    ids: list[int] = []
+    seen: dict[tuple, int] = {}
+    for s in samples:
+        key = (
+            s["sampling_point_id"],
+            s["sample_datetime_start"],
+            s.get("sample_kind_id"),
+            s.get("replicate", 1),
+        )
+        if key not in seen:
+            cursor.execute(
+                """
+                INSERT INTO [dbo].[Sample]
+                    ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID],
+                     [SampleDateTimeStart], [SampleDateTimeEnd],
+                     [SampleCollectionKind_ID], [SampleKind_ID], [SampleMaterialKind_ID],
+                     [SampleEquipment_ID], [Replicate], [Description])
+                OUTPUT INSERTED.[Sample_ID]
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                s["sampling_point_id"],
+                s.get("sampled_by_person_id"),
+                s.get("campaign_id"),
+                s["sample_datetime_start"],
+                s.get("sample_datetime_end"),
+                s.get("sample_collection_kind_id"),
+                s.get("sample_kind_id"),
+                s.get("sample_material_kind_id"),
+                s.get("sample_equipment_id"),
+                s.get("replicate", 1),
+                s.get("description"),
+            )
+            seen[key] = int(cursor.fetchone()[0])
+        ids.append(seen[key])
+    conn.commit()
+    return ids
+
+
 # ---------------------------------------------------------------------------
 # Lab experiment / series / template lookups
 # ---------------------------------------------------------------------------

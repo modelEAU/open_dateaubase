@@ -275,6 +275,18 @@ class SampleCreateResponse(BaseModel):
     sample_id: int
 
 
+class SampleBatchCreateRequest(BaseModel):
+    """Request to create a whole import's samples in one round trip."""
+
+    samples: list[SampleCreateRequest]
+
+
+class SampleBatchCreateResponse(BaseModel):
+    """The sample IDs, positionally matching the requested samples."""
+
+    sample_ids: list[int]
+
+
 class VectorObservation(BaseModel):
     timestamp: datetime
     bin_values: list[float | None]  # length must equal axis.number_of_bins

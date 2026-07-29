@@ -38,6 +38,8 @@ from ..schemas.ingestion import (
     MatrixSensorIngestRequest,
     ProcessedIngestRequest,
     SampleCreateRequest,
+    SampleBatchCreateRequest,
+    SampleBatchCreateResponse,
     SampleCreateResponse,
     SensorChannelResolveRequest,
     SensorIngestRequest,
@@ -1276,3 +1278,17 @@ def create_sample(data: SampleCreateRequest, conn=Depends(get_db)):
         description=data.description,
     )
     return SampleCreateResponse(sample_id=sample_id)
+
+
+@router.post("/samples/batch", response_model=SampleBatchCreateResponse, status_code=201)
+def create_samples(data: SampleBatchCreateRequest, conn=Depends(get_db)):
+    """Create a whole import's samples at once, returning their IDs in order.
+
+    All or nothing: one repeated sample identity fails the batch with 409 and
+    writes nothing. Repeats *within* the batch are one sample, sharing an ID,
+    because several source rows may describe one physical sample.
+    """
+    ids = ingestion_repository.insert_samples(
+        conn, [s.model_dump() for s in data.samples]
+    )
+    return SampleBatchCreateResponse(sample_ids=ids)
