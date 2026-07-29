@@ -2,7 +2,10 @@
 
 Upload a workbook, pick a sheet, click the row holding your column names and
 the first row of real data. Everything between is skipped. The cleaned block
-renders beside the raw sheet and its cells are editable.
+renders beside the raw sheet and its cells are editable. Each column is then
+mapped — in the vocabulary of the user's own work — from a field catalogue
+derived from the ingest payload schemas, keyed by column index so repeated
+header names stay independent.
 """
 
 from __future__ import annotations
@@ -18,7 +21,16 @@ if _project_root not in sys.path:
 import pandas as pd
 import streamlit as st
 
+from app.components.column_mapping import (
+    IGNORE,
+    empty_spec,
+    mapping_frame,
+    missing_required,
+    spec_from_frame,
+    validate,
+)
 from app.components.datetime_parse import FORMAT_PRESETS, detect_format, parse_values, to_utc
+from app.components.field_catalogue import GROUPS, catalogue
 from app.components.sheet_block import SheetBlock, extract_block, read_grids
 from app.components.timezone_select import timezone_selector
 
@@ -106,7 +118,84 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
                 else "No column holds native datetimes."
             )
         )
+        _mapping_section(sheet, block)
         _datetime_section(sheet, block, edited_indexed)
+
+
+def _mapping_section(sheet: str, block: SheetBlock) -> None:
+    """One row per column: what the column holds, keyed by column index."""
+    st.divider()
+    st.subheader("🧭 Map the columns")
+    cat = catalogue()
+    spec_key = f"sheet_mapping::{sheet}"
+    spec = st.session_state.get(spec_key)
+    if spec is None or tuple(m.column for m in spec.mappings) != block.columns:
+        spec = empty_spec(block)  # first visit, or the block was re-pointed
+    edited = st.data_editor(
+        mapping_frame(block, cat, spec),
+        key=f"sheet_map::{sheet}",
+        disabled=["Header", "Banner"],
+        column_config={
+            "Header": st.column_config.TextColumn(
+                "Header", help="The column's header, collapsed to one line."
+            ),
+            "Banner": st.column_config.TextColumn(
+                "Banner",
+                help="The grouping banners above this column, forward-filled "
+                "from the rows above the header. Read-only context — this is "
+                "how repeated headers are told apart.",
+            ),
+            "Maps to": st.column_config.SelectboxColumn(
+                "Maps to",
+                options=[IGNORE, *cat.option_labels()],
+                help="What this column holds, in the vocabulary of your work. "
+                "Every column starts ignored.",
+                width="large",
+            ),
+        },
+        height=400,
+    )
+    spec = spec_from_frame(block, cat, edited)
+    st.session_state[spec_key] = spec
+
+    for error in validate(spec, block, cat):
+        st.warning(error.message)
+    if spec.mapped():
+        missing = missing_required(spec, cat)
+        if missing:
+            st.caption(
+                "Still needed before this can import: "
+                + ", ".join(f.label for f in missing)
+                + "."
+            )
+    else:
+        st.caption(
+            "Every column is ignored — pick what each column holds above. "
+            "Columns you leave ignored are simply not imported."
+        )
+    _catalogue_browser(cat)
+
+
+def _catalogue_browser(cat) -> None:
+    """The full field vocabulary, grouped by activity — scope shown, never editable."""
+    with st.expander("📖 Field catalogue — everything the import accepts"):
+        st.caption(
+            "Grouped by what you did, not by which table a field lives in. "
+            "The scope — file, row or measurement — is a property of the "
+            "field, never something you choose."
+        )
+        for group in GROUPS:
+            st.markdown(f"**{group}**")
+            for f in cat.in_group(group):
+                line = (
+                    f"- **{f.label}** — `{f.ref}` · {f.scope} scope"
+                    + (" · required" if f.required else "")
+                )
+                if f.fk_table:
+                    line += f" · picks from {f.fk_table}"
+                st.markdown(line)
+                if f.help:
+                    st.caption(f.help)
 
 
 def _show(moment) -> str:
