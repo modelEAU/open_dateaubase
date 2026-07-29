@@ -18,7 +18,12 @@ if _project_root not in sys.path:
 import pandas as pd
 import streamlit as st
 
-from app.components.sheet_block import extract_block, read_grids
+from app.components.datetime_parse import FORMAT_PRESETS, detect_format, parse_values, to_utc
+from app.components.sheet_block import SheetBlock, extract_block, read_grids
+from app.components.timezone_select import timezone_selector
+
+_CUSTOM = "Custom…"
+_CHOOSE = "— choose a format —"
 
 
 @st.cache_data(show_spinner="Reading the file…")
@@ -90,9 +95,8 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
             key=f"sheet_clean::{sheet}",
             height=400,
         )
-        st.session_state[f"sheet_block::{sheet}"] = edited.set_axis(
-            list(block.columns), axis=1
-        )
+        edited_indexed = edited.set_axis(list(block.columns), axis=1)
+        st.session_state[f"sheet_block::{sheet}"] = edited_indexed
         native = sorted(block.datetime_columns)
         st.caption(
             f"{len(edited)} rows × {len(block.columns)} columns. "
@@ -102,6 +106,113 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
                 else "No column holds native datetimes."
             )
         )
+        _datetime_section(sheet, block, edited_indexed)
+
+
+def _show(moment) -> str:
+    """A timestamp for the preview table, or a dash when there is none."""
+    return "—" if pd.isna(moment) else moment.strftime("%Y-%m-%d %H:%M")
+
+
+def _datetime_section(sheet: str, block: SheetBlock, data: pd.DataFrame) -> None:
+    """Timezone, format and dual local/UTC preview for one date/time column."""
+    st.divider()
+    st.subheader("🕒 Dates & times")
+    tz = timezone_selector(
+        key=f"sheet_tz::{sheet}",
+        label="File timezone",
+        help="The timezone the file's times are written in. Parsed times preview "
+        "below in both this zone and UTC, so a wrong pick is visible immediately.",
+    )
+    columns = list(block.columns)
+    labels = block.labels()
+    native_first = sorted(
+        columns, key=lambda c: (c not in block.datetime_columns, columns.index(c))
+    )
+    column = st.selectbox(
+        "Date/time column",
+        options=native_first,
+        format_func=lambda c: labels[columns.index(c)],
+        key=f"sheet_dt_col::{sheet}",
+        help="Which column holds each row's date/time. Columns already holding "
+        "real dates sort first. Only one column previews at a time.",
+    )
+    values = data[column]
+
+    if column in block.datetime_columns:
+        st.info(
+            "This column already holds real dates/times from the spreadsheet, so "
+            "there is no format to choose — they are read as wall-clock times in "
+            "the file timezone above."
+        )
+        parsed = parse_values(values, None)
+    else:
+        detection = detect_format(values)
+        if detection.format is not None:
+            st.success(f"Detected format: {detection.label}")
+        else:
+            st.warning("The date format cannot be told from the data — choose one yourself.")
+        for line in detection.evidence:
+            st.markdown(f"- {line}")
+        options = [*FORMAT_PRESETS, _CUSTOM]
+        if detection.label is not None:
+            index = options.index(detection.label)
+        else:
+            options = [_CHOOSE, *options]
+            index = 0
+        choice = st.selectbox(
+            "Date format",
+            options=options,
+            index=index,
+            key=f"sheet_dt_fmt::{sheet}::{column}",
+            help="How day, month and year are ordered in this column. Detection "
+            "proposes a format when the evidence is clear and refuses when it "
+            "is not — it never guesses.",
+        )
+        if choice == _CHOOSE:
+            st.info("Choose a format to see the parsed times. Nothing is parsed until you do.")
+            return
+        if choice == _CUSTOM:
+            fmt = st.text_input(
+                "Custom format (strptime)",
+                key=f"sheet_dt_custom::{sheet}::{column}",
+                placeholder="%d/%m/%Y %H:%M",
+                help="A Python strptime string, e.g. %d.%m.%Y %H:%M reads "
+                "03.04.2026 14:30.",
+            )
+            if not fmt.strip():
+                st.info("Enter a format to see the parsed times.")
+                return
+        else:
+            fmt = FORMAT_PRESETS[choice]
+        parsed = parse_values(values, fmt)
+
+    if parsed.failures:
+        st.warning(
+            f"{len(parsed.failures)} value(s) would not parse — listed here, never "
+            "dropped. Fix them in the cleaned table above or pick another format."
+        )
+        st.dataframe(
+            pd.DataFrame(parsed.failures[:50], columns=["row", "value"]),
+            hide_index=True,
+        )
+    utc = to_utc(parsed.wall_clock, tz)
+    rows = list(values.index[:8])
+    st.caption(
+        f"First {len(rows)} of {len(values)} rows — wall-clock time in the file "
+        "zone, and the UTC instant it becomes:"
+    )
+    st.dataframe(
+        pd.DataFrame(
+            {
+                "row": rows,
+                "value": [str(values.loc[row]) for row in rows],
+                f"local ({tz.key})": [_show(parsed.wall_clock.loc[row]) for row in rows],
+                "UTC": [_show(utc.loc[row]) for row in rows],
+            }
+        ),
+        hide_index=True,
+    )
 
 
 def sheet_import_page() -> None:

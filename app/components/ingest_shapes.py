@@ -27,33 +27,12 @@ from typing import Any, Literal
 
 import pandas as pd
 import streamlit as st
-import tzlocal
-
-try:
-    import zoneinfo
-except ImportError:
-    from backports import zoneinfo  # type: ignore[no-retype]
-
-_KNOWN_TIMEZONES = sorted(zoneinfo.available_timezones())
-
-
-def _timezone_selector(key: str, label: str = "CSV timezone", help: str | None = None) -> zoneinfo.ZoneInfo:
-    """Render a timezone selectbox pre-filled with the browser's local timezone.
-    Returns the selected zoneinfo.ZoneInfo for timestamp localization."""
-    local_tz_name = tzlocal.get_localzone_name() or "UTC"
-    selected_tz_name = st.selectbox(
-        label,
-        options=_KNOWN_TIMEZONES,
-        index=_KNOWN_TIMEZONES.index(local_tz_name) if local_tz_name in _KNOWN_TIMEZONES else _KNOWN_TIMEZONES.index("UTC"),
-        key=key,
-        help=help or "Timezone of the timestamps in your data. They will be converted to UTC on submit.",
-    )
-    return zoneinfo.ZoneInfo(selected_tz_name)
 
 from app.api_client import APIError, list_model_parameters
 from app.components.kind_select import kind_options, select_or_none
 from app.components.param_unit import units_for_parameter
 from app.components.schema_registry import describe
+from app.components.timezone_select import timezone_selector
 
 Context = Literal["sensor", "lab"]
 
@@ -434,7 +413,7 @@ def scalar_ingest_block(
             st.session_state[last_raw_key] = scalar_raw_csv
 
     # Timezone selector for CSV data (entries may be in local time)
-    source_tz = _timezone_selector(
+    source_tz = timezone_selector(
         key=f"{key_prefix}_csv_timezone",
         label="CSV timezone",
     )
@@ -819,7 +798,7 @@ def vector_ingest_block(
     st.markdown("---")
 
     # Timezone selector for CSV data
-    source_tz = _timezone_selector(
+    source_tz = timezone_selector(
         key=f"{key_prefix}_csv_timezone",
         label="CSV timezone",
     )
@@ -1230,7 +1209,7 @@ def matrix_ingest_block(
 
     st.markdown("---")
 
-    source_tz = _timezone_selector(
+    source_tz = timezone_selector(
         key=f"{key_prefix}_csv_timezone",
         label="CSV timezone",
     )
@@ -1452,7 +1431,7 @@ def image_ingest_block(
             )
         col_tz1, col_tz2 = st.columns([1, 3])
         with col_tz1:
-            img_source_tz = _timezone_selector(
+            img_source_tz = timezone_selector(
                 key=f"{key_prefix}_timezone",
                 label="Timezone",
                 help="Timezone of the measurement time above. It will be converted to UTC on submit.",
