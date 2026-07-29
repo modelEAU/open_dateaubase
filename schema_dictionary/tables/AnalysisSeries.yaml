@@ -10,8 +10,10 @@ table:
     One AnalysisSeries row represents the conceptual stream of "Parameter X
     measured at SamplingPoint Y producing ValueKind W in Unit U"
     (e.g. "TSS at Effluent in mg/L"). All LabAnalyses measuring the same
-    parameter at the same location with the same value kind share one
-    Stream_ID, giving lab data a queryable time-series identity.
+    parameter at the same location with the same value kind, produced by the
+    same laboratory, share one Stream_ID, giving lab data a queryable
+    time-series identity. Laboratory is part of that identity: results from
+    two laboratories are not interchangeable, so they form two series.
 
     Unlike Channel — which intentionally excludes sampling location from its
     identity because location is inferred at query time via
@@ -81,6 +83,18 @@ table:
         table: Unit
         column: Unit_ID
 
+    - name: Laboratory_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        Laboratory that produces this series. Part of series identity: two
+        laboratories measuring the same parameter at the same sampling point
+        are two separate series, because their results are not interchangeable.
+        NULL means the producing laboratory is unrecorded.
+      foreign_key:
+        table: Laboratory
+        column: Laboratory_ID
+
     - name: Campaign_ID
       logical_type: integer
       nullable: true
@@ -98,4 +112,4 @@ table:
   primary_key: [Stream_ID]
   unique_constraints:
     - name: UQ_AnalysisSeries_Identity
-      columns: [Parameter_ID, SamplingPoint_ID, ValueKind_ID]
+      columns: [Parameter_ID, SamplingPoint_ID, ValueKind_ID, Laboratory_ID]

@@ -76,6 +76,14 @@ table:
       foreign_key:
         table: Equipment
         column: Equipment_ID
+    - name: Replicate
+      logical_type: integer
+      nullable: false
+      default: 1
+      description: >
+        Field replicate number (1 = the primary sample, 2+ = further samples
+        taken at the same point and time). Distinct from LabAnalysis.Replicate,
+        which counts repeat analyses of one physical sample.
     - name: Description
       logical_type: string
       max_length: 500
@@ -83,3 +91,16 @@ table:
       description: "Additional notes about the sample"
 
   primary_key: [Sample_ID]
+  unique_constraints:
+    # NULL-equality semantics of a MSSQL UNIQUE constraint are what make this
+    # work: two aliquots of the same parent are distinct rows, while two
+    # re-imports of the same field sample (both ParentSample_ID NULL) collide.
+    - name: UQ_Sample_Identity
+      columns:
+        [
+          SamplingPoint_ID,
+          SampleDateTimeStart,
+          SampleKind_ID,
+          Replicate,
+          ParentSample_ID,
+        ]

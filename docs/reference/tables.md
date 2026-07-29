@@ -10,7 +10,7 @@ This documentation is auto-generated from dictionary.json.
 
 ### AnalysisSeries
 
-Stable stream identity for lab measurements — the lab subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each AnalysisSeries owns exactly one Stream row carrying this same identifier. One AnalysisSeries row represents the conceptual stream of "Parameter X measured at SamplingPoint Y producing ValueKind W in Unit U" (e.g. "TSS at Effluent in mg/L"). All LabAnalyses measuring the same parameter at the same location with the same value kind share one Stream_ID, giving lab data a queryable time-series identity.
+Stable stream identity for lab measurements — the lab subtype of Stream (table-per-type inheritance): it shares Stream_ID as its own primary key, which is simultaneously a foreign key to Stream.Stream_ID. Each AnalysisSeries owns exactly one Stream row carrying this same identifier. One AnalysisSeries row represents the conceptual stream of "Parameter X measured at SamplingPoint Y producing ValueKind W in Unit U" (e.g. "TSS at Effluent in mg/L"). All LabAnalyses measuring the same parameter at the same location with the same value kind, produced by the same laboratory, share one Stream_ID, giving lab data a queryable time-series identity. Laboratory is part of that identity: results from two laboratories are not interchangeable, so they form two series.
 Unlike Channel — which intentionally excludes sampling location from its identity because location is inferred at query time via EquipmentLocationHistory — AnalysisSeries includes SamplingPoint_ID as explicit identity, because lab samples always have a known origin and "TSS at Influent" must be a different series from "TSS at Effluent".
 Review status is a point-level attribute on LabAnalysis (added in a later slice), not part of series identity: all measurements of the same parameter at the same location share one AnalysisSeries regardless of review state.
 
@@ -28,6 +28,8 @@ Review status is a point-level attribute on LabAnalysis (added in a later slice)
 | ValueKind_ID | INT | - | ✓ | <span id="ValueKind_ID"></span>Shape of stored values (1=Scalar, 2=Vector, 3=Matrix, 4=Image) | FK → [ValueKind.ValueKind_ID](#ValueKind)<br>Default: `1` |
 | Unit_ID | INT | - | ✓ | <span id="Unit_ID"></span>Unit of measurement for values in this series (e.g. mg/L). Treated as immutable for the lifetime of the series — a unit change requires a new AnalysisSeries row. Excluded from the uniqueness constraint because unit choice is a property of the series rather than part of its identity; two series with the same parameter / location / value kind cannot legitimately differ only by unit.
  | FK → [Unit.Unit_ID](#Unit) |
+| Laboratory_ID | INT | - |  | <span id="Laboratory_ID"></span>Laboratory that produces this series. Part of series identity: two laboratories measuring the same parameter at the same sampling point are two separate series, because their results are not interchangeable. NULL means the producing laboratory is unrecorded.
+ | FK → [Laboratory.Laboratory_ID](#Laboratory) |
 | Campaign_ID | INT | - |  | <span id="Campaign_ID"></span>Campaign this series belongs to; scopes the series to a specific monitoring campaign | FK → [Campaign.Campaign_ID](#Campaign) |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Free-text notes about this analysis series | - |
 
@@ -1044,6 +1046,8 @@ A discrete physical sample collected at a sampling location or prepared in a lab
 | SampleDateTimeEnd | DATETIME2(7) | - |  | <span id="SampleDateTimeEnd"></span>Date and time sampling ended (UTC). NULL for instantaneous grab samples. | - |
 | SampleCollectionKind_ID | INT | - |  | <span id="SampleCollectionKind_ID"></span>Method of sample collection (FK to SampleCollectionKind lookup table) | FK → [SampleCollectionKind.SampleCollectionKind_ID](#SampleCollectionKind) |
 | SampleEquipment_ID | INT | - |  | <span id="SampleEquipment_ID"></span>Equipment used to collect the sample (e.g., auto-sampler) | FK → [Equipment.Equipment_ID](#Equipment) |
+| Replicate | INT | - | ✓ | <span id="Replicate"></span>Field replicate number (1 = the primary sample, 2+ = further samples taken at the same point and time). Distinct from LabAnalysis.Replicate, which counts repeat analyses of one physical sample.
+ | Default: `1` |
 | Description | NVARCHAR(500) | - |  | <span id="Description"></span>Additional notes about the sample | - |
 
 <span id="SampleCollectionKind"></span>

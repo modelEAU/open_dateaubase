@@ -1,9 +1,10 @@
-schema_version: "2.3.0"
+schema_version: "2.4.0"
 description: >
-  Retires the six cause-named AnnotationKinds (Fault, Maintenance, Calibration
-  Period, Experiment, Process Event, Equipment Relocation), leaving five verdicts
-  about the data: Anomaly, Data Quality, Note, Exclusion, Confirmed. Causes belong
-  in EventKind; an annotation names what is wrong with the data, never why. See
-  ADR-0007 and migrations/v2.2.0_to_v2.3.0_mssql.sql, which remaps existing rows
-  onto a survivor before deleting the retired kinds.
-date: "2026-07-14"
+  PRD 7 slice 1. Sample gains a field Replicate (INT NOT NULL DEFAULT 1, distinct
+  from the analytical LabAnalysis.Replicate) and UQ_Sample_Identity over
+  (SamplingPoint_ID, SampleDateTimeStart, SampleKind_ID, Replicate,
+  ParentSample_ID), so re-imports are rejected while aliquots, blanks, standards
+  and genuine field replicates stay legal. AnalysisSeries gains a nullable
+  Laboratory_ID which joins UQ_AnalysisSeries_Identity, so two laboratories
+  measuring one parameter become two series.
+date: "2026-07-29"
