@@ -161,10 +161,30 @@ def parse_values(values: pd.Series, fmt: str | None) -> Parsed:
 
 
 def to_utc(wall_clock: pd.Series, tz: zoneinfo.ZoneInfo) -> pd.Series:
-    """The UTC instant of each wall-clock time in the file's zone."""
+    """The UTC instant of each wall-clock time in the file's zone.
+
+    A daylight-saving change skips one hour of wall clock and repeats
+    another, so a time inside either has no single UTC instant. Those become
+    ``NaT`` rather than a guess, and ``dst_gaps`` names them.
+    """
     moments = pd.to_datetime(wall_clock)
-    localised = moments if moments.dt.tz is not None else moments.dt.tz_localize(tz)
+    if moments.dt.tz is not None:
+        return moments.dt.tz_convert(dt.timezone.utc)
+    localised = moments.dt.tz_localize(tz, nonexistent="NaT", ambiguous="NaT")
     return localised.dt.tz_convert(dt.timezone.utc)
+
+
+def dst_gaps(wall_clock: pd.Series, utc: pd.Series) -> tuple[tuple[Any, str], ...]:
+    """Rows a daylight-saving change left without a UTC instant.
+
+    ``(row, wall-clock text)`` pairs — a time that parsed but does not exist,
+    or happens twice, in the file's zone.
+    """
+    return tuple(
+        (idx, str(value))
+        for idx, value in wall_clock.items()
+        if pd.notna(value) and pd.isna(utc.loc[idx])
+    )
 
 
 def _text_values(values: pd.Series) -> pd.Series:
