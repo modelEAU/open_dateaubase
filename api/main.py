@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
+import pyodbc
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -39,6 +41,36 @@ app.include_router(v1_router, prefix="/api/v1")
 def _entity_not_found_handler(_: Request, exc: EntityNotFoundError) -> JSONResponse:
     """Map repository-layer not-found errors to HTTP 404."""
     return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+#: Constraint name -> what violating it means to whoever sent the request. A
+#: constraint absent here still reports its own name rather than a bare 500.
+_CONSTRAINT_MEANINGS = {
+    "UQ_Sample_Identity": (
+        "A sample already exists at this sampling point, time, sample kind and "
+        "field replicate. The same sample cannot be recorded twice; a genuine "
+        "second grab needs its own field replicate number."
+    ),
+    "UQ_AnalysisSeries_Identity": (
+        "An analysis series already exists for this parameter, sampling point, "
+        "unit and laboratory."
+    ),
+}
+
+_CONSTRAINT_NAME = re.compile(r"constraint ['\"]([^'\"]+)['\"]")
+
+
+@app.exception_handler(pyodbc.IntegrityError)
+def _integrity_error_handler(_: Request, exc: pyodbc.IntegrityError) -> JSONResponse:
+    """Map database constraint violations to HTTP 409, naming the constraint."""
+    match = _CONSTRAINT_NAME.search(str(exc))
+    name = match.group(1) if match else None
+    detail = _CONSTRAINT_MEANINGS.get(name or "") or (
+        f"The database rejected this write: constraint {name} was violated."
+        if name
+        else "The database rejected this write as inconsistent with data already stored."
+    )
+    return JSONResponse(status_code=409, content={"detail": detail})
 
 
 @app.get("/", tags=["root"])
