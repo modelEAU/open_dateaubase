@@ -177,6 +177,7 @@ _nav = {
             st.Page(str(_pages / "sensor_ingest.py"), title="Insert Sensor Data", icon="📡"),
             st.Page(str(_pages / "lab_ingest.py"), title="Insert Lab Data", icon="🧪"),
             st.Page(str(_pages / "lab_panels.py"), title="Lab Panels", icon="🗂️"),
+            st.Page(str(_pages / "sheet_import.py"), title="Import Data (Sheet)", icon="📗"),
             st.Page(str(_pages / "mapper.py"), title="Import Data (Mapper)", icon="📥"),
             st.Page(str(_pages / "explore.py"), title="Visualize Data", icon="📊"),
             st.Page(str(_pages / "equipment_move.py"), title="Move a sensor", icon="➡️"),
