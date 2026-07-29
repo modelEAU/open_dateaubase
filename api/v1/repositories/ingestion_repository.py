@@ -288,12 +288,16 @@ def find_or_create_analysis_series(
     value_kind_id: int,
     unit_id: int,
     name: str,
+    laboratory_id: int | None = None,
     campaign_id: int | None = None,
 ) -> int:
     """Find or create an AnalysisSeries row. Returns Stream_ID.
 
-    Uses the UNIQUE identity constraint:
-    UQ_AnalysisSeries_Identity (Parameter_ID, SamplingPoint_ID, ValueKind_ID).
+    Uses the UNIQUE identity constraint: UQ_AnalysisSeries_Identity
+    (Parameter_ID, SamplingPoint_ID, ValueKind_ID, Laboratory_ID). Laboratory is
+    part of identity — two labs measuring one parameter at one sampling point
+    are two series — and NULL (unrecorded lab) is its own identity value, which
+    the lookup has to spell out because SQL ``=`` never matches NULL.
 
     AnalysisSeries is the Lab subtype of Stream (table-per-type inheritance): its
     primary key is a shared Stream_ID. On first measurement, a Stream row
@@ -310,10 +314,13 @@ def find_or_create_analysis_series(
         WHERE [Parameter_ID] = ?
           AND [SamplingPoint_ID] = ?
           AND [ValueKind_ID] = ?
+          AND (([Laboratory_ID] IS NULL AND ? IS NULL) OR [Laboratory_ID] = ?)
         """,
         parameter_id,
         sampling_point_id,
         value_kind_id,
+        laboratory_id,
+        laboratory_id,
     )
     row = cursor.fetchone()
     if row is not None:
@@ -324,8 +331,8 @@ def find_or_create_analysis_series(
         """
         INSERT INTO [dbo].[AnalysisSeries]
             ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID],
-             [ValueKind_ID], [Unit_ID], [Campaign_ID])
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+             [ValueKind_ID], [Unit_ID], [Laboratory_ID], [Campaign_ID])
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         stream_id,
         name,
@@ -333,6 +340,7 @@ def find_or_create_analysis_series(
         sampling_point_id,
         value_kind_id,
         unit_id,
+        laboratory_id,
         campaign_id,
     )
     conn.commit()
@@ -691,9 +699,15 @@ def insert_sample(
     sample_kind_id: int | None = None,
     sample_material_kind_id: int | None = None,
     sample_equipment_id: int | None = None,
+    replicate: int = 1,
     description: str | None,
 ) -> int:
-    """Insert a Sample row. Returns Sample_ID."""
+    """Insert a Sample row. Returns Sample_ID.
+
+    ``replicate`` is the FIELD replicate — a second physical sample taken at the
+    same point and time — and is part of UQ_Sample_Identity, so re-importing one
+    sample is rejected while a genuine second grab is not.
+    """
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -701,9 +715,9 @@ def insert_sample(
             ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID],
              [SampleDateTimeStart], [SampleDateTimeEnd],
              [SampleCollectionKind_ID], [SampleKind_ID], [SampleMaterialKind_ID],
-             [SampleEquipment_ID], [Description])
+             [SampleEquipment_ID], [Replicate], [Description])
         OUTPUT INSERTED.[Sample_ID]
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         sampling_point_id,
         sampled_by_person_id,
@@ -714,6 +728,7 @@ def insert_sample(
         sample_kind_id,
         sample_material_kind_id,
         sample_equipment_id,
+        replicate,
         description,
     )
     new_id: int = cursor.fetchone()[0]
@@ -889,6 +904,7 @@ def create_analysis_series(
     unit_id: int,
     value_kind_id: int = 1,
     name: str,
+    laboratory_id: int | None = None,
     campaign_id: int | None = None,
 ) -> int:
     """Insert an AnalysisSeries row. Returns Stream_ID.
@@ -896,7 +912,8 @@ def create_analysis_series(
     AnalysisSeries is the Lab subtype of Stream: a Stream row (StreamKind=Lab) is
     inserted to mint the Stream_ID, then the AnalysisSeries row is created with
     that Stream_ID as its PK. Raises ValueError if a series with the same identity
-    constraint (Parameter_ID, SamplingPoint_ID, ValueKind_ID) already exists.
+    constraint (Parameter_ID, SamplingPoint_ID, ValueKind_ID, Laboratory_ID)
+    already exists.
     """
     cursor = conn.cursor()
     cursor.execute(
@@ -906,25 +923,28 @@ def create_analysis_series(
         WHERE [Parameter_ID] = ?
           AND [SamplingPoint_ID] = ?
           AND [ValueKind_ID] = ?
+          AND (([Laboratory_ID] IS NULL AND ? IS NULL) OR [Laboratory_ID] = ?)
         """,
         parameter_id,
         sampling_point_id,
         value_kind_id,
+        laboratory_id,
+        laboratory_id,
     )
     row = cursor.fetchone()
     if row is not None:
         raise ValueError(
             f"AnalysisSeries already exists (ID={row[0]}) for "
             f"Parameter={parameter_id}, SamplingPoint={sampling_point_id}, "
-            f"ValueKind={value_kind_id}"
+            f"ValueKind={value_kind_id}, Laboratory={laboratory_id}"
         )
     stream_id = _insert_stream(cursor, _STREAM_KIND_LAB)
     cursor.execute(
         """
         INSERT INTO [dbo].[AnalysisSeries]
             ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID],
-             [ValueKind_ID], [Unit_ID], [Campaign_ID])
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+             [ValueKind_ID], [Unit_ID], [Laboratory_ID], [Campaign_ID])
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         stream_id,
         name,
@@ -932,6 +952,7 @@ def create_analysis_series(
         sampling_point_id,
         value_kind_id,
         unit_id,
+        laboratory_id,
         campaign_id,
     )
     conn.commit()

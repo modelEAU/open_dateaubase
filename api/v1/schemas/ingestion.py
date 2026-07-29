@@ -49,11 +49,13 @@ class LabMeasurementItem(BaseModel):
     unit_id: int
     value_kind_id: int = 1
     series_name: str
+    # Part of series identity as well as analysis provenance: two labs measuring
+    # one parameter at one sampling point resolve to two series.
+    laboratory_id: int | None = None
 
     # Measurement
     sample_id: int
     value: float | list | None
-    laboratory_id: int | None = None
     analyst_person_id: int | None = None
     procedure_id: int | None = None
     analysis_datetime: datetime | None = None
@@ -168,6 +170,7 @@ class SampleCreateRequest(BaseModel):
     sample_kind_id: int | None = None
     sample_material_kind_id: int | None = None
     sample_equipment_id: int | None = None
+    replicate: int = 1
     description: str | None = None
 
 
@@ -195,6 +198,7 @@ class AnalysisSeriesCreateRequest(BaseModel):
     sampling_point_id: int
     unit_id: int
     value_kind_id: int = 1
+    laboratory_id: int | None = None
     campaign_id: int | None = None
 
 

@@ -762,6 +762,7 @@ def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
             value_kind_id=item.value_kind_id,
             unit_id=item.unit_id,
             name=item.series_name,
+            laboratory_id=item.laboratory_id,
         )
 
         lab_analysis_id = ingestion_repository.insert_lab_analysis(
@@ -854,6 +855,7 @@ def ingest_lab_image(
         value_kind_id=4,
         unit_id=unit_id,
         name=series_name,
+        laboratory_id=laboratory_id,
     )
 
     # Observation Timestamp is the sample collection time (see ADR 0002), not the
@@ -1270,6 +1272,7 @@ def create_sample(data: SampleCreateRequest, conn=Depends(get_db)):
         sample_kind_id=data.sample_kind_id,
         sample_material_kind_id=data.sample_material_kind_id,
         sample_equipment_id=data.sample_equipment_id,
+        replicate=data.replicate,
         description=data.description,
     )
     return SampleCreateResponse(sample_id=sample_id)
