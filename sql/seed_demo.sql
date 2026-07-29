@@ -229,57 +229,57 @@ DECLARE @AS_TSS_Inf    INT, @AS_COD_Inf    INT, @AS_CODf_Inf   INT, @AS_NH4_Inf 
 
 -- Ops campaign: routine inlet + outlet monitoring (4 influent + 5 effluent)
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_TSS_Inf = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_TSS_Inf, N'TEST_ TSS at Influent', 1, @SP_Influent, 1, 1, @CampOpsID);       -- TSS, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_TSS_Inf, N'TEST_ TSS at Influent', 1, @SP_Influent, 1, 1, @CampOpsID, @LaboratoryID);       -- TSS, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_COD_Inf = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_COD_Inf, N'TEST_ COD at Influent', 2, @SP_Influent, 1, 1, @CampOpsID);       -- COD, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_COD_Inf, N'TEST_ COD at Influent', 2, @SP_Influent, 1, 1, @CampOpsID, @LaboratoryID);       -- COD, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_CODf_Inf = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_CODf_Inf, N'TEST_ CODf at Influent', 13, @SP_Influent, 1, 1, @CampOpsID);     -- COD filtered, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_CODf_Inf, N'TEST_ CODf at Influent', 13, @SP_Influent, 1, 1, @CampOpsID, @LaboratoryID);     -- COD filtered, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_NH4_Inf = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_NH4_Inf, N'TEST_ NH4-N at Influent', 11, @SP_Influent, 1, 1, @CampOpsID);    -- NH4-N, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_NH4_Inf, N'TEST_ NH4-N at Influent', 11, @SP_Influent, 1, 1, @CampOpsID, @LaboratoryID);    -- NH4-N, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_TSS_Eff = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_TSS_Eff, N'TEST_ TSS at Final effluent', 1, @SP_FinalEff, 1, 1, @CampOpsID); -- TSS, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_TSS_Eff, N'TEST_ TSS at Final effluent', 1, @SP_FinalEff, 1, 1, @CampOpsID, @LaboratoryID); -- TSS, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_COD_Eff = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_COD_Eff, N'TEST_ COD at Final effluent', 2, @SP_FinalEff, 1, 1, @CampOpsID); -- COD, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_COD_Eff, N'TEST_ COD at Final effluent', 2, @SP_FinalEff, 1, 1, @CampOpsID, @LaboratoryID); -- COD, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_CODf_Eff = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_CODf_Eff, N'TEST_ CODf at Final effluent', 13, @SP_FinalEff, 1, 1, @CampOpsID); -- COD filtered, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_CODf_Eff, N'TEST_ CODf at Final effluent', 13, @SP_FinalEff, 1, 1, @CampOpsID, @LaboratoryID); -- COD filtered, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_NH4_Eff = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_NH4_Eff, N'TEST_ NH4-N at Final effluent', 11, @SP_FinalEff, 1, 1, @CampOpsID); -- NH4-N, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_NH4_Eff, N'TEST_ NH4-N at Final effluent', 11, @SP_FinalEff, 1, 1, @CampOpsID, @LaboratoryID); -- NH4-N, mg/L
 
 -- Experiment campaign: effluent NO3-N + intermediate points (4 extra series)
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_NO3_Eff = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_NO3_Eff, N'TEST_ NO3-N at Final effluent', 12, @SP_FinalEff, 1, 1, @CampExpID); -- NO3-N, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_NO3_Eff, N'TEST_ NO3-N at Final effluent', 12, @SP_FinalEff, 1, 1, @CampExpID, @LaboratoryID); -- NO3-N, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@StreamID, N'TEST_ TSS at Primary effluent', 1, @SP_PrimEff, 1, 1, @CampExpID);   -- TSS, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@StreamID, N'TEST_ TSS at Primary effluent', 1, @SP_PrimEff, 1, 1, @CampExpID, @LaboratoryID);   -- TSS, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@StreamID, N'TEST_ NH4-N at Anoxic zone outlet', 11, @SP_AnoxicOut, 1, 1, @CampExpID); -- NH4-N, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@StreamID, N'TEST_ NH4-N at Anoxic zone outlet', 11, @SP_AnoxicOut, 1, 1, @CampExpID, @LaboratoryID); -- NH4-N, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@StreamID, N'TEST_ NO3-N at Anoxic zone outlet', 12, @SP_AnoxicOut, 1, 1, @CampExpID); -- NO3-N, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@StreamID, N'TEST_ NO3-N at Anoxic zone outlet', 12, @SP_AnoxicOut, 1, 1, @CampExpID, @LaboratoryID); -- NO3-N, mg/L
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @StreamID = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@StreamID, N'TEST_ NH4-N at Aerobic zone outlet', 11, @SP_AerobicOut, 1, 1, @CampExpID); -- NH4-N, mg/L
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@StreamID, N'TEST_ NH4-N at Aerobic zone outlet', 11, @SP_AerobicOut, 1, 1, @CampExpID, @LaboratoryID); -- NH4-N, mg/L
 
 -- ============================================================
 -- LabPanel (1 row)
@@ -360,8 +360,8 @@ INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [NominalValue])
     (@LabUVAxis, 3, 360), (@LabUVAxis, 4, 440), (@LabUVAxis, 5, 550);
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_AbsVec = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_AbsVec, N'TEST_ Lab absorbance spectrum at Final effluent', 10, @SP_FinalEff, 2, 10, @CampExpID); -- absorbance, AU, Vector
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_AbsVec, N'TEST_ Lab absorbance spectrum at Final effluent', 10, @SP_FinalEff, 2, 10, @CampExpID, @LaboratoryID); -- absorbance, AU, Vector
 INSERT INTO [dbo].[AnalysisSeriesAxis] ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (@AS_AbsVec, 0, @LabUVAxis);
 
 INSERT INTO [dbo].[LabExperiment] ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID])
@@ -410,8 +410,8 @@ INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [NominalValue])
     (@ViCAsAxis, 3, 8.0),  (@ViCAsAxis, 4, 3.8),  (@ViCAsAxis, 5, 2.0), (@ViCAsAxis, 6, 0.7);
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_ViCAs = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_ViCAs, N'TEST_ ViCAs TSS settling-velocity distribution at Influent', @P_vicas, @SP_FinalEff, 2, @U_pct, @CampExpID); -- % mass fraction, Vector
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_ViCAs, N'TEST_ ViCAs TSS settling-velocity distribution at Influent', @P_vicas, @SP_FinalEff, 2, @U_pct, @CampExpID, @LaboratoryID); -- % mass fraction, Vector
 INSERT INTO [dbo].[AnalysisSeriesAxis] ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (@AS_ViCAs, 0, @ViCAsAxis);
 
 INSERT INTO [dbo].[LabExperiment] ([Name], [Campaign_ID], [ExperimentDateTime], [Description], [CreatedByPerson_ID])
@@ -467,8 +467,8 @@ INSERT INTO [dbo].[ValueBin] ([ValueBinningAxis_ID], [BinIndex], [NominalValue])
     (@EEMEmAxis, 4, 460), (@EEMEmAxis, 5, 500), (@EEMEmAxis, 6, 540);
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_EEM = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_EEM, N'TEST_ Fluorescence EEM at Final effluent', @P_fluor, @SP_FinalEff, 3, @U_RU, @CampExpID); -- RU, Matrix
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_EEM, N'TEST_ Fluorescence EEM at Final effluent', @P_fluor, @SP_FinalEff, 3, @U_RU, @CampExpID, @LaboratoryID); -- RU, Matrix
 INSERT INTO [dbo].[AnalysisSeriesAxis] ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (@AS_EEM, 0, @EEMExAxis); -- row = excitation
 INSERT INTO [dbo].[AnalysisSeriesAxis] ([AnalysisSeries_ID], [AxisRole], [ValueBinningAxis_ID]) VALUES (@AS_EEM, 1, @EEMEmAxis); -- col = emission
 
@@ -478,7 +478,10 @@ SET @ExpEEM = SCOPE_IDENTITY();
 
 -- Two EEM observations; the second ages the humic peak up (×1.4) to give the
 -- time-slice selector visible variation. Values are a 2-D Gaussian mixture.
-INSERT INTO [dbo].[Sample] ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart]) VALUES (@SP_FinalEff, @PersonTechID, @CampExpID, '2026-02-16T23:50:00'); SET @SmpID = SCOPE_IDENTITY();
+-- These are the SAME physical grabs the UV-Vis block above already inserted,
+-- scanned a second way — so reuse those Sample rows rather than duplicate them
+-- (UQ_Sample_Identity would reject the duplicate anyway).
+SET @SmpID = (SELECT [Sample_ID] FROM [dbo].[Sample] WHERE [SamplingPoint_ID] = @SP_FinalEff AND [SampleDateTimeStart] = '2026-02-16T23:50:00');
 INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate], [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [AnalysisDateTime]) VALUES (@ExpEEM, @AS_EEM, @SmpID, 1, 1, @LaboratoryID, @PersonTechID, '2026-02-18T10:00:00'); SET @LaID = SCOPE_IDENTITY();
 INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID]) VALUES (NULL, @LaID, '2026-02-16T23:50:00', 3); SET @ObsID = SCOPE_IDENTITY();
 INSERT INTO [dbo].[ValueMatrix] ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID], [Value], [QualityCode])
@@ -488,7 +491,7 @@ SELECT @ObsID, rb.[ValueBin_ID], cb.[ValueBin_ID],
 FROM [dbo].[ValueBin] rb CROSS JOIN [dbo].[ValueBin] cb
 WHERE rb.[ValueBinningAxis_ID] = @EEMExAxis AND cb.[ValueBinningAxis_ID] = @EEMEmAxis;
 
-INSERT INTO [dbo].[Sample] ([SamplingPoint_ID], [SampledByPerson_ID], [Campaign_ID], [SampleDateTimeStart]) VALUES (@SP_FinalEff, @PersonTechID, @CampExpID, '2026-02-17T02:30:00'); SET @SmpID = SCOPE_IDENTITY();
+SET @SmpID = (SELECT [Sample_ID] FROM [dbo].[Sample] WHERE [SamplingPoint_ID] = @SP_FinalEff AND [SampleDateTimeStart] = '2026-02-17T02:30:00');
 INSERT INTO [dbo].[LabAnalysis] ([LabExperiment_ID], [AnalysisSeries_ID], [Sample_ID], [Replicate], [QualityCode_ID], [Laboratory_ID], [AnalystPerson_ID], [AnalysisDateTime]) VALUES (@ExpEEM, @AS_EEM, @SmpID, 1, 1, @LaboratoryID, @PersonTechID, '2026-02-18T10:00:00'); SET @LaID = SCOPE_IDENTITY();
 INSERT INTO [dbo].[Observation] ([Channel_ID], [LabAnalysis_ID], [Timestamp], [ValueKind_ID]) VALUES (NULL, @LaID, '2026-02-17T02:30:00', 3); SET @ObsID = SCOPE_IDENTITY();
 INSERT INTO [dbo].[ValueMatrix] ([Observation_ID], [RowValueBin_ID], [ColValueBin_ID], [Value], [QualityCode])
@@ -665,8 +668,8 @@ INSERT INTO [dbo].[ChannelTrait] ([Stream_ID],[OperationKind_ID]) VALUES (@CH_Sm
 
 -- --- Lab Turbidity grab series at the Aerobic outlet (fusion anchor) ------
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_TurbLab = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID],[Name],[Parameter_ID],[SamplingPoint_ID],[ValueKind_ID],[Unit_ID],[Campaign_ID])
-VALUES (@AS_TurbLab, N'TEST_ Turbidity grab at Aerobic outlet', 9, @SP_AerobicOut, 1, 2, @CampOpsID);
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID],[Name],[Parameter_ID],[SamplingPoint_ID],[ValueKind_ID],[Unit_ID],[Campaign_ID], [Laboratory_ID])
+VALUES (@AS_TurbLab, N'TEST_ Turbidity grab at Aerobic outlet', 9, @SP_AerobicOut, 1, 2, @CampOpsID, @LaboratoryID);
 
 DECLARE @ExpTurbLab INT;
 INSERT INTO [dbo].[LabExperiment] ([Name],[Campaign_ID],[ExperimentDateTime],[Description],[CreatedByPerson_ID])
@@ -762,8 +765,8 @@ INSERT INTO [dbo].[CampaignSamplingLocation] ([Campaign_ID], [SamplingPoint_ID],
 VALUES (@CampSludgeID, @SP_BR4, N'Bioreactor');
 
 INSERT INTO [dbo].[Stream] ([StreamKind_ID]) VALUES (2); SET @AS_Floc = SCOPE_IDENTITY();
-INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID])
-VALUES (@AS_Floc, N'TEST_ Sludge floc morphology at Bioreactor 4', 16, @SP_BR4, 4, 11, @CampSludgeID); -- floc_morphology, Image, dimensionless
+INSERT INTO [dbo].[AnalysisSeries] ([Stream_ID], [Name], [Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Unit_ID], [Campaign_ID], [Laboratory_ID])
+VALUES (@AS_Floc, N'TEST_ Sludge floc morphology at Bioreactor 4', 16, @SP_BR4, 4, 11, @CampSludgeID, @LaboratoryID); -- floc_morphology, Image, dimensionless
 
 INSERT INTO [dbo].[LabPanel] ([Name], [Description], [CreatedByPerson_ID])
 VALUES (N'TEST_ Sludge Microscopy Panel', N'TEST panel — single-series panel: floc morphology micrographs of BR-400 sludge grabs', @PersonPhDID);
