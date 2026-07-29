@@ -84,6 +84,33 @@ def test_pointed_rows_yield_the_data_only(block):
     assert block.data.loc[DATA_ROW, 3] == "QC_01_cpFP24h_rawWW"
 
 
+def test_a_repeated_header_is_labelled_by_the_banner_that_differs():
+    """The deepest banner row is often a legend spanning the sheet; skip past it."""
+    grid = pd.DataFrame(
+        [
+            ["Site 1", None, "Site 2", None],  # banner: this one tells them apart
+            ["values in yellow are estimated"] * 4,  # banner: a legend, identical
+            ["date start", "TSS", "date start", "TSS"],  # header
+            [datetime(2022, 3, 21, 22), 1.0, datetime(2022, 3, 21, 22), 2.0],
+        ]
+    )
+    labels = extract_block(grid, 2, 3).labels()
+    assert labels[1] == "TSS · Site 1"
+    assert labels[3] == "TSS · Site 2"
+    assert "estimated" not in " ".join(labels)
+
+
+def test_a_repeated_header_no_banner_distinguishes_falls_back_to_its_column():
+    grid = pd.DataFrame(
+        [
+            ["values in yellow are estimated"] * 2,  # banner: identical, useless
+            ["TSS", "TSS"],  # header
+            [1.0, 2.0],
+        ]
+    )
+    assert extract_block(grid, 1, 2).labels() == ["TSS", "TSS [1]"]
+
+
 def test_repeated_headers_stay_addressable_by_index(block):
     assert [i for i, h in enumerate(block.headers) if h == "Ct"] == [38, 47, 55, 67]
     assert [i for i, h in enumerate(block.headers) if h == "Standard Curves"] == [

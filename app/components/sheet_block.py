@@ -55,17 +55,30 @@ class SheetBlock:
     def labels(self) -> list[str]:
         """Display labels, unique even when the sheet repeats a header name."""
         counts = Counter(self.headers)
+        depths = {head: self._distinguishing_depth(head) for head in counts if counts[head] > 1}
         used: set[str] = set()
         out: list[str] = []
         for col, head, banner in zip(self.columns, self.headers, self.banners):
-            label = head
-            if counts[head] > 1 and banner:
-                label = f"{head} · {banner[-1]}"
+            depth = depths.get(head)
+            label = head if depth is None else f"{head} · {banner[depth]}"
             if label in used:
                 label = f"{label} [{col}]"
             used.add(label)
             out.append(label)
         return out
+
+    def _distinguishing_depth(self, header: str) -> int | None:
+        """Which banner row tells apart the columns sharing ``header``.
+
+        The deepest banner is often a legend repeated over the whole sheet,
+        which distinguishes nothing; the row that names the site or the assay
+        may be any of the ones above it. ``None`` when no banner row differs.
+        """
+        banners = [b for h, b in zip(self.headers, self.banners) if h == header]
+        for depth in range(min((len(b) for b in banners), default=0)):
+            if len({b[depth] for b in banners}) > 1:
+                return depth
+        return None
 
     def banner_path(self, column: int) -> str:
         """The banner context above one column, e.g. ``PCR › SARS-CoV-2 (N1)``."""
