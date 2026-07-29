@@ -60,7 +60,7 @@ services:
       fi
 
       echo "Running init.sql..."
-      "$$SQLCMD" -S db,1433 -U SA -P "$$DB_PASSWORD" -b -V 16 -r 1 -I -i /sql/init.sql
+      "$$SQLCMD" -S db,1433 -U SA -P "$$DB_PASSWORD" -b -V 11 -r 1 -I -i /sql/init.sql
       echo "Done."
       '
 
