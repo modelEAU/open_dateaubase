@@ -5,11 +5,15 @@ the first row of real data. Everything between is skipped. The cleaned block
 renders beside the raw sheet and its cells are editable. Each column is then
 mapped — in the vocabulary of the user's own work — from a field catalogue
 derived from the ingest payload schemas, keyed by column index so repeated
-header names stay independent.
+header names stay independent. A span of columns selected in the raw sheet
+takes one bulk action; fields the sheet does not contain take typed constants;
+each measurement group carries its own parameter, unit, laboratory and
+location.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import io
 import sys
 from pathlib import Path
@@ -22,12 +26,25 @@ import pandas as pd
 import streamlit as st
 
 from app.components.column_mapping import (
+    BULK_IGNORE,
+    BULK_SET_FIELD,
+    BULK_VALUE_EACH,
+    BULK_VALUE_SAME,
+    IDENTITY_FIELDS,
     IGNORE,
+    apply_bulk,
     empty_spec,
+    groups_lacking,
+    groups_of,
     mapping_frame,
     missing_required,
+    source_for,
     spec_from_frame,
     validate,
+    with_constant,
+    with_group_constant,
+    without_constant,
+    without_group_constant,
 )
 from app.components.datetime_parse import FORMAT_PRESETS, detect_format, parse_values, to_utc
 from app.components.field_catalogue import GROUPS, catalogue
@@ -36,6 +53,13 @@ from app.components.timezone_select import timezone_selector
 
 _CUSTOM = "Custom…"
 _CHOOSE = "— choose a format —"
+
+_BULK_LABELS = {
+    "Ignore all": BULK_IGNORE,
+    "All Value — one group each": BULK_VALUE_EACH,
+    "All Value — same group": BULK_VALUE_SAME,
+    "Set field to…": BULK_SET_FIELD,
+}
 
 
 @st.cache_data(show_spinner="Reading the file…")
@@ -65,6 +89,12 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
             height=400,
         )
         picked = list((event or {}).get("selection", {}).get("rows", []))
+        selected_columns = []
+        for c in (event or {}).get("selection", {}).get("columns", []):
+            try:
+                selected_columns.append(int(c))
+            except (TypeError, ValueError):
+                pass  # selection reports column names; the raw view's are ints
         left, right = st.columns(2)
         if left.button(
             "☝️ This is my header row",
@@ -118,22 +148,30 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
                 else "No column holds native datetimes."
             )
         )
-        _mapping_section(sheet, block)
+        _mapping_section(sheet, block, sorted(selected_columns))
         _datetime_section(sheet, block, edited_indexed)
 
 
-def _mapping_section(sheet: str, block: SheetBlock) -> None:
+def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int]) -> None:
     """One row per column: what the column holds, keyed by column index."""
     st.divider()
     st.subheader("🧭 Map the columns")
     cat = catalogue()
     spec_key = f"sheet_mapping::{sheet}"
+    gen_key = f"sheet_map_gen::{sheet}"
     spec = st.session_state.get(spec_key)
     if spec is None or tuple(m.column for m in spec.mappings) != block.columns:
         spec = empty_spec(block)  # first visit, or the block was re-pointed
+        st.session_state[spec_key] = spec
+        st.session_state[gen_key] = st.session_state.get(gen_key, 0) + 1
+        for key in [k for k in st.session_state if k.startswith(f"sheet_gconst::{sheet}::")]:
+            del st.session_state[key]
+
+    _bulk_bar(sheet, block, cat, spec, selected_columns)
+
     edited = st.data_editor(
         mapping_frame(block, cat, spec),
-        key=f"sheet_map::{sheet}",
+        key=f"sheet_map::{sheet}::{st.session_state.get(gen_key, 0)}",
         disabled=["Header", "Banner"],
         column_config={
             "Header": st.column_config.TextColumn(
@@ -152,28 +190,240 @@ def _mapping_section(sheet: str, block: SheetBlock) -> None:
                 "Every column starts ignored.",
                 width="large",
             ),
+            "Group": st.column_config.NumberColumn(
+                "Group",
+                min_value=0,
+                step=1,
+                help="Columns sharing a group compose one measurement — the "
+                "value column plus its qualifiers. Only meaningful for "
+                "measurement fields; blank keeps each in its own group.",
+            ),
         },
         height=400,
     )
-    spec = spec_from_frame(block, cat, edited)
+    spec = spec_from_frame(block, cat, edited, previous=spec)
     st.session_state[spec_key] = spec
+
+    _constants_editor(sheet, cat, spec)
+    _groups_panel(sheet, block, cat, spec)
 
     for error in validate(spec, block, cat):
         st.warning(error.message)
-    if spec.mapped():
-        missing = missing_required(spec, cat)
-        if missing:
-            st.caption(
-                "Still needed before this can import: "
-                + ", ".join(f.label for f in missing)
-                + "."
-            )
+    started = bool(spec.mapped()) or any(
+        c.field != "sample.replicate" for c in spec.constants
+    )
+    missing = missing_required(spec, cat)
+    if started and missing:
+        st.caption(
+            "Still needed before this can import: "
+            + ", ".join(_missing_label(spec, cat, f) for f in missing)
+            + "."
+        )
+    elif started:
+        st.caption("Every required field has a source.")
     else:
         st.caption(
-            "Every column is ignored — pick what each column holds above. "
-            "Columns you leave ignored are simply not imported."
+            "Every column is ignored — pick what each column holds above, or "
+            "select a span of columns in the raw sheet and apply one action to "
+            "all of them. Columns you leave ignored are simply not imported."
         )
     _catalogue_browser(cat)
+
+
+def _missing_label(spec, cat, field) -> str:
+    """A missing field's plain-language label, naming uncovered groups when partial."""
+    if field.scope == "measurement":
+        total = groups_of(spec, cat)
+        lacking = groups_lacking(spec, cat, field.key)
+        if total and 0 < len(lacking) < len(total):
+            names = " and ".join(f"group {g}" for g in lacking)
+            return f"{field.label} (missing in {names})"
+    return field.label
+
+
+def _bulk_bar(sheet: str, block: SheetBlock, cat, spec, selected_columns: list[int]) -> None:
+    """One action applied to every column selected in the raw sheet."""
+    n = len(selected_columns)
+    if n:
+        shown = ", ".join(str(c) for c in selected_columns[:8])
+        st.caption(
+            f"{n} column(s) selected in the raw sheet ({shown}"
+            + ("…" if n > 8 else "")
+            + ") — one action applies to all of them."
+        )
+    else:
+        st.caption(
+            "Select columns in the raw sheet above (drag across their headers), "
+            "then apply one action to all of them here."
+        )
+    left, mid, right = st.columns([2, 3, 2])
+    action_label = left.selectbox(
+        "Bulk action",
+        options=list(_BULK_LABELS),
+        key=f"sheet_bulk_action::{sheet}",
+        help="'All Value — one group each' makes every selected column its own "
+        "measurement. 'All Value — same group' composes one measurement out of "
+        "the selection — set the qualifier columns to their real fields next.",
+    )
+    field_key = None
+    if _BULK_LABELS[action_label] == BULK_SET_FIELD:
+        options = cat.option_labels()
+        picked = mid.selectbox(
+            "Field to set",
+            options=list(options),
+            key=f"sheet_bulk_field::{sheet}",
+        )
+        field_key = options[picked]
+    if right.button(
+        f"Apply to {n} column(s)",
+        key=f"sheet_bulk_apply::{sheet}",
+        disabled=not n,
+        width="stretch",
+    ):
+        st.session_state[f"sheet_mapping::{sheet}"] = apply_bulk(
+            spec, block, cat, selected_columns, _BULK_LABELS[action_label], field=field_key
+        )
+        gen_key = f"sheet_map_gen::{sheet}"
+        st.session_state[gen_key] = st.session_state.get(gen_key, 0) + 1
+        st.rerun()
+
+
+def _constant_input(sheet: str, field) -> object | None:
+    """The typed input for one field's constant; None when nothing was entered.
+
+    A foreign-key field takes the *name* as the database knows it — names are
+    resolved at submit, loudly, exactly like the values in a mapped column.
+    """
+    key = f"sheet_const_value::{sheet}::{field.key}"
+    if field.fk_table:
+        text = st.text_input(
+            f"{field.label} — name in {field.fk_table}",
+            key=key,
+            help="The exact name as the database knows it (e.g. Field, VdQ). "
+            "Unmatched names fail loudly at submit and name themselves.",
+        )
+        return text.strip() or None
+    if field.value_type == "integer":
+        return int(st.number_input(field.label, step=1, key=key))
+    if field.value_type == "number":
+        return float(st.number_input(field.label, step=0.1, key=key))
+    if field.value_type == "datetime":
+        left, right = st.columns(2)
+        day = left.date_input(f"{field.label} — date", key=f"{key}::date")
+        moment = right.time_input(f"{field.label} — time", key=f"{key}::time")
+        return dt.datetime.combine(day, moment)
+    text = st.text_input(field.label, key=key)
+    return text.strip() or None
+
+
+def _constants_editor(sheet: str, cat, spec) -> None:
+    """Constants: a value the sheet does not contain, applied to every row."""
+    with st.expander("🔧 Constants — values your sheet does not contain", expanded=True):
+        for c in spec.constants:
+            try:
+                field = cat.by_key(c.field)
+                label, scope, hint = field.label, field.scope, field.help
+            except KeyError:
+                label, scope, hint = c.field, "?", ""
+            name_col, value_col, scope_col, del_col = st.columns([3, 3, 2, 1])
+            name_col.markdown(f"**{label}**", help=hint or None)
+            value_col.markdown(str(c.value))
+            scope_col.caption(f"{scope} scope")
+            if del_col.button("✕", key=f"sheet_const_del::{sheet}::{c.field}"):
+                st.session_state[f"sheet_mapping::{sheet}"] = without_constant(spec, c.field)
+                st.rerun()
+        st.caption(
+            "A constant gives one field the same value everywhere — sample kind "
+            "'Field', a campaign, the field replicate (already set to 1)."
+        )
+        field_col, value_col, add_col = st.columns([3, 3, 1])
+        options = cat.option_labels()
+        picked = field_col.selectbox(
+            "Field", options=list(options), key=f"sheet_const_field::{sheet}"
+        )
+        key = options[picked]
+        with value_col:
+            value = _constant_input(sheet, cat.by_key(key))
+        if add_col.button("Set", key=f"sheet_const_add::{sheet}", width="stretch"):
+            if value is not None:
+                st.session_state[f"sheet_mapping::{sheet}"] = with_constant(spec, key, value)
+                st.rerun()
+
+
+def _sync_group_constant(spec_key: str, group: int, field: str, wkey: str) -> None:
+    """Write a group-identity widget back into the spec (empty text clears it)."""
+    spec = st.session_state.get(spec_key)
+    if spec is None:
+        return
+    text = str(st.session_state.get(wkey, "")).strip()
+    st.session_state[spec_key] = (
+        with_group_constant(spec, group, field, text)
+        if text
+        else without_group_constant(spec, group, field)
+    )
+
+
+def _groups_panel(sheet: str, block: SheetBlock, cat, spec) -> None:
+    """Each measurement group's own identity: parameter, unit, laboratory, location."""
+    groups = groups_of(spec, cat)
+    if not groups:
+        return
+    spec_key = f"sheet_mapping::{sheet}"
+    labels = block.labels()
+    columns = list(block.columns)
+    with st.expander(f"🧪 Measurement groups ({len(groups)}) — each group's identity", expanded=True):
+        st.caption(
+            "Columns sharing a group compose one measurement. Parameter, unit, "
+            "laboratory and location belong to the group, set independently of "
+            "every other group — type the name as the database knows it. A "
+            "location left empty inherits the sample's."
+        )
+        for group in groups:
+            members = [
+                m
+                for m in spec.mapped()
+                if (m.group if m.group is not None else m.column) == group
+            ]
+            names = ", ".join(
+                f"'{labels[columns.index(m.column)]}' → {cat.by_key(m.field).label}"
+                if m.field in {f.key for f in cat.fields}
+                else f"'{labels[columns.index(m.column)]}'"
+                for m in members
+            )
+            st.markdown(f"**Group {group}** — {names}")
+            cells = st.columns(len(IDENTITY_FIELDS))
+            for cell, key in zip(cells, IDENTITY_FIELDS):
+                field = cat.by_key(key)
+                source = source_for(spec, cat, group, key)
+                global_value = next(
+                    (c.value for c in spec.constants if c.field == key), None
+                )
+                group_value = next(
+                    (c.value for c in spec.group_constants if (c.group, c.field) == (group, key)),
+                    None,
+                )
+                if source and source[0] == "column" and group_value is None:
+                    cell.caption(
+                        f"**{field.label}** — from column "
+                        f"'{labels[columns.index(source[1])]}'"
+                    )
+                    continue
+                wkey = f"sheet_gconst::{sheet}::{group}::{key}"
+                if wkey not in st.session_state:
+                    st.session_state[wkey] = str(group_value) if group_value is not None else ""
+                cell.text_input(
+                    f"{field.label} (group {group})",
+                    key=wkey,
+                    placeholder=f"all groups: {global_value}" if global_value is not None else "—",
+                    help=(
+                        f"Set for group {group} only."
+                        + (f" All groups take '{global_value}' unless a group overrides."
+                           if global_value is not None else "")
+                        + (f" {field.help}" if field.help else "")
+                    ),
+                    on_change=_sync_group_constant,
+                    kwargs=dict(spec_key=spec_key, group=group, field=key, wkey=wkey),
+                )
 
 
 def _catalogue_browser(cat) -> None:
