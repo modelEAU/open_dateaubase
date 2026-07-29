@@ -1456,6 +1456,18 @@ def list_laboratory_lookup() -> list[dict]:
     return list_laboratories_lookup()
 
 
+def list_sampling_point_lookup() -> list[dict]:
+    return list_sampling_points_lookup()
+
+
+def list_campaign_lookup() -> list[dict]:
+    return list_campaigns_lookup()
+
+
+def list_procedure_lookup() -> list[dict]:
+    return list_procedures_lookup()
+
+
 def list_value_binning_axis_lookup() -> list[dict]:
     return list_binning_axes_lookup()
 

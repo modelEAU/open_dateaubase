@@ -16,6 +16,7 @@ from __future__ import annotations
 import datetime as dt
 import io
 import sys
+import zoneinfo
 from pathlib import Path
 
 _project_root = str(Path(__file__).resolve().parent.parent.parent)
@@ -25,6 +26,8 @@ if _project_root not in sys.path:
 import pandas as pd
 import streamlit as st
 
+from app import api_client as api
+from app.components import schema_registry
 from app.components.column_mapping import (
     BULK_IGNORE,
     BULK_SET_FIELD,
@@ -48,6 +51,7 @@ from app.components.column_mapping import (
 )
 from app.components.datetime_parse import FORMAT_PRESETS, detect_format, parse_values, to_utc
 from app.components.field_catalogue import GROUPS, catalogue
+from app.components.measurement_builder import BuildResult, MeasurementCandidate, build
 from app.components.sheet_block import SheetBlock, extract_block, read_grids
 from app.components.timezone_select import timezone_selector
 
@@ -150,6 +154,7 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
         )
         _mapping_section(sheet, block, sorted(selected_columns))
         _datetime_section(sheet, block, edited_indexed)
+        _submit_section(sheet, block)
 
 
 def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int]) -> None:
@@ -304,15 +309,15 @@ def _constant_input(sheet: str, field) -> object | None:
         )
         return text.strip() or None
     if field.value_type == "integer":
-        return int(st.number_input(field.label, step=1, key=key))
+        return int(st.number_input(field.label, step=1, key=key, help=field.help or None))
     if field.value_type == "number":
-        return float(st.number_input(field.label, step=0.1, key=key))
+        return float(st.number_input(field.label, step=0.1, key=key, help=field.help or None))
     if field.value_type == "datetime":
         left, right = st.columns(2)
         day = left.date_input(f"{field.label} — date", key=f"{key}::date")
         moment = right.time_input(f"{field.label} — time", key=f"{key}::time")
         return dt.datetime.combine(day, moment)
-    text = st.text_input(field.label, key=key)
+    text = st.text_input(field.label, key=key, help=field.help or None)
     return text.strip() or None
 
 
@@ -552,6 +557,127 @@ def _datetime_section(sheet: str, block: SheetBlock, data: pd.DataFrame) -> None
         ),
         hide_index=True,
     )
+
+
+def _column_formats(sheet: str, block: SheetBlock) -> dict[int, str | None]:
+    """Every non-native column's chosen strptime format, per the dates section above."""
+    formats: dict[int, str | None] = {}
+    for column in block.columns:
+        if column in block.datetime_columns:
+            continue
+        choice = st.session_state.get(f"sheet_dt_fmt::{sheet}::{column}")
+        if choice in (None, _CHOOSE):
+            continue
+        if choice == _CUSTOM:
+            custom = str(st.session_state.get(f"sheet_dt_custom::{sheet}::{column}", "")).strip()
+            if custom:
+                formats[column] = custom
+            continue
+        formats[column] = FORMAT_PRESETS[choice]
+    return formats
+
+
+def _api_lookup(table: str) -> list[dict]:
+    """The candidate rows for a foreign-key table, via its auto-derived api_client function."""
+    return getattr(api, schema_registry.fk_lookup_fn(table))()
+
+
+def _serialize(values: dict) -> dict:
+    """A payload dict ready for the wire — datetimes become ISO text."""
+    return {k: (v.isoformat() if isinstance(v, dt.datetime) else v) for k, v in values.items()}
+
+
+def _measurement_payload(m: MeasurementCandidate, sample_id: int) -> dict:
+    return _serialize(
+        {
+            "parameter_id": m.parameter_id,
+            "sampling_point_id": m.sampling_point_id,
+            "unit_id": m.unit_id,
+            "value_kind_id": 1,
+            "series_name": m.series_name,
+            "laboratory_id": m.laboratory_id,
+            "sample_id": sample_id,
+            "value": m.value,
+            "replicate": m.replicate,
+            "analyst_person_id": m.analyst_person_id,
+            "procedure_id": m.procedure_id,
+            "analysis_datetime": m.analysis_datetime,
+            "quality_code_id": m.quality_code_id,
+            "notes": m.notes,
+        }
+    )
+
+
+def _submit_section(sheet: str, block: SheetBlock) -> None:
+    st.divider()
+    st.subheader("🚀 Submit")
+    spec = st.session_state.get(f"sheet_mapping::{sheet}")
+    tz_name = st.session_state.get(f"sheet_tz::{sheet}")
+    if spec is None or tz_name is None:
+        st.info("Map the columns and set a file timezone above before submitting.")
+        return
+    tz = zoneinfo.ZoneInfo(tz_name)
+
+    try:
+        result = build(spec, block, catalogue(), _api_lookup, tz, _column_formats(sheet, block))
+    except api.APIError as exc:
+        st.warning(f"Could not check names against the database yet: {exc}")
+        return
+    for error in result.errors:
+        st.error(error.message)
+    if result.errors:
+        return
+    for collision in result.collisions:
+        st.error(collision.message)
+
+    counts = result.counts()
+    st.info(
+        f"Ready to write **{counts['experiments']}** experiment, "
+        f"**{counts['samples']}** sample(s), **{counts['series']}** series, "
+        f"**{counts['measurements']}** measurement(s)."
+    )
+    if st.button(
+        "Submit to /ingest/lab",
+        key=f"sheet_submit::{sheet}",
+        type="primary",
+        disabled=bool(result.collisions),
+        width="stretch",
+    ):
+        _do_submit(result)
+
+
+def _do_submit(result: BuildResult) -> None:
+    """Create each row's sample, then submit its measurements — one request per row."""
+    experiment_id: int | None = None
+    outcomes = []
+    progress = st.progress(0, text="Submitting rows…")
+    for i, row in enumerate(result.rows):
+        try:
+            sample_id = api.create_sample(_serialize(row.sample))["sample_id"]
+        except Exception as exc:
+            outcomes.append({"row": row.row, "status": "error", "detail": f"sample: {exc}"})
+            progress.progress((i + 1) / len(result.rows))
+            continue
+        payload = {"measurements": [_measurement_payload(m, sample_id) for m in row.measurements]}
+        payload.update({"experiment_id": experiment_id} if experiment_id else _serialize(result.experiment or {}))
+        try:
+            response = api.ingest_lab(payload)
+            experiment_id = experiment_id or response.get("lab_experiment_id")
+            outcomes.append(
+                {"row": row.row, "status": "ok", "detail": f"rows_written={response.get('rows_written')}"}
+            )
+        except Exception as exc:
+            outcomes.append({"row": row.row, "status": "error", "detail": str(exc)})
+        progress.progress((i + 1) / len(result.rows))
+    progress.empty()
+
+    n_ok = sum(1 for o in outcomes if o["status"] == "ok")
+    n_err = len(outcomes) - n_ok
+    if n_err:
+        st.warning(f"{n_ok} row(s) submitted; {n_err} row(s) failed.")
+    else:
+        st.success(f"All {n_ok} row(s) submitted.")
+    st.dataframe(pd.DataFrame(outcomes), hide_index=True)
 
 
 def sheet_import_page() -> None:
