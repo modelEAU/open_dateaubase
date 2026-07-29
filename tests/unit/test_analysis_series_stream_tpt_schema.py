@@ -62,13 +62,15 @@ class TestAnalysisSeriesSharedPKDictionary:
         names = {c["name"] for c in analysis_series["columns"]}
         assert "ProcessingKind_ID" not in names
 
-    def test_identity_unique_constraint_narrowed_to_three_columns(self, analysis_series):
+    def test_identity_unique_constraint_dropped_processing_kind(self, analysis_series):
+        """ProcessingKind_ID is gone from identity; Laboratory_ID joined it in v2.4.0."""
         uqs = {u["name"]: u for u in analysis_series.get("unique_constraints", [])}
         assert "UQ_AnalysisSeries_Identity" in uqs
         assert uqs["UQ_AnalysisSeries_Identity"]["columns"] == [
             "Parameter_ID",
             "SamplingPoint_ID",
             "ValueKind_ID",
+            "Laboratory_ID",
         ]
 
     def test_subtype_columns_still_present(self, analysis_series):
@@ -80,7 +82,7 @@ class TestAnalysisSeriesSharedPKDictionary:
 class TestAnalysisSeriesSharedPKDDL:
     """The DDL generator emits Stream_ID as both PK and FK on AnalysisSeries."""
 
-    def test_generated_ddl_emits_pk_fk_and_narrowed_unique(self, schema):
+    def test_generated_ddl_emits_pk_fk_and_identity_unique(self, schema):
         sql = render_create_script(schema, version="0.0.0", platform="mssql")
 
         assert "CREATE TABLE [dbo].[AnalysisSeries] (" in sql
@@ -96,10 +98,11 @@ class TestAnalysisSeriesSharedPKDDL:
             "REFERENCES [dbo].[Stream] ([Stream_ID]);"
         ) in sql
 
-        # The narrowed 3-column identity uniqueness constraint survives.
+        # The identity uniqueness constraint survives, minus ProcessingKind_ID
+        # and plus Laboratory_ID (v2.4.0).
         assert (
             "CONSTRAINT [UQ_AnalysisSeries_Identity] UNIQUE "
-            "([Parameter_ID], [SamplingPoint_ID], [ValueKind_ID])"
+            "([Parameter_ID], [SamplingPoint_ID], [ValueKind_ID], [Laboratory_ID])"
         ) in sql
 
         # ProcessingKind_ID is gone from the AnalysisSeries DDL entirely.

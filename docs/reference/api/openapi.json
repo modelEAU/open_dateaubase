@@ -8941,7 +8941,7 @@
           "ingestion-lab"
         ],
         "summary": "Create Analysis Series",
-        "description": "Create a new AnalysisSeries. Raises 409 if duplicate identity exists.\n\nThe identity constraint is (Parameter_ID, SamplingPoint_ID, ValueKind_ID).",
+        "description": "Create a new AnalysisSeries. Raises 409 if duplicate identity exists.\n\nThe identity constraint is (Parameter_ID, SamplingPoint_ID, ValueKind_ID,\nLaboratory_ID).",
         "operationId": "create_analysis_series_api_v1_ingest_lab_analysis_series_post",
         "parameters": [
           {
@@ -17606,6 +17606,17 @@
             "title": "Value Kind Id",
             "default": 1
           },
+          "laboratory_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Laboratory Id"
+          },
           "campaign_id": {
             "anyOf": [
               {
@@ -23596,6 +23607,17 @@
             "type": "string",
             "title": "Series Name"
           },
+          "laboratory_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Laboratory Id"
+          },
           "sample_id": {
             "type": "integer",
             "title": "Sample Id"
@@ -23614,17 +23636,6 @@
               }
             ],
             "title": "Value"
-          },
-          "laboratory_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Laboratory Id"
           },
           "analyst_person_id": {
             "anyOf": [
@@ -26670,6 +26681,11 @@
               }
             ],
             "title": "Sample Equipment Id"
+          },
+          "replicate": {
+            "type": "integer",
+            "title": "Replicate",
+            "default": 1
           },
           "description": {
             "anyOf": [
