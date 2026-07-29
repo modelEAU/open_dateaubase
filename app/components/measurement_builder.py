@@ -35,7 +35,7 @@ from app.components.column_mapping import (
     row_series,
     source_for,
 )
-from app.components.datetime_parse import parse_values, to_utc
+from app.components.datetime_parse import dst_gaps, parse_values, to_utc
 from app.components.field_catalogue import Catalogue, FieldMeta
 from app.components.sheet_block import SheetBlock
 
@@ -113,10 +113,25 @@ class BuildResult:
         }
         return {
             "experiments": 1 if self.rows else 0,
-            "samples": len(self.rows),
+            "samples": len({sample_key(r.sample) for r in self.rows}),
             "series": len(series),
             "measurements": measurements,
         }
+
+
+def sample_key(sample: dict) -> tuple:
+    """A sample payload's database identity — the columns of UQ_Sample_Identity.
+
+    Several source rows may describe one physical sample (a long-format sheet
+    puts one parameter per row), so this is what counts a sample and what is
+    submitted once.
+    """
+    return (
+        sample["sampling_point_id"],
+        sample["sample_datetime_start"],
+        sample.get("sample_kind_id"),
+        sample.get("replicate", 1),
+    )
 
 
 def build(
@@ -264,18 +279,12 @@ def _collisions(
     """Measurements sharing a sample, series and replicate — the database's own key."""
     seen: dict[tuple, list[str]] = {}
     for r in rows:
-        sample_key = (
-            r.sample["sampling_point_id"],
-            r.sample["sample_datetime_start"],
-            r.sample.get("sample_kind_id"),
-            r.sample.get("replicate", 1),
-        )
         for m in r.measurements:
             series_key = (m.parameter_id, m.sampling_point_id, m.laboratory_id)
             col = value_column.get(m.group)
             column_ref = f"'{labels[columns.index(col)]}' (column {col})" if col is not None else f"group {m.group}"
             where = f"row {r.row}: {column_ref}"
-            seen.setdefault((sample_key, series_key, m.replicate), []).append(where)
+            seen.setdefault((sample_key(r.sample), series_key, m.replicate), []).append(where)
     return [
         BuildError(
             f"{len(wheres)} measurements collapse onto the same sample, series and "
@@ -331,7 +340,24 @@ def _resolve_field(
         col = int(ref) if kind == "column" else None  # type: ignore[arg-type]
         fmt = None if col is None or col in block.datetime_columns else column_formats.get(col)
         parsed = parse_values(values, fmt)
-        return to_utc(parsed.wall_clock, tz)
+        utc = to_utc(parsed.wall_clock, tz)
+        gaps = dst_gaps(parsed.wall_clock, utc)
+        if gaps:
+            where = (
+                f"column '{labels[columns.index(col)]}' (column {col})"
+                if col is not None
+                else f"'{field.label}'"
+            )
+            quoted = ", ".join(f"row {row} ({text})" for row, text in gaps[:3])
+            errors.append(
+                BuildError(
+                    f"{len(gaps)} time(s) in {where} do not exist, or happen "
+                    f"twice, in {tz.key} — the clocks changed: {quoted}"
+                    f"{'…' if len(gaps) > 3 else ''}.",
+                    column=col,
+                )
+            )
+        return utc
 
     if not field.fk_table:
         return values

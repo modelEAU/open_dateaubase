@@ -49,9 +49,20 @@ from app.components.column_mapping import (
     without_constant,
     without_group_constant,
 )
-from app.components.datetime_parse import FORMAT_PRESETS, detect_format, parse_values, to_utc
+from app.components.datetime_parse import (
+    FORMAT_PRESETS,
+    detect_format,
+    dst_gaps,
+    parse_values,
+    to_utc,
+)
 from app.components.field_catalogue import GROUPS, catalogue
-from app.components.measurement_builder import BuildResult, MeasurementCandidate, build
+from app.components.measurement_builder import (
+    BuildResult,
+    MeasurementCandidate,
+    build,
+    sample_key,
+)
 from app.components.sheet_block import SheetBlock, extract_block, read_grids
 from app.components.timezone_select import timezone_selector
 
@@ -541,6 +552,17 @@ def _datetime_section(sheet: str, block: SheetBlock, data: pd.DataFrame) -> None
             hide_index=True,
         )
     utc = to_utc(parsed.wall_clock, tz)
+    gaps = dst_gaps(parsed.wall_clock, utc)
+    if gaps:
+        st.warning(
+            f"{len(gaps)} value(s) do not exist, or happen twice, in {tz.key} — "
+            "the clocks changed. Correct them in the sheet, or choose a zone "
+            "without daylight saving if the file is already in one."
+        )
+        st.dataframe(
+            pd.DataFrame(gaps[:50], columns=["row", "local time"]),
+            hide_index=True,
+        )
     rows = list(values.index[:8])
     st.caption(
         f"First {len(rows)} of {len(values)} rows — wall-clock time in the file "
@@ -647,37 +669,46 @@ def _submit_section(sheet: str, block: SheetBlock) -> None:
 
 
 def _do_submit(result: BuildResult) -> None:
-    """Create each row's sample, then submit its measurements — one request per row."""
-    experiment_id: int | None = None
-    outcomes = []
-    progress = st.progress(0, text="Submitting rows…")
-    for i, row in enumerate(result.rows):
-        try:
-            sample_id = api.create_sample(_serialize(row.sample))["sample_id"]
-        except Exception as exc:
-            outcomes.append({"row": row.row, "status": "error", "detail": f"sample: {exc}"})
-            progress.progress((i + 1) / len(result.rows))
-            continue
-        payload = {"measurements": [_measurement_payload(m, sample_id) for m in row.measurements]}
-        payload.update({"experiment_id": experiment_id} if experiment_id else _serialize(result.experiment or {}))
-        try:
-            response = api.ingest_lab(payload)
-            experiment_id = experiment_id or response.get("lab_experiment_id")
-            outcomes.append(
-                {"row": row.row, "status": "ok", "detail": f"rows_written={response.get('rows_written')}"}
-            )
-        except Exception as exc:
-            outcomes.append({"row": row.row, "status": "error", "detail": str(exc)})
-        progress.progress((i + 1) / len(result.rows))
-    progress.empty()
+    """Submit the whole import: one request for its samples, one for its measurements.
 
-    n_ok = sum(1 for o in outcomes if o["status"] == "ok")
-    n_err = len(outcomes) - n_ok
-    if n_err:
-        st.warning(f"{n_ok} row(s) submitted; {n_err} row(s) failed.")
-    else:
-        st.success(f"All {n_ok} row(s) submitted.")
-    st.dataframe(pd.DataFrame(outcomes), hide_index=True)
+    Source rows sharing a sample identity — a long-format sheet puts one
+    parameter per row — describe one physical sample and are submitted once.
+    """
+    identities = list(dict.fromkeys(sample_key(row.sample) for row in result.rows))
+    first_row = {sample_key(row.sample): row.sample for row in reversed(result.rows)}
+
+    status = st.status(f"Creating {len(identities)} sample(s)…", expanded=True)
+    try:
+        sample_ids = api.create_samples([_serialize(first_row[k]) for k in identities])["sample_ids"]
+    except Exception as exc:
+        status.update(label="Nothing was written.", state="error")
+        st.error(f"Could not create the samples: {exc}")
+        return
+    by_identity = dict(zip(identities, sample_ids))
+
+    measurements = [
+        _measurement_payload(m, by_identity[sample_key(row.sample)])
+        for row in result.rows
+        for m in row.measurements
+    ]
+    status.update(label=f"Writing {len(measurements)} measurement(s)…")
+    payload = {"measurements": measurements, **_serialize(result.experiment or {})}
+    try:
+        response = api.ingest_lab(payload)
+    except Exception as exc:
+        status.update(label="The samples were created, but no measurements were written.", state="error")
+        st.error(
+            f"{exc}\n\nThe {len(sample_ids)} sample(s) above were created. Submitting "
+            "again will report them as already on record — remove them first, or "
+            "attach the measurements from the lab ingest page."
+        )
+        return
+    status.update(label="Submitted.", state="complete")
+    st.success(
+        f"Wrote {response.get('rows_written')} measurement(s) across "
+        f"{len(sample_ids)} sample(s) into experiment "
+        f"{response.get('lab_experiment_id')}."
+    )
 
 
 def sheet_import_page() -> None:
