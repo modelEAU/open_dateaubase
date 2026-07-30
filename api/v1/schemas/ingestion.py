@@ -34,6 +34,22 @@ class SensorIngestRequest(BaseModel):
         return v
 
 
+class SampleCreateRequest(BaseModel):
+    """Request to create a new sample."""
+
+    sampling_point_id: int
+    sampled_by_person_id: int | None = None
+    campaign_id: int | None = None
+    sample_datetime_start: datetime
+    sample_datetime_end: datetime | None = None
+    sample_collection_kind_id: int | None = None
+    sample_kind_id: int | None = None
+    sample_material_kind_id: int | None = None
+    sample_equipment_id: int | None = None
+    replicate: int = 1
+    description: str | None = None
+
+
 class LabMeasurementItem(BaseModel):
     """One measurement in a lab experiment.
 
@@ -41,6 +57,10 @@ class LabMeasurementItem(BaseModel):
     unit / name) used to find-or-create the series, and the per-measurement
     data (sample, value, lab metadata, replicate, quality). The payload value
     is routed to Value / ValueVector / ValueMatrix based on ``value_kind_id``.
+
+    The sample is either one already on record (``sample_id``) or one this
+    request creates (``sample_index``, a position in the request's ``samples``)
+    — exactly one of the two.
     """
 
     # Series identity — used to find or create AnalysisSeries
@@ -54,7 +74,8 @@ class LabMeasurementItem(BaseModel):
     laboratory_id: int | None = None
 
     # Measurement
-    sample_id: int
+    sample_id: int | None = None
+    sample_index: int | None = None
     value: float | list | None
     analyst_person_id: int | None = None
     procedure_id: int | None = None
@@ -62,6 +83,10 @@ class LabMeasurementItem(BaseModel):
     replicate: int = 1
     quality_code_id: int | None = None
     notes: str | None = None
+
+    def model_post_init(self, __context) -> None:  # type: ignore[override]
+        if (self.sample_id is None) == (self.sample_index is None):
+            raise ValueError("give exactly one of sample_id or sample_index")
 
 
 class LabIngestRequest(BaseModel):
@@ -78,6 +103,10 @@ class LabIngestRequest(BaseModel):
     For each measurement: find-or-creates its ``AnalysisSeries``, inserts a
     ``LabAnalysis`` row, and inserts an ``Observation`` routed to the
     appropriate payload table.
+
+    ``samples`` creates the request's samples in the same transaction as its
+    measurements, so an import is written whole or not at all. Measurements
+    point at them by position through ``sample_index``.
     """
 
     experiment_id: int | None = None
@@ -87,6 +116,7 @@ class LabIngestRequest(BaseModel):
     description: str | None = None
     created_by_person_id: int | None = None
     lab_panel_id: int | None = None
+    samples: list[SampleCreateRequest] = []
     measurements: list[LabMeasurementItem]
 
     @field_validator("measurements")
@@ -103,6 +133,12 @@ class LabIngestRequest(BaseModel):
             if self.experiment_datetime is None:
                 raise ValueError(
                     "experiment_datetime is required when experiment_id is not provided"
+                )
+        for m in self.measurements:
+            if m.sample_index is not None and not 0 <= m.sample_index < len(self.samples):
+                raise ValueError(
+                    f"sample_index {m.sample_index} is outside this request's "
+                    f"{len(self.samples)} sample(s)"
                 )
 
 
@@ -156,22 +192,6 @@ class LabImageIngestResponse(BaseModel):
     lab_experiment_id: int
     rows_written: int
     storage_paths: list[str]
-
-
-class SampleCreateRequest(BaseModel):
-    """Request to create a new sample."""
-
-    sampling_point_id: int
-    sampled_by_person_id: int | None = None
-    campaign_id: int | None = None
-    sample_datetime_start: datetime
-    sample_datetime_end: datetime | None = None
-    sample_collection_kind_id: int | None = None
-    sample_kind_id: int | None = None
-    sample_material_kind_id: int | None = None
-    sample_equipment_id: int | None = None
-    replicate: int = 1
-    description: str | None = None
 
 
 class AnalysisSeriesLookupItem(BaseModel):
@@ -273,18 +293,6 @@ class SampleCreateResponse(BaseModel):
     """Response after creating a sample."""
 
     sample_id: int
-
-
-class SampleBatchCreateRequest(BaseModel):
-    """Request to create a whole import's samples in one round trip."""
-
-    samples: list[SampleCreateRequest]
-
-
-class SampleBatchCreateResponse(BaseModel):
-    """The sample IDs, positionally matching the requested samples."""
-
-    sample_ids: list[int]
 
 
 class VectorObservation(BaseModel):

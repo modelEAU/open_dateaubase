@@ -609,7 +609,7 @@ def _serialize(values: dict) -> dict:
     return {k: (v.isoformat() if isinstance(v, dt.datetime) else v) for k, v in values.items()}
 
 
-def _measurement_payload(m: MeasurementCandidate, sample_id: int) -> dict:
+def _measurement_payload(m: MeasurementCandidate, *, sample_index: int) -> dict:
     return _serialize(
         {
             "parameter_id": m.parameter_id,
@@ -618,7 +618,7 @@ def _measurement_payload(m: MeasurementCandidate, sample_id: int) -> dict:
             "value_kind_id": 1,
             "series_name": m.series_name,
             "laboratory_id": m.laboratory_id,
-            "sample_id": sample_id,
+            "sample_index": sample_index,
             "value": m.value,
             "replicate": m.replicate,
             "analyst_person_id": m.analyst_person_id,
@@ -669,44 +669,36 @@ def _submit_section(sheet: str, block: SheetBlock) -> None:
 
 
 def _do_submit(result: BuildResult) -> None:
-    """Submit the whole import: one request for its samples, one for its measurements.
+    """Submit the whole import as one request, written entire or not at all.
 
     Source rows sharing a sample identity — a long-format sheet puts one
-    parameter per row — describe one physical sample and are submitted once.
+    parameter per row — describe one physical sample and are sent once, with
+    each measurement pointing at its sample by position.
     """
     identities = list(dict.fromkeys(sample_key(row.sample) for row in result.rows))
     first_row = {sample_key(row.sample): row.sample for row in reversed(result.rows)}
+    position = {identity: i for i, identity in enumerate(identities)}
 
-    status = st.status(f"Creating {len(identities)} sample(s)…", expanded=True)
-    try:
-        sample_ids = api.create_samples([_serialize(first_row[k]) for k in identities])["sample_ids"]
-    except Exception as exc:
-        status.update(label="Nothing was written.", state="error")
-        st.error(f"Could not create the samples: {exc}")
-        return
-    by_identity = dict(zip(identities, sample_ids))
-
-    measurements = [
-        _measurement_payload(m, by_identity[sample_key(row.sample)])
-        for row in result.rows
-        for m in row.measurements
-    ]
-    status.update(label=f"Writing {len(measurements)} measurement(s)…")
-    payload = {"measurements": measurements, **_serialize(result.experiment or {})}
-    try:
-        response = api.ingest_lab(payload)
-    except Exception as exc:
-        status.update(label="The samples were created, but no measurements were written.", state="error")
-        st.error(
-            f"{exc}\n\nThe {len(sample_ids)} sample(s) above were created. Submitting "
-            "again will report them as already on record — remove them first, or "
-            "attach the measurements from the lab ingest page."
-        )
-        return
-    status.update(label="Submitted.", state="complete")
+    payload = {
+        "samples": [_serialize(first_row[identity]) for identity in identities],
+        "measurements": [
+            _measurement_payload(m, sample_index=position[sample_key(row.sample)])
+            for row in result.rows
+            for m in row.measurements
+        ],
+        **_serialize(result.experiment or {}),
+    }
+    with st.spinner(
+        f"Writing {len(identities)} sample(s) and {len(payload['measurements'])} measurement(s)…"
+    ):
+        try:
+            response = api.ingest_lab(payload)
+        except Exception as exc:
+            st.error(f"{exc}\n\nNothing was written — fix the cause and submit again.")
+            return
     st.success(
         f"Wrote {response.get('rows_written')} measurement(s) across "
-        f"{len(sample_ids)} sample(s) into experiment "
+        f"{len(identities)} sample(s) into experiment "
         f"{response.get('lab_experiment_id')}."
     )
 

@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 import logging
 
 from api.config import settings
-from api.database import get_db
+from api.database import get_db, transaction
 from ..repositories import (
     channel_repository,
     ingestion_repository,
@@ -38,8 +38,6 @@ from ..schemas.ingestion import (
     MatrixSensorIngestRequest,
     ProcessedIngestRequest,
     SampleCreateRequest,
-    SampleBatchCreateRequest,
-    SampleBatchCreateResponse,
     SampleCreateResponse,
     SensorChannelResolveRequest,
     SensorIngestRequest,
@@ -725,9 +723,15 @@ def ingest_sensor_tagless(data: TaglessSensorIngestRequest, conn=Depends(get_db)
 def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
     """Ingest one LabExperiment session worth of lab measurements.
 
+    The whole request is one transaction: it is written entire or not at all,
+    so a failure part way through never leaves half an import behind.
+
     Flow (new experiment):
-    1. Insert a single ``LabExperiment`` row (the session).
-    2. For each measurement: find-or-create its ``AnalysisSeries``,
+    1. Insert this request's ``samples``, if it carries any. Measurements
+       reach them by ``sample_index``; samples already on record are reached
+       by ``sample_id`` instead.
+    2. Insert a single ``LabExperiment`` row (the session).
+    3. For each measurement: find-or-create its ``AnalysisSeries``,
        insert a ``LabAnalysis`` row, then insert an ``Observation`` routed
        to ``Value`` / ``ValueVector`` / ``ValueMatrix`` based on the
        measurement's ``value_kind_id``.
@@ -736,76 +740,85 @@ def ingest_lab(data: LabIngestRequest, conn=Depends(get_db)):
     1. Verify the ``LabExperiment`` row exists; 404 if not.
     2. Same per-measurement loop, appending to the existing session.
     """
-    if data.experiment_id is not None:
-        if not ingestion_repository.lab_experiment_exists(conn, data.experiment_id):
-            raise HTTPException(
-                status_code=404,
-                detail=f"LabExperiment {data.experiment_id} not found.",
+    if data.experiment_id is not None and not ingestion_repository.lab_experiment_exists(
+        conn, data.experiment_id
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail=f"LabExperiment {data.experiment_id} not found.",
+        )
+
+    with transaction(conn) as tx:
+        new_sample_ids = ingestion_repository.insert_samples(
+            tx, [s.model_dump() for s in data.samples]
+        )
+
+        if data.experiment_id is not None:
+            lab_experiment_id = data.experiment_id
+        else:
+            lab_experiment_id = ingestion_repository.insert_lab_experiment(
+                tx,
+                name=data.name,  # type: ignore[arg-type]  # validated in model_post_init
+                experiment_datetime=data.experiment_datetime,  # type: ignore[arg-type]
+                campaign_id=data.campaign_id,
+                description=data.description,
+                created_by_person_id=data.created_by_person_id,
+                lab_panel_id=data.lab_panel_id,
             )
-        lab_experiment_id = data.experiment_id
-    else:
-        lab_experiment_id = ingestion_repository.insert_lab_experiment(
-            conn,
-            name=data.name,  # type: ignore[arg-type]  # validated in model_post_init
-            experiment_datetime=data.experiment_datetime,  # type: ignore[arg-type]
-            campaign_id=data.campaign_id,
-            description=data.description,
-            created_by_person_id=data.created_by_person_id,
-            lab_panel_id=data.lab_panel_id,
-        )
 
-    rows = 0
-    sample_times: dict[int, datetime] = {}
-    for item in data.measurements:
-        analysis_series_id = ingestion_repository.find_or_create_analysis_series(
-            conn,
-            parameter_id=item.parameter_id,
-            sampling_point_id=item.sampling_point_id,
-            value_kind_id=item.value_kind_id,
-            unit_id=item.unit_id,
-            name=item.series_name,
-            laboratory_id=item.laboratory_id,
-        )
+        rows = 0
+        sample_times: dict[int, datetime] = {}
+        for item in data.measurements:
+            sample_id = (
+                item.sample_id
+                if item.sample_id is not None
+                else new_sample_ids[item.sample_index]  # type: ignore[index]
+            )
 
-        lab_analysis_id = ingestion_repository.insert_lab_analysis(
-            conn,
-            lab_experiment_id=lab_experiment_id,
-            analysis_series_id=analysis_series_id,
-            sample_id=item.sample_id,
-            laboratory_id=item.laboratory_id,
-            analyst_person_id=item.analyst_person_id,
-            procedure_id=item.procedure_id,
-            analysis_datetime=item.analysis_datetime,
-            replicate=item.replicate,
-            quality_code_id=item.quality_code_id,
-            notes=item.notes,
-        )
+            analysis_series_id = ingestion_repository.find_or_create_analysis_series(
+                tx,
+                parameter_id=item.parameter_id,
+                sampling_point_id=item.sampling_point_id,
+                value_kind_id=item.value_kind_id,
+                unit_id=item.unit_id,
+                name=item.series_name,
+                laboratory_id=item.laboratory_id,
+            )
 
-        # Observation Timestamp is the sample collection time — the moment the
-        # analyte was extracted from the observed system (see ADR 0002), not the
-        # later analysis time. AnalysisDateTime stays on LabAnalysis as metadata.
-        if item.sample_id not in sample_times:
-            sample_times[item.sample_id] = (
-                ingestion_repository.get_sample_collection_time(
-                    conn, sample_id=item.sample_id
+            lab_analysis_id = ingestion_repository.insert_lab_analysis(
+                tx,
+                lab_experiment_id=lab_experiment_id,
+                analysis_series_id=analysis_series_id,
+                sample_id=sample_id,
+                laboratory_id=item.laboratory_id,
+                analyst_person_id=item.analyst_person_id,
+                procedure_id=item.procedure_id,
+                analysis_datetime=item.analysis_datetime,
+                replicate=item.replicate,
+                quality_code_id=item.quality_code_id,
+                notes=item.notes,
+            )
+
+            # Observation Timestamp is the sample collection time — the moment the
+            # analyte was extracted from the observed system (see ADR 0002), not the
+            # later analysis time. AnalysisDateTime stays on LabAnalysis as metadata.
+            if sample_id not in sample_times:
+                sample_times[sample_id] = (
+                    ingestion_repository.get_sample_collection_time(tx, sample_id=sample_id)
                 )
+
+            ingestion_repository.insert_lab_observation(
+                tx,
+                lab_analysis_id=lab_analysis_id,
+                analysis_series_id=analysis_series_id,
+                timestamp=sample_times[sample_id],
+                value_kind_id=item.value_kind_id,
+                value=item.value,
+                quality_code=item.quality_code_id,
             )
-        obs_timestamp = sample_times[item.sample_id]
+            rows += 1
 
-        ingestion_repository.insert_lab_observation(
-            conn,
-            lab_analysis_id=lab_analysis_id,
-            analysis_series_id=analysis_series_id,
-            timestamp=obs_timestamp,
-            value_kind_id=item.value_kind_id,
-            value=item.value,
-            quality_code=item.quality_code_id,
-        )
-        rows += 1
-
-    return LabIngestResponse(
-        lab_experiment_id=lab_experiment_id, rows_written=rows
-    )
+    return LabIngestResponse(lab_experiment_id=lab_experiment_id, rows_written=rows)
 
 
 @router.post("/lab-image", response_model=LabImageIngestResponse, status_code=201)
@@ -1278,17 +1291,3 @@ def create_sample(data: SampleCreateRequest, conn=Depends(get_db)):
         description=data.description,
     )
     return SampleCreateResponse(sample_id=sample_id)
-
-
-@router.post("/samples/batch", response_model=SampleBatchCreateResponse, status_code=201)
-def create_samples(data: SampleBatchCreateRequest, conn=Depends(get_db)):
-    """Create a whole import's samples at once, returning their IDs in order.
-
-    All or nothing: one repeated sample identity fails the batch with 409 and
-    writes nothing. Repeats *within* the batch are one sample, sharing an ID,
-    because several source rows may describe one physical sample.
-    """
-    ids = ingestion_repository.insert_samples(
-        conn, [s.model_dump() for s in data.samples]
-    )
-    return SampleBatchCreateResponse(sample_ids=ids)

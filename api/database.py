@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import time
 import urllib.parse
+from contextlib import contextmanager
 from typing import Iterator
 
 from fastapi import HTTPException, Request
@@ -98,6 +99,36 @@ def get_connection():
             status_code=503,
             detail=f"Cannot connect to database: {exc}",
         ) from exc
+
+
+class _DeferredCommit:
+    """A connection whose ``commit`` the surrounding transaction performs instead."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def commit(self) -> None:
+        """Deliberately nothing — ``transaction`` commits once, at the end."""
+
+
+@contextmanager
+def transaction(conn) -> Iterator:
+    """Run several repository calls as one all-or-nothing write.
+
+    The repository functions commit as they go, which is right for a single
+    write and wrong for a batch: half an import must never survive. Give them
+    the connection this yields instead — their commits are held back, and one
+    commit lands when the block ends, or everything rolls back.
+    """
+    try:
+        yield _DeferredCommit(conn)
+    except BaseException:
+        conn.rollback()
+        raise
+    conn.commit()
 
 
 def get_db(request: Request = None) -> Iterator:

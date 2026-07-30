@@ -420,26 +420,18 @@ def test_submit_section_disables_the_button_on_a_collision(monkeypatch):
     assert submit.disabled
 
 
-def test_submit_button_sends_one_request_for_samples_and_one_for_measurements(monkeypatch):
+def test_submit_button_sends_the_whole_import_as_one_request(monkeypatch):
     from app import api_client as api
 
     monkeypatch.setattr(api, "list_sampling_point_lookup", lambda: _SAMPLING_POINTS)
     monkeypatch.setattr(api, "list_parameter_lookup", lambda: _PARAMETERS)
     monkeypatch.setattr(api, "list_unit_lookup", lambda: _UNITS)
-    calls = {"create_samples": 0, "ingest_lab": 0}
-    sent: dict = {}
-
-    def fake_create_samples(samples):
-        calls["create_samples"] += 1
-        sent["samples"] = samples
-        return {"sample_ids": [100 + i for i in range(len(samples))]}
+    sent: list[dict] = []
 
     def fake_ingest_lab(data):
-        calls["ingest_lab"] += 1
-        sent["measurements"] = data["measurements"]
+        sent.append(data)
         return {"lab_experiment_id": 42, "rows_written": len(data["measurements"])}
 
-    monkeypatch.setattr(api, "create_samples", fake_create_samples)
     monkeypatch.setattr(api, "ingest_lab", fake_ingest_lab)
 
     block = extract_block(_page_grid(), 0, 1)
@@ -450,8 +442,10 @@ def test_submit_button_sends_one_request_for_samples_and_one_for_measurements(mo
     _by_key(at, "button", f"sheet_submit::{_SHEET}").click()
     at.run()
     assert not at.exception
-    assert calls == {"create_samples": 1, "ingest_lab": 1}
-    assert len(sent["samples"]) == 2  # two data rows, two distinct samples
-    assert len(sent["measurements"]) == 2
+    assert len(sent) == 1  # samples and measurements travel together
+    payload = sent[0]
+    assert len(payload["samples"]) == 2  # two data rows, two distinct samples
+    assert [m["sample_index"] for m in payload["measurements"]] == [0, 1]
+    assert not any("sample_id" in m for m in payload["measurements"])
     success = " ".join(el.value for el in at.success)
     assert "Wrote 2 measurement(s) across 2 sample(s)" in success
