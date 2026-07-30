@@ -12,8 +12,10 @@ location.
 
 How to read a mapped column's values is a property of that column, settled in
 its own panel beside where it was mapped — a sheet carrying both a sampling
-date and an analysis date configures both. Only the timezone is file-scoped:
-one file was written in one zone.
+date and an analysis date configures both, and a column naming entities the
+database does not hold gets a picker there too. Two things are file-scoped:
+the timezone, since one file was written in one zone, and whether this is lab
+or sensor data, which decides the vocabulary every column is mapped in.
 """
 
 from __future__ import annotations
@@ -38,7 +40,6 @@ from app.components.column_mapping import (
     BULK_SET_FIELD,
     BULK_VALUE_EACH,
     BULK_VALUE_SAME,
-    IDENTITY_FIELDS,
     IGNORE,
     apply_bulk,
     bindings_of,
@@ -70,7 +71,7 @@ from app.components.entity_picker import (
     create_from_name,
     entity_picker,
 )
-from app.components.field_catalogue import GROUPS, catalogue
+from app.components.field_catalogue import catalogue
 from app.components.measurement_builder import (
     BuildResult,
     MeasurementCandidate,
@@ -78,6 +79,7 @@ from app.components.measurement_builder import (
     label_key,
     sample_key,
 )
+from app.components.sensor_builder import build_sensor
 from app.components.sheet_block import SheetBlock, extract_block, read_grids
 from app.components.timezone_select import timezone_selector
 
@@ -107,15 +109,19 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
     header_key = f"sheet_header_row::{sheet}"
     data_key = f"sheet_data_row::{sheet}"
 
-    # File-scoped: one timezone for the whole file. Everything else a column
-    # needs is a property of that column, decided beside it further down.
-    tz = timezone_selector(
-        key=f"sheet_tz::{sheet}",
-        label="File timezone",
-        help="The timezone the file's times are written in. Every date column "
-        "previews in both this zone and UTC, so a wrong pick is visible "
-        "immediately.",
-    )
+    # File-scoped: what kind of data this is, and the one timezone it was
+    # written in. Everything else a column needs is a property of that column,
+    # decided beside it further down.
+    kind_col, tz_col = st.columns([1, 2])
+    kind = _kind_choice(sheet, kind_col)
+    with tz_col:
+        tz = timezone_selector(
+            key=f"sheet_tz::{sheet}",
+            label="File timezone",
+            help="The timezone the file's times are written in. Every date column "
+            "previews in both this zone and UTC, so a wrong pick is visible "
+            "immediately.",
+        )
     raw_col, clean_col = st.columns(2)
 
     with raw_col:
@@ -193,16 +199,39 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
             )
         )
 
-    spec = _mapping_section(sheet, block, sorted(selected_columns))
-    _column_details(sheet, block, spec, edited_indexed, tz)
-    _submit_section(sheet, block, spec)
+    spec = _mapping_section(sheet, block, sorted(selected_columns), kind)
+    _column_details(sheet, block, spec, edited_indexed, tz, kind)
+    _submit_section(sheet, block, spec, kind)
 
 
-def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int]):
+def _kind_choice(sheet: str, cell) -> str:
+    """Lab or sensor — the choice that picks which vocabulary the columns speak.
+
+    Changing it invalidates every mapping: the two vocabularies share no field.
+    """
+    key = f"sheet_kind::{sheet}"
+    kind = cell.radio(
+        "What kind of data is this?",
+        options=("lab", "sensor"),
+        format_func=lambda k: {"lab": "🧪 Lab results", "sensor": "📡 Sensor readings"}[k],
+        key=key,
+        help="Lab results become samples and analyses; sensor readings become "
+        "points on a channel. The two describe columns in different words.",
+    )
+    previous = f"sheet_kind_seen::{sheet}"
+    if st.session_state.get(previous) not in (None, kind):
+        st.session_state.pop(f"sheet_mapping::{sheet}", None)
+        gen_key = f"sheet_map_gen::{sheet}"
+        st.session_state[gen_key] = st.session_state.get(gen_key, 0) + 1
+    st.session_state[previous] = kind
+    return kind
+
+
+def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int], kind: str):
     """One row per column: what the column holds, keyed by column index."""
     st.divider()
     st.subheader("🧭 Map the columns")
-    cat = catalogue()
+    cat = catalogue(kind)
     spec_key = f"sheet_mapping::{sheet}"
     gen_key = f"sheet_map_gen::{sheet}"
     spec = st.session_state.get(spec_key)
@@ -451,8 +480,8 @@ def _groups_panel(sheet: str, block: SheetBlock, cat, spec) -> None:
                 for m in members
             )
             st.markdown(f"**Group {group}** — {names}")
-            cells = st.columns(len(IDENTITY_FIELDS))
-            for cell, key in zip(cells, IDENTITY_FIELDS):
+            cells = st.columns(len(cat.identity_keys))
+            for cell, key in zip(cells, cat.identity_keys):
                 field = cat.by_key(key)
                 source = source_for(spec, cat, group, key)
                 global_value = next(
@@ -516,7 +545,7 @@ def _catalogue_browser(cat) -> None:
             "The scope — file, row or measurement — is a property of the "
             "field, never something you choose."
         )
-        for group in GROUPS:
+        for group in cat.groups:
             st.markdown(f"**{group}**")
             for f in cat.in_group(group):
                 line = (
@@ -535,7 +564,7 @@ def _show(moment) -> str:
     return "—" if pd.isna(moment) else moment.strftime("%Y-%m-%d %H:%M")
 
 
-def _column_details(sheet: str, block: SheetBlock, spec, data: pd.DataFrame, tz) -> None:
+def _column_details(sheet: str, block: SheetBlock, spec, data: pd.DataFrame, tz, kind: str) -> None:
     """One panel per mapped column that still needs a decision, and no others.
 
     How to read a column's values is a property of that column, so it is
@@ -544,7 +573,7 @@ def _column_details(sheet: str, block: SheetBlock, spec, data: pd.DataFrame, tz)
     """
     st.divider()
     st.subheader("⚙️ Column details")
-    cat = catalogue()
+    cat = catalogue(kind)
     labels = block.labels()
     columns = list(block.columns)
     shown = 0
@@ -767,9 +796,9 @@ def _chosen_format(sheet: str, column: int) -> str | None:
     return FORMAT_PRESETS[choice]
 
 
-def _column_formats(sheet: str, block: SheetBlock, spec) -> dict[int, str | None]:
+def _column_formats(sheet: str, block: SheetBlock, spec, kind: str) -> dict[int, str | None]:
     """Every mapped date/time column's chosen format, per its own panel above."""
-    cat = catalogue()
+    cat = catalogue(kind)
     formats: dict[int, str | None] = {}
     for m in spec.mapped():
         if m.column in block.datetime_columns:
@@ -817,7 +846,7 @@ def _measurement_payload(m: MeasurementCandidate, *, sample_index: int) -> dict:
     )
 
 
-def _submit_section(sheet: str, block: SheetBlock, spec) -> None:
+def _submit_section(sheet: str, block: SheetBlock, spec, kind: str) -> None:
     st.divider()
     st.subheader("🚀 Submit")
     tz_name = st.session_state.get(f"sheet_tz::{sheet}")
@@ -825,9 +854,13 @@ def _submit_section(sheet: str, block: SheetBlock, spec) -> None:
         st.info("Map the columns and set a file timezone above before submitting.")
         return
     tz = zoneinfo.ZoneInfo(tz_name)
+    formats = _column_formats(sheet, block, spec, kind)
+    if kind == "sensor":
+        _sensor_submit(sheet, block, spec, tz, formats)
+        return
 
     try:
-        result = build(spec, block, catalogue(), _api_lookup, tz, _column_formats(sheet, block, spec))
+        result = build(spec, block, catalogue(), _api_lookup, tz, formats)
     except api.APIError as exc:
         st.warning(f"Could not check names against the database yet: {exc}")
         return
@@ -852,6 +885,61 @@ def _submit_section(sheet: str, block: SheetBlock, spec) -> None:
         width="stretch",
     ):
         _do_submit(result)
+
+
+def _sensor_submit(sheet: str, block: SheetBlock, spec, tz, formats) -> None:
+    """One request per channel: sensor ingest carries one channel at a time."""
+    try:
+        result = build_sensor(spec, block, catalogue("sensor"), _lookup_or_empty, tz, formats)
+    except api.APIError as exc:
+        st.warning(f"Could not check names against the database yet: {exc}")
+        return
+    for error in result.errors:
+        st.error(error.message)
+    if result.errors:
+        return
+    for warning in result.warnings:
+        st.warning(warning)
+
+    counts = result.counts()
+    st.info(
+        f"Ready to write **{counts['points']}** reading(s) across "
+        f"**{counts['channels']}** channel(s), one request each."
+    )
+    if any(r.endpoint == "/ingest/sensor-tagless" for r in result.requests):
+        st.caption(
+            "A station channel whose equipment is already wired to a different "
+            "signal interface is refused (409): rewiring is recorded explicitly, "
+            "never inferred from an import."
+        )
+    if not st.button(
+        "Submit to /ingest/sensor",
+        key=f"sheet_submit::{sheet}",
+        type="primary",
+        width="stretch",
+    ):
+        return
+
+    written = 0
+    for request in result.requests:
+        post = (
+            api.ingest_sensor
+            if request.endpoint == "/ingest/sensor"
+            else api.ingest_sensor_tagless
+        )
+        with st.spinner(f"Writing group {request.group} — {len(request.payload['values'])} point(s)…"):
+            try:
+                response = post(request.payload)
+            except Exception as exc:
+                st.error(
+                    f"Group {request.group} failed: {exc}\n\n"
+                    f"{written} channel(s) were written before it; the rest were not."
+                )
+                return
+        written += 1
+        for warning in response.get("warnings", []):
+            st.info(f"Group {request.group}: {warning}")
+    st.success(f"Wrote {written} channel(s).")
 
 
 def _do_submit(result: BuildResult) -> None:

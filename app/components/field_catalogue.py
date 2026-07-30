@@ -36,10 +36,13 @@ from open_dateaubase.ingestion_schemas import (
     LabIngestRequest,
     LabMeasurementItem,
     SampleCreateRequest,
+    SensorIngestRequest,
+    TaglessSensorIngestRequest,
+    ValueItem,
 )
 from app.components.schema_registry import load_table
 
-#: The five activity groups, in render order.
+#: The lab vocabulary's five activity groups, in render order.
 GROUPS = (
     "When & where",
     "The sample",
@@ -48,10 +51,35 @@ GROUPS = (
     "The batch",
 )
 
+#: The sensor vocabulary's groups: a channel, and the points on it.
+SENSOR_GROUPS = ("The channel", "The point")
+
+#: The measurement-scoped fields composing a group's identity, settable per
+#: group independently of every other group.
+IDENTITY_KEYS = (
+    "measurement.parameter_id",
+    "measurement.unit_id",
+    "measurement.laboratory_id",
+    "measurement.sampling_point_id",
+)
+
+#: A sensor group's identity is the channel it names — by SCADA tag, or by
+#: equipment on a declared interface.
+SENSOR_IDENTITY_KEYS = (
+    "channel.das_name",
+    "channel.tag",
+    "channel.parameter_name",
+    "channel.unit_name",
+    "channel.equipment_name",
+    "channel.signal_interface_name",
+)
+
 _FALLBACK_GROUP = {
     "batch": "The batch",
     "sample": "The sample",
     "measurement": "The measurement",
+    "channel": "The channel",
+    "point": "The point",
 }
 
 
@@ -67,12 +95,25 @@ class FieldMeta:
     label: str  # plain language
     help: str  # the YAML column description
     ref: str  # "Table.Column" for traceability
-    group: str  # one of GROUPS
+    group: str  # one of the kind's groups
+    emits: str = "id"  # "id" | "name" — what the payload carries for an fk_table
 
 
 @dataclass(frozen=True)
 class Catalogue:
+    """One kind of import's whole vocabulary, and the few rules keyed to it.
+
+    ``value_key``, ``identity_keys`` and ``satisfied_by`` are what the mapping
+    layer needs to know about a vocabulary it does not otherwise read: which
+    field is the reading, which fields identify a measurement group, and which
+    required field another one already answers.
+    """
+
     fields: tuple[FieldMeta, ...]
+    groups: tuple[str, ...] = GROUPS
+    value_key: str = "measurement.value"
+    identity_keys: tuple[str, ...] = IDENTITY_KEYS
+    satisfied_by: dict[str, str] = dataclass_field(default_factory=dict)
 
     def by_key(self, key: str) -> FieldMeta:
         for f in self.fields:
@@ -101,6 +142,8 @@ class CatalogueSource:
     ``table`` is the YAML dictionary table the model's fields bind to by name;
     ``field_tables`` overrides it per field for models whose fields span
     several tables; ``exclude`` lists page-managed fields the user never maps.
+    ``name_lookups`` marks fields the *server* resolves by name: they pick from
+    a table like any foreign key, but the payload carries the name.
     """
 
     model: type[BaseModel]
@@ -109,6 +152,7 @@ class CatalogueSource:
     table: str | None
     field_tables: dict[str, str] = dataclass_field(default_factory=dict)
     exclude: frozenset[str] = frozenset()
+    name_lookups: dict[str, str] = dataclass_field(default_factory=dict)
 
 
 _MEASUREMENT_TABLES = {
@@ -152,6 +196,62 @@ _SOURCES = (
     ),
 )
 
+#: Sensor ingest is one channel and a list of points: the channel's identity is
+#: per measurement group, the points are the rows. The two request shapes are
+#: mutually exclusive ways to name one channel — a SCADA tag, or a piece of
+#: equipment on a declared interface — so both are offered and the builder holds
+#: each group to one of them.
+_SENSOR_SOURCES = (
+    CatalogueSource(
+        model=SensorIngestRequest,
+        namespace="channel",
+        scope="measurement",
+        table="Channel",
+        # the page posts strict=False and owns the point list and the provenance
+        exclude=frozenset({"strict", "values", "data_provenance_kind_id"}),
+        name_lookups={
+            "das_name": "DataAcquisitionSystem",
+            "parameter_name": "Parameter",
+            "unit_name": "Unit",
+        },
+    ),
+    CatalogueSource(
+        model=TaglessSensorIngestRequest,
+        namespace="channel",
+        scope="measurement",
+        table="Channel",
+        # only what the tagged shape does not already contribute
+        exclude=frozenset(
+            {
+                "strict",
+                "values",
+                "data_provenance_kind_id",
+                "das_name",
+                "parameter_name",
+                "unit_name",
+            }
+        ),
+        name_lookups={
+            "equipment_name": "Equipment",
+            "signal_interface_name": "SignalInterface",
+        },
+    ),
+    CatalogueSource(
+        model=ValueItem,
+        namespace="point",
+        scope="row",
+        table="Observation",
+        exclude=frozenset({"value", "quality_code"}),
+    ),
+    CatalogueSource(
+        model=ValueItem,
+        namespace="point",
+        scope="measurement",
+        table="Value",
+        exclude=frozenset({"timestamp"}),
+    ),
+)
+
 #: The only presentation the schemas cannot provide: plain-language label and
 #: activity group, per catalogue key. A field absent from this map still
 #: appears, with a humanized label and its namespace's fallback group.
@@ -183,11 +283,30 @@ _PRESENTATION: dict[str, tuple[str, str]] = {
     "measurement.laboratory_id": ("Laboratory", "Who & how"),
     "measurement.analyst_person_id": ("Analyst", "Who & how"),
     "measurement.procedure_id": ("Procedure", "Who & how"),
+    "channel.das_name": ("Data acquisition system", "The channel"),
+    "channel.tag": ("SCADA tag", "The channel"),
+    "channel.channel_kind": ("Channel kind", "The channel"),
+    "channel.parent_tag": ("Parent tag", "The channel"),
+    "channel.parameter_name": ("Parameter", "The channel"),
+    "channel.unit_name": ("Unit", "The channel"),
+    "channel.equipment_name": ("Equipment", "The channel"),
+    "channel.signal_interface_name": ("Signal interface", "The channel"),
+    "point.timestamp": ("Timestamp", "The point"),
+    "point.value": ("Reading", "The point"),
+    "point.quality_code": ("Quality flag", "The point"),
 }
 
 #: Required only conditionally in the payload (a new experiment needs them),
 #: but unconditionally required from the user's point of view.
 _REQUIRED_OVERRIDES = {"batch.name", "batch.experiment_datetime"}
+
+#: Required in their own request shape, but the two sensor shapes are mutually
+#: exclusive: which set a group needs is a per-group rule the builder applies.
+_OPTIONAL_OVERRIDES = {
+    "channel.tag",
+    "channel.equipment_name",
+    "channel.signal_interface_name",
+}
 
 
 def _value_type(annotation) -> str:
@@ -223,10 +342,29 @@ def _column(table: str, field_name: str):
     return next((c for c in meta.columns if c.field.replace("_", "") == want), None)
 
 
-def build_catalogue(sources=_SOURCES) -> Catalogue:
+#: What each kind of import is made of, beyond the payload models themselves.
+_KINDS = {
+    "lab": dict(
+        sources=_SOURCES,
+        groups=GROUPS,
+        value_key="measurement.value",
+        identity_keys=IDENTITY_KEYS,
+        satisfied_by={"measurement.sampling_point_id": "sample.sampling_point_id"},
+    ),
+    "sensor": dict(
+        sources=_SENSOR_SOURCES,
+        groups=SENSOR_GROUPS,
+        value_key="point.value",
+        identity_keys=SENSOR_IDENTITY_KEYS,
+        satisfied_by={},
+    ),
+}
+
+
+def build_catalogue(sources=_SOURCES, **kind) -> Catalogue:
     """Walk the payload models and assemble the catalogue.
 
-    Fields come out grouped by activity, in ``GROUPS`` order.
+    Fields come out grouped by activity, in the kind's group order.
     """
     fields: list[FieldMeta] = []
     for src in sources:
@@ -239,25 +377,38 @@ def build_catalogue(sources=_SOURCES) -> Catalogue:
             label, group = _PRESENTATION.get(
                 key, (_humanize(name), _FALLBACK_GROUP[src.namespace])
             )
+            by_name = src.name_lookups.get(name)
+            required = model_field.is_required() or key in _REQUIRED_OVERRIDES
             fields.append(
                 FieldMeta(
                     key=key,
                     scope=src.scope,
                     value_type=_value_type(model_field.annotation),
-                    fk_table=col.fk_table if col else None,
-                    required=model_field.is_required() or key in _REQUIRED_OVERRIDES,
+                    fk_table=by_name or (col.fk_table if col else None),
+                    required=required and key not in _OPTIONAL_OVERRIDES,
                     label=label,
                     help=col.description if col else "",
                     ref=f"{table}.{col.name}" if col else f"{src.model.__name__}.{name}",
                     group=group,
+                    emits="name" if by_name else "id",
                 )
             )
-    order = {group: i for i, group in enumerate(GROUPS)}
+    groups = tuple(kind.pop("groups", GROUPS))
+    order = {group: i for i, group in enumerate(groups)}
     fields.sort(key=lambda f: order[f.group])  # stable: declaration order within a group
-    return Catalogue(tuple(fields))
+    return Catalogue(tuple(fields), groups=groups, **kind)
 
 
-@lru_cache(maxsize=1)
-def catalogue() -> Catalogue:
-    """The process-wide catalogue, built once."""
-    return build_catalogue()
+@lru_cache(maxsize=len(_KINDS))
+def _catalogue(kind: str) -> Catalogue:
+    return build_catalogue(**_KINDS[kind])
+
+
+def catalogue(kind: str = "lab") -> Catalogue:
+    """One kind's process-wide catalogue, built once.
+
+    The default keeps every lab caller reading as it did — and returns the very
+    same object as ``catalogue("lab")``, which a bare ``lru_cache`` on a
+    defaulted argument would not.
+    """
+    return _catalogue(kind)

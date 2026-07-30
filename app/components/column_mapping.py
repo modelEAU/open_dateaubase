@@ -41,28 +41,12 @@ from app.components.sheet_block import SheetBlock
 #: The display string for an unmapped column.
 IGNORE = "— ignore —"
 
-_VALUE = "measurement.value"
-
-#: The four measurement-scoped fields that compose a group's identity, settable
-#: per group independently of the other groups.
-IDENTITY_FIELDS = (
-    "measurement.parameter_id",
-    "measurement.unit_id",
-    "measurement.laboratory_id",
-    "measurement.sampling_point_id",
-)
-
 #: The bulk actions a multi-column selection drives.
 BULK_IGNORE = "ignore"
 BULK_VALUE_EACH = "value_each"
 BULK_VALUE_SAME = "value_same"
 BULK_SET_FIELD = "set_field"
 BULK_ACTIONS = (BULK_IGNORE, BULK_VALUE_EACH, BULK_VALUE_SAME, BULK_SET_FIELD)
-
-#: A required measurement-scoped field is satisfied when its row-scoped
-#: equivalent is sourced — the builder inherits it (the measurement's location
-#: defaults to the sample's).
-_SATISFIED_BY = {"measurement.sampling_point_id": "sample.sampling_point_id"}
 
 #: One field's effective source inside a group: ("group_constant", value) /
 #: ("column", column index) / ("constant", value).
@@ -306,8 +290,8 @@ def source_for(
 def identity_for_group(
     spec: MappingSpec, catalogue: Catalogue, group: int
 ) -> dict[str, Source | None]:
-    """A group's full identity: parameter, unit, laboratory and location."""
-    return {key: source_for(spec, catalogue, group, key) for key in IDENTITY_FIELDS}
+    """A group's full identity, in the terms this kind of import uses."""
+    return {key: source_for(spec, catalogue, group, key) for key in catalogue.identity_keys}
 
 
 def row_series(
@@ -385,7 +369,7 @@ def apply_bulk(
         existing = [
             _group_of(m)
             for m in spec.mapped()
-            if m.column in selected and m.field == _VALUE
+            if m.column in selected and m.field == catalogue.value_key
         ]
         shared = min(existing) if existing else min(selected)
 
@@ -393,9 +377,9 @@ def apply_bulk(
         if action == BULK_IGNORE:
             return ColumnMapping(column=m.column)
         if action == BULK_VALUE_EACH:
-            return ColumnMapping(column=m.column, field=_VALUE, group=m.column)
+            return ColumnMapping(column=m.column, field=catalogue.value_key, group=m.column)
         if action == BULK_VALUE_SAME:
-            return ColumnMapping(column=m.column, field=_VALUE, group=shared)
+            return ColumnMapping(column=m.column, field=catalogue.value_key, group=shared)
         try:
             scope = catalogue.by_key(field).scope
         except KeyError:
@@ -551,7 +535,10 @@ def missing_required(spec: MappingSpec, catalogue: Catalogue) -> list[FieldMeta]
         # measurement scope: every group needs a source
         if groups and all(source_for(spec, catalogue, g, f.key) for g in groups):
             continue
-        fallback = _SATISFIED_BY.get(f.key)
+        # a required measurement field can be answered by its row-scoped
+        # equivalent — the builder inherits it (a measurement's location
+        # defaults to its sample's)
+        fallback = catalogue.satisfied_by.get(f.key)
         if fallback and (fallback in column_sourced or fallback in constant_sourced):
             continue
         missing.append(f)
