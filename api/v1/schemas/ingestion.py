@@ -6,6 +6,18 @@ from datetime import datetime
 
 from pydantic import BaseModel, field_validator
 
+from open_dateaubase.ingestion_schemas import (
+    LabIngestRequest,
+    LabMeasurementItem,
+    SampleCreateRequest,
+)
+
+__all__ = [
+    "LabIngestRequest",
+    "LabMeasurementItem",
+    "SampleCreateRequest",
+]
+
 
 class ValueItem(BaseModel):
     timestamp: datetime

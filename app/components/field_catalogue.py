@@ -32,7 +32,7 @@ from functools import lru_cache
 
 from pydantic import BaseModel
 
-from api.v1.schemas.ingestion import (
+from open_dateaubase.ingestion_schemas import (
     LabIngestRequest,
     LabMeasurementItem,
     SampleCreateRequest,
