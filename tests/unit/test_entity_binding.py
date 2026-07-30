@@ -205,3 +205,15 @@ def test_picking_an_entity_binds_that_text_on_the_spec(monkeypatch):
     assert binding_for(at.session_state["sheet_mapping::E"], "sample.sampling_point_id", "Chute") == 2
     blob = " ".join(str(m.value) for m in at.markdown)
     assert "'Chute' → **Outfall**" in blob
+
+
+def test_an_untouched_optional_field_is_not_sent_at_all():
+    """A blank text box is not a value; the server would refuse `""` as an int."""
+    import datetime as dt
+
+    from app.components.entity_picker import _payload
+
+    sent = _payload(
+        {"name": "Chute du Moulin", "process_unit_id": "", "latitude": 0, "start": dt.date(2026, 4, 3)}
+    )
+    assert sent == {"name": "Chute du Moulin", "latitude": 0, "start": "2026-04-03"}

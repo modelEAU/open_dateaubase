@@ -10,6 +10,7 @@ guess is their decision, which is the whole point of asking.
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Callable
 
 import streamlit as st
@@ -122,6 +123,19 @@ def entity_picker(
     return None
 
 
+def _payload(data: dict) -> dict:
+    """What the form actually sends: an untouched optional field is not sent.
+
+    A blank text box reads as ``""``, which an optional integer or date column
+    refuses; leaving the key out lets the server apply its own default.
+    """
+    return {
+        k: v.isoformat() if isinstance(v, dt.date) else v
+        for k, v in data.items()
+        if v is not None and v != ""
+    }
+
+
 def _create_form(
     key: str, *, fk_table: str, text: str | None, lookup: LookupFn
 ) -> tuple[int, str] | None:
@@ -154,7 +168,8 @@ def _create_form(
             st.error(" · ".join(problems))
             return None
         try:
-            args = (parent_id, data) if fk_table in _NEEDS_PARENT else (data,)
+            payload = _payload(data)
+            args = (parent_id, payload) if fk_table in _NEEDS_PARENT else (payload,)
             getattr(api, create_fn)(*args)
         except Exception as exc:
             st.error(f"Could not create it: {exc}")
