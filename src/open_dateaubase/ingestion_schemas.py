@@ -1,7 +1,9 @@
-"""Lab ingest request schemas shared by the API and the Streamlit app.
+"""Ingest request schemas shared by the API and the Streamlit app.
 
 Lives outside ``api/`` because the app image never copies that directory
-(app talks to the API over HTTP only) but does install this package.
+(app talks to the API over HTTP only) but does install this package. Only
+the scalar lab and sensor requests are here — the vector/matrix variants
+stay in ``api/`` since no client builds them.
 """
 
 from __future__ import annotations
@@ -117,3 +119,56 @@ class LabIngestRequest(BaseModel):
                     f"sample_index {m.sample_index} is outside this request's "
                     f"{len(self.samples)} sample(s)"
                 )
+
+
+class ValueItem(BaseModel):
+    timestamp: datetime
+    value: float | None
+    quality_code: int | None = None
+
+
+class SensorIngestRequest(BaseModel):
+    """Ingest raw sensor data. Channel is resolved (or created) from the stream identity."""
+
+    das_name: str
+    tag: str
+    channel_kind: str = "value"
+    parent_tag: str | None = None
+    parameter_name: str
+    unit_name: str
+    data_provenance_kind_id: int = 1
+    strict: bool = False
+    values: list[ValueItem]
+
+    @field_validator("values")
+    @classmethod
+    def values_not_empty(cls, v: list) -> list:
+        if not v:
+            raise ValueError("values list must not be empty")
+        return v
+
+
+class TaglessSensorIngestRequest(BaseModel):
+    """Ingest raw sensor data from a direct-connect station (no SCADA tag name).
+
+    ``signal_interface_name`` is the config-declared identity of the physical/logical
+    connection point (e.g. matching a label on the DAS). It is authoritative — the
+    Channel's tag is still auto-generated as ``"{equipment_name}/{parameter_name}"``
+    (lowercased, trimmed) to disambiguate multiple parameters under one interface.
+    """
+
+    das_name: str
+    equipment_name: str
+    parameter_name: str
+    unit_name: str
+    signal_interface_name: str
+    data_provenance_kind_id: int = 1
+    strict: bool = False
+    values: list[ValueItem]
+
+    @field_validator("values")
+    @classmethod
+    def values_not_empty(cls, v: list) -> list:
+        if not v:
+            raise ValueError("values list must not be empty")
+        return v
