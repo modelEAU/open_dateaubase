@@ -9,6 +9,11 @@ header names stay independent. A span of columns selected in the raw sheet
 takes one bulk action; fields the sheet does not contain take typed constants;
 each measurement group carries its own parameter, unit, laboratory and
 location.
+
+How to read a mapped column's values is a property of that column, settled in
+its own panel beside where it was mapped — a sheet carrying both a sampling
+date and an analysis date configures both. Only the timezone is file-scoped:
+one file was written in one zone.
 """
 
 from __future__ import annotations
@@ -91,6 +96,16 @@ def _raw_view(grid: pd.DataFrame) -> pd.DataFrame:
 def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
     header_key = f"sheet_header_row::{sheet}"
     data_key = f"sheet_data_row::{sheet}"
+
+    # File-scoped: one timezone for the whole file. Everything else a column
+    # needs is a property of that column, decided beside it further down.
+    tz = timezone_selector(
+        key=f"sheet_tz::{sheet}",
+        label="File timezone",
+        help="The timezone the file's times are written in. Every date column "
+        "previews in both this zone and UTC, so a wrong pick is visible "
+        "immediately.",
+    )
     raw_col, clean_col = st.columns(2)
 
     with raw_col:
@@ -168,12 +183,12 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
             )
         )
 
-    _mapping_section(sheet, block, sorted(selected_columns))
-    _datetime_section(sheet, block, edited_indexed)
-    _submit_section(sheet, block)
+    spec = _mapping_section(sheet, block, sorted(selected_columns))
+    _column_details(sheet, block, spec, edited_indexed, tz)
+    _submit_section(sheet, block, spec)
 
 
-def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int]) -> None:
+def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int]):
     """One row per column: what the column holds, keyed by column index."""
     st.divider()
     st.subheader("🧭 Map the columns")
@@ -249,6 +264,7 @@ def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int])
             "all of them. Columns you leave ignored are simply not imported."
         )
     _catalogue_browser(cat)
+    return spec
 
 
 def _missing_label(spec, cat, field) -> str:
@@ -474,133 +490,153 @@ def _show(moment) -> str:
     return "—" if pd.isna(moment) else moment.strftime("%Y-%m-%d %H:%M")
 
 
-def _datetime_section(sheet: str, block: SheetBlock, data: pd.DataFrame) -> None:
-    """Timezone, format and dual local/UTC preview for one date/time column."""
-    st.divider()
-    st.subheader("🕒 Dates & times")
-    tz = timezone_selector(
-        key=f"sheet_tz::{sheet}",
-        label="File timezone",
-        help="The timezone the file's times are written in. Parsed times preview "
-        "below in both this zone and UTC, so a wrong pick is visible immediately.",
-    )
-    columns = list(block.columns)
-    labels = block.labels()
-    native_first = sorted(
-        columns, key=lambda c: (c not in block.datetime_columns, columns.index(c))
-    )
-    column = st.selectbox(
-        "Date/time column",
-        options=native_first,
-        format_func=lambda c: labels[columns.index(c)],
-        key=f"sheet_dt_col::{sheet}",
-        help="Which column holds each row's date/time. Columns already holding "
-        "real dates sort first. Only one column previews at a time.",
-    )
-    values = data[column]
+def _column_details(sheet: str, block: SheetBlock, spec, data: pd.DataFrame, tz) -> None:
+    """One panel per mapped column that still needs a decision, and no others.
 
-    if column in block.datetime_columns:
-        st.info(
-            "This column already holds real dates/times from the spreadsheet, so "
-            "there is no format to choose — they are read as wall-clock times in "
-            "the file timezone above."
+    How to read a column's values is a property of that column, so it is
+    settled where the column was mapped — not in a page-wide section that can
+    only ever show one column at a time.
+    """
+    st.divider()
+    st.subheader("⚙️ Column details")
+    cat = catalogue()
+    labels = block.labels()
+    columns = list(block.columns)
+    shown = 0
+    for m in sorted(spec.mapped(), key=lambda m: columns.index(m.column)):
+        try:
+            field = cat.by_key(m.field)
+        except KeyError:
+            continue  # unknown field: the mapping section names it
+        if field.value_type != "datetime":
+            continue
+        _datetime_panel(
+            sheet, block, m.column, data[m.column], tz, field, labels[columns.index(m.column)]
         )
-        parsed = parse_values(values, None)
-    else:
-        detection = detect_format(values)
-        if detection.format is not None:
-            st.success(f"Detected format: {detection.label}")
-        else:
-            st.warning("The date format cannot be told from the data — choose one yourself.")
-        for line in detection.evidence:
-            st.markdown(f"- {line}")
-        options = [*FORMAT_PRESETS, _CUSTOM]
-        if detection.label is not None:
-            index = options.index(detection.label)
-        else:
-            options = [_CHOOSE, *options]
-            index = 0
-        choice = st.selectbox(
-            "Date format",
-            options=options,
-            index=index,
-            key=f"sheet_dt_fmt::{sheet}::{column}",
-            help="How day, month and year are ordered in this column. Detection "
-            "proposes a format when the evidence is clear and refuses when it "
-            "is not — it never guesses.",
+        shown += 1
+    if not shown:
+        st.caption(
+            "No mapped column needs a decision here. Map a date/time column "
+            "above and its format appears here, beside the column it belongs to."
         )
-        if choice == _CHOOSE:
+
+
+def _datetime_panel(sheet, block: SheetBlock, column: int, values, tz, field, label: str) -> None:
+    """One mapped date/time column: format, failures, DST and the dual preview.
+
+    Opens itself only when the column still wants attention — no format chosen,
+    values that would not parse, or wall clocks the zone does not have.
+    """
+    native = column in block.datetime_columns
+    key = f"sheet_dt_fmt::{sheet}::{column}"
+    detection = None if native else detect_format(values)
+    if detection is not None and key not in st.session_state:
+        st.session_state[key] = detection.label or _CHOOSE  # detection never guesses
+    fmt = _chosen_format(sheet, column)
+    parsed = parse_values(values, fmt) if native or fmt else None
+    utc = to_utc(parsed.wall_clock, tz) if parsed is not None else None
+    gaps = dst_gaps(parsed.wall_clock, utc) if parsed is not None else []
+
+    with st.expander(
+        f"🕒 {field.label} — column '{label}'",
+        expanded=parsed is None or bool(parsed.failures) or bool(gaps),
+    ):
+        if native:
+            st.info(
+                "This column already holds real dates/times from the spreadsheet, "
+                "so there is no format to choose — they are read as wall-clock "
+                "times in the file timezone."
+            )
+        else:
+            if detection.format is not None:
+                st.success(f"Detected format: {detection.label}")
+            else:
+                st.warning("The date format cannot be told from the data — choose one yourself.")
+            for line in detection.evidence:
+                st.markdown(f"- {line}")
+            st.selectbox(
+                "Date format",
+                options=[_CHOOSE, *FORMAT_PRESETS, _CUSTOM],
+                key=key,
+                help="How day, month and year are ordered in this column. "
+                "Detection proposes a format when the evidence is clear and "
+                "refuses when it is not — it never guesses.",
+            )
+            if st.session_state[key] == _CUSTOM:
+                st.text_input(
+                    "Custom format (strptime)",
+                    key=f"sheet_dt_custom::{sheet}::{column}",
+                    placeholder="%d/%m/%Y %H:%M",
+                    help="A Python strptime string, e.g. %d.%m.%Y %H:%M reads "
+                    "03.04.2026 14:30.",
+                )
+        if parsed is None:
             st.info("Choose a format to see the parsed times. Nothing is parsed until you do.")
             return
-        if choice == _CUSTOM:
-            fmt = st.text_input(
-                "Custom format (strptime)",
-                key=f"sheet_dt_custom::{sheet}::{column}",
-                placeholder="%d/%m/%Y %H:%M",
-                help="A Python strptime string, e.g. %d.%m.%Y %H:%M reads "
-                "03.04.2026 14:30.",
+
+        if parsed.failures:
+            st.warning(
+                f"{len(parsed.failures)} value(s) would not parse — listed here, never "
+                "dropped. Fix them in the cleaned table above or pick another format."
             )
-            if not fmt.strip():
-                st.info("Enter a format to see the parsed times.")
-                return
-        else:
-            fmt = FORMAT_PRESETS[choice]
-        parsed = parse_values(values, fmt)
-
-    if parsed.failures:
-        st.warning(
-            f"{len(parsed.failures)} value(s) would not parse — listed here, never "
-            "dropped. Fix them in the cleaned table above or pick another format."
+            st.dataframe(
+                pd.DataFrame(parsed.failures[:50], columns=["row", "value"]),
+                hide_index=True,
+            )
+        if gaps:
+            st.warning(
+                f"{len(gaps)} value(s) do not exist, or happen twice, in {tz.key} — "
+                "the clocks changed. Correct them in the sheet, or choose a zone "
+                "without daylight saving if the file is already in one."
+            )
+            st.dataframe(
+                pd.DataFrame(gaps[:50], columns=["row", "local time"]),
+                hide_index=True,
+            )
+        rows = list(values.index[:8])
+        st.caption(
+            f"First {len(rows)} of {len(values)} rows — wall-clock time in the file "
+            "zone, and the UTC instant it becomes:"
         )
         st.dataframe(
-            pd.DataFrame(parsed.failures[:50], columns=["row", "value"]),
+            pd.DataFrame(
+                {
+                    "row": rows,
+                    "value": [str(values.loc[row]) for row in rows],
+                    f"local ({tz.key})": [_show(parsed.wall_clock.loc[row]) for row in rows],
+                    "UTC": [_show(utc.loc[row]) for row in rows],
+                }
+            ),
             hide_index=True,
         )
-    utc = to_utc(parsed.wall_clock, tz)
-    gaps = dst_gaps(parsed.wall_clock, utc)
-    if gaps:
-        st.warning(
-            f"{len(gaps)} value(s) do not exist, or happen twice, in {tz.key} — "
-            "the clocks changed. Correct them in the sheet, or choose a zone "
-            "without daylight saving if the file is already in one."
-        )
-        st.dataframe(
-            pd.DataFrame(gaps[:50], columns=["row", "local time"]),
-            hide_index=True,
-        )
-    rows = list(values.index[:8])
-    st.caption(
-        f"First {len(rows)} of {len(values)} rows — wall-clock time in the file "
-        "zone, and the UTC instant it becomes:"
-    )
-    st.dataframe(
-        pd.DataFrame(
-            {
-                "row": rows,
-                "value": [str(values.loc[row]) for row in rows],
-                f"local ({tz.key})": [_show(parsed.wall_clock.loc[row]) for row in rows],
-                "UTC": [_show(utc.loc[row]) for row in rows],
-            }
-        ),
-        hide_index=True,
-    )
 
 
-def _column_formats(sheet: str, block: SheetBlock) -> dict[int, str | None]:
-    """Every non-native column's chosen strptime format, per the dates section above."""
+def _chosen_format(sheet: str, column: int) -> str | None:
+    """One column's chosen strptime format, or None while nothing is chosen."""
+    choice = st.session_state.get(f"sheet_dt_fmt::{sheet}::{column}")
+    if choice in (None, _CHOOSE):
+        return None
+    if choice == _CUSTOM:
+        return str(st.session_state.get(f"sheet_dt_custom::{sheet}::{column}", "")).strip() or None
+    return FORMAT_PRESETS[choice]
+
+
+def _column_formats(sheet: str, block: SheetBlock, spec) -> dict[int, str | None]:
+    """Every mapped date/time column's chosen format, per its own panel above."""
+    cat = catalogue()
     formats: dict[int, str | None] = {}
-    for column in block.columns:
-        if column in block.datetime_columns:
+    for m in spec.mapped():
+        if m.column in block.datetime_columns:
+            continue  # already real datetimes; no format to apply
+        try:
+            field = cat.by_key(m.field)
+        except KeyError:
             continue
-        choice = st.session_state.get(f"sheet_dt_fmt::{sheet}::{column}")
-        if choice in (None, _CHOOSE):
+        if field.value_type != "datetime":
             continue
-        if choice == _CUSTOM:
-            custom = str(st.session_state.get(f"sheet_dt_custom::{sheet}::{column}", "")).strip()
-            if custom:
-                formats[column] = custom
-            continue
-        formats[column] = FORMAT_PRESETS[choice]
+        fmt = _chosen_format(sheet, m.column)
+        if fmt:
+            formats[m.column] = fmt
     return formats
 
 
@@ -635,10 +671,9 @@ def _measurement_payload(m: MeasurementCandidate, *, sample_index: int) -> dict:
     )
 
 
-def _submit_section(sheet: str, block: SheetBlock) -> None:
+def _submit_section(sheet: str, block: SheetBlock, spec) -> None:
     st.divider()
     st.subheader("🚀 Submit")
-    spec = st.session_state.get(f"sheet_mapping::{sheet}")
     tz_name = st.session_state.get(f"sheet_tz::{sheet}")
     if spec is None or tz_name is None:
         st.info("Map the columns and set a file timezone above before submitting.")
@@ -646,7 +681,7 @@ def _submit_section(sheet: str, block: SheetBlock) -> None:
     tz = zoneinfo.ZoneInfo(tz_name)
 
     try:
-        result = build(spec, block, catalogue(), _api_lookup, tz, _column_formats(sheet, block))
+        result = build(spec, block, catalogue(), _api_lookup, tz, _column_formats(sheet, block, spec))
     except api.APIError as exc:
         st.warning(f"Could not check names against the database yet: {exc}")
         return

@@ -106,14 +106,22 @@ def _dst_page_script():  # pragma: no cover - executed inside AppTest
 
 
 def test_the_page_survives_a_broken_wall_clock_and_says_so():
-    """The preview runs before any mapping, so this is where the crash showed."""
+    """A wall clock the zone does not have must warn, not raise, in the preview."""
     from streamlit.testing.v1 import AppTest
+
+    from app.components.column_mapping import ColumnMapping, MappingSpec
 
     at = AppTest.from_function(_dst_page_script, default_timeout=60)
     at.session_state["sheet_header_row::DST"] = 0
     at.session_state["sheet_data_row::DST"] = 1
     at.session_state["sheet_tz::DST"] = "America/Montreal"
     at.session_state["sheet_dt_fmt::DST::0"] = "03/04/2026 14:30 — day first"
+    at.session_state["sheet_mapping::DST"] = MappingSpec(
+        (
+            ColumnMapping(0, "sample.sample_datetime_start"),
+            ColumnMapping(1, "measurement.value", group=1),
+        )
+    )
     at.run()
     assert not at.exception
     warnings = " ".join(el.value for el in at.warning)

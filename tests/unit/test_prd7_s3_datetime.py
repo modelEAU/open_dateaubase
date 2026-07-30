@@ -11,6 +11,7 @@ from datetime import datetime
 import pandas as pd
 from streamlit.testing.v1 import AppTest
 
+from app.components.column_mapping import ColumnMapping, MappingSpec
 from app.components.datetime_parse import (
     FORMAT_PRESETS,
     detect_format,
@@ -156,6 +157,13 @@ def _run_sheet(monkeypatch, kind: str) -> AppTest:
     at = AppTest.from_function(_sheet_script, default_timeout=60)
     at.session_state["sheet_header_row::S"] = 0
     at.session_state["sheet_data_row::S"] = 1
+    # a date column is configured where it was mapped, so map column 0 first
+    at.session_state["sheet_mapping::S"] = MappingSpec(
+        (
+            ColumnMapping(0, "sample.sample_datetime_start"),
+            ColumnMapping(1, "measurement.value", group=1),
+        )
+    )
     at.run()
     assert not at.exception
     return at
