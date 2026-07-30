@@ -4,8 +4,9 @@ A source row expands into as many measurements as it has value columns — one
 per measurement group. Row-scoped values are shared across every measurement
 on their row; file-scoped values apply to every row. Foreign-key fields carry
 the name the user typed; this is where that name is resolved to a database
-id, loudly — an unmatched name aborts the whole build and names itself and
-its column, never guessing and never creating.
+id — exactly, case aside, or through a binding the user made. An unmatched
+name aborts the whole build and names itself and its column, never guessing
+and never creating.
 
 Two measurements collapse onto one database row when they share a sample
 identity, a series identity and an analytical replicate — the same key the
@@ -28,6 +29,7 @@ import pandas as pd
 
 from app.components.column_mapping import (
     MappingSpec,
+    bindings_of,
     constant_for,
     group_series,
     groups_of,
@@ -42,7 +44,7 @@ from app.components.sheet_block import SheetBlock
 #: Per fk_table, the lookup dict key holding the display name — the lookup
 #: endpoints are not consistent about this (unit vs name vs label vs
 #: parameter_name), so it cannot be guessed.
-_LABEL_KEY = {
+_LABEL_KEYS = {
     "SamplingPoint": "label",
     "Parameter": "parameter_name",
     "Unit": "unit",
@@ -60,6 +62,11 @@ _LABEL_KEY = {
 #: table name -> its candidate rows (id + display name dicts), e.g. via
 #: ``api_client.list_sampling_point_lookup``.
 LookupFn = Callable[[str], list[dict]]
+
+
+def label_key(table: str) -> str:
+    """The key holding the display name in one table's lookup rows."""
+    return _LABEL_KEYS.get(table, "name")
 
 
 @dataclass(frozen=True)
@@ -370,8 +377,12 @@ def _resolve_field(
         else f"'{field.label}'"
     )
     id_key = field.key.rsplit(".", 1)[-1]
+    bound = bindings_of(spec, field.key)
     raw_texts = sorted({str(v).strip() for v in values if _present(v)})
-    resolved = {t: _resolve_name(cache, lookup, field.fk_table, id_key, t) for t in raw_texts}
+    resolved = {
+        t: bound.get(t, _resolve_name(cache, lookup, field.fk_table, id_key, t))
+        for t in raw_texts
+    }
     for text, rid in resolved.items():
         if rid is None:
             errors.append(
@@ -384,12 +395,29 @@ def _resolve_field(
 
 
 def _resolve_name(cache: dict[str, list[dict]], lookup: LookupFn, table: str, id_key: str, text: str) -> int | None:
-    """The best fuzzy match's id for a typed name, or None."""
+    """One name's id, matched exactly and then case-insensitively, or None.
+
+    Never approximately: ``"COD tot"`` is not ``COD``, and writing data against
+    the wrong entity is worse than refusing to write it.
+    """
     pool = cache.setdefault(table, lookup(table))
-    label_key = _LABEL_KEY.get(table, "name")
-    names = {str(c[label_key]): c for c in pool if c.get(label_key)}
-    hit = get_close_matches(text, list(names), n=1, cutoff=0.6)
-    return names[hit[0]].get(id_key) if hit else None
+    key = label_key(table)
+    names = {str(c[key]): c for c in pool if c.get(key)}
+    hit = names.get(text) or next(
+        (c for name, c in names.items() if name.casefold() == text.casefold()), None
+    )
+    return hit.get(id_key) if hit else None
+
+
+def suggest(pool: list[dict], key: str, text: str) -> str | None:
+    """The closest name in a lookup pool to a source text, or None.
+
+    A guess belongs where the user can see and accept it — this feeds the
+    entity picker, never the resolution above.
+    """
+    names = [str(c[key]) for c in pool if c.get(key)]
+    hit = get_close_matches(text, names, n=1, cutoff=0.6)
+    return hit[0] if hit else None
 
 
 def _unresolved_datetime_columns(

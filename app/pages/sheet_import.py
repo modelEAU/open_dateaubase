@@ -41,6 +41,7 @@ from app.components.column_mapping import (
     IDENTITY_FIELDS,
     IGNORE,
     apply_bulk,
+    bindings_of,
     empty_spec,
     groups_lacking,
     groups_of,
@@ -49,8 +50,10 @@ from app.components.column_mapping import (
     source_for,
     spec_from_frame,
     validate,
+    with_binding,
     with_constant,
     with_group_constant,
+    without_binding,
     without_constant,
     without_group_constant,
 )
@@ -61,11 +64,18 @@ from app.components.datetime_parse import (
     parse_values,
     to_utc,
 )
+from app.components.entity_picker import (
+    CHOOSE,
+    can_create_from_name,
+    create_from_name,
+    entity_picker,
+)
 from app.components.field_catalogue import GROUPS, catalogue
 from app.components.measurement_builder import (
     BuildResult,
     MeasurementCandidate,
     build,
+    label_key,
     sample_key,
 )
 from app.components.sheet_block import SheetBlock, extract_block, read_grids
@@ -333,13 +343,24 @@ def _constant_input(sheet: str, field) -> object | None:
     """
     key = f"sheet_const_value::{sheet}::{field.key}"
     if field.fk_table:
-        text = st.text_input(
-            f"{field.label} — name in {field.fk_table}",
+        pool = _lookup_or_empty(field.fk_table)
+        if not pool:  # the API is unreachable; the name still resolves at submit
+            text = st.text_input(
+                f"{field.label} — name in {field.fk_table}",
+                key=key,
+                help="The exact name as the database knows it (e.g. Field, VdQ). "
+                "Unmatched names fail loudly at submit and name themselves.",
+            )
+            return text.strip() or None
+        label_of = label_key(field.fk_table)
+        names = sorted(str(c[label_of]) for c in pool if c.get(label_of))
+        picked = st.selectbox(
+            f"{field.label} — a {field.fk_table} on record",
+            options=[CHOOSE, *names],
             key=key,
-            help="The exact name as the database knows it (e.g. Field, VdQ). "
-            "Unmatched names fail loudly at submit and name themselves.",
+            help=field.help or f"Which {field.fk_table} every row of this file carries.",
         )
-        return text.strip() or None
+        return None if picked == CHOOSE else picked
     if field.value_type == "integer":
         return int(st.number_input(field.label, step=1, key=key, help=field.help or None))
     if field.value_type == "number":
@@ -388,11 +409,13 @@ def _constants_editor(sheet: str, cat, spec) -> None:
 
 
 def _sync_group_constant(spec_key: str, group: int, field: str, wkey: str) -> None:
-    """Write a group-identity widget back into the spec (empty text clears it)."""
+    """Write a group-identity widget back into the spec (nothing chosen clears it)."""
     spec = st.session_state.get(spec_key)
     if spec is None:
         return
     text = str(st.session_state.get(wkey, "")).strip()
+    if text == CHOOSE:
+        text = ""
     st.session_state[spec_key] = (
         with_group_constant(spec, group, field, text)
         if text
@@ -412,8 +435,8 @@ def _groups_panel(sheet: str, block: SheetBlock, cat, spec) -> None:
         st.caption(
             "Columns sharing a group compose one measurement. Parameter, unit, "
             "laboratory and location belong to the group, set independently of "
-            "every other group — type the name as the database knows it. A "
-            "location left empty inherits the sample's."
+            "every other group — picked from what the database holds. A location "
+            "left unset inherits the sample's."
         )
         for group in groups:
             members = [
@@ -446,18 +469,40 @@ def _groups_panel(sheet: str, block: SheetBlock, cat, spec) -> None:
                     )
                     continue
                 wkey = f"sheet_gconst::{sheet}::{group}::{key}"
+                pool = _lookup_or_empty(field.fk_table) if field.fk_table else []
+                help_text = (
+                    f"Set for group {group} only."
+                    + (f" All groups take '{global_value}' unless a group overrides."
+                       if global_value is not None else "")
+                    + (f" {field.help}" if field.help else "")
+                )
+                if not pool:  # unreachable API: type the name, resolved at submit
+                    if wkey not in st.session_state:
+                        st.session_state[wkey] = (
+                            str(group_value) if group_value is not None else ""
+                        )
+                    cell.text_input(
+                        f"{field.label} (group {group})",
+                        key=wkey,
+                        placeholder=(
+                            f"all groups: {global_value}" if global_value is not None else "—"
+                        ),
+                        help=help_text,
+                        on_change=_sync_group_constant,
+                        kwargs=dict(spec_key=spec_key, group=group, field=key, wkey=wkey),
+                    )
+                    continue
+                label_of = label_key(field.fk_table)
+                names = sorted(str(c[label_of]) for c in pool if c.get(label_of))
                 if wkey not in st.session_state:
-                    st.session_state[wkey] = str(group_value) if group_value is not None else ""
-                cell.text_input(
+                    st.session_state[wkey] = (
+                        str(group_value) if group_value is not None else CHOOSE
+                    )
+                cell.selectbox(
                     f"{field.label} (group {group})",
+                    options=[CHOOSE, *names],
                     key=wkey,
-                    placeholder=f"all groups: {global_value}" if global_value is not None else "—",
-                    help=(
-                        f"Set for group {group} only."
-                        + (f" All groups take '{global_value}' unless a group overrides."
-                           if global_value is not None else "")
-                        + (f" {field.help}" if field.help else "")
-                    ),
+                    help=help_text,
                     on_change=_sync_group_constant,
                     kwargs=dict(spec_key=spec_key, group=group, field=key, wkey=wkey),
                 )
@@ -508,11 +553,13 @@ def _column_details(sheet: str, block: SheetBlock, spec, data: pd.DataFrame, tz)
             field = cat.by_key(m.field)
         except KeyError:
             continue  # unknown field: the mapping section names it
-        if field.value_type != "datetime":
+        label = labels[columns.index(m.column)]
+        if field.value_type == "datetime":
+            _datetime_panel(sheet, block, m.column, data[m.column], tz, field, label)
+        elif field.fk_table:
+            _entity_panel(sheet, spec, field, m.column, data[m.column], label)
+        else:
             continue
-        _datetime_panel(
-            sheet, block, m.column, data[m.column], tz, field, labels[columns.index(m.column)]
-        )
         shown += 1
     if not shown:
         st.caption(
@@ -609,6 +656,105 @@ def _datetime_panel(sheet, block: SheetBlock, column: int, values, tz, field, la
             ),
             hide_index=True,
         )
+
+
+def _entity_panel(sheet: str, spec, field, column: int, values, label: str) -> None:
+    """One entity column: which of its values the database already holds.
+
+    A value that matches a row on record needs nothing. One that does not needs
+    the user to say which entity it means, or to create it — the build refuses
+    either way, so it is asked here rather than at submit.
+    """
+    pool = _lookup_or_empty(field.fk_table)
+    if not pool:
+        with st.expander(f"🔗 {field.label} — column '{label}'"):
+            st.caption(
+                f"The {field.fk_table} list is not reachable, so this column's "
+                "values cannot be checked yet. Unmatched names name themselves "
+                "at submit."
+            )
+        return
+    key = label_key(field.fk_table)
+    known = {str(c[key]).casefold() for c in pool if c.get(key)}
+    names = {c[field_pk(field.fk_table)]: str(c.get(key)) for c in pool}
+    bound = bindings_of(spec, field.key)
+    texts = _distinct_texts(values)
+    unresolved = [t for t in texts if t.casefold() not in known and t not in bound]
+
+    with st.expander(
+        f"🔗 {field.label} — column '{label}'"
+        + (f" · {len(unresolved)} unmatched" if unresolved else ""),
+        expanded=bool(unresolved),
+    ):
+        st.caption(
+            f"{len(texts)} distinct value(s); {len(texts) - len(unresolved)} already "
+            f"on record as {field.fk_table}."
+        )
+        if unresolved and len(unresolved) > 1 and can_create_from_name(field.fk_table):
+            if st.button(
+                f"➕ Create all {len(unresolved)} as new {field.fk_table}",
+                key=f"sheet_bind_all::{sheet}::{column}",
+            ):
+                _create_all(sheet, spec, field, unresolved)
+        for text in texts:
+            if text.casefold() in known:
+                continue
+            if text in bound:
+                named, undo = st.columns([4, 1])
+                named.markdown(f"'{text}' → **{names.get(bound[text], bound[text])}**")
+                if undo.button("Change", key=f"sheet_unbind::{sheet}::{column}::{text}"):
+                    st.session_state[f"sheet_mapping::{sheet}"] = without_binding(
+                        spec, field.key, text
+                    )
+                    st.rerun()
+                continue
+            st.markdown(f"**'{text}'** is not on record.")
+            made = entity_picker(
+                f"sheet_bind::{sheet}::{column}::{text}",
+                fk_table=field.fk_table,
+                lookup=_lookup_or_empty,
+                text=text,
+                label=f"'{text}' means",
+            )
+            if made is not None:
+                st.session_state[f"sheet_mapping::{sheet}"] = with_binding(
+                    spec, field.key, text, made[0]
+                )
+                st.rerun()
+        if not unresolved:
+            st.success("Every value in this column is on record.")
+
+
+def _create_all(sheet: str, spec, field, texts: list[str]) -> None:
+    """Create every unmatched value of one column, binding each as it lands."""
+    for text in texts:
+        try:
+            entity_id = create_from_name(field.fk_table, text, _lookup_or_empty)
+        except Exception as exc:
+            st.error(f"Stopped at '{text}': {exc}")
+            break
+        spec = with_binding(spec, field.key, text, entity_id)
+        st.session_state[f"sheet_mapping::{sheet}"] = spec
+    st.rerun()
+
+
+def _distinct_texts(values) -> list[str]:
+    """A column's distinct non-empty values, as the text the sheet holds."""
+    seen = {str(v).strip() for v in values if pd.notna(v) and str(v).strip()}
+    return sorted(seen)
+
+
+def field_pk(fk_table: str) -> str:
+    """The lookup row key holding an entity's id."""
+    return schema_registry.load_table(fk_table).pk_field
+
+
+def _lookup_or_empty(table: str) -> list[dict]:
+    """The candidate rows for a table, empty when the API cannot be reached."""
+    try:
+        return _api_lookup(table)
+    except Exception:
+        return []
 
 
 def _chosen_format(sheet: str, column: int) -> str | None:

@@ -22,7 +22,9 @@ incoherence the validation names.
 
 Constants on foreign-key fields hold the **name the user typed** (``"Field"``,
 ``"VdQ"``): names are resolved to ids at submit time, loudly, exactly like the
-values in a mapped column. Non-FK constants hold the typed value.
+values in a mapped column. Non-FK constants hold the typed value. A name the
+database does not hold takes a **value binding** — the user saying which entity
+one source text means — since only they can settle that.
 
 Pure: no Streamlit, no database.
 """
@@ -92,10 +94,25 @@ class GroupConstant:
 
 
 @dataclass(frozen=True)
+class ValueBinding:
+    """One source text bound to one database entity, decided by the user.
+
+    A sheet names its entities in its own words. When the name is not the one
+    the database holds, only the user can say which row was meant — a binding
+    is that answer, remembered per field and per text.
+    """
+
+    field: str  # catalogue key
+    text: str  # the value as it appears in the sheet
+    entity_id: int
+
+
+@dataclass(frozen=True)
 class MappingSpec:
     mappings: tuple[ColumnMapping, ...]
     constants: tuple[ConstantMapping, ...] = ()
     group_constants: tuple[GroupConstant, ...] = ()
+    bindings: tuple[ValueBinding, ...] = ()
 
     def mapped(self) -> tuple[ColumnMapping, ...]:
         """The assignments only — ignored columns dropped."""
@@ -136,6 +153,7 @@ def build_spec(
     *,
     constants: dict[str, object] | tuple[ConstantMapping, ...] | None = None,
     group_constants: dict[tuple[int, str], object] | tuple[GroupConstant, ...] | None = None,
+    bindings: tuple[ValueBinding, ...] | None = None,
 ) -> MappingSpec:
     """Assemble a spec from ``{column: catalogue key or None}``.
 
@@ -162,6 +180,7 @@ def build_spec(
         tuple(mappings),
         constants=_as_constants(constants),
         group_constants=_as_group_constants(group_constants),
+        bindings=tuple(bindings or ()),
     )
 
 
@@ -215,6 +234,34 @@ def without_group_constant(spec: MappingSpec, group: int, field: str) -> Mapping
             c for c in spec.group_constants if (c.group, c.field) != (group, field)
         ),
     )
+
+
+# --- value bindings ----------------------------------------------------------
+
+
+def with_binding(spec: MappingSpec, field: str, text: str, entity_id: int) -> MappingSpec:
+    """Bind (or re-bind) one source text of one field to a database entity."""
+    rest = tuple(b for b in spec.bindings if (b.field, b.text) != (field, text))
+    return replace(spec, bindings=(*rest, ValueBinding(field, text, entity_id)))
+
+
+def without_binding(spec: MappingSpec, field: str, text: str) -> MappingSpec:
+    return replace(
+        spec, bindings=tuple(b for b in spec.bindings if (b.field, b.text) != (field, text))
+    )
+
+
+def binding_for(spec: MappingSpec, field: str, text: str) -> int | None:
+    """The entity a source text is bound to for one field, or None."""
+    for b in spec.bindings:
+        if (b.field, b.text) == (field, text):
+            return b.entity_id
+    return None
+
+
+def bindings_of(spec: MappingSpec, field: str) -> dict[str, int]:
+    """Every binding made for one field, by source text."""
+    return {b.text: b.entity_id for b in spec.bindings if b.field == field}
 
 
 # --- groups and resolution ---------------------------------------------------
@@ -554,8 +601,9 @@ def spec_from_frame(
 ) -> MappingSpec:
     """Read an edited mapping frame back into a spec, by column index.
 
-    Constants and group constants live outside the frame; they carry over from
-    ``previous`` so editing the table can never silently drop them.
+    Constants, group constants and value bindings live outside the frame; they
+    carry over from ``previous`` so editing the table can never silently drop
+    them.
     """
     options = catalogue.option_labels()
     assignments: dict[int, str | None] = {}
@@ -573,6 +621,7 @@ def spec_from_frame(
         groups,
         constants=previous.constants if previous else None,
         group_constants=previous.group_constants if previous else None,
+        bindings=previous.bindings if previous else None,
     )
 
 
