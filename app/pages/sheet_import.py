@@ -100,7 +100,7 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
             _raw_view(grid),
             key=f"sheet_raw::{sheet}",
             on_select="rerun",
-            selection_mode=["multi-row", "multi-column"],
+            selection_mode=["single-row", "multi-column"],
             height=400,
         )
         picked = list((event or {}).get("selection", {}).get("rows", []))
@@ -127,6 +127,10 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
         ):
             st.session_state[data_key] = picked[0]
             st.rerun()
+        st.caption(
+            f"Picked so far — header: row {st.session_state.get(header_key, '—')} · "
+            f"first data row: {st.session_state.get(data_key, '—')}"
+        )
 
     with clean_col:
         st.subheader("Cleaned block")
@@ -163,9 +167,10 @@ def _sheet_ui(sheet: str, grid: pd.DataFrame) -> None:
                 else "No column holds native datetimes."
             )
         )
-        _mapping_section(sheet, block, sorted(selected_columns))
-        _datetime_section(sheet, block, edited_indexed)
-        _submit_section(sheet, block)
+
+    _mapping_section(sheet, block, sorted(selected_columns))
+    _datetime_section(sheet, block, edited_indexed)
+    _submit_section(sheet, block)
 
 
 def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int]) -> None:
@@ -204,7 +209,7 @@ def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int])
                 options=[IGNORE, *cat.option_labels()],
                 help="What this column holds, in the vocabulary of your work. "
                 "Every column starts ignored.",
-                width="large",
+                width=320,
             ),
             "Group": st.column_config.NumberColumn(
                 "Group",
