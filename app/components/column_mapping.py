@@ -117,15 +117,18 @@ class MappingError:
     columns: tuple[int, ...]
 
 
-def empty_spec(block: SheetBlock) -> MappingSpec:
+def empty_spec(block: SheetBlock, catalogue=None) -> MappingSpec:
     """The state the mapping table starts from: every column ignored.
 
     The field replicate defaults to the constant 1 — a routine single-sample
-    sheet needs no extra thought.
+    sheet needs no extra thought. A vocabulary without that field gets no
+    constant at all: an import cannot accept what it does not name.
     """
+    seeded = "sample.replicate"
+    known = catalogue is None or seeded in {f.key for f in catalogue.fields}
     return MappingSpec(
         tuple(ColumnMapping(column=c) for c in block.columns),
-        constants=(ConstantMapping("sample.replicate", 1),),
+        constants=(ConstantMapping(seeded, 1),) if known else (),
     )
 
 

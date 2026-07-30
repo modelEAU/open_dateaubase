@@ -266,3 +266,12 @@ def test_a_row_with_no_reading_is_not_sent_as_a_point():
     result = build_sensor(spec, block, cat, _lookup, MONTREAL, FORMATS)
     turbidity = next(r for r in result.requests if r.group == 1)
     assert len(turbidity.payload["values"]) == 1
+
+
+def test_a_sensor_sheet_starts_without_the_lab_replicate_constant():
+    """The seeded constant belongs to a vocabulary that sensor ingest lacks."""
+    from app.components.column_mapping import empty_spec
+
+    block = extract_block(_grid(), 0, 1)
+    assert [c.field for c in empty_spec(block, catalogue("lab")).constants] == ["sample.replicate"]
+    assert empty_spec(block, catalogue("sensor")).constants == ()

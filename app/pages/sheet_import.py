@@ -236,7 +236,7 @@ def _mapping_section(sheet: str, block: SheetBlock, selected_columns: list[int],
     gen_key = f"sheet_map_gen::{sheet}"
     spec = st.session_state.get(spec_key)
     if spec is None or tuple(m.column for m in spec.mappings) != block.columns:
-        spec = empty_spec(block)  # first visit, or the block was re-pointed
+        spec = empty_spec(block, cat)  # first visit, or the block was re-pointed
         st.session_state[spec_key] = spec
         st.session_state[gen_key] = st.session_state.get(gen_key, 0) + 1
         for key in [k for k in st.session_state if k.startswith(f"sheet_gconst::{sheet}::")]:
