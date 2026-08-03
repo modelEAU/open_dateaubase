@@ -96,10 +96,26 @@ _PANEL_OVERLAYS = {
     "name": {"label": "Panel name"},
     "description": {"label": "Description"},
     "created_by_person_id": {"options": _person_options, "label": "Created by"},
-    "default_sample_collection_kind_id": {"options": _ck_options, "label": "Default collection kind"},
-    "default_sample_equipment_id": {"options": _eq_options, "label": "Default equipment"},
-    "default_sample_kind_id": {"options": _sk_options, "label": "Default sample kind"},
-    "default_sample_material_kind_id": {"options": _mk_options, "label": "Default sample material"},
+    "default_sample_collection_kind_id": {
+        "options": _ck_options,
+        "label": "Default collection kind",
+        "fk_table": "SampleCollectionKind",
+    },
+    "default_sample_equipment_id": {
+        "options": _eq_options,
+        "label": "Default equipment",
+        "fk_table": "Equipment",
+    },
+    "default_sample_kind_id": {
+        "options": _sk_options,
+        "label": "Default sample kind",
+        "fk_table": "SampleKind",
+    },
+    "default_sample_material_kind_id": {
+        "options": _mk_options,
+        "label": "Default sample material",
+        "fk_table": "SampleMaterialKind",
+    },
     "series_ids": {"label": "AnalysisSeries", "render_fn": _series_render_fn},
 }
 _fields = [

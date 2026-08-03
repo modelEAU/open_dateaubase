@@ -106,6 +106,7 @@ class TableMeta:
                 entry["max_length"] = col.max_length
             if col.fk_lookup_fn:
                 entry["options_fn"] = col.fk_lookup_fn
+                entry["fk_table"] = col.fk_table
             if col.field in overrides:
                 entry.update(overrides[col.field])
             fields.append(entry)

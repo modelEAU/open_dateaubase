@@ -8,6 +8,45 @@ from typing import Any, Callable
 import streamlit as st
 
 
+def _offer_add_new(field_name: str, fk_table: str) -> int | None:
+    """"+ Add new" affordance for a vocabulary-backed select.
+
+    Reuses the entity's own CRUD form via ``entity_picker`` — same registry the
+    sheet-mapper's inline create uses — so a value missing from the vocabulary
+    doesn't force a detour to its admin page. Local import: ``entity_picker``
+    imports this module, so importing it at module scope would be circular.
+    """
+    from app.components.entity_picker import can_create_from_name, create_from_name
+    from app.components.schema_registry import fk_lookup_fn
+
+    if not can_create_from_name(fk_table):
+        return None
+    open_key = f"_offer_add_new::{field_name}"
+    if st.button(f"＋ Add new {fk_table}…", key=f"{open_key}::toggle"):
+        st.session_state[open_key] = not st.session_state.get(open_key, False)
+    if not st.session_state.get(open_key):
+        return None
+    new_name = st.text_input(
+        f"New {fk_table} name",
+        key=f"{open_key}::name",
+        help=f"Creates a {fk_table} row and selects it for this field.",
+    )
+    if not st.button("Create", key=f"{open_key}::create"):
+        return None
+    if not new_name.strip():
+        st.error("Name is required.")
+        return None
+
+    def _lookup(table: str) -> list[dict]:
+        import app.api_client as api
+
+        return getattr(api, fk_lookup_fn(table))()
+
+    new_id = create_from_name(fk_table, new_name.strip(), _lookup)
+    st.session_state[open_key] = False
+    return new_id
+
+
 def render_form_field(
     field_name: str,
     field_type: str = "text",
@@ -18,6 +57,7 @@ def render_form_field(
     label: str | None = None,
     render_fn: Callable[[dict], Any] | None = None,
     max_length: int | None = None,
+    fk_table: str | None = None,
 ) -> Any:
     """Render a single form field based on type.
 
@@ -45,6 +85,11 @@ def render_form_field(
         # This widget owns the empty choice; drop any sentinel row the caller
         # prepended so it can't show up twice.
         options = [opt for opt in options if opt.get("id") is not None]
+
+        if fk_table:
+            new_id = _offer_add_new(field_name, fk_table)
+            if new_id is not None:
+                return new_id
 
         # If any option carries a description, route through kind_select so the
         # long-form description renders as a caption beneath the selectbox.

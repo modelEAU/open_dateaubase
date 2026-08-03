@@ -67,6 +67,7 @@ def create_form_dialog(
             label=field.get("label"),
             render_fn=field.get("render_fn"),
             max_length=field.get("max_length"),
+            fk_table=field.get("fk_table"),
         )
 
     col1, col2, col3 = st.columns([1, 1, 4])
@@ -123,6 +124,7 @@ def edit_form_dialog(
             label=field.get("label"),
             render_fn=field.get("render_fn"),
             max_length=field.get("max_length"),
+            fk_table=field.get("fk_table"),
         )
 
     col1, col2, col3 = st.columns([1, 1, 4])
