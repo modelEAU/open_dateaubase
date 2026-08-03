@@ -7,6 +7,8 @@ State is keyed by field_name so multiple pickers can coexist.
 from __future__ import annotations
 
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
+
 from app.components.kind_select import select_or_none
 from app.components.labels import ALL_LABEL
 from app.components.param_unit import unit_select
@@ -51,12 +53,22 @@ def render_series_picker(
     label = ctx["label"]
     sk_sel = f"spkr_{field}_selected"
     sk_creating = f"spkr_{field}_creating"
+    sk_new = f"spkr_{field}_created"
 
     # Initialise selected IDs from ctx["value"] on first render
     if sk_sel not in st.session_state:
         st.session_state[sk_sel] = list(ctx.get("value") or [])
 
     selected_ids: list[int] = st.session_state[sk_sel]
+
+    # Series created from this picker are not in the caller's `series_list`
+    # until the page re-fetches, so carry them here until it catches up.
+    known = {s["analysis_series_id"] for s in series_list}
+    series_list = series_list + [
+        s
+        for s in st.session_state.get(sk_new, [])
+        if s["analysis_series_id"] not in known
+    ]
 
     st.markdown(f"**{label}**")
 
@@ -85,7 +97,10 @@ def render_series_picker(
     # -----------------------------------------------------------------------
     # Filter row
     # -----------------------------------------------------------------------
-    col_c, col_p, col_sp = st.columns(3)
+    filter_box = st.container(border=True)
+    filter_box.caption("Search existing series")
+    with filter_box:
+        col_c, col_p, col_sp = st.columns(3)
 
     with col_c:
         camp_opts = [{"id": None, "label": ALL_LABEL}] + [
@@ -176,6 +191,16 @@ def render_series_picker(
         key=f"spkr_{field}_toggle_create",
     ):
         st.session_state[sk_creating] = not creating
+        if not creating:
+            # Opening the form: inherit whatever the filter row above is showing,
+            # since that is the series the user just failed to find.
+            for wkey, seeded in (
+                (f"spkr_{field}_nc_camp", sel_camp_label),
+                (f"spkr_{field}_nc_param", sel_param_label),
+                (f"spkr_{field}_nc_sp", sel_sp_label),
+            ):
+                if seeded != ALL_LABEL:
+                    st.session_state[wkey] = seeded
 
     if st.session_state.get(sk_creating, False):
         with st.container(border=True):
@@ -227,12 +252,22 @@ def render_series_picker(
                     help=describe("AnalysisSeries", "unit_id"),
                 )
 
-                nc_vk_label = st.selectbox(
-                    "Value kind *", list(_VALUE_KINDS.values()),
-                    key=f"spkr_{field}_nc_vk",
-                    help=describe("AnalysisSeries", "value_kind_id"),
+                # Fixed by the parameter — a series whose value kind disagrees
+                # with its parameter's is not storable.
+                nc_vk_id = next(
+                    (
+                        p.get("value_kind_id")
+                        for p in parameters
+                        if p["parameter_id"] == nc_param_id
+                    ),
+                    None,
                 )
-                nc_vk_id = next(k for k, v in _VALUE_KINDS.items() if v == nc_vk_label)
+                st.text_input(
+                    "Value kind",
+                    value=_VALUE_KINDS.get(nc_vk_id or 0, "—"),
+                    disabled=True,
+                    help="Determined by the parameter.",
+                )
 
             # Auto-generate name
             auto_name = ""
@@ -242,19 +277,29 @@ def render_series_picker(
                     "",
                 )
                 sp_name = next(
-                    (sp["label"] for sp in sampling_points if sp["sampling_point_id"] == nc_sp_id),
+                    (
+                        sp["label"]
+                        for sp in nc_sampling_points
+                        if sp["sampling_point_id"] == nc_sp_id
+                    ),
                     "",
                 )
                 auto_name = f"{p_name} at {sp_name}"
+            # A keyed widget ignores `value=` once its state exists, so push the
+            # regenerated name in ourselves — unless the user typed their own.
+            nk = f"spkr_{field}_nc_name"
+            nk_auto = f"spkr_{field}_nc_name_auto"
+            if st.session_state.get(nk, "") in ("", st.session_state.get(nk_auto)):
+                st.session_state[nk] = auto_name
+            st.session_state[nk_auto] = auto_name
             nc_name = st.text_input(
                 "Series name *",
-                value=auto_name,
-                key=f"spkr_{field}_nc_name",
+                key=nk,
                 help=describe("AnalysisSeries", "name"),
             )
 
             if st.button("Create & Add", type="primary", key=f"spkr_{field}_create_btn"):
-                if not all([nc_param_id, nc_sp_id, nc_unit_id, nc_name.strip()]):
+                if not all([nc_param_id, nc_sp_id, nc_unit_id, nc_vk_id, nc_name.strip()]):
                     st.error("Parameter, Sampling Point, Unit, and Name are required.")
                 else:
                     try:
@@ -269,6 +314,28 @@ def render_series_picker(
                         new_id = result["analysis_series_id"]
                         st.session_state[sk_sel] = selected_ids + [new_id]
                         st.session_state[sk_creating] = False
+                        st.session_state.setdefault(sk_new, []).append({
+                            "analysis_series_id": new_id,
+                            "name": nc_name.strip(),
+                            "parameter_id": nc_param_id,
+                            "parameter_name": nc_param_label or "",
+                            "sampling_point_id": nc_sp_id,
+                            "sampling_point_label": nc_sp_label or "",
+                            "unit_id": nc_unit_id,
+                            "unit_name": next(
+                                (u["unit"] for u in units if u["unit_id"] == nc_unit_id),
+                                "",
+                            ),
+                            "value_kind_id": nc_vk_id,
+                            "campaign_id": nc_campaign_id,
+                        })
+                        # Everything above already rendered this pass, so redraw.
+                        # Fragment scope keeps the surrounding dialog open; it
+                        # is only legal during a fragment rerun.
+                        try:
+                            st.rerun(scope="fragment")
+                        except StreamlitAPIException:
+                            st.rerun()
                     except APIError as e:
                         st.error(f"Failed to create series: {e.message}")
 
