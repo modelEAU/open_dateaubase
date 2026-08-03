@@ -473,3 +473,46 @@ def test_submit_blocked_until_image_sample_resolved(mock_apis):
     at = _at(_base_session(series=[dict(_IMAGE_SERIES_ITEM)])).run()
     submit_btn = next(b for b in at.button if b.label == "Submit")
     assert submit_btn.disabled is True
+
+
+# ---------------------------------------------------------------------------
+# Results grid — stale-widget-state bugs (#79, #80)
+# ---------------------------------------------------------------------------
+
+
+def test_add_replicate_disabled_when_grid_truly_empty(mocked_lookups):
+    at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)])).run()
+    dup_btn = next(b for b in at.button if b.key == "lab_grid_dup_1")
+    assert dup_btn.disabled is True
+
+
+def test_add_replicate_enabled_for_rows_typed_but_not_yet_seeded(mocked_lookups):
+    """Regression for #79: rows typed straight into the data_editor live under
+    `editor_key` (its `added_rows` diff) and never reach the stable
+    `seed_key` until submit or a replicate-copy rewrites it. The button's
+    disabled predicate must see those rows too, not just the stale seed."""
+    at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)]))
+    at.session_state["lab_grid_editor_1"] = {
+        "edited_rows": {},
+        "added_rows": [{"sample_label": "S1"}],
+        "deleted_rows": [],
+    }
+    at.run()
+    dup_btn = next(b for b in at.button if b.key == "lab_grid_dup_1")
+    assert dup_btn.disabled is False
+
+
+def test_clear_form_resets_header_and_grid(mocked_lookups):
+    """Regression for #80: header widgets key into session_state under their
+    own `lab_exp_*` keys, so resetting `lab_session` alone leaves their
+    on-screen values untouched — only purging every `lab_` key actually
+    clears them."""
+    at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM)])).run()
+    at.text_area(key="lab_exp_desc").set_value("scratch notes").run()
+    assert at.text_area(key="lab_exp_desc").value == "scratch notes"
+
+    clear_btn = next(b for b in at.button if b.label == "🔄  Clear form")
+    clear_btn.click().run()
+
+    assert at.text_area(key="lab_exp_desc").value == ""
+    assert at.session_state.lab_session["series"] == []

@@ -184,10 +184,12 @@ def _reset_form() -> None:
     _last_person_id = st.session_state.lab_session.get("created_by_person_id")
     st.session_state.lab_session = dict(_SESSION_DEFAULTS)
     st.session_state.lab_session["created_by_person_id"] = _last_person_id
-    # Results grid seeds live outside lab_session — purge them too
-    # (mirrors binning_axes.py's "Cancel" cleanup).
+    # Every other widget on this page keys into session_state under "lab_" —
+    # once a key holds state, Streamlit ignores the widget's `value=` on later
+    # reruns, so resetting `lab_session` alone leaves the header fields and the
+    # results grid showing stale input. Purge them so each widget re-inits.
     for k in list(st.session_state.keys()):
-        if str(k).startswith("lab_grid_"):
+        if str(k).startswith("lab_") and k != "lab_session":
             del st.session_state[k]
 
 
@@ -760,6 +762,21 @@ def _render_wide_grid() -> dict[int, pd.DataFrame]:
     return grid_state
 
 
+def _grid_row_count(seed_key: str, editor_key: str) -> int:
+    """Rows currently visible in the grid, including ones typed but not yet seeded.
+
+    `data_editor` keeps its own diff (added/deleted rows) under `editor_key` and
+    only reaches `seed_key` when this module rewrites it (on submit or replicate),
+    so `seed_key` alone lags what the user sees on screen.
+    """
+    seed = st.session_state.get(seed_key)
+    count = 0 if seed is None else len(seed.index)
+    editor_state = st.session_state.get(editor_key) or {}
+    count += len(editor_state.get("added_rows", []))
+    count -= len(editor_state.get("deleted_rows", []))
+    return max(count, 0)
+
+
 def _render_sp_grid(sess: dict, sp_id: int, series_list: list[dict]) -> pd.DataFrame:
     value_cols = _grid_value_columns(series_list)
 
@@ -814,7 +831,7 @@ def _render_sp_grid(sess: dict, sp_id: int, series_list: list[dict]) -> pd.DataF
         key=f"lab_grid_dup_{sp_id}",
         help="Copy the last row's sample description forward with empty values — "
         "the quick way to record a second run of the same sample.",
-        disabled=st.session_state[seed_key].empty,
+        disabled=_grid_row_count(seed_key, editor_key) == 0,
     ):
         df = st.session_state[seed_key]
         last = df.iloc[[-1]].copy()
