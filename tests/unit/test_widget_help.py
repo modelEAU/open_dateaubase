@@ -127,3 +127,22 @@ def test_dictionary_defines_everything_the_ui_can_ask_for():
         if not c.description.strip()
     ]
     assert not undefined, f"columns with no definition: {undefined}"
+
+
+def test_max_length_reads_the_dictionary():
+    # A text field must stop at the column's width; letting the user type past it
+    # turns a fixable typo into a 500 from the database.
+    from app.components.schema_registry import max_length
+
+    assert max_length("Site", "name") == 100
+    assert max_length("Site", "Name") == max_length("Site", "name")
+    assert max_length("Site", "latitude_wgs84") is None  # not a string column
+    assert max_length("Site", "no_such_column") is None
+    assert max_length("NoSuchTable", "x") is None
+
+
+def test_generated_form_fields_carry_the_column_width():
+    from app.components.form_specs import get_form_fields
+
+    name_field = next(f for f in get_form_fields("site_kind") if f["name"] == "name")
+    assert name_field.get("max_length"), "form field lost the column's max_length"

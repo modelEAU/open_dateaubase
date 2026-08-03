@@ -17,6 +17,7 @@ def render_form_field(
     help_text: str | None = None,
     label: str | None = None,
     render_fn: Callable[[dict], Any] | None = None,
+    max_length: int | None = None,
 ) -> Any:
     """Render a single form field based on type.
 
@@ -102,9 +103,9 @@ def render_form_field(
     elif field_type == "checkbox":
         return st.checkbox(label, value=bool(value), help=help_text)
     elif field_type == "textarea":
-        return st.text_area(label, value=value or "", help=help_text)
+        return st.text_area(label, value=value or "", help=help_text, max_chars=max_length)
     else:  # text
-        return st.text_input(label, value=value or "", help=help_text)
+        return st.text_input(label, value=value or "", help=help_text, max_chars=max_length)
 
 
 def validate_required_fields(data: dict, required_fields: list[str]) -> list[str]:

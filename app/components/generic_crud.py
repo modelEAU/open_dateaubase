@@ -36,6 +36,7 @@ def render_crud_page(
     delete_fn: Callable[[int], None] | None = None,
     label_field: str = "name",
     embedded: bool = False,
+    caption: str | None = None,
 ) -> bool | None:
     """Render CRUD list + create/edit/delete.
 
@@ -51,14 +52,20 @@ def render_crud_page(
     update_fn:   Callable(pk: int, data: dict) -> any. Omit to hide Edit.
     delete_fn:   Callable(pk: int) -> None. Omit to hide Delete.
     label_field: Field name in Edit dialog title (default "name").
+    caption:     Optional line under the title, e.g. to explain a read-only page.
     embedded:    If True, skip container-level chrome (title, full-width cols)
                  and return True when a mutation (create/update/delete) is
                  performed so the caller can refresh.
     """
-    _modified = False
+    # A delete confirmed in the dialog lands on the next rerun, so embedded
+    # callers learn about it through session state rather than a local flag.
+    done_key = f"_crud_deleted_{pk_field}"
+    _modified = bool(st.session_state.pop(done_key, False))
 
     if not embedded:
         st.title(title)
+        if caption:
+            st.caption(caption)
 
     resolved_fields = _resolve_fk_options(form_fields)
 
@@ -85,20 +92,19 @@ def render_crud_page(
     selected: dict | None = None
 
     if items:
-        df = pd.DataFrame(items).sort_values(pk_field).reset_index(drop=True)
+        # One ordering for both the table and the row lookup — a selection index
+        # is meaningless against any other order.
         sel = st.dataframe(
-            humanize_id_columns(df, pk_field=pk_field),
+            humanize_id_columns(
+                pd.DataFrame(display_order(items, pk_field)), pk_field=pk_field
+            ),
             use_container_width=True,
             on_select="rerun",
             selection_mode="single-row",
         )
         rows = (sel or {}).get("selection", {}).get("rows", [])
-        if rows:
-            idx = rows[0]
-            st.session_state[session_key] = df.iloc[idx][pk_field]
-            selected = items[idx]
-        else:
-            st.session_state[session_key] = None
+        selected = selected_row(items, pk_field, rows)
+        st.session_state[session_key] = selected[pk_field] if selected else None
     else:
         msg = f"No {title.lower()} found. Click '➕ New' to create one."
         if embedded:
@@ -160,16 +166,15 @@ def render_crud_page(
             title=f"Edit {title}: {item_label}",
         )
 
-    # Delete action
+    # Delete action — always behind a confirmation, deletion is not undoable
     if delete_fn and btn_del and selected:
-        _modified = True
-        try:
-            delete_fn(selected[pk_field])
-            st.success(f"{title} deleted.")
-            if not embedded:
-                st.rerun()
-        except APIError as e:
-            st.error(f"Delete failed: {e.message}")
+        confirm_delete_dialog(
+            title=title,
+            item_label=item_label or str(selected[pk_field]),
+            on_confirm=lambda: _handle_delete(
+                delete_fn, selected[pk_field], title, done_key
+            ),
+        )
 
     # Return mutation flag for embedded callers
     return _modified if embedded else None
@@ -178,6 +183,25 @@ def render_crud_page(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def display_order(items: list[dict], pk_field: str) -> list[dict]:
+    """Rows in the order the table shows them: ascending primary key."""
+    return sorted(items, key=lambda r: (r.get(pk_field) is None, r.get(pk_field)))
+
+
+def selected_row(items: list[dict], pk_field: str, rows: list[int]) -> dict | None:
+    """The item a dataframe selection points at.
+
+    The index comes from the rendered table, which is in ``display_order`` — not
+    the order the API returned. Both the table and this lookup go through the
+    same function so an index can never be read against a different ordering.
+    """
+    if not rows:
+        return None
+    ordered = display_order(items, pk_field)
+    idx = rows[0]
+    return ordered[idx] if 0 <= idx < len(ordered) else None
 
 
 def _resolve_fk_options(form_fields: list[dict]) -> list[dict]:
@@ -232,6 +256,28 @@ def _handle_create(fn: Callable, data: dict, title: str) -> bool:
     except APIError as e:
         st.error(f"Create failed: {e.message}")
         return False
+
+
+@st.dialog("Confirm deletion")
+def confirm_delete_dialog(title: str, item_label: str, on_confirm: Callable[[], None]) -> None:
+    st.warning(f"Delete {title.lower().rstrip('s')} **{item_label}**? This cannot be undone.")
+    col_yes, col_no, _ = st.columns([1, 1, 3])
+    with col_yes:
+        if st.button("Delete", type="primary", use_container_width=True):
+            on_confirm()
+            st.rerun()
+    with col_no:
+        if st.button("Cancel", use_container_width=True):
+            st.rerun()
+
+
+def _handle_delete(fn: Callable, pk: int, title: str, done_key: str) -> None:
+    try:
+        fn(pk)
+        st.session_state[done_key] = True
+        st.toast(f"{title} deleted.")
+    except APIError as e:
+        st.error(f"Delete failed: {e.message}")
 
 
 def _handle_update(fn: Callable, pk: int, data: dict, title: str) -> bool:

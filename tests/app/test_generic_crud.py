@@ -69,3 +69,84 @@ def test_embedded_empty_uses_caption():
     assert not at.exception
     assert len(at.dataframe) == 0
     assert any("No widgets found" in c.value for c in at.caption)
+
+
+def test_display_order_sorts_by_primary_key():
+    from app.components.generic_crud import display_order
+
+    items = [{"widget_id": 3}, {"widget_id": 1}, {"widget_id": 2}]
+    assert [r["widget_id"] for r in display_order(items, "widget_id")] == [1, 2, 3]
+
+
+def test_selection_index_resolves_against_displayed_order():
+    """The table is pk-sorted; a row index must map back through that same order.
+
+    Regression: the renderer indexed the API's (unsorted) list with an index
+    taken from the sorted table, so Edit opened a different record.
+    """
+    from app.components.generic_crud import selected_row
+
+    api_order = [
+        {"widget_id": 3, "name": "Charlie"},
+        {"widget_id": 1, "name": "Alpha"},
+        {"widget_id": 2, "name": "Beta"},
+    ]
+    # user clicks the first table row -> widget 1, not api_order[0] ("Charlie")
+    assert selected_row(api_order, "widget_id", [0])["name"] == "Alpha"
+    assert selected_row(api_order, "widget_id", [2])["name"] == "Charlie"
+
+
+def test_selected_row_handles_no_and_stale_selection():
+    from app.components.generic_crud import selected_row
+
+    items = [{"widget_id": 1, "name": "Alpha"}]
+    assert selected_row(items, "widget_id", []) is None
+    assert selected_row(items, "widget_id", [5]) is None
+
+
+def test_display_order_tolerates_null_primary_key():
+    from app.components.generic_crud import display_order
+
+    items = [{"widget_id": 2}, {"widget_id": None}, {"widget_id": 1}]
+    assert [r["widget_id"] for r in display_order(items, "widget_id")] == [1, 2, None]
+
+
+def test_table_rows_match_display_order():
+    at = _run({"list": "ok", "items": [{"widget_id": 9, "name": "Nine"},
+                                       {"widget_id": 4, "name": "Four"}]})
+    assert not at.exception
+    rendered = at.dataframe[0].value
+    assert list(rendered["widget_id"]) == [4, 9]
+
+
+def test_handle_delete_flags_the_mutation_for_embedded_callers():
+    """Deletion runs only from the confirm dialog's callback, via _handle_delete."""
+    import streamlit as st
+
+    from app.components.generic_crud import _handle_delete
+
+    calls: list[int] = []
+    _handle_delete(calls.append, 7, "Widgets", "_crud_deleted_widget_id")
+    assert calls == [7]
+    assert st.session_state["_crud_deleted_widget_id"] is True
+
+
+def test_handle_delete_surfaces_api_error_without_flagging():
+    from app.api_client import APIError
+    from app.components.generic_crud import _handle_delete
+
+    def _boom(pk):
+        raise APIError(409, "row is referenced")
+
+    import streamlit as st
+
+    st.session_state.pop("_crud_deleted_widget_id", None)
+    _handle_delete(_boom, 7, "Widgets", "_crud_deleted_widget_id")
+    assert "_crud_deleted_widget_id" not in st.session_state
+
+
+def test_read_only_page_shows_caption():
+    at = _run({"list": "ok", "create": False, "update": False,
+               "delete": False, "caption": "Read-only vocabulary."})
+    assert not at.exception
+    assert any("Read-only vocabulary." in c.value for c in at.caption)

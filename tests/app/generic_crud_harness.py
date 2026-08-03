@@ -34,6 +34,10 @@ def _list_fn():
     return items
 
 
+def _delete_fn(pk):
+    st.session_state.setdefault("_crud_deleted_calls", []).append(pk)
+
+
 render_crud_page(
     title="Widgets",
     pk_field="widget_id",
@@ -41,7 +45,8 @@ render_crud_page(
     list_fn=_list_fn,
     create_fn=(lambda data: None) if cfg.get("create", True) else None,
     update_fn=(lambda pk, data: None) if cfg.get("update", True) else None,
-    delete_fn=(lambda pk: None) if cfg.get("delete", True) else None,
+    delete_fn=_delete_fn if cfg.get("delete", True) else None,
     label_field="name",
     embedded=cfg.get("embedded", False),
+    caption=cfg.get("caption"),
 )

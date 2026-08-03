@@ -102,6 +102,8 @@ class TableMeta:
                 "help": col.description,
                 "label": col.name,
             }
+            if col.max_length:
+                entry["max_length"] = col.max_length
             if col.fk_lookup_fn:
                 entry["options_fn"] = col.fk_lookup_fn
             if col.field in overrides:
@@ -136,6 +138,23 @@ def describe(table: str, field: str) -> str:
         return ""
     want = _to_snake(field)
     return next((c.description for c in meta.columns if c.field == want), "")
+
+
+@lru_cache(maxsize=None)
+def max_length(table: str, field: str) -> int | None:
+    """The column's character limit, for a widget's ``max_chars``.
+
+    Counterpart to :func:`describe` for hand-rolled forms: without it a page can
+    accept more text than the column holds, and the write fails in the database
+    instead of in the field the user is typing into. Returns None when the
+    column has no length (numbers, dates) or is unknown.
+    """
+    try:
+        meta = load_table(table)
+    except (FileNotFoundError, KeyError):
+        return None
+    want = _to_snake(field)
+    return next((c.max_length for c in meta.columns if c.field == want), None)
 
 
 @lru_cache(maxsize=None)

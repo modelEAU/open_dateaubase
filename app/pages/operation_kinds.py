@@ -32,4 +32,5 @@ render_crud_page(
     create_fn=None,
     update_fn=None,
     delete_fn=None,
+    caption="Read-only: operation kinds are seeded with the schema, so there is nothing to add or edit here.",
 )

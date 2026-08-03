@@ -25,7 +25,8 @@ from app.api_client import (
 )
 from app.api_client import list_site_sampling_locations
 from app.components.crud_form import render_form_field
-from app.components.schema_registry import describe
+from app.components.generic_crud import confirm_delete_dialog
+from app.components.schema_registry import describe, max_length
 from app.components.id_format import humanize_id_columns
 from app.components.location_picker import render_location_picker, _clear_location_state
 
@@ -54,12 +55,14 @@ def _render_create_form() -> None:
         _go_table()
         return
 
+    name_error = st.empty()
     name = render_form_field(
         "name",
         "text",
         required=True,
         label="Name",
         help_text="Name of the site",
+        max_length=max_length("Site", "name"),
     )
 
     # Fetch site types for dropdown
@@ -80,6 +83,7 @@ def _render_create_form() -> None:
         required=False,
         label="Description",
         help_text="Description of the site",
+        max_length=max_length("Site", "description"),
     )
 
     st.divider()
@@ -89,7 +93,7 @@ def _render_create_form() -> None:
     st.divider()
     if st.button("Create site", type="primary"):
         if not name:
-            st.error("Name is required.")
+            name_error.error("Name is required.")
         else:
             try:
                 create_site({
@@ -167,6 +171,7 @@ def _render_edit_form(site: dict) -> None:
         _go_table()
         return
 
+    name_error = st.empty()
     name = render_form_field(
         "name",
         "text",
@@ -174,6 +179,7 @@ def _render_edit_form(site: dict) -> None:
         required=True,
         label="Name",
         help_text="Name of the site",
+        max_length=max_length("Site", "name"),
     )
 
     site_types = list_site_kinds()
@@ -201,6 +207,7 @@ def _render_edit_form(site: dict) -> None:
         required=False,
         label="Description",
         help_text="Description of the site",
+        max_length=max_length("Site", "description"),
     )
 
     st.divider()
@@ -217,7 +224,7 @@ def _render_edit_form(site: dict) -> None:
     st.divider()
     if st.button("Save changes", type="primary"):
         if not name:
-            st.error("Name is required.")
+            name_error.error("Name is required.")
         else:
             try:
                 patch_site(site["id"], {
@@ -289,12 +296,19 @@ def _render_table() -> None:
     with col3:
         if st.button("🗑️ Delete", disabled=selected_site is None, type="secondary"):
             if selected_site:
-                try:
-                    delete_site(selected_site["id"])
-                    st.success("Site deleted!")
-                    st.rerun()
-                except APIError as e:
-                    st.error(f"Failed to delete site: {e.message}")
+                confirm_delete_dialog(
+                    title="Site",
+                    item_label=selected_site.get("name", str(selected_site["id"])),
+                    on_confirm=lambda: _delete(selected_site["id"]),
+                )
+
+
+def _delete(site_id: int) -> None:
+    try:
+        delete_site(site_id)
+        st.toast("Site deleted.")
+    except APIError as e:
+        st.error(f"Failed to delete site: {e.message}")
 
 
 # ── ROUTER ────────────────────────────────────────────────────────────────────

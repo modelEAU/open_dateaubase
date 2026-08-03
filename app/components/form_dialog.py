@@ -21,6 +21,16 @@ def _serialize_form_data(data: dict) -> dict:
     return serialized
 
 
+def _report(slot, errors: list[str]) -> None:
+    """Render validation feedback into a placeholder above the fields."""
+    with slot.container():
+        if errors:
+            for error in errors:
+                st.error(error)
+        else:
+            st.success("All required fields filled!")
+
+
 @st.dialog("Create New Item", width="large")
 def create_form_dialog(
     fields: list[
@@ -40,6 +50,7 @@ def create_form_dialog(
     from app.components.crud_form import render_form_field, validate_required_fields
 
     st.write(f"### {title}")
+    feedback = st.empty()  # errors belong beside the fields, not below Send
 
     form_data = {}
     required_fields = []
@@ -55,23 +66,19 @@ def create_form_dialog(
             help_text=field.get("help"),
             label=field.get("label"),
             render_fn=field.get("render_fn"),
+            max_length=field.get("max_length"),
         )
 
     col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
         if st.button("Validate", type="secondary"):
             errors = validate_required_fields(form_data, required_fields)
-            if errors:
-                for error in errors:
-                    st.error(error)
-            else:
-                st.success("All required fields filled!")
+            _report(feedback, errors)
     with col2:
         if st.button("Send", type="primary"):
             errors = validate_required_fields(form_data, required_fields)
             if errors:
-                for error in errors:
-                    st.error(error)
+                _report(feedback, errors)
             else:
                 serialized_data = _serialize_form_data(form_data)
                 success = on_submit(serialized_data)
@@ -93,6 +100,7 @@ def edit_form_dialog(
     from app.components.crud_form import render_form_field, validate_required_fields
 
     st.write(f"### {title}")
+    feedback = st.empty()  # errors belong beside the fields, not below Send
 
     form_data = {}
     required_fields = []
@@ -114,23 +122,19 @@ def edit_form_dialog(
             help_text=field.get("help"),
             label=field.get("label"),
             render_fn=field.get("render_fn"),
+            max_length=field.get("max_length"),
         )
 
     col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
         if st.button("Validate", type="secondary"):
             errors = validate_required_fields(form_data, required_fields)
-            if errors:
-                for error in errors:
-                    st.error(error)
-            else:
-                st.success("All required fields filled!")
+            _report(feedback, errors)
     with col2:
         if st.button("Send", type="primary"):
             errors = validate_required_fields(form_data, required_fields)
             if errors:
-                for error in errors:
-                    st.error(error)
+                _report(feedback, errors)
             else:
                 # Include ID from original item and serialize dates
                 form_data["id"] = item_data.get("id")
