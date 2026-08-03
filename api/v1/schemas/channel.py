@@ -65,6 +65,7 @@ class ParameterLookupOut(BaseModel):
 
     parameter_id: int
     parameter_name: str
+    value_kind_id: int | None = None
 
 
 class ParameterIn(BaseModel):

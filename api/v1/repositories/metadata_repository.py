@@ -106,13 +106,15 @@ def get_metadata_by_id(conn: pyodbc.Connection, metadata_id: int) -> dict | None
 
 
 def get_parameters_lookup(conn: pyodbc.Connection) -> list[dict]:
-    """Return all parameters for dropdowns (id + name)."""
+    """Return all parameters for dropdowns (id + name + value kind)."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Parameter_ID], [Parameter] FROM [dbo].[Parameter] ORDER BY [Parameter]"
+        "SELECT [Parameter_ID], [Parameter], [ValueKind_ID]"
+        " FROM [dbo].[Parameter] ORDER BY [Parameter]"
     )
     return [
-        {"parameter_id": row[0], "parameter_name": row[1]} for row in cursor.fetchall()
+        {"parameter_id": row[0], "parameter_name": row[1], "value_kind_id": row[2]}
+        for row in cursor.fetchall()
     ]
 
 
