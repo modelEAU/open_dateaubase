@@ -704,9 +704,12 @@ def list_samples_lookup() -> list[dict]:
     return _request("GET", "/ingest/lookup/samples")
 
 
-def list_sampling_points_lookup() -> list[dict]:
-    """Return sampling points list for dropdowns."""
-    return _request("GET", "/ingest/lookup/sampling-points")
+def list_sampling_points_lookup(campaign_id: int | None = None) -> list[dict]:
+    """Return sampling points list for dropdowns, optionally scoped to a campaign."""
+    params: dict = {}
+    if campaign_id is not None:
+        params["campaign_id"] = campaign_id
+    return _request("GET", "/ingest/lookup/sampling-points", params=params)
 
 
 def list_equipment_events_lookup() -> list[dict]:

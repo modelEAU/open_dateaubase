@@ -362,16 +362,32 @@ def get_samples_lookup(conn: pyodbc.Connection) -> list[dict]:
     ]
 
 
-def get_sampling_points_lookup(conn: pyodbc.Connection) -> list[dict]:
+def get_sampling_points_lookup(
+    conn: pyodbc.Connection, campaign_id: int | None = None
+) -> list[dict]:
     cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT sp.SamplingPoint_ID,
-               COALESCE(sp.SamplingPoint, 'Point ' + CAST(sp.SamplingPoint_ID AS NVARCHAR)) AS Label
-        FROM [dbo].[SamplingPoint] sp
-        ORDER BY sp.SamplingPoint
-        """
-    )
+    if campaign_id is None:
+        cursor.execute(
+            """
+            SELECT sp.SamplingPoint_ID,
+                   COALESCE(sp.SamplingPoint, 'Point ' + CAST(sp.SamplingPoint_ID AS NVARCHAR)) AS Label
+            FROM [dbo].[SamplingPoint] sp
+            ORDER BY sp.SamplingPoint
+            """
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT sp.SamplingPoint_ID,
+                   COALESCE(sp.SamplingPoint, 'Point ' + CAST(sp.SamplingPoint_ID AS NVARCHAR)) AS Label
+            FROM [dbo].[SamplingPoint] sp
+            JOIN [dbo].[CampaignSamplingLocation] csl
+              ON csl.SamplingPoint_ID = sp.SamplingPoint_ID
+            WHERE csl.Campaign_ID = ?
+            ORDER BY sp.SamplingPoint
+            """,
+            campaign_id,
+        )
     return [{"sampling_point_id": row[0], "label": row[1]} for row in cursor.fetchall()]
 
 

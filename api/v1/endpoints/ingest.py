@@ -428,9 +428,9 @@ def get_samples_lookup(conn=Depends(get_db)):
 
 
 @router.get("/lookup/sampling-points")
-def get_sampling_points_lookup(conn=Depends(get_db)):
-    """Return sampling points list for dropdowns."""
-    return lookup_repository.get_sampling_points_lookup(conn)
+def get_sampling_points_lookup(campaign_id: int | None = None, conn=Depends(get_db)):
+    """Return sampling points list for dropdowns, optionally scoped to a campaign."""
+    return lookup_repository.get_sampling_points_lookup(conn, campaign_id=campaign_id)
 
 
 @router.get("/lookup/equipment-events")

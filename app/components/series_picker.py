@@ -15,6 +15,15 @@ from app.components.schema_registry import describe
 _VALUE_KINDS = {1: "Scalar", 2: "Vector", 3: "Matrix", 4: "Image"}
 
 
+def _sampling_points_for_campaign(campaign_id: int) -> list[dict]:
+    from app.api_client import APIError, list_sampling_points_lookup
+
+    try:
+        return list_sampling_points_lookup(campaign_id=campaign_id)
+    except APIError:
+        return []
+
+
 def render_series_picker(
     ctx: dict,
     series_list: list[dict],
@@ -107,8 +116,13 @@ def render_series_picker(
         )
 
     with col_sp:
+        filter_sampling_points = (
+            sampling_points
+            if filter_campaign_id is None
+            else _sampling_points_for_campaign(filter_campaign_id)
+        )
         sp_opts = [{"id": None, "label": ALL_LABEL}] + [
-            {"id": sp["sampling_point_id"], "label": sp["label"]} for sp in sampling_points
+            {"id": sp["sampling_point_id"], "label": sp["label"]} for sp in filter_sampling_points
         ]
         sel_sp_label = st.selectbox(
             "Sampling point",
@@ -188,8 +202,13 @@ def render_series_picker(
                 )
                 nc_param_id = nc_param_ids.get(nc_param_label or "")
 
+                nc_sampling_points = (
+                    sampling_points
+                    if nc_campaign_id is None
+                    else _sampling_points_for_campaign(nc_campaign_id)
+                )
                 nc_sp_ids = {
-                    sp["label"]: sp["sampling_point_id"] for sp in sampling_points
+                    sp["label"]: sp["sampling_point_id"] for sp in nc_sampling_points
                 }
                 nc_sp_label = select_or_none(
                     "Sampling point *",

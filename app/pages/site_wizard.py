@@ -15,7 +15,6 @@ from app.api_client import (
     create_site,
     create_watershed,
     list_process_unit_types,
-    list_process_units_lookup,
     list_site_kinds,
     list_watersheds,
 )
@@ -123,7 +122,6 @@ def _load_lookups() -> dict | None:
         return {
             "site_kinds": list_site_kinds(),
             "pu_kinds": list_process_unit_types(),
-            "process_units": list_process_units_lookup(),
             "watersheds": list_watersheds(),
         }
     except APIError as e:
@@ -308,14 +306,14 @@ def _step_sampling_locations(lookups: dict) -> None:
     restore_snapshot(_WIZ, 1)  # Streamlit clears widget keys when not rendered; restore PU names
     restore_snapshot(_WIZ, 2)
 
-    # Build PU options: wizard-created PUs (from step 1) + existing DB PUs
+    # Build PU options: only process units created earlier in this wizard —
+    # this site doesn't exist yet, so no other site's process units apply.
     pu_ids: list[int] = st.session_state.get(f"{_WIZ}_pu_ids", [])
     wizard_pu_labels = [
         st.session_state.get(f"{_WIZ}_pu_{pid}_name") or f"Process Unit {pid + 1}"
         for pid in pu_ids
     ]
-    existing_pu_labels = [p["name"] for p in lookups.get("process_units", [])]
-    pu_label_options = [NONE_LABEL] + wizard_pu_labels + existing_pu_labels
+    pu_label_options = [NONE_LABEL] + wizard_pu_labels
 
     sl_ids: list[int] = st.session_state[f"{_WIZ}_sl_ids"]
 
@@ -547,9 +545,6 @@ def _execute_creates(lookups: dict) -> tuple[list[dict], list[str]]:
         wiz_name = (st.session_state.get(f"{_WIZ}_pu_{pu_wiz_id}_name") or "").strip()
         if wiz_name:
             pu_label_to_id[wiz_name] = db_id
-    for pu in lookups.get("process_units", []):
-        pu_label_to_id[pu["name"]] = pu["id"]
-
     # 4. Create sampling locations
     for sl_wiz_id in st.session_state.get(f"{_WIZ}_sl_ids", []):
         name = (st.session_state.get(f"{_WIZ}_sl_{sl_wiz_id}_name") or "").strip()
