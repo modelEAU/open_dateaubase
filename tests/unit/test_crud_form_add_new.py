@@ -24,6 +24,30 @@ def _script():  # pragma: no cover - executed inside AppTest
     st.session_state["_result"] = result
 
 
+def _empty_options_script():  # pragma: no cover - executed inside AppTest
+    import streamlit as st
+
+    from app.components.crud_form import render_form_field
+
+    st.session_state["_result"] = render_form_field(
+        "default_sample_equipment_id",
+        "select",
+        options=[],
+        required=False,
+        fk_table="Equipment",
+    )
+
+
+def test_a_select_with_no_options_stays_a_select():
+    """A filtered-to-empty option list must not degrade into a free-text box
+    posting a string into an int foreign key."""
+    at = AppTest.from_function(_empty_options_script, default_timeout=10).run()
+
+    assert len(at.selectbox) == 1
+    assert not at.text_input
+    assert at.session_state["_result"] is None
+
+
 def test_add_new_button_offered_for_a_name_only_vocabulary():
     with patch(
         "app.api_client.list_sample_collection_kind_lookup",

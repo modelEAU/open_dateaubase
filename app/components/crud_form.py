@@ -79,12 +79,12 @@ def render_form_field(
         current_labels = [opt["label"] for opt in options if opt["id"] in (value or [])]
         selected = st.multiselect(label, options=labels, default=current_labels, help=help_text)
         return [option_map[lbl] for lbl in selected]
-    elif field_type == "select" and options:
+    elif field_type == "select":
         from app.components.kind_select import NONE_LABEL, kind_select
 
         # This widget owns the empty choice; drop any sentinel row the caller
         # prepended so it can't show up twice.
-        options = [opt for opt in options if opt.get("id") is not None]
+        options = [opt for opt in (options or []) if opt.get("id") is not None]
 
         if fk_table:
             new_id = _offer_add_new(field_name, fk_table)
@@ -125,7 +125,9 @@ def render_form_field(
             index=labels.index(current_label) if current_label in labels else 0,
             help=help_text,
         )
-        return option_map[selected]
+        # A required select with no options leaves `labels` empty, so the widget
+        # returns None rather than a label.
+        return option_map.get(selected)
     elif field_type == "number":
         return st.number_input(label, value=value or 0, help=help_text)
     elif field_type == "date":
