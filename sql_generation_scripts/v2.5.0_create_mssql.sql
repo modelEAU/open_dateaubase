@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.5.0
 -- Platform: mssql
--- Generated: 2026-08-04 13:53:58 UTC
+-- Generated: 2026-08-04 14:07:29 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -1079,6 +1079,20 @@ FROM [dbo].[EquipmentWiringHistory] ewh
 JOIN [dbo].[SignalInterfacePort] sip ON sip.[SignalInterfacePort_ID] = ewh.[SignalInterfacePort_ID]
 WHERE ewh.[ValidTo] IS NULL
   AND sip.[IsActive] = 0;
+
+GO
+CREATE OR ALTER VIEW [dbo].[vw_UnclassifiedEquipment] AS
+SELECT
+    e.[Equipment_ID]       AS EquipmentID,
+    e.[Identifier]         AS Identifier,
+    e.[IsActive]           AS IsActive,
+    e.[EquipmentModel_ID]  AS EquipmentModelID,
+    m.[EquipmentModel]     AS EquipmentModelName,
+    CASE WHEN e.[EquipmentModel_ID] IS NULL
+         THEN N'no model' ELSE N'model has no kind' END AS Reason
+FROM [dbo].[Equipment] e
+LEFT JOIN [dbo].[EquipmentModel] m ON m.[EquipmentModel_ID] = e.[EquipmentModel_ID]
+WHERE e.[EquipmentModel_ID] IS NULL OR m.[EquipmentKind_ID] IS NULL;
 
 GO
 CREATE OR ALTER VIEW [dbo].[vw_UnlinkedChannels] AS

@@ -16788,6 +16788,56 @@
         }
       }
     },
+    "/api/v1/data-health/unclassified-equipment": {
+      "get": {
+        "tags": [
+          "data-health"
+        ],
+        "summary": "Unclassified Equipment",
+        "description": "Equipment with no model, or a model with no kind \u2014 hidden from every\nkind-scoped picker (the laboratory forms only offer Samplers).",
+        "operationId": "unclassified_equipment_api_v1_data_health_unclassified_equipment_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnclassifiedEquipmentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events": {
       "get": {
         "tags": [
@@ -28978,6 +29028,94 @@
         ],
         "title": "TimeseriesOut",
         "description": "Uniform time series response regardless of underlying value table."
+      },
+      "UnclassifiedEquipment": {
+        "properties": {
+          "equipment_id": {
+            "type": "integer",
+            "title": "Equipment Id"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identifier"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "equipment_model_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Model Id"
+          },
+          "equipment_model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Model Name"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "equipment_id",
+          "identifier",
+          "is_active",
+          "equipment_model_id",
+          "equipment_model_name",
+          "reason"
+        ],
+        "title": "UnclassifiedEquipment",
+        "description": "Equipment with no model, or a model with no kind \u2014 invisible to any\npicker that scopes itself to a kind."
+      },
+      "UnclassifiedEquipmentResponse": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "equipment": {
+            "items": {
+              "$ref": "#/components/schemas/UnclassifiedEquipment"
+            },
+            "type": "array",
+            "title": "Equipment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "equipment"
+        ],
+        "title": "UnclassifiedEquipmentResponse"
       },
       "UnitIn": {
         "properties": {

@@ -55,6 +55,24 @@ BEGIN
 END
 GO
 
+-- ---------------------------------------------------------------------------
+-- 3. vw_UnclassifiedEquipment
+-- ---------------------------------------------------------------------------
+
+CREATE OR ALTER VIEW [dbo].[vw_UnclassifiedEquipment] AS
+    SELECT
+        e.[Equipment_ID]       AS EquipmentID,
+        e.[Identifier]         AS Identifier,
+        e.[IsActive]           AS IsActive,
+        e.[EquipmentModel_ID]  AS EquipmentModelID,
+        m.[EquipmentModel]     AS EquipmentModelName,
+        CASE WHEN e.[EquipmentModel_ID] IS NULL
+             THEN N'no model' ELSE N'model has no kind' END AS Reason
+    FROM [dbo].[Equipment] e
+    LEFT JOIN [dbo].[EquipmentModel] m ON m.[EquipmentModel_ID] = e.[EquipmentModel_ID]
+    WHERE e.[EquipmentModel_ID] IS NULL OR m.[EquipmentKind_ID] IS NULL;
+GO
+
 IF NOT EXISTS (SELECT 1 FROM [dbo].[SchemaVersion] WHERE [Version] = N'2.5.0')
 BEGIN
     INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])

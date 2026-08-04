@@ -358,6 +358,43 @@ WHERE ewh.[ValidTo] IS NULL
 | ParentID | INT | `ParentID` | SignalInterface_ID or SignalInterfacePort_ID that is inactive |
 | ParentLabel | NVARCHAR(200) | `ParentLabel` | Inactive parent's name (interface) or port identifier |
 
+<span id="vw_UnclassifiedEquipment"></span>
+
+## vw_UnclassifiedEquipment
+
+Health view: equipment that cannot be classified, either because it has no EquipmentModel or because its model has no EquipmentKind. Pickers that scope themselves to a kind — the laboratory forms only offer Samplers — silently drop these rows, so "my sampler isn't in the dropdown" is diagnosed here. The Reason column separates the two defects, since they are fixed in different places: attach a model to the equipment, or set the kind on the model. Inactive equipment is included, because the equipment lookup does not filter on IsActive either — any row it can return is a row that can go missing from a picker. Models with no equipment at all are out of scope: they cannot break a picker, and the EquipmentModel form already exposes the kind.
+
+
+
+**View Definition:**
+
+```sql
+SELECT
+    e.[Equipment_ID]       AS EquipmentID,
+    e.[Identifier]         AS Identifier,
+    e.[IsActive]           AS IsActive,
+    e.[EquipmentModel_ID]  AS EquipmentModelID,
+    m.[EquipmentModel]     AS EquipmentModelName,
+    CASE WHEN e.[EquipmentModel_ID] IS NULL
+         THEN N'no model' ELSE N'model has no kind' END AS Reason
+FROM [dbo].[Equipment] e
+LEFT JOIN [dbo].[EquipmentModel] m ON m.[EquipmentModel_ID] = e.[EquipmentModel_ID]
+WHERE e.[EquipmentModel_ID] IS NULL OR m.[EquipmentKind_ID] IS NULL
+
+```
+
+
+#### Columns
+
+| Column | SQL Type | Source Field | Description |
+|--------|----------|--------------|-------------|
+| EquipmentID | INT | `EquipmentID` | Equipment that no picker can classify |
+| Identifier | NVARCHAR(100) | `Identifier` | The equipment's identifier |
+| IsActive | BIT | `IsActive` | Whether the equipment is active |
+| EquipmentModelID | INT | `EquipmentModelID` | The equipment's model, NULL when none is attached |
+| EquipmentModelName | NVARCHAR(100) | `EquipmentModelName` | Name of the equipment's model, NULL when none is attached |
+| Reason | NVARCHAR(20) | `Reason` | Which defect applies: 'no model' or 'model has no kind' |
+
 <span id="vw_UnlinkedChannels"></span>
 
 ## vw_UnlinkedChannels

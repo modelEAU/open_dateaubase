@@ -5603,6 +5603,70 @@
       "group_color": "#0284c7"
     },
     {
+      "id": "vw_UnclassifiedEquipment",
+      "label": "vw_UnclassifiedEquipment",
+      "description": "Health view: equipment that cannot be classified, either because it has no EquipmentModel or because its model has no EquipmentKind. Pickers that scope themselves to a kind \u2014 the laboratory forms only offer Samplers \u2014 silently drop these rows, so \"my sampler isn't in the dropdown\" is diagnosed here. The Reason column separates the two defects, since they are fixed in different places: attach a model to the equipment, or set the kind on the model. Inactive equipment is included, because the equipment lookup does not filter on IsActive either \u2014 any row it can return is a row that can go missing from a picker. Models with no equipment at all are out of scope: they cannot break a picker, and the EquipmentModel form already exposes the kind.\n",
+      "view_definition": "SELECT\n    e.[Equipment_ID]       AS EquipmentID,\n    e.[Identifier]         AS Identifier,\n    e.[IsActive]           AS IsActive,\n    e.[EquipmentModel_ID]  AS EquipmentModelID,\n    m.[EquipmentModel]     AS EquipmentModelName,\n    CASE WHEN e.[EquipmentModel_ID] IS NULL\n         THEN N'no model' ELSE N'model has no kind' END AS Reason\nFROM [dbo].[Equipment] e\nLEFT JOIN [dbo].[EquipmentModel] m ON m.[EquipmentModel_ID] = e.[EquipmentModel_ID]\nWHERE e.[EquipmentModel_ID] IS NULL OR m.[EquipmentKind_ID] IS NULL\n",
+      "columns": [
+        {
+          "name": "EquipmentID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Equipment that no picker can classify"
+        },
+        {
+          "name": "Identifier",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "The equipment's identifier"
+        },
+        {
+          "name": "IsActive",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Whether the equipment is active"
+        },
+        {
+          "name": "EquipmentModelID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "The equipment's model, NULL when none is attached"
+        },
+        {
+          "name": "EquipmentModelName",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Name of the equipment's model, NULL when none is attached"
+        },
+        {
+          "name": "Reason",
+          "sql_type": "NVARCHAR(20)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Which defect applies: 'no model' or 'model has no kind'"
+        }
+      ],
+      "group_name": "Views",
+      "group_color": "#0284c7"
+    },
+    {
       "id": "vw_UnlinkedChannels",
       "label": "vw_UnlinkedChannels",
       "description": "Health view (consistency audit F5): raw/ingested channels that carry Observations but have no active EquipmentWiringHistory on their SignalInterface, so every observation resolves as 'unlinked' (see vw_ChannelEquipmentAtTime) with no equipment and no SamplingPoint. These are channels that were ingested but never linked to physical equipment \u2014 \"N channels need wiring\". Only raw channels are considered: derived/ processed channels have SignalInterface_ID NULL by design and are deliberately unwired, not forgotten, so they are excluded. A channel drops off this list the moment an active wiring row exists for its interface.\n",
