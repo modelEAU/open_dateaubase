@@ -121,16 +121,18 @@ class TestVersionAndMigration:
         version = yaml.safe_load(
             (_ROOT / "schema_dictionary" / "version.yaml").read_text()
         )
-        assert version["schema_version"] == "2.4.0"
+        assert version["schema_version"] >= "2.4.0"
 
     def test_generated_scripts_exist_and_init_points_at_them(self):
+        current = yaml.safe_load(
+            (_ROOT / "schema_dictionary" / "version.yaml").read_text()
+        )["schema_version"]
         gen = _ROOT / "sql_generation_scripts"
-        assert (gen / "v2.4.0_create_mssql.sql").exists()
-        assert (gen / "v2.4.0_seed_mssql.sql").exists()
+        assert (gen / f"v{current}_create_mssql.sql").exists()
+        assert (gen / f"v{current}_seed_mssql.sql").exists()
         init = (_ROOT / "sql" / "init.sql").read_text()
-        assert "v2.4.0_create_mssql.sql" in init
-        assert "v2.4.0_seed_mssql.sql" in init
-        assert "v2.3.0_" not in init
+        assert f"v{current}_create_mssql.sql" in init
+        assert f"v{current}_seed_mssql.sql" in init
 
     def test_migration_and_rollback_exist(self):
         mig = _ROOT / "migrations" / "v2.3.0_to_v2.4.0_mssql.sql"

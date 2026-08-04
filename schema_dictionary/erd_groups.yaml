@@ -30,6 +30,7 @@ groups:
       - SignalInterfacePort
       - Equipment
       - EquipmentModel
+      - EquipmentKind
       - EquipmentModelHasParameter
       - EquipmentModelHasProcedures
       - EquipmentEvent

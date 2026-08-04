@@ -1,0 +1,32 @@
+_format_version: "1.0"
+table:
+  name: EquipmentKind
+  schema: dbo
+  description: "Controlled vocabulary for categories of equipment models"
+
+  columns:
+    - name: EquipmentKind_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Surrogate primary key"
+
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Human-readable name of the equipment category"
+
+    - name: Description
+      logical_type: string
+      max_length: 500
+      nullable: true
+      description: "Explanation of what this category of equipment represents"
+
+  primary_key: [EquipmentKind_ID]
+
+  seed_data:
+    - { EquipmentKind_ID: 1, Name: "Online sensor",     Description: "Device measuring in place and emitting a continuous signal." }
+    - { EquipmentKind_ID: 2, Name: "Offline analyzer",  Description: "Instrument analyzing samples brought to it, in the field or in a laboratory." }
+    - { EquipmentKind_ID: 3, Name: "Sampler",           Description: "Device collecting physical samples for later analysis." }
+    - { EquipmentKind_ID: 4, Name: "Other",             Description: "Equipment type not covered by the other categories." }

@@ -509,6 +509,21 @@ Stores information about a specific physical piece of equipment (e.g., serial nu
 | IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this equipment is currently in service. Set to false when decommissioned. Decommissioning should also be recorded as an EquipmentEvent for auditability.
  | Default: `True` |
 
+<span id="EquipmentKind"></span>
+
+### EquipmentKind
+
+Controlled vocabulary for categories of equipment models
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| EquipmentKind_ID | INT **(PK)** | - | ✓ | <span id="EquipmentKind_ID"></span>Surrogate primary key | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Human-readable name of the equipment category | - |
+| Description | NVARCHAR(500) | - |  | <span id="Description"></span>Explanation of what this category of equipment represents | - |
+
 <span id="EquipmentLocationHistory"></span>
 
 ### EquipmentLocationHistory

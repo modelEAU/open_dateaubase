@@ -1,10 +1,7 @@
-schema_version: "2.4.0"
+schema_version: "2.5.0"
 description: >
-  PRD 7 slice 1. Sample gains a field Replicate (INT NOT NULL DEFAULT 1, distinct
-  from the analytical LabAnalysis.Replicate) and UQ_Sample_Identity over
-  (SamplingPoint_ID, SampleDateTimeStart, SampleKind_ID, Replicate,
-  ParentSample_ID), so re-imports are rejected while aliquots, blanks, standards
-  and genuine field replicates stay legal. AnalysisSeries gains a nullable
-  Laboratory_ID which joins UQ_AnalysisSeries_Identity, so two laboratories
-  measuring one parameter become two series.
-date: "2026-07-29"
+  EquipmentKind, a controlled vocabulary classifying equipment models as Online
+  sensor, Offline analyzer, Sampler or Other. Seed-only for now; EquipmentModel
+  gains the foreign key in a follow-up so pickers can scope themselves to the
+  equipment that actually collects samples.
+date: "2026-08-04"

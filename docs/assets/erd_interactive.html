@@ -1908,6 +1908,43 @@
       "group_key": "equipment"
     },
     {
+      "id": "EquipmentKind",
+      "label": "EquipmentKind",
+      "description": "Controlled vocabulary for categories of equipment models",
+      "fields": [
+        {
+          "name": "EquipmentKind_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Surrogate primary key"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Human-readable name of the equipment category"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(500)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this category of equipment represents"
+        }
+      ],
+      "group_name": "Field System & Equipment",
+      "group_color": "#059669",
+      "group_key": "equipment"
+    },
+    {
       "id": "EquipmentLocationHistory",
       "label": "EquipmentLocationHistory",
       "description": "Temporal record of where a piece of Equipment is physically installed (which SamplingPoint). Independent from EquipmentWiringHistory: a probe can be relocated without changing its wiring, and vice versa. At most one row per Equipment may have ValidTo IS NULL (the equipment's current location).\n",

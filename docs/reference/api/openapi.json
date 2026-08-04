@@ -7792,9 +7792,25 @@
           "ingestion"
         ],
         "summary": "Get Sampling Points Lookup",
-        "description": "Return sampling points list for dropdowns.",
+        "description": "Return sampling points list for dropdowns, optionally scoped to a campaign.",
         "operationId": "get_sampling_points_lookup_api_v1_ingest_lookup_sampling_points_get",
         "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Campaign Id"
+            }
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -8290,7 +8306,7 @@
           "ingestion"
         ],
         "summary": "Ingest Lab",
-        "description": "Ingest one LabExperiment session worth of lab measurements.\n\nFlow (new experiment):\n1. Insert a single ``LabExperiment`` row (the session).\n2. For each measurement: find-or-create its ``AnalysisSeries``,\n   insert a ``LabAnalysis`` row, then insert an ``Observation`` routed\n   to ``Value`` / ``ValueVector`` / ``ValueMatrix`` based on the\n   measurement's ``value_kind_id``.\n\nFlow (existing experiment \u2014 ``experiment_id`` is set):\n1. Verify the ``LabExperiment`` row exists; 404 if not.\n2. Same per-measurement loop, appending to the existing session.",
+        "description": "Ingest one LabExperiment session worth of lab measurements.\n\nThe whole request is one transaction: it is written entire or not at all,\nso a failure part way through never leaves half an import behind.\n\nFlow (new experiment):\n1. Insert this request's ``samples``, if it carries any. Measurements\n   reach them by ``sample_index``; samples already on record are reached\n   by ``sample_id`` instead.\n2. Insert a single ``LabExperiment`` row (the session).\n3. For each measurement: find-or-create its ``AnalysisSeries``,\n   insert a ``LabAnalysis`` row, then insert an ``Observation`` routed\n   to ``Value`` / ``ValueVector`` / ``ValueMatrix`` based on the\n   measurement's ``value_kind_id``.\n\nFlow (existing experiment \u2014 ``experiment_id`` is set):\n1. Verify the ``LabExperiment`` row exists; 404 if not.\n2. Same per-measurement loop, appending to the existing session.",
         "operationId": "ingest_lab_api_v1_ingest_lab_post",
         "parameters": [
           {
@@ -15333,6 +15349,59 @@
         }
       }
     },
+    "/api/v1/vocab/equipment-kinds": {
+      "get": {
+        "tags": [
+          "vocabulary"
+        ],
+        "summary": "List Equipment Kinds",
+        "operationId": "list_equipment_kinds_api_v1_vocab_equipment_kinds_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EquipmentKindOut"
+                  },
+                  "title": "Response List Equipment Kinds Api V1 Vocab Equipment Kinds Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/vocab/controller-kinds": {
       "get": {
         "tags": [
@@ -21751,6 +21820,36 @@
         "type": "object",
         "title": "EquipmentIn"
       },
+      "EquipmentKindOut": {
+        "properties": {
+          "equipment_kind_id": {
+            "type": "integer",
+            "title": "Equipment Kind Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "equipment_kind_id",
+          "name",
+          "description"
+        ],
+        "title": "EquipmentKindOut"
+      },
       "EquipmentLifecycleActionRequest": {
         "properties": {
           "notes": {
@@ -23551,6 +23650,14 @@
             ],
             "title": "Lab Panel Id"
           },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/SampleCreateRequest"
+            },
+            "type": "array",
+            "title": "Samples",
+            "default": []
+          },
           "measurements": {
             "items": {
               "$ref": "#/components/schemas/LabMeasurementItem"
@@ -23564,7 +23671,7 @@
           "measurements"
         ],
         "title": "LabIngestRequest",
-        "description": "Ingest one LabExperiment session worth of lab measurements.\n\nTwo modes:\n- New experiment (``experiment_id`` is None): ``name`` and\n  ``experiment_datetime`` are required; a new ``LabExperiment`` row is\n  created.\n- Existing experiment (``experiment_id`` is set): measurements are appended\n  to the existing session; ``name`` / ``experiment_datetime`` /\n  ``campaign_id`` / ``description`` / ``created_by_person_id`` are ignored.\n\nFor each measurement: find-or-creates its ``AnalysisSeries``, inserts a\n``LabAnalysis`` row, and inserts an ``Observation`` routed to the\nappropriate payload table."
+        "description": "Ingest one LabExperiment session worth of lab measurements.\n\nTwo modes:\n- New experiment (``experiment_id`` is None): ``name`` and\n  ``experiment_datetime`` are required; a new ``LabExperiment`` row is\n  created.\n- Existing experiment (``experiment_id`` is set): measurements are appended\n  to the existing session; ``name`` / ``experiment_datetime`` /\n  ``campaign_id`` / ``description`` / ``created_by_person_id`` are ignored.\n\nFor each measurement: find-or-creates its ``AnalysisSeries``, inserts a\n``LabAnalysis`` row, and inserts an ``Observation`` routed to the\nappropriate payload table.\n\n``samples`` creates the request's samples in the same transaction as its\nmeasurements, so an import is written whole or not at all. Measurements\npoint at them by position through ``sample_index``."
       },
       "LabIngestResponse": {
         "properties": {
@@ -23619,8 +23726,26 @@
             "title": "Laboratory Id"
           },
           "sample_id": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Sample Id"
+          },
+          "sample_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Index"
           },
           "value": {
             "anyOf": [
@@ -23705,11 +23830,10 @@
           "sampling_point_id",
           "unit_id",
           "series_name",
-          "sample_id",
           "value"
         ],
         "title": "LabMeasurementItem",
-        "description": "One measurement in a lab experiment.\n\nCarries both the AnalysisSeries identity (parameter / location / kinds /\nunit / name) used to find-or-create the series, and the per-measurement\ndata (sample, value, lab metadata, replicate, quality). The payload value\nis routed to Value / ValueVector / ValueMatrix based on ``value_kind_id``."
+        "description": "One measurement in a lab experiment.\n\nCarries both the AnalysisSeries identity (parameter / location / kinds /\nunit / name) used to find-or-create the series, and the per-measurement\ndata (sample, value, lab metadata, replicate, quality). The payload value\nis routed to Value / ValueVector / ValueMatrix based on ``value_kind_id``.\n\nThe sample is either one already on record (``sample_id``) or one this\nrequest creates (``sample_index``, a position in the request's ``samples``)\n\u2014 exactly one of the two."
       },
       "LabPanelCreateRequest": {
         "properties": {
@@ -24878,6 +25002,17 @@
           "parameter_name": {
             "type": "string",
             "title": "Parameter Name"
+          },
+          "value_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Kind Id"
           }
         },
         "type": "object",
