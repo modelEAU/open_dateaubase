@@ -34,5 +34,12 @@ table:
       max_length: 1000
       nullable: true
       description: "Location where the manual is stored (e.g. a SharePoint URL)"
+    - name: EquipmentKind_ID
+      logical_type: integer
+      nullable: true
+      description: "Category of equipment this model belongs to. Drives which pickers offer it — only models classified as Sampler appear in the laboratory forms."
+      foreign_key:
+        table: EquipmentKind
+        column: EquipmentKind_ID
 
   primary_key: [EquipmentModel_ID]

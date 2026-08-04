@@ -561,6 +561,7 @@ Stores detailed, non-redundant specifications for a specific sensor or instrumen
 | Functions | NVARCHAR(MAX) | - |  | <span id="Functions"></span>Description of the functions of the equipment | - |
 | Manufacturer | NVARCHAR(100) | - |  | <span id="Manufacturer"></span>Name of the manufacturer | - |
 | ManualLocation | NVARCHAR(1000) | - |  | <span id="ManualLocation"></span>Location where the manual is stored (e.g. a SharePoint URL) | - |
+| EquipmentKind_ID | INT | - |  | <span id="EquipmentKind_ID"></span>Category of equipment this model belongs to. Drives which pickers offer it — only models classified as Sampler appear in the laboratory forms. | FK → [EquipmentKind.EquipmentKind_ID](#EquipmentKind) |
 
 <span id="EquipmentModelHasParameter"></span>
 

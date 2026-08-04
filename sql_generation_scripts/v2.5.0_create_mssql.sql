@@ -1,6 +1,6 @@
 -- Baseline CREATE script for schema v2.5.0
 -- Platform: mssql
--- Generated: 2026-08-04 13:33:49 UTC
+-- Generated: 2026-08-04 13:53:58 UTC
 
 CREATE TABLE [dbo].[AnnotationKind] (
     [AnnotationKind_ID] INT NOT NULL,
@@ -64,16 +64,6 @@ CREATE TABLE [dbo].[EquipmentKind] (
     [Name] NVARCHAR(100) NOT NULL,
     [Description] NVARCHAR(500),
     CONSTRAINT [PK_EquipmentKind] PRIMARY KEY ([EquipmentKind_ID])
-);
-
-CREATE TABLE [dbo].[EquipmentModel] (
-    [EquipmentModel_ID] INT IDENTITY(1,1) NOT NULL,
-    [EquipmentModel] NVARCHAR(100),
-    [Method] NVARCHAR(100),
-    [Functions] NVARCHAR(MAX),
-    [Manufacturer] NVARCHAR(100),
-    [ManualLocation] NVARCHAR(1000),
-    CONSTRAINT [PK_EquipmentModel] PRIMARY KEY ([EquipmentModel_ID])
 );
 
 CREATE TABLE [dbo].[EventKind] (
@@ -409,6 +399,17 @@ CREATE TABLE [dbo].[EquipmentLocationHistory] (
     [Campaign_ID] INT,
     [Notes] NVARCHAR(MAX),
     CONSTRAINT [PK_EquipmentLocationHistory] PRIMARY KEY ([EquipmentLocationHistory_ID])
+);
+
+CREATE TABLE [dbo].[EquipmentModel] (
+    [EquipmentModel_ID] INT IDENTITY(1,1) NOT NULL,
+    [EquipmentModel] NVARCHAR(100),
+    [Method] NVARCHAR(100),
+    [Functions] NVARCHAR(MAX),
+    [Manufacturer] NVARCHAR(100),
+    [ManualLocation] NVARCHAR(1000),
+    [EquipmentKind_ID] INT,
+    CONSTRAINT [PK_EquipmentModel] PRIMARY KEY ([EquipmentModel_ID])
 );
 
 CREATE TABLE [dbo].[EquipmentModelHasParameter] (
@@ -785,7 +786,6 @@ CREATE TABLE [dbo].[Watershed] (
 
 
 
-
 CREATE INDEX [IX_UserAccount_Email] ON [dbo].[UserAccount] ([Email]);
 
 
@@ -824,6 +824,7 @@ CREATE INDEX [IX_DASLocationHistory_Site_ValidFrom] ON [dbo].[DASLocationHistory
 
 CREATE UNIQUE INDEX [UQ_EquipmentLocationHistory_ActiveRow] ON [dbo].[EquipmentLocationHistory] ([Equipment_ID]) WHERE [ValidTo] IS NULL;
 CREATE INDEX [IX_EquipmentLocationHistory_SamplingPoint] ON [dbo].[EquipmentLocationHistory] ([SamplingPoint_ID], [ValidFrom]);
+
 
 
 
@@ -924,6 +925,7 @@ ALTER TABLE [dbo].[Equipment] ADD CONSTRAINT [FK_Equipment_EquipmentModel_ID] FO
 ALTER TABLE [dbo].[EquipmentLocationHistory] ADD CONSTRAINT [FK_EquipmentLocationHistory_Equipment_ID] FOREIGN KEY ([Equipment_ID]) REFERENCES [dbo].[Equipment] ([Equipment_ID]);
 ALTER TABLE [dbo].[EquipmentLocationHistory] ADD CONSTRAINT [FK_EquipmentLocationHistory_SamplingPoint_ID] FOREIGN KEY ([SamplingPoint_ID]) REFERENCES [dbo].[SamplingPoint] ([SamplingPoint_ID]);
 ALTER TABLE [dbo].[EquipmentLocationHistory] ADD CONSTRAINT [FK_EquipmentLocationHistory_Campaign_ID] FOREIGN KEY ([Campaign_ID]) REFERENCES [dbo].[Campaign] ([Campaign_ID]);
+ALTER TABLE [dbo].[EquipmentModel] ADD CONSTRAINT [FK_EquipmentModel_EquipmentKind_ID] FOREIGN KEY ([EquipmentKind_ID]) REFERENCES [dbo].[EquipmentKind] ([EquipmentKind_ID]);
 ALTER TABLE [dbo].[EquipmentModelHasParameter] ADD CONSTRAINT [FK_EquipmentModelHasParameter_EquipmentModel_ID] FOREIGN KEY ([EquipmentModel_ID]) REFERENCES [dbo].[EquipmentModel] ([EquipmentModel_ID]);
 ALTER TABLE [dbo].[EquipmentModelHasParameter] ADD CONSTRAINT [FK_EquipmentModelHasParameter_Parameter_ID] FOREIGN KEY ([Parameter_ID]) REFERENCES [dbo].[Parameter] ([Parameter_ID]);
 ALTER TABLE [dbo].[EquipmentModelHasProcedures] ADD CONSTRAINT [FK_EquipmentModelHasProcedures_EquipmentModel_ID] FOREIGN KEY ([EquipmentModel_ID]) REFERENCES [dbo].[EquipmentModel] ([EquipmentModel_ID]);
@@ -1218,4 +1220,4 @@ LEFT JOIN [dbo].[SamplingPoint] sp ON sp.[SamplingPoint_ID] = elh.[SamplingPoint
 GO
 -- Schema version stamp (from schema_dictionary/version.yaml)
 INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])
-VALUES (N'2.5.0', N'EquipmentKind, a controlled vocabulary classifying equipment models as Online sensor, Offline analyzer, Sampler or Other. Seed-only for now; EquipmentModel gains the foreign key in a follow-up so pickers can scope themselves to the equipment that actually collects samples.');
+VALUES (N'2.5.0', N'EquipmentKind, a controlled vocabulary classifying equipment models as Online sensor, Offline analyzer, Sampler or Other, referenced by EquipmentModel so pickers can scope themselves to the equipment that actually collects samples.');

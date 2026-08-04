@@ -4,8 +4,8 @@
 -- Rollback: v2.4.0_to_v2.5.0_mssql_rollback.sql
 --
 -- EquipmentKind: a controlled vocabulary classifying equipment models as
--- Online sensor, Offline analyzer, Sampler or Other. Seed-only in this step —
--- nothing references it yet.
+-- Online sensor, Offline analyzer, Sampler or Other, plus the nullable
+-- EquipmentModel.EquipmentKind_ID that references it.
 --
 -- Every step is guarded, so re-running on an already-migrated database is a
 -- no-op.
@@ -37,9 +37,27 @@ BEGIN
 END
 GO
 
+-- ---------------------------------------------------------------------------
+-- 2. EquipmentModel.EquipmentKind_ID
+-- ---------------------------------------------------------------------------
+
+IF COL_LENGTH('dbo.EquipmentModel', 'EquipmentKind_ID') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[EquipmentModel] ADD [EquipmentKind_ID] INT NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.FK_EquipmentModel_EquipmentKind_ID', 'F') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[EquipmentModel]
+        ADD CONSTRAINT [FK_EquipmentModel_EquipmentKind_ID]
+        FOREIGN KEY ([EquipmentKind_ID]) REFERENCES [dbo].[EquipmentKind] ([EquipmentKind_ID]);
+END
+GO
+
 IF NOT EXISTS (SELECT 1 FROM [dbo].[SchemaVersion] WHERE [Version] = N'2.5.0')
 BEGIN
     INSERT INTO [dbo].[SchemaVersion] ([Version], [Description])
-    VALUES (N'2.5.0', N'EquipmentKind, a controlled vocabulary classifying equipment models as Online sensor, Offline analyzer, Sampler or Other.');
+    VALUES (N'2.5.0', N'EquipmentKind, a controlled vocabulary classifying equipment models as Online sensor, Offline analyzer, Sampler or Other, referenced by EquipmentModel.');
 END
 GO

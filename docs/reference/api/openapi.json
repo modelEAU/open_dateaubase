@@ -22006,6 +22006,17 @@
               }
             ],
             "title": "Manual Location"
+          },
+          "equipment_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Kind Id"
           }
         },
         "type": "object",
@@ -22101,6 +22112,17 @@
               }
             ],
             "title": "Manual Location"
+          },
+          "equipment_kind_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Kind Id"
           }
         },
         "type": "object",

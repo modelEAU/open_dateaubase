@@ -2075,6 +2075,15 @@
           "is_required": false,
           "fk_target": null,
           "description": "Location where the manual is stored (e.g. a SharePoint URL)"
+        },
+        {
+          "name": "EquipmentKind_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "EquipmentKind.EquipmentKind_ID",
+          "description": "Category of equipment this model belongs to. Drives which pickers offer it \u2014 only models classified as Sampler appear in the laboratory forms."
         }
       ],
       "group_name": "Field System & Equipment",
@@ -6058,6 +6067,13 @@
       "to_table": "Campaign",
       "from_field": "Campaign_ID",
       "to_field": "Campaign_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "EquipmentModel",
+      "to_table": "EquipmentKind",
+      "from_field": "EquipmentKind_ID",
+      "to_field": "EquipmentKind_ID",
       "relationship_type": null
     },
     {

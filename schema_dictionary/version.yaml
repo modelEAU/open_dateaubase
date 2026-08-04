@@ -1,7 +1,6 @@
 schema_version: "2.5.0"
 description: >
   EquipmentKind, a controlled vocabulary classifying equipment models as Online
-  sensor, Offline analyzer, Sampler or Other. Seed-only for now; EquipmentModel
-  gains the foreign key in a follow-up so pickers can scope themselves to the
-  equipment that actually collects samples.
+  sensor, Offline analyzer, Sampler or Other, referenced by EquipmentModel so
+  pickers can scope themselves to the equipment that actually collects samples.
 date: "2026-08-04"
