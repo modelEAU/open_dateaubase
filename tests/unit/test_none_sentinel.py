@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import pathlib
 from unittest.mock import patch
 
@@ -69,9 +70,6 @@ def test_optional_described_field_still_offers_none():
 def test_no_hand_spelled_sentinel_labels():
     # Every dropdown sentinel comes from app.components.labels. A hand-spelled
     # variant is how "— None —" and "— none —" ended up in the same dropdown.
-    # "index=None" is Streamlit's native empty state — a second, different-looking
-    # way to say "nothing picked". The house style is the NONE_LABEL row
-    # (select_or_none / kind_select), so dropdowns match each other everywhere.
     banned = (
         "(none)",
         "(all sites)",
@@ -81,7 +79,6 @@ def test_no_hand_spelled_sentinel_labels():
         "— not specified —",
         "— None —",
         "All Sites",
-        "index=None",
     )
     app = pathlib.Path(__file__).resolve().parents[2] / "app"
     offenders = [
@@ -92,3 +89,25 @@ def test_no_hand_spelled_sentinel_labels():
         if any(b in line for b in banned)
     ]
     assert not offenders, "hand-spelled sentinel labels:\n" + "\n".join(offenders)
+
+
+def test_dropdowns_use_the_none_row_not_streamlit_empty_state():
+    # "index=None" is Streamlit's native empty state — a second, different-looking
+    # way to say "nothing picked". The house style is the NONE_LABEL row
+    # (select_or_none / kind_select), so dropdowns match each other everywhere.
+    # Radios and pills have no NONE_LABEL convention; their empty state is fine.
+    app = pathlib.Path(__file__).resolve().parents[2] / "app"
+    offenders = []
+    for path in app.rglob("*.py"):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if node.func.attr not in ("selectbox", "multiselect"):
+                continue
+            if any(
+                kw.arg == "index" and isinstance(kw.value, ast.Constant) and kw.value.value is None
+                for kw in node.keywords
+            ):
+                offenders.append(f"{path.relative_to(app.parent)}:{node.lineno}")
+    assert not offenders, "dropdowns using index=None:\n" + "\n".join(offenders)

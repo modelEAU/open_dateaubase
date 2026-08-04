@@ -86,6 +86,12 @@ def render_form_field(
         # prepended so it can't show up twice.
         options = [opt for opt in (options or []) if opt.get("id") is not None]
 
+        # A record can point at a row the picker no longer offers (a retired
+        # person, a withdrawn term). Keep it selectable so editing another
+        # field doesn't silently reassign this one.
+        if isinstance(value, int) and not any(opt["id"] == value for opt in options):
+            options = [*options, {"id": value, "label": f"#{value} (retired)"}]
+
         if fk_table:
             new_id = _offer_add_new(field_name, fk_table)
             if new_id is not None:

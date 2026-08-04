@@ -9,7 +9,7 @@ _FAKE_USER = {"full_name": "Test User", "user_id": 1}
 def _run(
     mock_sps,
     *,
-    data_type: str = "Both",
+    data_type: str | None = "Both",
     sites=None,
     persons=None,
     channels=None,
@@ -30,7 +30,8 @@ def _run(
          patch("app.api_client.get_health", return_value={"api_version": "test", "db": "ok"}), \
          patch("app.auth.get_current_user", return_value=_FAKE_USER):
         at = AppTest.from_file(APP)
-        at.session_state["onboarding_data_type"] = data_type
+        if data_type is not None:
+            at.session_state["onboarding_data_type"] = data_type
         at.run()
     return at
 
@@ -99,3 +100,12 @@ def test_panel_dismissed_hides_panel():
     at.run()
     text = _collect_text(at)
     assert "Get started" not in text
+
+
+def test_no_data_type_chosen_shows_neither_sensor_nor_lab_steps():
+    """Until the user says what they load, no path is presented as required."""
+    at = _run([], data_type=None)
+    text = _collect_text(at)
+    assert "Get started" in text
+    assert "Sensor setup" not in text
+    assert "Lab setup" not in text

@@ -114,22 +114,21 @@ def _onboarding_panel() -> None:
             return f"- ✓ {done_label}"
         return f"- ○ [{todo_label}]({url})"
 
-    # Default data-type selection
-    if "onboarding_data_type" not in st.session_state:
-        st.session_state["onboarding_data_type"] = "Both"
-
     with st.container(border=True):
         st.markdown("### Get started")
 
+        # No default: a lab-only user must never be shown DAS setup as a
+        # required step, so the tailored steps stay hidden until they choose.
         st.radio(
             "What will you load?",
             ["Lab", "Sensor", "Both"],
+            index=None,
             horizontal=True,
             key="onboarding_data_type",
             help="Lab data arrives as results against samples; sensor data arrives as a continuous signal on a channel. This only tailors the setup steps suggested below.",
         )
 
-        data_type: str = st.session_state["onboarding_data_type"]
+        data_type: str | None = st.session_state.get("onboarding_data_type")
 
         foundation = (
             "Complete these foundation steps to start loading data:\n\n"

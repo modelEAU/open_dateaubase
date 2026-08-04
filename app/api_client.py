@@ -965,9 +965,12 @@ def list_persons() -> list[dict]:
     return _request("GET", "/persons")
 
 
-def list_persons_lookup() -> list[dict]:
-    """Return list of {person_id, label} for dropdowns."""
-    return _request("GET", "/persons/lookup")
+def list_persons_lookup(active_only: bool = True) -> list[dict]:
+    """Return list of {person_id, label, is_active} for dropdowns."""
+    persons = _request("GET", "/persons/lookup")
+    if active_only:
+        return [p for p in persons if p.get("is_active", True)]
+    return persons
 
 
 def create_person(data: dict) -> dict:
@@ -1201,6 +1204,11 @@ def delete_sample_collection_kind(sample_collection_kind_id: int) -> None:
 
 def list_process_unit_types() -> list[dict]:
     return _request("GET", "/process-unit-kinds")
+
+
+def list_treatment_stages() -> list[dict]:
+    """Treatment stages in train order (Preliminary → Sludge line)."""
+    return _request("GET", "/treatment-stages")
 
 
 def create_process_unit_type(data: dict) -> dict:

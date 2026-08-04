@@ -17,6 +17,7 @@ from app.api_client import (
     create_process_unit,
     delete_process_unit,
     list_process_unit_types,
+    list_treatment_stages,
     list_process_units,
     list_process_units_lookup,
     list_sites,
@@ -55,11 +56,29 @@ selected_site_id: int | None = site_options.get(selected_site_name)  # type: ign
 # ---------------------------------------------------------------------------
 
 try:
+    # The API returns kinds already clustered by category. Prefixing the label
+    # keeps that clustering visible in a flat selectbox — Streamlit has no
+    # option groups — while substring search still finds a term by its own name.
     unit_types = list_process_unit_types()
-    type_options = [{"id": t["process_unit_kind_id"], "label": t["name"]} for t in unit_types]
+    type_options = [
+        {
+            "id": t["process_unit_kind_id"],
+            "label": f"{t['category']} · {t['name']}" if t.get("category") else t["name"],
+            "description": t.get("description"),
+        }
+        for t in unit_types
+    ]
 except APIError:
     unit_types = []
     type_options = []
+
+try:
+    stage_options = [
+        {"id": s["treatment_stage_id"], "label": s["name"], "description": s.get("description")}
+        for s in list_treatment_stages()
+    ]
+except APIError:
+    stage_options = []
 
 try:
     parent_candidates = list_process_units_lookup(site_id=selected_site_id)
@@ -76,6 +95,7 @@ except APIError:
 _site_scoped_options = {
     "site_id": [{"id": s["id"], "label": s["name"]} for s in sites_list],
     "process_unit_kind_id": type_options,
+    "treatment_stage_id": stage_options,
     "parent_id": parent_options,
 }
 form_fields = []
