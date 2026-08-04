@@ -230,17 +230,6 @@ class ChannelKindOut(BaseModel):
     description: str | None
 
 
-class ProcessUnitKindOut(BaseModel):
-    process_unit_kind_id: int
-    name: str
-    description: str | None
-
-
-class ProcessUnitKindIn(BaseModel):
-    name: str
-    description: str | None = None
-
-
 class ProcedureKindOut(BaseModel):
     procedure_kind_id: int
     name: str

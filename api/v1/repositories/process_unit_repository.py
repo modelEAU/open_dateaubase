@@ -10,46 +10,75 @@ import pyodbc
 # ---------------------------------------------------------------------------
 
 
+# Categories run in train order — the hierarchy first, then what acts on the
+# stream, then what moves it — with uncategorised terms ("Other") last.
+_CATEGORY_ORDER = (
+    "CASE [Category] WHEN 'Structural' THEN 1 WHEN 'Treatment' THEN 2 "
+    "WHEN 'Conveyance' THEN 3 ELSE 4 END"
+)
+
+
 def get_all_process_unit_types(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [ProcessUnitKind_ID], [Name], [Description] "
-        "FROM [dbo].[ProcessUnitKind] ORDER BY [Name]"
+        "SELECT [ProcessUnitKind_ID], [Name], [Category], [Description] "
+        f"FROM [dbo].[ProcessUnitKind] ORDER BY {_CATEGORY_ORDER}, [Name]"
     )
-    return [{"process_unit_kind_id": row[0], "name": row[1], "description": row[2]} for row in cursor.fetchall()]
+    return [
+        {
+            "process_unit_kind_id": row[0],
+            "name": row[1],
+            "category": row[2],
+            "description": row[3],
+        }
+        for row in cursor.fetchall()
+    ]
 
 
 def insert_process_unit_type(
-    conn: pyodbc.Connection, name: str, description: str | None
+    conn: pyodbc.Connection, name: str, description: str | None, category: str | None = None
 ) -> dict:
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO [dbo].[ProcessUnitKind] ([Name], [Description])
-        OUTPUT inserted.[ProcessUnitKind_ID], inserted.[Name], inserted.[Description]
-        VALUES (?, ?)
+        INSERT INTO [dbo].[ProcessUnitKind] ([Name], [Category], [Description])
+        OUTPUT inserted.[ProcessUnitKind_ID], inserted.[Name], inserted.[Category],
+               inserted.[Description]
+        VALUES (?, ?, ?)
         """,
         name,
+        category,
         description,
     )
     row = cursor.fetchone()
     assert row is not None
     conn.commit()
-    return {"process_unit_kind_id": row[0], "name": row[1], "description": row[2]}
+    return {
+        "process_unit_kind_id": row[0],
+        "name": row[1],
+        "category": row[2],
+        "description": row[3],
+    }
 
 
 def update_process_unit_type(
-    conn: pyodbc.Connection, process_unit_kind_id: int, name: str, description: str | None
+    conn: pyodbc.Connection,
+    process_unit_kind_id: int,
+    name: str,
+    description: str | None,
+    category: str | None = None,
 ) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
         UPDATE [dbo].[ProcessUnitKind]
-        SET [Name]=?, [Description]=?
-        OUTPUT inserted.[ProcessUnitKind_ID], inserted.[Name], inserted.[Description]
+        SET [Name]=?, [Category]=?, [Description]=?
+        OUTPUT inserted.[ProcessUnitKind_ID], inserted.[Name], inserted.[Category],
+               inserted.[Description]
         WHERE [ProcessUnitKind_ID]=?
         """,
         name,
+        category,
         description,
         process_unit_kind_id,
     )
@@ -57,7 +86,12 @@ def update_process_unit_type(
     conn.commit()
     if row is None:
         return None
-    return {"process_unit_kind_id": row[0], "name": row[1], "description": row[2]}
+    return {
+        "process_unit_kind_id": row[0],
+        "name": row[1],
+        "category": row[2],
+        "description": row[3],
+    }
 
 
 def delete_process_unit_type(conn: pyodbc.Connection, process_unit_kind_id: int) -> bool:
@@ -75,6 +109,23 @@ def delete_process_unit_type(conn: pyodbc.Connection, process_unit_kind_id: int)
 
 
 # ---------------------------------------------------------------------------
+# TreatmentStage
+# ---------------------------------------------------------------------------
+
+
+def get_all_treatment_stages(conn: pyodbc.Connection) -> list[dict]:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT [TreatmentStage_ID], [Name], [Description] "
+        "FROM [dbo].[TreatmentStage] ORDER BY [SortOrder]"
+    )
+    return [
+        {"treatment_stage_id": row[0], "name": row[1], "description": row[2]}
+        for row in cursor.fetchall()
+    ]
+
+
+# ---------------------------------------------------------------------------
 # ProcessUnit
 # ---------------------------------------------------------------------------
 
@@ -87,11 +138,15 @@ _SELECT_UNIT = """
         pu.[Description],
         pu.[ProcessUnitKind_ID],
         put.[Name] AS TypeName,
+        pu.[TreatmentStage_ID],
+        ts.[Name]  AS StageName,
         pu.[Parent_ID],
         p.[Name]   AS ParentName
     FROM [dbo].[ProcessUnit] pu
     LEFT JOIN [dbo].[ProcessUnitKind] put
         ON pu.[ProcessUnitKind_ID] = put.[ProcessUnitKind_ID]
+    LEFT JOIN [dbo].[TreatmentStage] ts
+        ON pu.[TreatmentStage_ID] = ts.[TreatmentStage_ID]
     LEFT JOIN [dbo].[ProcessUnit] p
         ON pu.[Parent_ID] = p.[ProcessUnit_ID]
 """
@@ -106,8 +161,10 @@ def _row_to_dict(row) -> dict:
         "description": row[4],
         "process_unit_kind_id": row[5],
         "process_unit_kind_name": row[6],
-        "parent_id": row[7],
-        "parent_name": row[8],
+        "treatment_stage_id": row[7],
+        "treatment_stage_name": row[8],
+        "parent_id": row[9],
+        "parent_name": row[10],
     }
 
 
@@ -174,14 +231,16 @@ def insert_process_unit(conn: pyodbc.Connection, data: dict) -> dict | None:
     cursor.execute(
         """
         INSERT INTO [dbo].[ProcessUnit]
-            ([Site_ID], [Tag], [Name], [Description], [ProcessUnitKind_ID], [Parent_ID])
-        VALUES (?, ?, ?, ?, ?, ?)
+            ([Site_ID], [Tag], [Name], [Description], [ProcessUnitKind_ID],
+             [TreatmentStage_ID], [Parent_ID])
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         data["site_id"],
         data["tag"],
         data["name"],
         data.get("description"),
         data.get("process_unit_kind_id"),
+        data.get("treatment_stage_id"),
         data.get("parent_id"),
     )
     cursor.execute("SELECT @@IDENTITY")
@@ -203,7 +262,7 @@ def update_process_unit(
         """
         UPDATE [dbo].[ProcessUnit]
         SET [Site_ID]=?, [Tag]=?, [Name]=?, [Description]=?,
-            [ProcessUnitKind_ID]=?, [Parent_ID]=?
+            [ProcessUnitKind_ID]=?, [TreatmentStage_ID]=?, [Parent_ID]=?
         WHERE [ProcessUnit_ID]=?
         """,
         data["site_id"],
@@ -211,6 +270,7 @@ def update_process_unit(
         data["name"],
         data.get("description"),
         data.get("process_unit_kind_id"),
+        data.get("treatment_stage_id"),
         data.get("parent_id"),
         process_unit_id,
     )

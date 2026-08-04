@@ -42,6 +42,7 @@ from .endpoints.lab_lookup import (
 )
 from .endpoints.process_units import (
     process_unit_kinds_router,
+    treatment_stages_router,
     process_units_router,
 )
 from .endpoints.vocab import router as vocab_router
@@ -126,6 +127,9 @@ protected.include_router(
 )
 protected.include_router(
     process_unit_kinds_router, prefix="/process-unit-kinds", tags=["process-units"]
+)
+protected.include_router(
+    treatment_stages_router, prefix="/treatment-stages", tags=["process-units"]
 )
 protected.include_router(
     process_units_router, prefix="/process-units", tags=["process-units"]

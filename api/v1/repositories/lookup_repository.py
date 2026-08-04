@@ -438,10 +438,10 @@ def get_data_provenance_kind_by_id(
 
 
 def get_persons_lookup(conn: pyodbc.Connection) -> list[dict]:
-    """Return all persons as {person_id, label} for dropdowns."""
+    """Return all persons as {person_id, label, is_active} for dropdowns."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Person_ID], [FirstName], [LastName]"
+        "SELECT [Person_ID], [FirstName], [LastName], [IsActive]"
         " FROM [dbo].[Person]"
         " ORDER BY [LastName], [FirstName]"
     )
@@ -450,6 +450,7 @@ def get_persons_lookup(conn: pyodbc.Connection) -> list[dict]:
         {
             "person_id": row[0],
             "label": f"{row[1] or ''} {row[2] or ''}".strip() or f"Person {row[0]}",
+            "is_active": bool(row[3]),
         }
         for row in rows
     ]
@@ -460,7 +461,7 @@ def get_all_persons(conn: pyodbc.Connection) -> list[dict]:
     cursor = conn.cursor()
     cursor.execute(
         "SELECT [Person_ID], [FirstName], [LastName], [Company], [Role],"
-        " [AssignedFunctions], [Email], [Phone], [Linkedin], [Website]"
+        " [AssignedFunctions], [Email], [Phone], [Linkedin], [Website], [IsActive]"
         " FROM [dbo].[Person] ORDER BY [LastName], [FirstName]"
     )
     return [
@@ -475,6 +476,7 @@ def get_all_persons(conn: pyodbc.Connection) -> list[dict]:
             "phone": row[7],
             "linkedin": row[8],
             "website": row[9],
+            "is_active": bool(row[10]),
         }
         for row in cursor.fetchall()
     ]

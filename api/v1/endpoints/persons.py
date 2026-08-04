@@ -19,11 +19,13 @@ class PersonIn(BaseModel):
     phone: str | None = None
     linkedin: str | None = None
     website: str | None = None
+    is_active: bool = True
 
 
 class PersonLookupOut(BaseModel):
     person_id: int
     label: str
+    is_active: bool = True
 
 
 class PersonOut(BaseModel):
@@ -37,6 +39,7 @@ class PersonOut(BaseModel):
     phone: str | None = None
     linkedin: str | None = None
     website: str | None = None
+    is_active: bool = True
 
 
 router = APIRouter()
@@ -52,6 +55,7 @@ _PERSON_COLS = (
     "[Phone]",
     "[Linkedin]",
     "[Website]",
+    "[IsActive]",
 )
 _PERSON_OUTPUT = "inserted.[Person_ID], " + ", ".join(
     f"inserted.{c}" for c in _PERSON_COLS
@@ -69,6 +73,7 @@ def _person_values(data: PersonIn) -> tuple:
         data.phone,
         data.linkedin,
         data.website,
+        data.is_active,
     )
 
 
@@ -84,6 +89,7 @@ def _row_to_person(row) -> PersonOut:
         phone=row[7],
         linkedin=row[8],
         website=row[9],
+        is_active=bool(row[10]),
     )
 
 

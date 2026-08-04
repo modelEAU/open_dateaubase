@@ -14,10 +14,17 @@ from ..schemas.process_unit import (
     ProcessUnitTreeOut,
     ProcessUnitKindIn,
     ProcessUnitKindOut,
+    TreatmentStageOut,
 )
 
 process_unit_kinds_router = APIRouter()
 process_units_router = APIRouter()
+treatment_stages_router = APIRouter()
+
+
+@treatment_stages_router.get("", response_model=list[TreatmentStageOut])
+def list_treatment_stages(conn=Depends(get_db)):
+    return process_unit_repository.get_all_treatment_stages(conn)
 
 
 # ---------------------------------------------------------------------------
@@ -32,7 +39,9 @@ def list_process_unit_types(conn=Depends(get_db)):
 
 @process_unit_kinds_router.post("", response_model=ProcessUnitKindOut, status_code=201)
 def create_process_unit_type(body: ProcessUnitKindIn, conn=Depends(get_db)):
-    return process_unit_repository.insert_process_unit_type(conn, body.name, body.description)
+    return process_unit_repository.insert_process_unit_type(
+        conn, body.name, body.description, body.category
+    )
 
 
 @process_unit_kinds_router.put("/{process_unit_kind_id}", response_model=ProcessUnitKindOut)
@@ -40,7 +49,7 @@ def update_process_unit_type(
     process_unit_kind_id: int, body: ProcessUnitKindIn, conn=Depends(get_db)
 ):
     updated = process_unit_repository.update_process_unit_type(
-        conn, process_unit_kind_id, body.name, body.description
+        conn, process_unit_kind_id, body.name, body.description, body.category
     )
     if updated is None:
         raise HTTPException(

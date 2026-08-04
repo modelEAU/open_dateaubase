@@ -40,7 +40,6 @@ from api.v1.schemas.metadata import (
     LaboratoryIn,
     ProcedureIn,
     ProcedureKindIn,
-    ProcessUnitKindIn,
     QualityCodeIn,
     SampleCollectionKindIn,
     SampleMaterialKindIn,
@@ -48,7 +47,7 @@ from api.v1.schemas.metadata import (
     SampleKindIn,
     SiteKindIn,
 )
-from api.v1.schemas.process_unit import ProcessUnitIn
+from api.v1.schemas.process_unit import ProcessUnitIn, ProcessUnitKindIn
 from api.v1.schemas.signal_interface import DasCreateIn, SignalInterfaceIn
 
 # entity slug -> request schema whose fields the form must cover exactly.
