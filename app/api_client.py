@@ -900,6 +900,11 @@ def list_das_kinds() -> list[dict]:
     return _request("GET", "/vocab/das-kinds")
 
 
+def list_equipment_kinds() -> list[dict]:
+    """Return [{equipment_kind_id, name, description}] for equipment category dropdowns."""
+    return _request("GET", "/vocab/equipment-kinds")
+
+
 def list_controller_kinds() -> list[dict]:
     """Return [{controller_kind_id, name, description}] for controller type dropdowns."""
     return _request("GET", "/vocab/controller-kinds")
@@ -1431,6 +1436,10 @@ def list_sample_material_kind_lookup() -> list[dict]:
 
 def list_sample_collection_kind_lookup() -> list[dict]:
     return list_sample_collection_kinds()
+
+
+def list_equipment_kind_lookup() -> list[dict]:
+    return list_equipment_kinds()
 
 
 def list_equipment_event_kind_lookup() -> list[dict]:
