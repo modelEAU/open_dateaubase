@@ -163,7 +163,7 @@ def list_equipment_models(conn: pyodbc.Connection) -> list[dict]:
     """Return all equipment models (full rows)."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [EquipmentModel_ID], [EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation]"
+        "SELECT [EquipmentModel_ID], [EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation], [EquipmentKind_ID]"
         " FROM [dbo].[EquipmentModel] ORDER BY [EquipmentModel_ID]"
     )
     return [
@@ -174,6 +174,7 @@ def list_equipment_models(conn: pyodbc.Connection) -> list[dict]:
             "functions": row[3],
             "manufacturer": row[4],
             "manual_location": row[5],
+            "equipment_kind_id": row[6],
         }
         for row in cursor.fetchall()
     ]
@@ -182,7 +183,7 @@ def list_equipment_models(conn: pyodbc.Connection) -> list[dict]:
 def get_equipment_model_by_id(conn: pyodbc.Connection, model_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [EquipmentModel_ID], [EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation]"
+        "SELECT [EquipmentModel_ID], [EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation], [EquipmentKind_ID]"
         " FROM [dbo].[EquipmentModel] WHERE [EquipmentModel_ID]=?",
         model_id,
     )
@@ -196,19 +197,21 @@ def get_equipment_model_by_id(conn: pyodbc.Connection, model_id: int) -> dict | 
         "functions": row[3],
         "manufacturer": row[4],
         "manual_location": row[5],
+        "equipment_kind_id": row[6],
     }
 
 
 def insert_equipment_model(conn: pyodbc.Connection, data: dict) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation])"
-        " VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO [dbo].[EquipmentModel] ([EquipmentModel], [Method], [Functions], [Manufacturer], [ManualLocation], [EquipmentKind_ID])"
+        " VALUES (?, ?, ?, ?, ?, ?)",
         data.get("equipment_model"),
         data.get("method"),
         data.get("functions"),
         data.get("manufacturer"),
         data.get("manual_location"),
+        data.get("equipment_kind_id"),
     )
     cursor.execute("SELECT @@IDENTITY")
     _row = cursor.fetchone()
@@ -222,13 +225,14 @@ def update_equipment_model(conn: pyodbc.Connection, model_id: int, data: dict) -
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE [dbo].[EquipmentModel]"
-        " SET [EquipmentModel]=?, [Method]=?, [Functions]=?, [Manufacturer]=?, [ManualLocation]=?"
+        " SET [EquipmentModel]=?, [Method]=?, [Functions]=?, [Manufacturer]=?, [ManualLocation]=?, [EquipmentKind_ID]=?"
         " WHERE [EquipmentModel_ID]=?",
         data.get("equipment_model"),
         data.get("method"),
         data.get("functions"),
         data.get("manufacturer"),
         data.get("manual_location"),
+        data.get("equipment_kind_id"),
         model_id,
     )
     conn.commit()

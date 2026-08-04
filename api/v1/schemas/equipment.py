@@ -75,6 +75,7 @@ class EquipmentModelIn(BaseModel):
     functions: str | None = None
     manufacturer: str | None = None
     manual_location: str | None = None
+    equipment_kind_id: int | None = None
 
 
 class EquipmentModelOut(BaseModel):
@@ -84,6 +85,7 @@ class EquipmentModelOut(BaseModel):
     functions: str | None = None
     manufacturer: str | None = None
     manual_location: str | None = None
+    equipment_kind_id: int | None = None
 
 
 class EquipmentLifecycleOut(BaseModel):
