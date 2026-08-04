@@ -37,3 +37,20 @@ class InactiveParentReference(BaseModel):
 class InactiveParentReferencesResponse(BaseModel):
     count: int
     references: list[InactiveParentReference]
+
+
+class UnclassifiedEquipment(BaseModel):
+    """Equipment with no model, or a model with no kind — invisible to any
+    picker that scopes itself to a kind."""
+
+    equipment_id: int
+    identifier: str | None
+    is_active: bool | None
+    equipment_model_id: int | None
+    equipment_model_name: str | None
+    reason: str
+
+
+class UnclassifiedEquipmentResponse(BaseModel):
+    count: int
+    equipment: list[UnclassifiedEquipment]

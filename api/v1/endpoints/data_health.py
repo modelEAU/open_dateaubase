@@ -2,6 +2,7 @@
 
   GET /data-health/unlinked-channels            — raw channels needing wiring (F5)
   GET /data-health/inactive-parent-references   — live wiring on soft-deleted parents (F11)
+  GET /data-health/unclassified-equipment       — equipment no picker can classify
 
 Both read the reconciling views added in schema 2.1.0; they are reports, not
 mutations, so the app can show a "N channels need wiring" banner or confirm
@@ -16,6 +17,8 @@ from api.database import get_db
 from ..schemas.data_health import (
     InactiveParentReference,
     InactiveParentReferencesResponse,
+    UnclassifiedEquipment,
+    UnclassifiedEquipmentResponse,
     UnlinkedChannel,
     UnlinkedChannelsResponse,
 )
@@ -92,3 +95,30 @@ def inactive_parent_references(
         for r in cursor.fetchall()
     ]
     return InactiveParentReferencesResponse(count=len(refs), references=refs)
+
+
+@router.get("/unclassified-equipment", response_model=UnclassifiedEquipmentResponse)
+def unclassified_equipment(conn=Depends(get_db)):
+    """Equipment with no model, or a model with no kind — hidden from every
+    kind-scoped picker (the laboratory forms only offer Samplers)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT EquipmentID, Identifier, IsActive, EquipmentModelID,
+               EquipmentModelName, Reason
+        FROM [dbo].[vw_UnclassifiedEquipment]
+        ORDER BY Reason, Identifier
+        """
+    )
+    equipment = [
+        UnclassifiedEquipment(
+            equipment_id=r[0],
+            identifier=r[1],
+            is_active=r[2],
+            equipment_model_id=r[3],
+            equipment_model_name=r[4],
+            reason=r[5],
+        )
+        for r in cursor.fetchall()
+    ]
+    return UnclassifiedEquipmentResponse(count=len(equipment), equipment=equipment)
