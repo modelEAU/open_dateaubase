@@ -1025,6 +1025,12 @@ def get_unlinked_channels() -> list[dict]:
     return _request("GET", "/data-health/unlinked-channels").get("channels", [])
 
 
+def get_unclassified_equipment() -> list[dict]:
+    """Equipment with no model, or a model with no kind — invisible to the
+    kind-scoped pickers."""
+    return _request("GET", "/data-health/unclassified-equipment").get("equipment", [])
+
+
 def get_inactive_parent_references(
     signal_interface_id: int | None = None,
     signal_interface_port_id: int | None = None,

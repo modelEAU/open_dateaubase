@@ -5,6 +5,8 @@ Surfaces the reconciling views added in schema 2.1.0:
     equipment, so their observations resolve to no equipment / no location.
   - Live references to deactivated parents (F11): active wiring rows still
     pointing at a SignalInterface/SignalInterfacePort that was soft-deleted.
+  - Unclassified equipment: equipment with no model, or a model with no kind,
+    which no kind-scoped picker can offer.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ import streamlit as st
 from app.api_client import (
     APIError,
     get_inactive_parent_references,
+    get_unclassified_equipment,
     get_unlinked_channels,
 )
 
@@ -35,6 +38,7 @@ try:
     with st.spinner("Loading…"):
         unlinked = get_unlinked_channels()
         inactive_refs = get_inactive_parent_references()
+        unclassified = get_unclassified_equipment()
 except APIError as e:
     st.error(f"Could not load data-health reports: {e.message}")
     st.stop()
@@ -62,3 +66,16 @@ if inactive_refs:
     st.dataframe(pd.DataFrame(inactive_refs), use_container_width=True)
 else:
     st.success("No active wiring points at a deactivated interface or port.")
+
+# --- Equipment no picker can classify --------------------------------------
+st.subheader("Unclassified equipment")
+if unclassified:
+    st.warning(
+        f"{len(unclassified)} piece(s) of equipment have no model, or a model "
+        "with no kind, so kind-scoped pickers can't offer them — a sampler "
+        "missing from the laboratory forms shows up here. Fix it on "
+        "**Equipment** (attach a model) or **Equipment Models** (set the kind)."
+    )
+    st.dataframe(pd.DataFrame(unclassified), use_container_width=True)
+else:
+    st.success("Every piece of equipment is classified.")
