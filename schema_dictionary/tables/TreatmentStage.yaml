@@ -1,0 +1,48 @@
+_format_version: "1.0"
+table:
+  name: TreatmentStage
+  schema: dbo
+  description: >
+    Controlled vocabulary naming where in a treatment train a process unit sits.
+    A stage is a role the unit holds relative to one plant's sequence, not a
+    property of the equipment: the same clarifier is primary in one plant and
+    secondary in another, which is why "primary clarifier" is recorded as the
+    Clarifier kind plus a Primary stage rather than as two separate kinds.
+
+  columns:
+    - name: TreatmentStage_ID
+      logical_type: integer
+      nullable: false
+      identity: true
+      description: "Primary key for the TreatmentStage lookup"
+
+    - name: Name
+      logical_type: string
+      max_length: 100
+      nullable: false
+      description: "Name of the treatment stage (e.g. Primary, Secondary)"
+
+    - name: SortOrder
+      logical_type: integer
+      nullable: false
+      description: "Position of this stage in a conventional train, for ordering pickers and reports"
+
+    - name: Description
+      logical_type: string
+      max_length: 300
+      nullable: true
+      description: "Explanation of what this treatment stage covers"
+
+  primary_key: [TreatmentStage_ID]
+
+  constraints:
+    - type: unique
+      columns: [Name]
+      name: UQ_TreatmentStage_Name
+
+  seed_data:
+    - { TreatmentStage_ID: 1, SortOrder: 1, Name: "Preliminary", Description: "Removes the gross solids, rags and grit that would damage or foul the units downstream" }
+    - { TreatmentStage_ID: 2, SortOrder: 2, Name: "Primary",     Description: "Removes settleable and floatable material from a raw stream by physical means, ahead of any biological step" }
+    - { TreatmentStage_ID: 3, SortOrder: 3, Name: "Secondary",   Description: "Removes dissolved and colloidal organic matter biologically, together with the separation of the biomass this produces" }
+    - { TreatmentStage_ID: 4, SortOrder: 4, Name: "Tertiary",    Description: "Polishes a secondary effluent — residual solids, nutrients, micropollutants or pathogens — beyond what the secondary stage achieves" }
+    - { TreatmentStage_ID: 5, SortOrder: 5, Name: "Sludge line", Description: "Treats the solids drawn off the water line rather than the water itself" }

@@ -8,17 +8,17 @@ USE open_dateaubase;
 GO
 
 -- Full schema — generated from schema_dictionary/tables/*.yaml via `uv run mkdocs build`
-:r /sql_generation_scripts/v2.5.0_create_mssql.sql
+:r /sql_generation_scripts/v2.6.0_create_mssql.sql
 GO
 
 -- Vocabulary seed (auto-generated from YAML seed_data fields):
 -- ValueKind, ChannelKind, DataProvenanceKind, OperationKind, StreamKind,
 -- SignalInterfaceKind, SignalInterfacePortKind, QualityCode, AnnotationKind,
 -- BinKind, CampaignKind, EventKind, ControlLoopPortKind, ReviewStatus,
--- ProcessUnitKind, SampleKind, SampleMaterialKind, SampleCollectionKind,
--- EquipmentKind, Unit,
+-- ProcessUnitKind, TreatmentStage, SampleKind, SampleMaterialKind,
+-- SampleCollectionKind, EquipmentKind, Unit,
 -- Parameter, ParameterHasUnit.
-:r /sql_generation_scripts/v2.5.0_seed_mssql.sql
+:r /sql_generation_scripts/v2.6.0_seed_mssql.sql
 GO
 
 -- Demo seed: TEST_ site, process units, sampling points, persons, campaigns, analysis

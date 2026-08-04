@@ -36,4 +36,9 @@ table:
     - { OperationKind_ID: 3, Name: "DriftCorrection", Description: "Sensor drift or baseline shift corrected" }
     - { OperationKind_ID: 4, Name: "FaultRemoval",    Description: "Instrument faults and implausible values removed" }
     - { OperationKind_ID: 5, Name: "Smoothing",       Description: "Noise reduced by a smoothing or averaging algorithm" }
-    - { OperationKind_ID: 6, Name: "Interpolation",   Description: "Missing values filled by interpolation or reconstruction" }
+    # Interpolation and Reconstruction split on whether bracketing observations
+    # existed, not on gap size: "small" versus "large" has no boundary that holds
+    # across sites, while "was there data on both sides?" is a fact about every
+    # fill. The gap actually spanned belongs in ProcessingStep.MethodParameters.
+    - { OperationKind_ID: 6, Name: "Interpolation",   Description: "Missing values filled from observations bracketing the gap on both sides" }
+    - { OperationKind_ID: 7, Name: "Reconstruction",  Description: "Values generated where no bracketing observation existed — from a model, a correlated channel or a seasonal profile" }

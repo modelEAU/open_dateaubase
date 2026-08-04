@@ -42,6 +42,19 @@ table:
       foreign_key:
         table: ProcessUnitKind
         column: ProcessUnitKind_ID
+    - name: TreatmentStage_ID
+      logical_type: integer
+      nullable: true
+      description: >
+        Where this unit sits in its plant's treatment train (FK to TreatmentStage).
+        A role held relative to one sequence, not a property of the equipment —
+        which is what lets a single Clarifier kind serve as both a primary and a
+        secondary clarifier. NULL where the unit holds no stage (a pipe, a site
+        area) or where it is simply unrecorded.
+      foreign_key:
+        table: TreatmentStage
+        column: TreatmentStage_ID
+
     - name: Parent_ID
       logical_type: integer
       nullable: true

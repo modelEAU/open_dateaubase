@@ -2,7 +2,18 @@ _format_version: "1.0"
 table:
   name: ProcessUnitKind
   schema: dbo
-  description: "Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)"
+  description: >
+    Controlled vocabulary naming what a process unit is. Terms record design
+    intent — the configuration a unit was built and is normally run in — not its
+    state on any given day. A tank designed to be aerated stays an aerated
+    activated sludge reactor on the days its blowers are off; the aeration that
+    was actually happening is answered by the dissolved-oxygen channel in the
+    tank, or by an Event of kind OperationalChange.
+    Category groups the terms by what a node is for: Structural nodes organise
+    the site hierarchy, Treatment nodes act on a stream, Conveyance nodes move or
+    regulate flow. Generic and specific terms therefore coexist without competing
+    — a Basin is a vessel, a Clarifier is a device, and they answer different
+    questions about the same object.
 
   columns:
     - name: ProcessUnitKind_ID
@@ -15,7 +26,17 @@ table:
       logical_type: string
       max_length: 100
       nullable: false
-      description: "Name of the process unit kind (e.g. Reactor, Pipe, Clarifier)"
+      description: "Name of the process unit kind (e.g. Clarifier, Aerated activated sludge reactor)"
+
+    - name: Category
+      logical_type: string
+      max_length: 20
+      nullable: true
+      description: >
+        Grouping of the term by what the node is for: Structural (organises the
+        site hierarchy or holds liquid without treating it), Treatment (acts on a
+        stream), Conveyance (moves or regulates flow). NULL for terms that fit
+        none, such as Other.
 
     - name: Description
       logical_type: string
@@ -30,15 +51,48 @@ table:
       columns: [Name]
       name: UQ_ProcessUnitKind_Name
 
+  check_constraints:
+    - name: CK_ProcessUnitKind_Category
+      expression: "[Category] IS NULL OR [Category] IN ('Structural', 'Treatment', 'Conveyance')"
+
+  # IDs 1-11 predate the Category split and keep their numbers: they have live
+  # rows behind them. Nothing is renumbered, retired or remapped.
   seed_data:
-    - { ProcessUnitKind_ID: 1,  Name: "Area",      Description: "Broad spatial zone (e.g. biological treatment area)" }
-    - { ProcessUnitKind_ID: 2,  Name: "Zone",      Description: "Defined functional sub-zone within a process area" }
-    - { ProcessUnitKind_ID: 3,  Name: "Tank",      Description: "Enclosed vessel for liquid storage or treatment" }
-    - { ProcessUnitKind_ID: 4,  Name: "Reactor",   Description: "Vessel designed for controlled biological or chemical reactions" }
-    - { ProcessUnitKind_ID: 5,  Name: "Pipe",      Description: "Conduit transporting liquid between process units" }
-    - { ProcessUnitKind_ID: 6,  Name: "Pump",      Description: "Mechanical device for moving liquid" }
-    - { ProcessUnitKind_ID: 7,  Name: "Valve",     Description: "Flow control device regulating liquid passage" }
-    - { ProcessUnitKind_ID: 8,  Name: "Clarifier", Description: "Gravity settling vessel separating solids from liquid" }
-    - { ProcessUnitKind_ID: 9,  Name: "Basin",     Description: "Open or partially open liquid containment structure" }
-    - { ProcessUnitKind_ID: 10, Name: "Blower",    Description: "Mechanical device for supplying air or gas" }
-    - { ProcessUnitKind_ID: 11, Name: "Other",     Description: "Process unit kind not covered by the standard vocabulary" }
+    # ── Structural ────────────────────────────────────────────────────────────
+    - { ProcessUnitKind_ID: 1,  Category: "Structural", Name: "Area",               Description: "Broad spatial zone grouping other units (e.g. biological treatment area)" }
+    - { ProcessUnitKind_ID: 2,  Category: "Structural", Name: "Zone",               Description: "Defined functional sub-zone within a process area" }
+    - { ProcessUnitKind_ID: 3,  Category: "Structural", Name: "Tank",               Description: "Generic enclosed vessel — prefer a Treatment term where one describes what the tank is for" }
+    - { ProcessUnitKind_ID: 9,  Category: "Structural", Name: "Basin",              Description: "Generic open or partially open containment structure — prefer a Treatment term where one applies" }
+    - { ProcessUnitKind_ID: 12, Category: "Structural", Name: "Train",              Description: "One parallel process line through a plant, grouping the units that treat a shared share of the flow" }
+    - { ProcessUnitKind_ID: 13, Category: "Structural", Name: "Storage tank",       Description: "Vessel holding liquid for later use or discharge, with no treatment intended" }
+    - { ProcessUnitKind_ID: 14, Category: "Structural", Name: "Equalization basin", Description: "Basin buffering flow or load variation so downstream units see a steadier feed" }
+
+    # ── Treatment ─────────────────────────────────────────────────────────────
+    - { ProcessUnitKind_ID: 4,  Category: "Treatment",  Name: "Reactor",                            Description: "Generic vessel for controlled biological or chemical reaction — prefer a specific reactor term where one applies" }
+    - { ProcessUnitKind_ID: 8,  Category: "Treatment",  Name: "Clarifier",                          Description: "Gravity settling vessel separating solids from liquid. Whether it is primary or secondary is recorded as the unit's treatment stage, not as its kind" }
+    - { ProcessUnitKind_ID: 15, Category: "Treatment",  Name: "Aerated activated sludge reactor",   Description: "Activated sludge reactor designed to be aerated, holding a suspended culture in contact with oxygen. Design intent — the oxygen actually present is a measurement" }
+    - { ProcessUnitKind_ID: 16, Category: "Treatment",  Name: "Anoxic activated sludge reactor",    Description: "Activated sludge reactor designed to run without aeration on nitrate as electron acceptor, typically for denitrification" }
+    - { ProcessUnitKind_ID: 17, Category: "Treatment",  Name: "Anaerobic activated sludge reactor", Description: "Activated sludge reactor designed to run free of both oxygen and nitrate, typically for biological phosphorus release" }
+    - { ProcessUnitKind_ID: 18, Category: "Treatment",  Name: "Sequencing batch reactor",           Description: "Single vessel cycling fill, react, settle and decant in time rather than separating them in space" }
+    - { ProcessUnitKind_ID: 19, Category: "Treatment",  Name: "Membrane bioreactor",                Description: "Activated sludge reactor whose biomass is retained by a membrane instead of by a settling stage" }
+    - { ProcessUnitKind_ID: 20, Category: "Treatment",  Name: "Digester",                           Description: "Vessel stabilising sludge by microbial degradation of its biodegradable organic content, anaerobically producing biogas or aerobically consuming oxygen" }
+    - { ProcessUnitKind_ID: 21, Category: "Treatment",  Name: "Thermal hydrolysis unit",            Description: "Unit conditioning sludge under heat and pressure to improve its digestibility and dewaterability (e.g. a Cambi installation)" }
+    - { ProcessUnitKind_ID: 22, Category: "Treatment",  Name: "Screen",                             Description: "Bar rack or perforated surface retaining solids too large to pass, cleared by raking or brushing" }
+    - { ProcessUnitKind_ID: 23, Category: "Treatment",  Name: "Grit chamber",                       Description: "Chamber settling dense inorganic particles at a controlled velocity that keeps lighter organic solids in suspension" }
+    - { ProcessUnitKind_ID: 24, Category: "Treatment",  Name: "Dissolved-air flotation unit",       Description: "Unit separating solids by attaching fine air bubbles so they rise and are skimmed off" }
+    - { ProcessUnitKind_ID: 25, Category: "Treatment",  Name: "Membrane module",                    Description: "Unit separating a feed into permeate and retentate across a semi-permeable barrier" }
+    - { ProcessUnitKind_ID: 26, Category: "Treatment",  Name: "UV reactor",                         Description: "Unit inactivating pathogens by exposing a stream to ultraviolet irradiation at a design dose" }
+    - { ProcessUnitKind_ID: 27, Category: "Treatment",  Name: "Contact basin",                      Description: "Basin holding a stream in contact with a dosed disinfectant for a design detention time" }
+    - { ProcessUnitKind_ID: 28, Category: "Treatment",  Name: "Thickener",                          Description: "Unit concentrating sludge solids ahead of digestion or dewatering" }
+    - { ProcessUnitKind_ID: 29, Category: "Treatment",  Name: "Dewatering unit",                    Description: "Unit removing water from sludge mechanically (centrifuge, belt or filter press, screw press)" }
+
+    # ── Conveyance ────────────────────────────────────────────────────────────
+    - { ProcessUnitKind_ID: 5,  Category: "Conveyance", Name: "Pipe",         Description: "Conduit transporting liquid between process units" }
+    - { ProcessUnitKind_ID: 6,  Category: "Conveyance", Name: "Pump",         Description: "Mechanical device for moving liquid" }
+    - { ProcessUnitKind_ID: 7,  Category: "Conveyance", Name: "Valve",        Description: "Flow control device regulating liquid passage" }
+    - { ProcessUnitKind_ID: 10, Category: "Conveyance", Name: "Blower",       Description: "Mechanical device for supplying air or gas" }
+    - { ProcessUnitKind_ID: 30, Category: "Conveyance", Name: "Weir",         Description: "Overflow structure setting a level or measuring a flow" }
+    - { ProcessUnitKind_ID: 31, Category: "Conveyance", Name: "Splitter box", Description: "Structure dividing one flow between two or more downstream units" }
+
+    # ── Ungrouped ─────────────────────────────────────────────────────────────
+    - { ProcessUnitKind_ID: 11, Category: null,         Name: "Other",        Description: "Process unit kind not covered by the standard vocabulary" }

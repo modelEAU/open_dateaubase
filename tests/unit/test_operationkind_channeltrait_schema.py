@@ -36,6 +36,7 @@ _EXPECTED_OPERATION_KINDS = [
     (4, "FaultRemoval"),
     (5, "Smoothing"),
     (6, "Interpolation"),
+    (7, "Reconstruction"),
 ]
 
 

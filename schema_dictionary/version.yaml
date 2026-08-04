@@ -1,6 +1,9 @@
-schema_version: "2.5.0"
+schema_version: "2.6.0"
 description: >
-  EquipmentKind, a controlled vocabulary classifying equipment models as Online
-  sensor, Offline analyzer, Sampler or Other, referenced by EquipmentModel so
-  pickers can scope themselves to the equipment that actually collects samples.
+  Process unit vocabulary rebuilt on the device and stage axes: ProcessUnitKind
+  gains a Category (Structural / Treatment / Conveyance) and the named treatment
+  nouns it lacked, TreatmentStage arrives as its own vocabulary referenced by
+  ProcessUnit so a clarifier is primary or secondary by role rather than by kind.
+  Also splits OperationKind's Interpolation from Reconstruction, and adds
+  Person.IsActive.
 date: "2026-08-04"

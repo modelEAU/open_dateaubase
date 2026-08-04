@@ -3217,6 +3217,15 @@
           "is_required": false,
           "fk_target": null,
           "description": "Personal or organisation website URL"
+        },
+        {
+          "name": "IsActive",
+          "sql_type": "BIT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Whether this person is currently active in the group. Pickers offer only active people, but keep showing an already-selected inactive one so historical records do not blank out when someone leaves.\n"
         }
       ],
       "group_name": "Reference & Vocabulary",
@@ -3375,6 +3384,15 @@
           "description": "Foreign key to ProcessUnitKind lookup"
         },
         {
+          "name": "TreatmentStage_ID",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": true,
+          "is_required": false,
+          "fk_target": "TreatmentStage.TreatmentStage_ID",
+          "description": "Where this unit sits in its plant's treatment train (FK to TreatmentStage). A role held relative to one sequence, not a property of the equipment \u2014 which is what lets a single Clarifier kind serve as both a primary and a secondary clarifier. NULL where the unit holds no stage (a pipe, a site area) or where it is simply unrecorded.\n"
+        },
+        {
           "name": "Parent_ID",
           "sql_type": "INT",
           "is_pk": false,
@@ -3391,7 +3409,7 @@
     {
       "id": "ProcessUnitKind",
       "label": "ProcessUnitKind",
-      "description": "Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)",
+      "description": "Controlled vocabulary naming what a process unit is. Terms record design intent \u2014 the configuration a unit was built and is normally run in \u2014 not its state on any given day. A tank designed to be aerated stays an aerated activated sludge reactor on the days its blowers are off; the aeration that was actually happening is answered by the dissolved-oxygen channel in the tank, or by an Event of kind OperationalChange. Category groups the terms by what a node is for: Structural nodes organise the site hierarchy, Treatment nodes act on a stream, Conveyance nodes move or regulate flow. Generic and specific terms therefore coexist without competing \u2014 a Basin is a vessel, a Clarifier is a device, and they answer different questions about the same object.\n",
       "fields": [
         {
           "name": "ProcessUnitKind_ID",
@@ -3409,7 +3427,16 @@
           "is_fk": false,
           "is_required": true,
           "fk_target": null,
-          "description": "Name of the process unit kind (e.g. Reactor, Pipe, Clarifier)"
+          "description": "Name of the process unit kind (e.g. Clarifier, Aerated activated sludge reactor)"
+        },
+        {
+          "name": "Category",
+          "sql_type": "NVARCHAR(20)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Grouping of the term by what the node is for: Structural (organises the site hierarchy or holds liquid without treating it), Treatment (acts on a stream), Conveyance (moves or regulates flow). NULL for terms that fit none, such as Other.\n"
         },
         {
           "name": "Description",
@@ -4430,6 +4457,52 @@
       "group_name": "Streams & Channels",
       "group_color": "#7c3aed",
       "group_key": "signal_channel"
+    },
+    {
+      "id": "TreatmentStage",
+      "label": "TreatmentStage",
+      "description": "Controlled vocabulary naming where in a treatment train a process unit sits. A stage is a role the unit holds relative to one plant's sequence, not a property of the equipment: the same clarifier is primary in one plant and secondary in another, which is why \"primary clarifier\" is recorded as the Clarifier kind plus a Primary stage rather than as two separate kinds.\n",
+      "fields": [
+        {
+          "name": "TreatmentStage_ID",
+          "sql_type": "INT",
+          "is_pk": true,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Primary key for the TreatmentStage lookup"
+        },
+        {
+          "name": "Name",
+          "sql_type": "NVARCHAR(100)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Name of the treatment stage (e.g. Primary, Secondary)"
+        },
+        {
+          "name": "SortOrder",
+          "sql_type": "INT",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": true,
+          "fk_target": null,
+          "description": "Position of this stage in a conventional train, for ordering pickers and reports"
+        },
+        {
+          "name": "Description",
+          "sql_type": "NVARCHAR(300)",
+          "is_pk": false,
+          "is_fk": false,
+          "is_required": false,
+          "fk_target": null,
+          "description": "Explanation of what this treatment stage covers"
+        }
+      ],
+      "group_name": "Uncategorized",
+      "group_color": "#6b7280",
+      "group_key": null
     },
     {
       "id": "Unit",
@@ -6481,6 +6554,13 @@
       "to_table": "ProcessUnitKind",
       "from_field": "ProcessUnitKind_ID",
       "to_field": "ProcessUnitKind_ID",
+      "relationship_type": null
+    },
+    {
+      "from_table": "ProcessUnit",
+      "to_table": "TreatmentStage",
+      "from_field": "TreatmentStage_ID",
+      "to_field": "TreatmentStage_ID",
       "relationship_type": null
     },
     {

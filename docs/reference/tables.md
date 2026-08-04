@@ -890,6 +890,8 @@ Personal and professional information for people involved in projects (e.g., nam
 | Phone | NVARCHAR(100) | - |  | <span id="Phone"></span>Phone number | - |
 | Linkedin | NVARCHAR(100) | - |  | <span id="Linkedin"></span>LinkedIn profile URL | - |
 | Website | NVARCHAR(60) | - |  | <span id="Website"></span>Personal or organisation website URL | - |
+| IsActive | BIT | - | ✓ | <span id="IsActive"></span>Whether this person is currently active in the group. Pickers offer only active people, but keep showing an already-selected inactive one so historical records do not blank out when someone leaves.
+ | Default: `True` |
 
 <span id="ProcedureKind"></span>
 
@@ -941,13 +943,16 @@ Self-referential, site-scoped hierarchy of functional process locations. Each un
 | Name | NVARCHAR(255) | - | ✓ | <span id="Name"></span>Human-readable name for the process unit | - |
 | Description | NVARCHAR(MAX) | - |  | <span id="Description"></span>Optional description of the process unit's role or function | - |
 | ProcessUnitKind_ID | INT | - |  | <span id="ProcessUnitKind_ID"></span>Foreign key to ProcessUnitKind lookup | FK → [ProcessUnitKind.ProcessUnitKind_ID](#ProcessUnitKind) |
+| TreatmentStage_ID | INT | - |  | <span id="TreatmentStage_ID"></span>Where this unit sits in its plant's treatment train (FK to TreatmentStage). A role held relative to one sequence, not a property of the equipment — which is what lets a single Clarifier kind serve as both a primary and a secondary clarifier. NULL where the unit holds no stage (a pipe, a site area) or where it is simply unrecorded.
+ | FK → [TreatmentStage.TreatmentStage_ID](#TreatmentStage) |
 | Parent_ID | INT | - |  | <span id="Parent_ID"></span>Self-reference to the parent ProcessUnit, enabling an unlimited-depth tree | FK → [ProcessUnit.ProcessUnit_ID](#ProcessUnit) |
 
 <span id="ProcessUnitKind"></span>
 
 ### ProcessUnitKind
 
-Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)
+Controlled vocabulary naming what a process unit is. Terms record design intent — the configuration a unit was built and is normally run in — not its state on any given day. A tank designed to be aerated stays an aerated activated sludge reactor on the days its blowers are off; the aeration that was actually happening is answered by the dissolved-oxygen channel in the tank, or by an Event of kind OperationalChange. Category groups the terms by what a node is for: Structural nodes organise the site hierarchy, Treatment nodes act on a stream, Conveyance nodes move or regulate flow. Generic and specific terms therefore coexist without competing — a Basin is a vessel, a Clarifier is a device, and they answer different questions about the same object.
+
 
 
 #### Fields
@@ -955,7 +960,9 @@ Controlled vocabulary of process unit kinds (e.g. Reactor, Pipe, Clarifier)
 | Field | SQL Type | Value Set | Required | Description | Constraints |
 |-------|----------|-----------|----------|-------------|-------------|
 | ProcessUnitKind_ID | INT **(PK)** | - | ✓ | <span id="ProcessUnitKind_ID"></span>Primary key for the ProcessUnitKind lookup | - |
-| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the process unit kind (e.g. Reactor, Pipe, Clarifier) | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the process unit kind (e.g. Clarifier, Aerated activated sludge reactor) | - |
+| Category | NVARCHAR(20) | - |  | <span id="Category"></span>Grouping of the term by what the node is for: Structural (organises the site hierarchy or holds liquid without treating it), Treatment (acts on a stream), Conveyance (moves or regulates flow). NULL for terms that fit none, such as Other.
+ | - |
 | Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of this process unit kind | - |
 
 <span id="ProcessingLineage"></span>
@@ -1265,6 +1272,23 @@ Controlled vocabulary discriminating the subtype of a Stream: a sensor measureme
 | StreamKind_ID | INT **(PK)** | - | ✓ | <span id="StreamKind_ID"></span>Surrogate primary key, manually assigned | - |
 | Name | NVARCHAR(50) | - | ✓ | <span id="Name"></span>Short code name (e.g. 'Sensor', 'Lab') | - |
 | Description | NVARCHAR(200) | - |  | <span id="Description"></span>Explanation of what this stream kind means | - |
+
+<span id="TreatmentStage"></span>
+
+### TreatmentStage
+
+Controlled vocabulary naming where in a treatment train a process unit sits. A stage is a role the unit holds relative to one plant's sequence, not a property of the equipment: the same clarifier is primary in one plant and secondary in another, which is why "primary clarifier" is recorded as the Clarifier kind plus a Primary stage rather than as two separate kinds.
+
+
+
+#### Fields
+
+| Field | SQL Type | Value Set | Required | Description | Constraints |
+|-------|----------|-----------|----------|-------------|-------------|
+| TreatmentStage_ID | INT **(PK)** | - | ✓ | <span id="TreatmentStage_ID"></span>Primary key for the TreatmentStage lookup | - |
+| Name | NVARCHAR(100) | - | ✓ | <span id="Name"></span>Name of the treatment stage (e.g. Primary, Secondary) | - |
+| SortOrder | INT | - | ✓ | <span id="SortOrder"></span>Position of this stage in a conventional train, for ordering pickers and reports | - |
+| Description | NVARCHAR(300) | - |  | <span id="Description"></span>Explanation of what this treatment stage covers | - |
 
 <span id="Unit"></span>
 

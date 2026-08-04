@@ -54,5 +54,13 @@ table:
       max_length: 60
       nullable: true
       description: "Personal or organisation website URL"
+    - name: IsActive
+      logical_type: boolean
+      nullable: false
+      default: true
+      description: >
+        Whether this person is currently active in the group. Pickers offer only
+        active people, but keep showing an already-selected inactive one so
+        historical records do not blank out when someone leaves.
 
   primary_key: [Person_ID]
