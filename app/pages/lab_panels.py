@@ -19,13 +19,13 @@ from app.api_client import (
     get_lab_panel,
     list_analysis_series_lookup,
     list_campaigns_lookup,
-    list_equipment_lookup,
     list_lab_panels,
     list_parameters_lookup,
     list_persons_lookup,
     list_sample_collection_kinds,
     list_sample_kind_lookup,
     list_sample_material_kind_lookup,
+    list_sampler_equipment_lookup,
     list_sampling_points_lookup,
     list_units_lookup,
     patch_lab_panel,
@@ -48,7 +48,7 @@ try:
         _collection_kinds = list_sample_collection_kinds()
         _sample_kinds = list_sample_kind_lookup()
         _material_kinds = list_sample_material_kind_lookup()
-        _equipment = list_equipment_lookup()
+        _equipment = list_sampler_equipment_lookup()
 except APIError as e:
     st.error(f"Cannot load data: {e.message}")
     st.stop()

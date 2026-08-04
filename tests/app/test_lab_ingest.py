@@ -30,6 +30,7 @@ keystrokes/paste.
 """
 from __future__ import annotations
 
+import json
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
@@ -69,7 +70,10 @@ _MATERIAL_KINDS = [
     {"sample_material_kind_id": 9, "name": "mixed liquor", "description": "ML"},
     {"sample_material_kind_id": 10, "name": "tap water", "description": "Tap"},
 ]
-_EQUIPMENT = [{"equipment_id": 1, "identifier": "Bottle-1"}]
+_EQUIPMENT = [
+    {"equipment_id": 1, "identifier": "Bottle-1", "kind_name": "Sampler"},
+    {"equipment_id": 2, "identifier": "LDO_001", "kind_name": "Online sensor"},
+]
 _TEMPLATES = [{"lab_panel_id": 1, "name": "Standard Panel", "series_count": 1}]
 _GRID_SERIES_ITEM = {
     "analysis_series_id": 1,
@@ -516,3 +520,15 @@ def test_clear_form_resets_header_and_grid(mocked_lookups):
 
     assert at.text_area(key="lab_exp_desc").value == ""
     assert at.session_state.lab_session["series"] == []
+
+
+def test_equipment_pickers_offer_only_samplers(mocked_lookups):
+    """Equipment that isn't classified as a Sampler has no business collecting
+    a lab sample, so neither the per-location picker nor the grid column
+    offers it."""
+    at = _at(_base_session(series=[dict(_GRID_SERIES_ITEM), dict(_IMAGE_SERIES_ITEM)])).run()
+
+    assert list(at.selectbox(key="lab_sp_eq_0").options) == ["— none —", "Bottle-1"]
+
+    grid_cols = json.loads(at.dataframe[0].proto.columns)
+    assert grid_cols["equipment"]["type_config"]["options"] == ["Bottle-1"]

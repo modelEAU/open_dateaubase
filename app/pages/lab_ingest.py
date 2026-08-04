@@ -66,7 +66,6 @@ from app.api_client import (
     ingest_lab_image,
     list_analysis_series_lookup,
     list_campaigns_lookup,
-    list_equipment_lookup,
     list_lab_experiments_lookup,
     list_lab_panels,
     list_parameters_lookup,
@@ -75,6 +74,7 @@ from app.api_client import (
     list_sample_collection_kinds,
     list_sample_kind_lookup,
     list_sample_material_kind_lookup,
+    list_sampler_equipment_lookup,
     list_samples_lookup,
     list_sampling_points_lookup,
     list_units_lookup,
@@ -103,7 +103,7 @@ try:
         _collection_kinds = list_sample_collection_kinds()
         _sample_kinds = list_sample_kind_lookup()
         _material_kinds = list_sample_material_kind_lookup()
-        _equipment = list_equipment_lookup()
+        _equipment = list_sampler_equipment_lookup()
         # Panels are scoped to the selected campaign's sampling locations
         # (derived — panels have no Campaign_ID). Read the persisted campaign
         # here at fetch time; the campaign selectbox triggers a rerun, so the
@@ -809,6 +809,11 @@ def _render_sp_grid(sess: dict, sp_id: int, series_list: list[dict]) -> pd.DataF
         ),
         None,
     )
+    if sess.get("default_sample_equipment_id") and default_eq_label is None:
+        st.warning(
+            "The panel's default equipment is not classified as a Sampler, so it "
+            "can't be offered here. Classify its model on Data Health."
+        )
     default_sk_label = next(
         (
             k.get("name")

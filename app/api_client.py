@@ -342,6 +342,15 @@ def list_equipment_lookup() -> list[dict]:
     return _request("GET", "/equipment/lookup")
 
 
+def list_sampler_equipment_lookup() -> list[dict]:
+    """Return only the equipment whose model is classified as a sampler.
+
+    Strict: equipment with no model, or a model with no kind, is hidden. Data
+    Health lists those so they can be classified.
+    """
+    return [e for e in list_equipment_lookup() if e.get("kind_name") == "Sampler"]
+
+
 def list_parameters_lookup() -> list[dict]:
     """Return parameters list for dropdowns."""
     return _request("GET", "/channels/lookup/parameters")
