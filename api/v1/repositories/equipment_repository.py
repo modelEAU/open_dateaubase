@@ -247,14 +247,23 @@ def delete_equipment_model(conn: pyodbc.Connection, model_id: int) -> bool:
 
 
 def get_equipment_lookup(conn: pyodbc.Connection) -> list[dict]:
-    """Return all equipment for dropdowns (id + identifier + model)."""
+    """Return all equipment for dropdowns (id + identifier + model + model kind)."""
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT [Equipment_ID], [Identifier], [EquipmentModel_ID]"
-        " FROM [dbo].[Equipment] ORDER BY [Identifier]"
+        "SELECT e.[Equipment_ID], e.[Identifier], e.[EquipmentModel_ID], m.[EquipmentKind_ID], k.[Name]"
+        " FROM [dbo].[Equipment] e"
+        " LEFT JOIN [dbo].[EquipmentModel] m ON m.[EquipmentModel_ID] = e.[EquipmentModel_ID]"
+        " LEFT JOIN [dbo].[EquipmentKind] k ON k.[EquipmentKind_ID] = m.[EquipmentKind_ID]"
+        " ORDER BY e.[Identifier]"
     )
     return [
-        {"equipment_id": row[0], "identifier": row[1], "model_id": row[2]}
+        {
+            "equipment_id": row[0],
+            "identifier": row[1],
+            "model_id": row[2],
+            "equipment_kind_id": row[3],
+            "kind_name": row[4],
+        }
         for row in cursor.fetchall()
     ]
 
