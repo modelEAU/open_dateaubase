@@ -31,6 +31,7 @@ from ..repositories import lookup_repository
 from ..schemas.metadata import (
     ControllerKindOut,
     DasKindOut,
+    EquipmentKindOut,
     LandUseIn,
     LandUseOut,
     OperationKindOut,
@@ -58,6 +59,11 @@ def list_operation_kinds(conn=Depends(get_db)):
 @router.get("/das-kinds", response_model=list[DasKindOut])
 def list_das_kinds(conn=Depends(get_db)):
     return lookup_repository.get_das_kinds(conn)
+
+
+@router.get("/equipment-kinds", response_model=list[EquipmentKindOut])
+def list_equipment_kinds(conn=Depends(get_db)):
+    return lookup_repository.get_equipment_kinds(conn)
 
 
 @router.get("/controller-kinds", response_model=list[ControllerKindOut])

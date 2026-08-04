@@ -84,6 +84,13 @@ def test_named_wrapper_targets_correct_table_and_key():
     assert "FROM [dbo].[DataAcquisitionSystemKind]" in _sql(cursor)
 
 
+def test_get_equipment_kinds_reads_the_kind_table():
+    conn, cursor = _conn(fetchall=[(3, "Sampler", "Collects samples.")])
+    rows = lr.get_equipment_kinds(conn)
+    assert rows == [{"equipment_kind_id": 3, "name": "Sampler", "description": "Collects samples."}]
+    assert "FROM [dbo].[EquipmentKind]" in _sql(cursor)
+
+
 def test_sample_material_kind_wrappers_target_table_and_key():
     conn, cursor = _conn(fetchall=[(10, "mixed liquor", "desc")])
     rows = lr.get_sample_material_kinds(conn)

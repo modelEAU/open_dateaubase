@@ -190,6 +190,12 @@ class DasKindOut(BaseModel):
     description: str | None
 
 
+class EquipmentKindOut(BaseModel):
+    equipment_kind_id: int
+    name: str
+    description: str | None
+
+
 class ControllerKindOut(BaseModel):
     controller_kind_id: int
     name: str

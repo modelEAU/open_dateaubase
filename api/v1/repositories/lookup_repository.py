@@ -1176,6 +1176,15 @@ def get_das_kinds(conn: pyodbc.Connection) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# EquipmentKind (read-only seed vocabulary)
+# ---------------------------------------------------------------------------
+
+
+def get_equipment_kinds(conn: pyodbc.Connection) -> list[dict]:
+    return _list_kinds(conn, "EquipmentKind", "EquipmentKind_ID", "equipment_kind_id")
+
+
+# ---------------------------------------------------------------------------
 # ControllerKind (read-only seed vocabulary)
 # ---------------------------------------------------------------------------
 
