@@ -86,7 +86,9 @@
     Do not deploy/update the nginx proxy service.
 
 .PARAMETER SkipDocs
-    Do not deploy/update the MkDocs documentation service (served at /docs/).
+    Do not build/update the MkDocs documentation site (served statically at
+    /docs/ via nginx; rebuilt once per deploy with 'mkdocs build', not a
+    long-running service).
 
 .PARAMETER SkipLogViewer
     Do not deploy/update the OpenObserve log viewer + Vector log shipper services.
@@ -160,7 +162,6 @@ param(
     [string]$ApiPort         = '',
     [string]$AppPort         = '',
     [string]$ProxyPort       = '',
-    [string]$DocsPort        = '',
     [string]$LogViewerPort   = '',
     [string]$SslCommonName   = '',
 
@@ -206,7 +207,6 @@ if ([string]::IsNullOrWhiteSpace($EnvFile))   { $EnvFile   = Join-Path $InstallD
 if ([string]::IsNullOrWhiteSpace($ApiPort))       { $ApiPort       = $envProfile.ApiPort }
 if ([string]::IsNullOrWhiteSpace($AppPort))       { $AppPort       = $envProfile.AppPort }
 if ([string]::IsNullOrWhiteSpace($ProxyPort))     { $ProxyPort     = $envProfile.ProxyPort }
-if ([string]::IsNullOrWhiteSpace($DocsPort))      { $DocsPort      = $envProfile.DocsPort }
 if ([string]::IsNullOrWhiteSpace($LogViewerPort)) { $LogViewerPort = $envProfile.LogViewerPort }
 
 # The .env file is only required when deploying the API (it carries DB_*).
@@ -228,7 +228,7 @@ if (-not $Uninstall -and -not $SkipImporter) {
 # never collide on a shared host.
 $SVC_API        = "OpenDateaubase-$tag-API"
 $SVC_APP        = "OpenDateaubase-$tag-App"
-$SVC_DOCS       = "OpenDateaubase-$tag-Docs"
+$SVC_DOCS       = "OpenDateaubase-$tag-Docs"   # legacy 'mkdocs serve' service name — removed if still installed, see Step 8b
 $SVC_PROXY      = "OpenDateaubase-$tag-Proxy"
 $SVC_LOGVIEW    = "OpenDateaubase-$tag-LogViewer"
 $SVC_LOGSHIP    = "OpenDateaubase-$tag-LogShip"
@@ -236,6 +236,10 @@ $TASK_IMPORT    = "OpenDateaubase-$tag-Importer"
 $TASK_LOGROTATE = "OpenDateaubase-$tag-LogRotate"
 $CMD_PATH       = Join-Path $scriptDir "run-importer-$Environment.cmd"
 $FW_PROXY       = "OpenDateaubase-$tag-Proxy"
+
+# Built once per deploy via 'mkdocs build', served statically by nginx at
+# /docs/ (namespaced per environment so staging/production can share InstallDir).
+$SiteDir        = Join-Path $InstallDir "docs_site\$Environment"
 
 # Per-environment nginx prefix dir (own conf/logs/temp) so two proxies on one
 # host do not overwrite each other's configuration.
@@ -393,27 +397,32 @@ if (-not $SkipApp) {
 }
 
 # ---------------------------------------------------------------------------
-# Step 8b: Deploy MkDocs documentation service
+# Step 8b: Build MkDocs documentation site (static, served by nginx)
 # ---------------------------------------------------------------------------
-
+#
+# Previously ran as a long-lived 'mkdocs serve' NSSM service. Its on_pre_build
+# hook (docs/hooks/call_orchestrator.py) regenerates docs/reference/*.md,
+# docs/assets/erd_interactive.html and docs/reference/api/openapi.json on
+# every build — files that live inside mkdocs' watched docs_dir. mkdocs serve's
+# livereload watcher saw each of those writes as a change and rebuilt again,
+# forever, leaking memory (~24GB and climbing over 8 days before it was caught
+# on 2026-08-05). Building once per deploy and serving the static output
+# removes the watcher entirely, so the loop cannot recur.
 if (-not $SkipDocs) {
-    Write-Step 'Deploying docs service (mkdocs serve)...'
+    Write-Step 'Building docs site (mkdocs build)...'
 
-    Install-NssmService `
-        -NssmExe         $nssmExe `
-        -ServiceName     $SVC_DOCS `
-        -Application     $uvExe `
-        -AppParameters   "run mkdocs serve --dev-addr 127.0.0.1:$DocsPort" `
-        -AppDirectory    $InstallDir `
-        -DisplayName     "open_datEAUbase Docs ($tag)" `
-        -Description     "MkDocs documentation site for open_datEAUbase ($Environment; localhost:$DocsPort behind nginx /docs/)" `
-        -StdoutLog       (Join-Path $LogDir 'docs\stdout.log') `
-        -StderrLog       (Join-Path $LogDir 'docs\stderr.log') `
-        -ServiceUser     $ServiceUser `
-        -ServicePassword $ServicePassword
+    # Clean up a legacy 'mkdocs serve' service from a prior deploy, if present.
+    Remove-NssmService -NssmExe $nssmExe -ServiceName $SVC_DOCS
 
-    Start-ManagedService -NssmExe $nssmExe -ServiceName $SVC_DOCS
-    Write-Step "Docs service started (access via http://localhost:$ProxyPort/docs/ once proxy is up)." -Success
+    if (Test-Path $SiteDir) { Remove-Item -Recurse -Force $SiteDir }
+    Push-Location $InstallDir
+    try {
+        & $uvExe run mkdocs build --site-dir $SiteDir
+        if ($LASTEXITCODE -ne 0) { throw "mkdocs build failed with exit code $LASTEXITCODE" }
+    } finally {
+        Pop-Location
+    }
+    Write-Step "Docs built to $SiteDir (access via http://localhost:$ProxyPort/docs/ once proxy is up)." -Success
 }
 
 # ---------------------------------------------------------------------------
@@ -612,7 +621,7 @@ if (-not $SkipProxy) {
         -LogDir        $LogDir `
         -CertPath      $cert.CertPath `
         -KeyPath       $cert.KeyPath `
-        -DocsPort      $(if (-not $SkipDocs) { $DocsPort } else { '' }) `
+        -DocsSiteDir   $(if (-not $SkipDocs) { $SiteDir } else { '' }) `
         -LogViewerPort $(if (-not $SkipLogViewer) { $LogViewerPort } else { '' })
 
     Install-NssmService `
@@ -656,8 +665,7 @@ if (-not $SkipApp) {
     $rows += [pscustomobject]@{ Component='App';      Type='Windows Service';     Name=$SVC_APP;     Status=${s}?.Status; URL="http://localhost:$AppPort/" }
 }
 if (-not $SkipDocs) {
-    $s = Get-Service $SVC_DOCS -ErrorAction SilentlyContinue
-    $rows += [pscustomobject]@{ Component='Docs';     Type='Windows Service';     Name=$SVC_DOCS;    Status=${s}?.Status; URL="http://localhost:$ProxyPort/docs/" }
+    $rows += [pscustomobject]@{ Component='Docs';     Type='Static site (mkdocs build)'; Name=$SiteDir;    Status='n/a'; URL="http://localhost:$ProxyPort/docs/" }
 }
 if (-not $SkipProxy) {
     $s = Get-Service $SVC_PROXY -ErrorAction SilentlyContinue

@@ -452,29 +452,29 @@ function Write-NginxConf {
         [Parameter(Mandatory)]
         [string]$KeyPath,
         [string]$LogViewerPort = '',
-        [string]$DocsPort = ''
+        [string]$DocsSiteDir = ''
     )
     # nginx requires forward slashes in paths
     $logDirFwd  = $LogDir.Replace('\', '/')
     $certPathFwd = $CertPath.Replace('\', '/')
     $keyPathFwd  = $KeyPath.Replace('\', '/')
 
-    # Optional MkDocs site (mkdocs serve), exposed under /docs/. The trailing
-    # slash on proxy_pass strips the /docs/ prefix because mkdocs serves at root.
-    # WebSocket headers cover mkdocs' livereload; the site renders fine regardless.
+    # Static MkDocs site (built once per deploy via 'mkdocs build'), exposed
+    # under /docs/. Served directly by nginx rather than proxied to a live
+    # 'mkdocs serve' process — that process's own doc-generation hook writes
+    # into its watched docs_dir, which retriggers its watcher, which rebuilds,
+    # which writes again: an infinite loop that leaked ~24GB over 8 days
+    # before being caught (2026-08-05). No live process means no watcher.
     $docsBlock = ''
-    if ($DocsPort) {
+    if ($DocsSiteDir) {
+        $docsSiteDirFwd = $DocsSiteDir.Replace('\', '/')
         $docsBlock = @"
 
-        # MkDocs documentation site
+        # MkDocs documentation site (static, built by 'mkdocs build')
         location = /docs { return 301 /docs/; }
         location /docs/ {
-            proxy_pass         http://127.0.0.1:$DocsPort/;
-            proxy_http_version 1.1;
-            proxy_set_header   Upgrade `$http_upgrade;
-            proxy_set_header   Connection "upgrade";
-            proxy_set_header   Host `$host;
-            proxy_set_header   X-Real-IP `$remote_addr;
+            alias $docsSiteDirFwd/;
+            try_files `$uri `$uri/ `$uri/index.html =404;
         }
 "@
     }
